@@ -220,6 +220,8 @@ monitor_output is in the ledger, one line per output, and param_monitor as it wa
 .IP \(bu 2
 output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
 .IP \(bu 2
+show_external_ui and hide_external_ui go to the worker that holds the instance and its resp comes back unchanged; the window is the worker's, on the display session of the daemon's environment (WAYLAND_DISPLAY, else DISPLAY), which every worker inherits; a daemon with neither refuses both with \-902 hosting.window.no\-display and sends the worker nothing; the ledger keeps the latest of the two per instance, so a respawn shows again a window that was shown.
+.IP \(bu 2
 with no feedback port, or no controller on it, a line is dropped, as mod\-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
 .\" END GENERATED protocol:man-relay
 .SH HOST SETTINGS

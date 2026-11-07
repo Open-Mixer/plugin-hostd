@@ -68,6 +68,9 @@
  *                               (an LFO, a preset load); no other param_set writes any feedback
  *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
+ *                               as omx-clap-host answers for a plugin with no window it can show; hide_external_ui <n>
+ *                               "resp 0"; the fake shows nothing (FAKE_LOG shows what it was sent)
  *   note_input <n>              "resp 0 midi_in" for an instance whose uri holds "synth", "resp 0 -" for any other
  *   note_on, note_off, all_notes_off <n> ...   "resp 0" for a synth, OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP for one whose uri holds
  *                               "synth_full", OMX_REPLY_HOST_NO_NOTE_INPUT_RESP for any other; the fake
@@ -136,6 +139,7 @@ typedef struct INST_T {
     int nostate;
     int synth;
     int full;   /* a synth whose note queue is always full */
+    int nowindow;   /* a plugin with no window of its own */
     char client[64];
     char name[MAX_PARAMS][64];
     char text[MAX_PARAMS][128];
@@ -399,6 +403,7 @@ static void receive(msg_t *msg)
             g_inst[id].nostate = strstr(tok[1], "nostate") != NULL;
             g_inst[id].synth = strstr(tok[1], "synth") != NULL;
             g_inst[id].full = strstr(tok[1], "synth_full") != NULL;
+            g_inst[id].nowindow = strstr(tok[1], "nowindow") != NULL;
             snprintf(g_inst[id].client, sizeof(g_inst[id].client), "%s", ntok > 3 ? tok[3] : "");
             answer(fd, "resp %d", id);
         }
@@ -651,6 +656,10 @@ static void receive(msg_t *msg)
         answer(fd, "resp %d", strcmp(tok[2], "none") ? 1 : 0);
     }
     else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
+        answer(fd, "resp 0");
+    else if (!strcmp(verb, PHD_VERB_SHOW_EXTERNAL_UI) && ntok == 2)
+        answer(fd, g_inst[n].nowindow ? "resp %d hosting.window.unsupported" : "resp 0", ERR_EXTERNAL_UI_UNAVAILABLE);
+    else if (!strcmp(verb, OMX_VERB_HIDE_EXTERNAL_UI) && ntok == 2)
         answer(fd, "resp 0");
     else if (!strcmp(verb, OMX_VERB_NOTE_INPUT) && ntok == 2)
         answer(fd, "resp 0 %s", g_inst[n].synth ? "midi_in" : PHD_NO_NOTE_INPUT);

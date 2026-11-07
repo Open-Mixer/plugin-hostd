@@ -123,23 +123,25 @@ static const char *const g_state_states[W_COUNT] = {
 #undef X
 };
 
-/* the instance verbs the ledger keeps; the key compacts repeats of the same setting */
-/* the instance commands of mod-host.h the ledger keeps; the key compacts repeats of the same setting */
-static const struct { const char *format; int kind; int key_arg; } g_recorded[] = {
-    { EFFECT_PARAM_SET, KIND_STATE, 2 },
-    { EFFECT_PATCH_SET, KIND_STATE, 2 },
-    { EFFECT_PRESET_LOAD, KIND_STATE, 0 },
-    { EFFECT_BYPASS, KIND_HOST, 1 },
-    { EFFECT_PARAM_MON, KIND_HOST, 0 },
-    { MONITOR_OUTPUT, KIND_HOST, 2 },
-    { MIDI_LEARN, KIND_HOST, 0 },
-    { MIDI_MAP, KIND_HOST, 0 },
-    { MIDI_UNMAP, KIND_HOST, 0 },
-    { CC_MAP, KIND_HOST, 0 },
-    { CC_UNMAP, KIND_HOST, 0 },
-    { CC_VALUE_SET, KIND_HOST, 0 },
-    { CV_MAP, KIND_HOST, 0 },
-    { CV_UNMAP, KIND_HOST, 0 },
+/* the instance verbs the ledger keeps; the key compacts repeats of the same setting: the verb and the word key_arg, or,
+ * for a pair of verbs that are one setting, key_verb and that word, so the latest of the pair is the one kept */
+static const struct { const char *format; int kind; int key_arg; const char *key_verb; } g_recorded[] = {
+    { EFFECT_PARAM_SET, KIND_STATE, 2, NULL },
+    { EFFECT_PATCH_SET, KIND_STATE, 2, NULL },
+    { EFFECT_PRESET_LOAD, KIND_STATE, 0, NULL },
+    { EFFECT_BYPASS, KIND_HOST, 1, NULL },
+    { EFFECT_PARAM_MON, KIND_HOST, 0, NULL },
+    { MONITOR_OUTPUT, KIND_HOST, 2, NULL },
+    { PHD_VERB_SHOW_EXTERNAL_UI, KIND_HOST, 1, PHD_VERB_SHOW_EXTERNAL_UI },
+    { OMX_VERB_HIDE_EXTERNAL_UI, KIND_HOST, 1, PHD_VERB_SHOW_EXTERNAL_UI },
+    { MIDI_LEARN, KIND_HOST, 0, NULL },
+    { MIDI_MAP, KIND_HOST, 0, NULL },
+    { MIDI_UNMAP, KIND_HOST, 0, NULL },
+    { CC_MAP, KIND_HOST, 0, NULL },
+    { CC_UNMAP, KIND_HOST, 0, NULL },
+    { CC_VALUE_SET, KIND_HOST, 0, NULL },
+    { CV_MAP, KIND_HOST, 0, NULL },
+    { CV_UNMAP, KIND_HOST, 0, NULL },
 };
 
 /* the commands every worker shares that the daemon keeps (PHD_HOST_SETTINGS), and the latest line of each, in the order
@@ -2335,7 +2337,8 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
 
             if (g_recorded[v].key_arg && ntok > g_recorded[v].key_arg)
             {
-                snprintf(keybuf, sizeof(keybuf), "%s %s", tok[0], tok[g_recorded[v].key_arg]);
+                snprintf(keybuf, sizeof(keybuf), "%s %s", g_recorded[v].key_verb ? g_recorded[v].key_verb : tok[0],
+                         tok[g_recorded[v].key_arg]);
                 key = keybuf;
             }
             else if (g_recorded[v].key_arg)
@@ -2651,12 +2654,13 @@ char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
     instance_t *i = NULL;
-    int count;
+    int count, window;
     long id;
 
     if (!copy)
         return sup_resp(ERR_MEMORY_ALLOCATION);
     word = words(copy, &count);
+    window = count > 0 && (!strcmp(word[0], PHD_VERB_SHOW_EXTERNAL_UI) || !strcmp(word[0], OMX_VERB_HIDE_EXTERNAL_UI));
     id = count > 1 ? strtol(word[1], &end, 10) : -1;
     if (count < 2 || *end || end == word[1])
         reply = sup_resp(ERR_INVALID_OPERATION);
@@ -2666,10 +2670,21 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]) && !phd_note_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (window && count != 2)
+        reply = sup_resp(ERR_INVALID_OPERATION);
+    /* the window is the worker's, on the daemon's display session: with none, no worker is asked */
+    else if (window && !phd_has_display())
+    {
+        char refused[64];
+
+        snprintf(refused, sizeof(refused), "resp %d %s", ERR_INVALID_OPERATION, PHD_EXTERNAL_UI_NO_DISPLAY);
+        reply = strdup(refused);
+    }
+    /* sup_call keeps a window verb in the ledger, replayed after the state */
     else if (format_at(i->fmt)->native_instance_verbs)
     {
         reply = sup_call(id, line);
-        if (ledger == PHD_LEDGER_REPLACE && resp_code(reply) >= 0 && g_inst[id] == i)
+        if (ledger == PHD_LEDGER_REPLACE && !strcmp(word[0], OMX_VERB_TRACK_INFO) && resp_code(reply) >= 0 && g_inst[id] == i)
         {
             char *kept = strdup(line);
 
