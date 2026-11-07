@@ -40,7 +40,7 @@ BuildRequires: (omx-contract >= 3.4.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: (plugin-hostd-protocol-contract >= 0.4.5 with plugin-hostd-protocol-contract < 0.5)
-BuildRequires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.31)
+BuildRequires: (omx-clap-core-contract >= 0.30.5 with omx-clap-core-contract < 0.31)
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -86,7 +86,7 @@ BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
 Requires: (plugin-hostd-protocol-contract >= 0.4.5 with plugin-hostd-protocol-contract < 0.5)
-Requires: (omx-clap-core-contract >= 0.26.2 with omx-clap-core-contract < 0.31)
+Requires: (omx-clap-core-contract >= 0.30.5 with omx-clap-core-contract < 0.31)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only

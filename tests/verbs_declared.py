@@ -189,10 +189,17 @@ def takes(fmt, line):
     return all(c != "%i" or re.fullmatch(r"-?[0-9]+", g) for c, g in zip(conv, got[1:]))
 
 
+# the code words the declarations hold, of either package (main fills it): a refusal may carry one after its number
+CODE_WORDS = set()
+
+
 def code(reply):
-    """the refusal number of a reply; param_set_many's carries the position of the pair it refused after it"""
-    m = re.fullmatch(r"resp (-[0-9]+)(?: [1-9][0-9]*)?", reply)
-    return int(m.group(1)) if m else None
+    """the refusal number of a reply; param_set_many's carries the position of the pair it refused after it, and a
+    refusal may carry a declared code word after it (resp -902 hosting.window.no-display)"""
+    m = re.fullmatch(r"resp (-[0-9]+)(?: [1-9][0-9]*| (\S+))?", reply)
+    if not m or (m.group(2) is not None and m.group(2) not in CODE_WORDS):
+        return None
+    return int(m.group(1))
 
 
 # ---------------------------------------------------------------- the lines
@@ -229,6 +236,7 @@ LINES = {
     "note_on": ("1 0 60 100", "1 0 60", ("99 0 60 100",)),
     "note_off": ("1 0 60 0", "1 0 60", ("99 0 60 0",)),
     "all_notes_off": ("1", "", ("99",)),
+    "hide_external_ui": ("1", "1 x", ("99",)),
     "chain": ("7 1 2", "7", ("8 99", "8 1 1")),
     "chain_get": ("7", "x", ("9",)),
     "chain_clear": ("7", "x", ("7",)),
@@ -432,6 +440,7 @@ def main():
         return 1
     own = verbs_of(own_docs, own_docs + docs)
     shared = verbs_of(docs, docs)
+    CODE_WORDS.update(c for c, _ in codes_of(own_docs + docs).values())
     print("ok   the shared verbs and codes are read from %s" % source)
     dup = set(shared) & set(own)
     if dup:
@@ -450,6 +459,14 @@ def main():
             if verb + rest != shared[verb]["format"]:
                 fail("protocol.h's %s_FMT is %r, omx-clap-core declares %r" % (macro, verb + rest, shared[verb]["format"]))
     print("ok   protocol.h names %d formats of the shared verbs, as omx-clap-core declares them" % named)
+    # the word after a window verb's -902 from a daemon with no display is omx-clap-core's code for that fact
+    window = {c for c, _ in codes_of([{k: v for d in docs for k, v in d.items() if k == "HOSTING_WINDOW_CODES"}]).values()}
+    no_display = re.search(r'^#define\s+PHD_EXTERNAL_UI_NO_DISPLAY\s+"([^"]+)"', header, re.M)
+    if not no_display or no_display.group(1) not in window:
+        fail("protocol.h's PHD_EXTERNAL_UI_NO_DISPLAY is %r, none of omx-clap-core's HOSTING_WINDOW_CODES %s"
+             % (no_display and no_display.group(1), sorted(window)))
+    else:
+        print("ok   protocol.h's no-display word %s is omx-clap-core's HOSTING_WINDOW_CODES code" % no_display.group(1))
     # the line a worker writes on its feedback port that the daemon reads is omx-clap-core's HOST_EVENTS word
     events = {}
     for doc in docs:
