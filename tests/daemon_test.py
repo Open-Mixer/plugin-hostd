@@ -1526,7 +1526,8 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
     d = daemon(env={"FAKE_LOG": log})
     try:
         check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                             "all_notes_off", "preset_list", "preset_get"}, "declared: %s" % VERBS)
+                             "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"},
+              "declared: %s" % VERBS)
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -1659,6 +1660,88 @@ def track_info_is_replayed_once_after_the_add_and_before_the_state():
         d.wait_event("instance_restored 0 ", since=mark)
         sent = sent_to(log, d.holder(0)[1]["pid"])
         check(not [c for c in sent if c.startswith("track_info")], "a removed instance's track_info is gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+# a display session the daemon's workers would put a window on; the fake shows nothing, it only answers
+DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
+
+
+@test
+def the_window_verbs_go_to_the_worker_that_holds_the_instance_and_its_resp_comes_back():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env=dict(DISPLAY_ENV, FAKE_LOG=log))
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#nowindow 1 pool:p", "resp 1")
+        d.expect("add fake:lv2 2", "resp 2")
+        d.expect("show_external_ui 0", "resp 0")
+        d.expect("hide_external_ui 0", "resp 0")
+        d.expect("show_external_ui 1", "resp -404 hosting.window.unsupported")
+        d.expect("show_external_ui 2", "resp -902")
+        d.expect("hide_external_ui 2", "resp -902")
+        d.expect("show_external_ui 9", "resp -3")
+        d.expect("hide_external_ui 9", "resp -3")
+        d.expect("show_external_ui 0 x", "resp -902")
+        pid0, pid1, pid2 = (d.holder(n)[1]["pid"] for n in (0, 1, 2))
+        window = lambda pid: [c for c in sent_to(log, pid) if c.split(" ", 1)[0].endswith("_external_ui")]
+        check(window(pid0) == ["show_external_ui 0", "hide_external_ui 0"], "instance 0's worker got both: %s" % window(pid0))
+        check(window(pid1) == ["show_external_ui 1"], "instance 1's worker got its show, and nothing else: %s" % window(pid1))
+        check(pid2 not in (pid0, pid1) and window(pid2) == [], "mod-host's worker is sent neither: %s" % window(pid2))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_shown_window_is_shown_again_after_a_respawn_and_a_hidden_one_is_not():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env=dict(DISPLAY_ENV, FAKE_LOG=log))
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("show_external_ui 0", "resp 0")
+        d.expect("show_external_ui 0", "resp 0")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        check([c for c in sent if c.split(" ", 1)[0].endswith("_external_ui")] == ["show_external_ui 0"],
+              "the respawned worker shows the window once: %s" % sent)
+        check(verbs.index("show_external_ui") > verbs.index("state_load") > verbs.index("add"),
+              "after the add and after the state: %s" % sent)
+        d.expect("hide_external_ui 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("show_external_ui")], "a hidden window is not shown again: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_daemon_with_no_display_refuses_the_window_verbs_and_sends_the_worker_nothing():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log, "DISPLAY": None, "WAYLAND_DISPLAY": ""})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("show_external_ui 0", "resp -902 hosting.window.no-display")
+        d.expect("hide_external_ui 0", "resp -902 hosting.window.no-display")
+        d.expect("show_external_ui 9", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0].endswith("_external_ui")]
+        check(got == [], "no worker is sent a window verb: %s" % got)
     finally:
         d.close()
         if os.path.exists(log):
