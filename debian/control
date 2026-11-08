@@ -4,11 +4,11 @@ Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libplugin-hostd-protocol-dev (>= 0.5.0~), libplugin-hostd-protocol-dev (<< 0.6~),
-               libomx-contract-dev (>= 3.9.0~), libomx-contract-dev (<< 4~),
-               omx-clap-core-contract (>= 0.30.5~) <!nocheck>, omx-clap-core-contract (<< 0.32~) <!nocheck>,
+               libomx-contract-dev (>= 3.11.0~), libomx-contract-dev (<< 4~),
+               omx-clap-core-contract (>= 0.31.0~) <!nocheck>, omx-clap-core-contract (<< 0.32~) <!nocheck>,
                omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,
                libomxdsp-dev (>= 0.32.0~) <!nocheck>, libomxdsp-dev (<< 0.33~) <!nocheck>,
-               omx-contract (>= 3.4.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
+               omx-contract (>= 3.11.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.5.0~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
                plugin-db-dev (>= 0.3.0~), plugin-db-dev (<< 0.4~),
                libcjson-dev,
@@ -68,7 +68,7 @@ Description: C headers to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.30.5~), omx-clap-core-contract (<< 0.32~), omx-contract (>= 3.2.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.0~), plugin-hostd-protocol-contract (<< 0.6~),
+Depends: omx-clap-core-contract (>= 0.31.0~), omx-clap-core-contract (<< 0.32~), omx-contract (>= 3.11.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.0~), plugin-hostd-protocol-contract (<< 0.6~),
          ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
