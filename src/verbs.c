@@ -170,11 +170,28 @@ static char *handle(char *line, char **tok, int ntok)
         return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);
     /* the curve verbs (plugin-hostd-protocol, doc/protocol.md, Curves): a display of an instance's panel bound to its
      * parameters and drawn, which the worker that holds it answers; the ledger keeps the binding for a respawn */
+    /* too few or too many words answer as mod-host's parser does; a word where the format (%i %i %s ... and %i %i %i)
+     * wants a number is refused here with -902, a code both verbs declare, never relayed to read as 0 */
     if (!strcmp(verb, OMX_VERB_CURVE_BIND))
-        return ntok > 3 ? sup_call(atoi(tok[1]), line) : strdup(MESSAGE_FEW_ARGUMENTS);
+    {
+        int id, display;
+
+        if (ntok < 4)
+            return strdup(MESSAGE_FEW_ARGUMENTS);
+        if (!number(tok[1], &id) || !number(tok[2], &display))
+            return sup_resp(ERR_INVALID_OPERATION);
+        return sup_call(id, line);
+    }
     if (!strcmp(verb, OMX_VERB_CURVE_POINTS))
-        return ntok == 4 ? sup_call(atoi(tok[1]), line)
-                         : strdup(ntok < 4 ? MESSAGE_FEW_ARGUMENTS : MESSAGE_MANY_ARGUMENTS);
+    {
+        int id, display, points;
+
+        if (ntok != 4)
+            return strdup(ntok < 4 ? MESSAGE_FEW_ARGUMENTS : MESSAGE_MANY_ARGUMENTS);
+        if (!number(tok[1], &id) || !number(tok[2], &display) || !number(tok[3], &points))
+            return sup_resp(ERR_INVALID_OPERATION);
+        return sup_call(id, line);
+    }
     /* monitor_output_off <instance> <symbol>: plugin-hostd-protocol's, not mod-host's, so it is not in g_instance_verbs.
      * Only the connection that set a monitor ends it: an output with no monitor held here (never monitored, ended,
      * its instance gone) is refused -543, and the ledger forgets the monitor it ends (src/supervisor.c, ledger_verb) */
