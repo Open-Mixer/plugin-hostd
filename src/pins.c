@@ -40,6 +40,7 @@
 #include "fsutil.h"
 #include "pins.h"
 #include "words.h"
+#include "writer.h"
 
 #define SCHEME_MAX   32
 #define STORE_NAME   "plugin-hostd/pins"
@@ -70,14 +71,34 @@ static char g_store[PATH_MAX];
 static pin_t *g_pkg;
 static int g_npkg;
 
-/* the uri as the worker is given it: the key of a pin, whichever way a controller wrote it */
-static const char *bare(const char *uri)
+/* The key of a pin, whichever way a controller wrote the uri: the uri as the worker is given it, and a clap: uri by its
+ * path decoded (the key rule of plugin-hostd-protocol's doc/protocol.md, Pins), so "clap:/c/Surge XT.clap#id", quoted, and
+ * clap:/c/Surge%20XT.clap#id are one pin. A path that does not decode is its key as written; it is refused where its
+ * file is opened. Written into key (size bytes), or the uri itself when it needs no change. */
+#define PIN_KEY_MAX (PATH_MAX + 512)
+static const char *key_of(const char *uri, char *key, size_t size)
 {
-    const char *worker_uri;
+    const char *worker_uri, *path, *hash;
+    char encoded[PIN_KEY_MAX], decoded[PIN_KEY_MAX];
+    size_t len;
 
     format_of_uri(uri, &worker_uri);
-    return worker_uri;
+    if (strncmp(worker_uri, PHD_CLAP_URI_PREFIX, strlen(PHD_CLAP_URI_PREFIX)))
+        return worker_uri;
+    path = worker_uri + strlen(PHD_CLAP_URI_PREFIX);
+    hash = strrchr(path, '#');
+    len = hash ? (size_t)(hash - path) : strlen(path);
+    if (len >= sizeof(encoded) || !memchr(path, PHD_PIN_PATH_ESCAPE[0], len))
+        return worker_uri;
+    memcpy(encoded, path, len);
+    encoded[len] = '\0';
+    if (phd_pin_path_decode(encoded, decoded, sizeof(decoded)) != 0 ||
+        snprintf(key, size, PHD_CLAP_URI_PREFIX "%s%s", decoded, hash ? hash : "") >= (int)size)
+        return worker_uri;
+    return key;
 }
+/* the key of a uri in a buffer of the enclosing block's own: two keys in one expression never share one */
+#define bare(uri) key_of((uri), (char[PIN_KEY_MAX]){0}, PIN_KEY_MAX)
 
 static void pin_free(pin_t *p)
 {
@@ -153,12 +174,15 @@ static pin_t *find(const char *uri)
     return p ? p : find_in(g_pkg, g_npkg, uri);
 }
 
-/* a path of a pin: relative to the bundle, never out of it, and none of the separators of pin_set's words */
+/* a path of a pin: relative to the bundle, never out of it, none of the separators of pin_set's words, and every
+ * escape whole (PHD_PIN_PATH_ESCAPE) */
 static int path_valid(const char *path)
 {
     const char *c = path;
+    char decoded[PATH_MAX];
 
-    if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED))
+    if (!*path || *path == '/' || strpbrk(path, PHD_PIN_PATH_EXCLUDED) ||
+        phd_pin_path_decode(path, decoded, sizeof(decoded)) != 0)
         return 0;
     while (*c)
     {
@@ -401,14 +425,15 @@ static void held_free(void)
     g_store_unreadable = 0;
 }
 
-/* the pins the daemon learned, to the store: a temporary file of its own beside it (mkstemp, so two daemons on one
- * store never share a name), written, fsynced and renamed over it, then the directory fsynced. A failure is announced
- * on stderr, with what it costs, and leaves the pins in memory */
+/* the pins the daemon learned, to the store, through the writer (writer.h): a temporary file of its own beside it
+ * (mkstemp, so two daemons on one store never share a name), written, fsynced and renamed over it, then the directory
+ * fsynced. A failure is announced on stderr, with what it costs, and leaves the pins in memory */
 static void store_save(void)
 {
-    char tmp[PATH_MAX + 16];
+    char *bytes = NULL;
+    size_t len = 0;
     FILE *file;
-    int n, fd, ok;
+    int n;
 
     if (!*g_store)
         return;
@@ -418,19 +443,11 @@ static void store_save(void)
                         "are NOT persisted until the operator repairs it\n", g_store);
         return;
     }
-    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", g_store);
-    fd = -1;
-    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    /* the bytes of now, handed to the writer: the command loop never waits on the disk */
+    if (!(file = open_memstream(&bytes, &len)))
     {
-        int err = errno;
-
-        if (fd >= 0)
-        {
-            close(fd);
-            unlink(tmp);
-        }
-        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
-                        "the next start learns them again\n", g_store, strerror(err));
+        fprintf(stderr, "plugin-hostd: can't write the pin store %s: out of memory; the pins learned this run are NOT "
+                        "persisted and the next start learns them again\n", g_store);
         return;
     }
     for (n = 0; n < g_nheld; n++)
@@ -438,16 +455,12 @@ static void store_save(void)
     for (n = 0; n < g_npins; n++)
         if (g_pins[n].learned)
             line_write(file, &g_pins[n]);
-    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
-    ok = fclose(file) == 0 && ok;
-    if (!ok || rename(tmp, g_store) != 0)
+    if (fclose(file) != 0)
     {
-        fprintf(stderr, "plugin-hostd: can't write the pin store %s: %s; the pins learned this run are NOT persisted and "
-                        "the next start learns them again\n", g_store, strerror(errno));
-        unlink(tmp);
+        free(bytes);
         return;
     }
-    fs_sync_dir(g_store);
+    writer_put(g_store, bytes, len, 0, NULL, NULL, "the pin store %s: %s; the pins learned this run are NOT persisted and the next start learns them again");
 }
 
 /* ---------------------------------------------------------------- the user's choices */
@@ -522,43 +535,31 @@ static void accepted_read(void)
     fclose(file);
 }
 
-/* written to a temporary file beside it and renamed over it, as the store is; a failure is said and costs the choice
- * after a restart only */
+/* through the writer, as the store is; a failure is said and costs the choice after a restart only */
 static void accepted_save(void)
 {
     const char *path = accepted_file();
-    char tmp[PATH_MAX + 32];
+    char *bytes = NULL;
+    size_t len = 0;
     FILE *file;
-    int n, fd, ok;
+    int n;
 
     if (!path)
         return;
-    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", path);
-    fd = -1;
-    if (fs_mkdir_parents(tmp) != 0 || (fd = mkstemp(tmp)) < 0 || !(file = fdopen(fd, "w")))
+    if (!(file = open_memstream(&bytes, &len)))
     {
-        if (fd >= 0)
-        {
-            close(fd);
-            unlink(tmp);
-        }
-        fprintf(stderr, "plugin-hostd: can't write %s: %s; the user's choices are NOT kept past a restart\n", path,
-                strerror(errno));
+        fprintf(stderr, "plugin-hostd: can't write %s: out of memory; the user's choices are NOT kept past a restart\n", path);
         return;
     }
     fprintf(file, "# plugins the user chose to load although their qualification refused them (pin_accept)\n");
     for (n = 0; n < g_naccepted; n++)
         fprintf(file, "%s\n", g_accepted[n]);
-    ok = fflush(file) == 0 && !ferror(file) && fsync(fileno(file)) == 0;
-    ok = fclose(file) == 0 && ok;
-    if (!ok || rename(tmp, path) != 0)
+    if (fclose(file) != 0)
     {
-        fprintf(stderr, "plugin-hostd: can't write %s: %s; the user's choices are NOT kept past a restart\n", path,
-                strerror(errno));
-        unlink(tmp);
+        free(bytes);
         return;
     }
-    fs_sync_dir(path);
+    writer_put(path, bytes, len, 0, NULL, NULL, "%s: %s; the user's choices are NOT kept past a restart");
 }
 
 void pins_accepting(int on)
@@ -966,36 +967,6 @@ int pin_refuse(const char *uri, const char *path, const char *why)
     return OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP;
 }
 
-int pin_percent_decode(const char *in, char *out, size_t size)
-{
-    size_t o = 0;
-
-    for (; *in; in++, o++)
-    {
-        int hi, lo;
-
-        if (o + 1 >= size)
-            return -1;
-        if (*in != '%')
-        {
-            out[o] = *in;
-            continue;
-        }
-        hi = isxdigit((unsigned char)in[1]) ? in[1] : -1;
-        lo = hi >= 0 && isxdigit((unsigned char)in[2]) ? in[2] : -1;
-        if (lo < 0)
-            return -1;
-        hi = hi <= '9' ? hi - '0' : (hi | 0x20) - 'a' + 10;
-        lo = lo <= '9' ? lo - '0' : (lo | 0x20) - 'a' + 10;
-        if (!(hi * 16 + lo))
-            return -1;
-        out[o] = (char)(hi * 16 + lo);
-        in += 2;
-    }
-    out[o] = '\0';
-    return 0;
-}
-
 /* root/path as a file name: a pin names its files percent-encoded, whatever its path holds of whitespace */
 static int full_path(const char *root, const char *path, char *full, size_t size)
 {
@@ -1003,7 +974,7 @@ static int full_path(const char *root, const char *path, char *full, size_t size
     const char *c;
     int slashes = 0, decoded = 0;
 
-    if (pin_percent_decode(path, name, sizeof(name)) != 0)
+    if (phd_pin_path_decode(path, name, sizeof(name)) != 0)
         return -1;
     for (c = path; *c; c++)
         slashes += *c == '/';

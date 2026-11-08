@@ -58,6 +58,17 @@ class Schema(unittest.TestCase):
         code, out = validate(doc)
         self.assertEqual(code, 0, out)
 
+    def test_a_repeat_state_as_the_runner_reads_it_is_valid(self):
+        # what machine_state writes before and after each window, the core of each frequency included
+        doc = example()
+        st = {"freq_mhz": [800.0, 4800.0], "freq_cores": [0, 1], "temp_c": 41.0, "throttled": None,
+              "host_cores": [1], "jackd_cores": [1], "usb_irq_core": None,
+              "cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "throttle_core": [112434, 7], "throttle_package": [238271, 238271]}
+        first_ok(doc)["repeat_state"] = [{"before": dict(st), "after": dict(st)}]
+        code, out = validate(doc)
+        self.assertEqual(code, 0, out)
+
     def test_a_negative_xrun_count_is_red(self):
         doc = example()
         first_ok(doc)["xruns"] = -1
@@ -149,6 +160,9 @@ class FakeJack:
     def jack_client_open(self, name, options, status, server):
         self.opened = {"name": name, "options": options, "server": server}
         return 1
+
+    def jack_on_shutdown(self, client, callback, arg):
+        self.shutdown = callback
 
     def jack_set_xrun_callback(self, client, cb, arg):
         self.callback = cb
@@ -585,6 +599,97 @@ class JackUnanswered(unittest.TestCase):
         out = bench.Runner.run_cell(fake, 96000, 64, plan)
         self.assertEqual([(r["id"], r["status"]) for r in out], [("a", "failed"), ("b", "failed")])
         self.assertIn("JACK did not start", out[0]["note"])
+
+
+class ProbeHardTimeout(unittest.TestCase):
+    """a server that stops answering holds a libjack call forever: the call runs in a process of its own, and past its
+    timeout that process is killed and the row fails, so one wedged server never holds the run"""
+
+    READY = 'import sys, time; print(\'{"ok": true}\', flush=True); '
+
+    def setUp(self):
+        keep = bench.PROBE_TIMEOUT_S
+        bench.PROBE_TIMEOUT_S = 0.5
+        self.addCleanup(setattr, bench, "PROBE_TIMEOUT_S", keep)
+        self.logs = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", self.logs]))
+        self.procs = bench.Procs(self.logs, "bench1")
+        self.addCleanup(self.procs.stop_all)
+
+    def probe(self, body):
+        return bench.ProbeProcess("bench1", self.procs, argv=[sys.executable, "-I", "-c", body])
+
+    def test_a_call_that_hangs_fails_the_row_within_the_timeout_and_the_process_is_gone(self):
+        probe = self.probe(self.READY + "sys.stdin.readline(); time.sleep(60)")
+        proc = probe.proc
+        t0 = time.monotonic()
+        with self.assertRaises(bench.JackUnanswered) as e:
+            probe.cpu_load()
+        self.assertLess(time.monotonic() - t0, 10)
+        self.assertIn("JACK did not answer: the xrun probe timed out", str(e.exception))
+        self.assertIsNotNone(proc.poll(), "the stuck process is killed")
+        self.assertEqual(self.procs.live, [])
+
+    def test_a_start_that_hangs_fails_the_row(self):
+        t0 = time.monotonic()
+        with self.assertRaises(bench.JackUnanswered):
+            self.probe("import time; time.sleep(60)")
+        self.assertLess(time.monotonic() - t0, 10)
+
+    def test_close_returns_from_a_wedged_server_and_kills_the_process(self):
+        probe = self.probe(self.READY + "time.sleep(60)")
+        proc = probe.proc
+        t0 = time.monotonic()
+        probe.close()
+        self.assertLess(time.monotonic() - t0, 10)
+        self.assertIsNotNone(proc.poll())
+        self.assertEqual(self.procs.live, [])
+
+    def test_jack_stop_gets_past_a_wedged_probe_to_the_server(self):
+        fake = types.SimpleNamespace(probe=self.probe(self.READY + "time.sleep(60)"), jackd=None, procs=self.procs)
+        bench.Runner.jack_stop(fake)
+        self.assertIsNone(fake.probe)
+
+    def test_the_probe_is_not_a_process_left_behind_by_a_row(self):
+        fake = types.SimpleNamespace(probe=self.probe(self.READY + "time.sleep(60)"), jackd=None)
+        bench.Runner.assert_only_jack(fake, "after a row")
+
+    def test_a_process_that_dies_fails_the_row(self):
+        probe = self.probe(self.READY)
+        with self.assertRaises(bench.JackUnanswered) as e:
+            probe.count()
+        self.assertIn("exited", str(e.exception))
+
+    def test_a_call_after_the_process_is_gone_fails_the_row_again(self):
+        probe = self.probe(self.READY)
+        with self.assertRaises(bench.JackUnanswered):
+            probe.count()
+        with self.assertRaises(bench.JackUnanswered):
+            probe.count()
+
+    def test_no_libjack_still_ends_the_run(self):
+        with self.assertRaises(SystemExit):
+            self.probe("""print('{"error": "bench: libjack is needed to count xruns"}', flush=True)""")
+
+    def test_the_process_answers_what_the_probe_reads(self):
+        import io
+        lib = FakeJack(ports={"system:playback_1": 512})
+        probe = bench.JackProbe("bench1", lib=lib)
+        lib.xrun(2)
+        out = io.StringIO()
+        asks = [{"op": "count"}, {"op": "latency_frames", "args": ["system:playback_1"]}, {"op": "close"}]
+        bench.probe_serve(probe, [json.dumps(a) for a in asks], out)
+        self.assertEqual([json.loads(x) for x in out.getvalue().splitlines()], [{"ok": 2}, {"ok": 512}, {"ok": None}])
+        self.assertEqual(lib.calls[-2:], ["deactivate", "close"])
+
+    def test_a_server_that_went_away_is_an_error_not_an_old_reading(self):
+        import io
+        lib = FakeJack()
+        probe = bench.JackProbe("bench1", lib=lib)
+        probe._on_shutdown(None)
+        out = io.StringIO()
+        bench.probe_serve(probe, [json.dumps({"op": "cpu_load"}), json.dumps({"op": "close"})], out)
+        self.assertEqual(json.loads(out.getvalue().splitlines()[0]), {"error": "the JACK server went away"})
 
 
 class FakeDaemon:
@@ -1131,6 +1236,86 @@ class Soundness(unittest.TestCase):
         state = [{"before": {"freq_mhz": [2400.0, 2400.0]}}, {"before": {"freq_mhz": [1500.0, 2400.0]}}]
         bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
         self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 1500..2400"))
+
+    def test_idle_cores_slower_than_the_measured_ones_are_no_disturbance(self):
+        # a desk: the cores nothing runs on idle at 800 MHz, the ones the host and JACK run on hold 4800 MHz
+        freqs = [800.0, 800.0, 4800.0, 4800.0, 800.0, 800.0]
+        st = {"freq_mhz": freqs, "freq_cores": [0, 1, 2, 3, 4, 5], "host_cores": [2], "jackd_cores": [3]}
+        state = [{"before": dict(st), "after": dict(st)} for _ in range(3)]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_measured_core_that_slowed_between_repeats_is_flagged(self):
+        quick = {"freq_mhz": [800.0, 800.0, 4800.0, 4800.0], "freq_cores": [0, 1, 2, 3], "host_cores": [2], "jackd_cores": [3]}
+        slow = dict(quick, freq_mhz=[800.0, 800.0, 3000.0, 4800.0])
+        state = [{"before": quick, "after": quick}, {"before": slow, "after": slow}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 3000..4800"), bad)
+
+    def test_the_cores_of_the_frequencies_are_read_in_their_own_order(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n, khz in ((0, 800000), (1, 801000), (2, 802000), (10, 4800000), (11, 4801000)):
+                os.makedirs("%s/devices/system/cpu/cpu%d/cpufreq" % (d, n))
+                with open("%s/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq" % (d, n), "w") as f:
+                    f.write("%d\n" % khz)
+            st = bench.machine_state(sysfs=d, proc=d)
+        self.assertEqual(st["freq_cores"], [0, 1, 2, 10, 11])
+        self.assertEqual(st["freq_mhz"], [800.0, 801.0, 802.0, 4800.0, 4801.0])
+
+    def test_the_clock_driver_and_the_thermal_throttle_counts_are_read_core_by_core(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n, khz, core, pkg in ((0, 800000, 5, 40), (1, 4800000, 9, 40), (10, 4801000, 0, 41)):
+                base = "%s/devices/system/cpu/cpu%d" % (d, n)
+                os.makedirs(base + "/cpufreq")
+                os.makedirs(base + "/thermal_throttle")
+                for name, value in (("cpufreq/scaling_cur_freq", khz), ("cpufreq/scaling_driver", "intel_pstate"),
+                                    ("cpufreq/scaling_governor", "performance"),
+                                    ("thermal_throttle/core_throttle_count", core),
+                                    ("thermal_throttle/package_throttle_count", pkg)):
+                    with open("%s/%s" % (base, name), "w") as f:
+                        f.write("%s\n" % value)
+            os.makedirs(d + "/devices/system/cpu/intel_pstate")
+            with open(d + "/devices/system/cpu/intel_pstate/status", "w") as f:
+                f.write("active\n")
+            st = bench.machine_state(sysfs=d, proc=d)
+        self.assertEqual((st["cpufreq_driver"], st["pstate"], st["governor"]), ("intel_pstate", "active", "performance"))
+        self.assertEqual(st["throttle_core"], [5, 9, 0])
+        self.assertEqual(st["throttle_package"], [40, 40, 41])
+
+    def test_a_clock_the_hardware_picks_is_recorded_and_not_judged(self):
+        # intel_pstate active under the performance governor: the core of an idle host reads 800 MHz in one repeat
+        # and 5200 in the next, and that is the hardware's choice, not a disturbance
+        hw = {"cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "freq_cores": [0, 1], "host_cores": [0], "jackd_cores": [1],
+              "throttle_core": [3, 3], "throttle_package": [7, 7]}
+        state = [{"before": dict(hw, freq_mhz=[800.0, 5200.0]), "after": dict(hw, freq_mhz=[800.0, 5200.0])},
+                 {"before": dict(hw, freq_mhz=[5200.0, 5200.0]), "after": dict(hw, freq_mhz=[2200.0, 5200.0])}]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_thermal_throttle_during_a_window_on_a_measured_core_is_flagged(self):
+        hw = {"cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "freq_mhz": [5200.0, 5200.0], "freq_cores": [0, 1], "host_cores": [0], "jackd_cores": [1]}
+        state = [{"before": dict(hw, throttle_core=[3, 3], throttle_package=[7, 7]),
+                  "after": dict(hw, throttle_core=[3, 4], throttle_package=[7, 7])}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertIn("state: thermal throttle (core 1, repeat 1)", bad[(0, 0)])
+        pkg = [{"before": dict(hw, throttle_core=[3, 3], throttle_package=[7, 7]),
+                "after": dict(hw, throttle_core=[3, 3], throttle_package=[8, 8])}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=pkg)])])
+        self.assertIn("state: thermal throttle (package of core 0, repeat 1)", bad[(0, 0)])
+
+    def test_a_thermal_throttle_on_a_core_nothing_measured_ran_on_is_not_a_disturbance(self):
+        hw = {"cpufreq_driver": "intel_pstate", "pstate": "active", "governor": "performance",
+              "freq_mhz": [5200.0, 5200.0, 800.0], "freq_cores": [0, 1, 2], "host_cores": [0], "jackd_cores": [1]}
+        state = [{"before": dict(hw, throttle_core=[3, 3, 9], throttle_package=[7, 7, 7]),
+                  "after": dict(hw, throttle_core=[3, 3, 12], throttle_package=[7, 7, 7])}]
+        self.assertEqual(soundness.check([cell_doc([crow(6.5, repeat_state=state)])]), {})
+
+    def test_a_shared_clock_that_moved_is_still_flagged_without_a_hardware_clock_driver(self):
+        # a Pi: no cpufreq_driver the hardware runs, the cores share one clock
+        state = [{"before": {"freq_mhz": [2400.0] * 4, "freq_cores": [0, 1, 2, 3], "host_cores": [2], "jackd_cores": [3]}},
+                 {"before": {"freq_mhz": [1500.0] * 4, "freq_cores": [0, 1, 2, 3], "host_cores": [2], "jackd_cores": [3]}}]
+        bad = soundness.check([cell_doc([crow(6.5, repeat_state=state)])])
+        self.assertTrue(bad[(0, 0)][0].startswith("state: CPU frequency 1500..2400"), bad)
 
     def test_a_silent_output_is_flagged(self):
         row = crow(6.5, output={"rms_db": -200.0, "peak_db": -200.0})

@@ -28,6 +28,7 @@
 
 #include <host-errors.h>
 #include <socket.h>
+#include <utils.h>
 
 #include "conf.h"
 #include "descriptors.h"
@@ -39,9 +40,10 @@
 #include "session.h"
 #include "supervisor.h"
 #include "verbs.h"
+#include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.19.0"
+#define VERSION "0.19.1"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -72,10 +74,16 @@ static void history_start(const conf_t *conf)
 
 static void idle_cb(void)
 {
+    /* the writes that ended since the last tick, then the answers that waited for them */
+    writer_poll();
+    verbs_flush();
     sup_tick();
     descriptors_tick();
     if (g_quitting)
     {
+        /* quit: what was handed over lands, and what waited for it is answered, before the daemon goes */
+        writer_drain();
+        verbs_flush();
         running = 0;
         socket_finish();
     }
@@ -144,6 +152,9 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     conf_defaults(&g_conf);
+    /* the workers, the probe and the scanners run with no window: with no display, Qt is given one that needs none, so
+     * a Qt-linked plugin does not abort as it is instantiated; every process the daemon starts inherits it */
+    phd_headless_qt();
     while ((opt = getopt_long(argc, argv, "np:f:b:c:Vh", long_options, &opt_index)) != -1)
     {
         switch (opt)
@@ -231,6 +242,9 @@ int main(int argc, char **argv)
     if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
+    /* the writer before anything is written: the command loop never waits on the disk */
+    if (writer_start() != 0)
+        return EXIT_FAILURE;
     history_start(&g_conf);
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);
@@ -262,15 +276,20 @@ int main(int argc, char **argv)
     while (running)
     {
         socket_run(0);
+        /* the answers of a controller that is gone go to nobody; its writes still land */
+        verbs_drop();
         relay_controller_gone();
         /* the next controller starts with nothing granted */
         session_reset();
     }
 
     socket_finish();
+    /* every write lands before the state its ends report to is freed; the history's last one lands before the exit */
+    writer_drain();
     descriptors_finish();
     sup_finish();
     history_finish();
+    writer_finish();
     relay_finish();
     return 0;
 }

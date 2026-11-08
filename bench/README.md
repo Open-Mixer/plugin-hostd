@@ -47,6 +47,10 @@ The run refuses to start while another JACK server runs above the asked priority
 Each row starts its host fresh on a port of its own and stops it after. The run ends by checking that no process it
 started is left, whatever happened, and exits 3 if one was.
 
+A server that stops answering costs one row. The xrun probe, the run's own JACK client, lives in a process of its own
+with a 30 s limit on each call: past it the process is killed, the row fails with `JACK did not answer`, and the server
+is started again for the next row.
+
 `bench/validate.sh <file>...` checks documents against the schema; a problem prints the file, the row and the rule,
 and the exit is 1. `bench/lib/send.sh <port> <line>...` sends protocol lines to a host by hand.
 `bench/table.sh <file>...` writes the chains and grouping rows as markdown: the figures with their spread, the ratios of
@@ -160,7 +164,7 @@ other (`lib/soundness.py`, thresholds at its top):
 | twin | the same cell at another period count, or in another document, differs by more than 8 % (the work of a cycle does not depend on the periods) |
 | stress | the cell without stress reads higher than the same cell with it |
 | scaling | the cell reads higher than the same cell at fewer frames |
-| state | a repeat ran with the firmware's throttle bits set, or the CPU frequency moved more than 5 % across the repeats |
+| state | a repeat ran with the firmware's throttle bits set; or a thermal throttle count (core or package) of a core the host's or JACK's threads ran on rose during a window; or, where the clock is the kernel's to set, the frequency of those cores moved more than 5 % across the repeats. Where the CPU picks its own clock (intel_pstate or amd-pstate active, under the performance governor) the frequencies are recorded and not judged: a core reads 800 MHz one moment and 5 GHz the next |
 | output | the strip made no sound, or its level differs by more than 1 dB from the same set run one process per plugin (H1 and H2) |
 
 `run.sh` interleaves the hosts across the repeats of a scenario (A B C A B C), records `repeat_state` (core

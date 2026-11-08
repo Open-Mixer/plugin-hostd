@@ -115,6 +115,10 @@ break_unit jack-restart lib/bench.py '        if isinstance(e, JackUnanswered):
 break_unit jack-nostart lib/bench.py '                    except JackUnanswered as e:
                         self.jack_stop()' '                    except ZeroDivisionError as e:
                         self.jack_stop()' JackUnanswered.test_a_jack_that_does_not_start_again_fails_each_row_and_the_run_still_ends
+break_unit probe-timeout lib/bench.py '                self._lost("timed out after %g s" % PROBE_TIMEOUT_S)' '                return None' ProbeHardTimeout.test_a_call_that_hangs_fails_the_row_within_the_timeout_and_the_process_is_gone
+break_unit probe-close lib/bench.py '            self.procs.stop(proc)' '            pass' ProbeHardTimeout.test_close_returns_from_a_wedged_server_and_kills_the_process
+break_unit probe-stray lib/bench.py '            jack.add(self.probe.proc.pid)' '            pass' ProbeHardTimeout.test_the_probe_is_not_a_process_left_behind_by_a_row
+break_unit probe-gone lib/bench.py '            raise Failed("the JACK server went away")' '            pass' ProbeHardTimeout.test_a_server_that_went_away_is_an_error_not_an_old_reading
 break_unit plan-one lib/bench.py 'if len(segments) < 2:' 'if False:' Grouping.test_a_plan_of_one_segment_fails_the_row
 break_unit plan-reply lib/bench.py 'words[:2] != ["resp", "0"]' 'False' Grouping.test_a_refused_plan_is_failed_with_the_daemons_words
 break_unit pool-alone lib/bench.py 'and seg[0] not in alone]' 'and True]' Grouping.test_the_pool_takes_the_shareable_members_the_plan_left_alone
@@ -149,6 +153,52 @@ break_unit gate-throttle-history lib/soundness.py 'THROTTLE_NOW = 0x7 ' \
     'THROTTLE_NOW = 0xf0007 ' Soundness.test_a_history_only_throttle_bit_is_not_a_disturbance_now
 break_unit gate-freq lib/soundness.py 'if freqs and min(freqs) < (1 - FREQ_REL) * max(freqs):' \
     'if False:' Soundness.test_a_frequency_that_moved_between_repeats_is_flagged
+break_unit gate-freq-idle lib/soundness.py '            freqs.extend(measured_freqs(s))' \
+    '            freqs.extend(s.get("freq_mhz") or [])' Soundness.test_idle_cores_slower_than_the_measured_ones_are_no_disturbance
+break_unit gate-freq-ran lib/soundness.py 'if core in ran]' 'if True]' \
+    Soundness.test_a_measured_core_that_slowed_between_repeats_is_flagged
+break_unit state-schema-cores schema/omx-bench.v1.schema.json \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },' \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },' \
+    Schema.test_a_repeat_state_as_the_runner_reads_it_is_valid
+break_unit state-core-order lib/bench.py 'for path in sorted(paths, key=lambda p: int(re.search(r"/cpu([0-9]+)/cpufreq/", p).group(1))):' \
+    'for path in sorted(paths):' Soundness.test_the_cores_of_the_frequencies_are_read_in_their_own_order
+# the clock the hardware picks is recorded, not judged; the thermal throttle counts judge it instead
+break_unit gate-hw-clock lib/soundness.py '            if not hardware_clock(s):' '            if True:' \
+    Soundness.test_a_clock_the_hardware_picks_is_recorded_and_not_judged
+break_unit gate-hw-clock-everywhere lib/soundness.py '    return (s.get("cpufreq_driver") in HARDWARE_CLOCK_DRIVERS and' \
+    '    return True or (s.get("cpufreq_driver") in HARDWARE_CLOCK_DRIVERS and' \
+    Soundness.test_a_shared_clock_that_moved_is_still_flagged_without_a_hardware_clock_driver
+break_unit gate-throttle-rise lib/soundness.py 'if core in ran and isinstance(x, int) and isinstance(y, int) and y > x:' \
+    'if False:' Soundness.test_a_thermal_throttle_during_a_window_on_a_measured_core_is_flagged
+break_unit gate-throttle-ran lib/soundness.py 'if core in ran and isinstance(x, int)' 'if True and isinstance(x, int)' \
+    Soundness.test_a_thermal_throttle_on_a_core_nothing_measured_ran_on_is_not_a_disturbance
+break_unit state-throttle-read lib/bench.py '            throttle[kind].append(int(v) if v is not None and v.isdigit() else None)' \
+    '            throttle[kind].append(None)' Soundness.test_the_clock_driver_and_the_thermal_throttle_counts_are_read_core_by_core
+break_unit state-schema-throttle schema/omx-bench.v1.schema.json \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                      "cpufreq_driver": { "type": ["string", "null"] },' \
+    '"before": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "freq_mhz": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+                      "freq_cores": { "type": "array", "items": { "type": "integer", "minimum": 0 } },' \
+    Schema.test_a_repeat_state_as_the_runner_reads_it_is_valid
 break_unit gate-silent lib/soundness.py 'if not isinstance(db, (int, float)) or db < SILENT_DB:' \
     'if False:' Soundness.test_a_silent_output_is_flagged
 break_unit gate-output lib/soundness.py 'and abs(db - want) > OUTPUT_DB:' \
