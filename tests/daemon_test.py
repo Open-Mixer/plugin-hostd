@@ -1491,6 +1491,8 @@ def monitor_output_off_ends_one_monitor_and_a_respawn_does_not_replay_it():
         d.expect("monitor_output 0 input_level_0", "resp 1")
         wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 5, "output_set before the off")
         d.expect("monitor_output_off 0 gain_reduction", "resp 0")
+        # a line the worker wrote before it took the off is already on the feedback port: let it land, then count
+        time.sleep(0.1)
         mark = d.mark()
         time.sleep(0.2)
         check(outputs(d, 0, "gain_reduction", mark) == [],
