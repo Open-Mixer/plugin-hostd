@@ -490,6 +490,7 @@ Error codes the daemon adds to mod-host's:
 | `-533` | `OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP` | a member of estimate that no qualification record in qualification_dir names: never a reply, the code of the member in the reply's list |
 | `-534` | `OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP` | a member of estimate whose qualification records hold no point of the grid at that rate and quantum with a cost and a latency: never a reply, the code of the member in the reply's list |
 | `-535` | `OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP` | a member of estimate whose uri names no plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): never a reply, the code of the member in the reply's list |
+| `-543` | `OMX_REPLY_PLUGIN_HOSTD_OUTPUT_NOT_MONITORED_RESP` | monitor_output_off of an output this connection did not monitor: a monitor ends with the connection that set it, and only that connection ends it earlier |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -549,7 +550,7 @@ Every worker is started as `<program> -n -p <command port> -f <feedback port>`.
 - every line a worker writes on its feedback port goes out on the daemon's feedback port as the worker wrote it: output_set, param_set, data_finish and the rest of mod-host's feedback, and a line the daemon does not know.
 - the instance number in a relayed line is already the controller's: add hands it to the worker unchanged, so nothing in a line is rewritten.
 - a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out before its worker_died event; an instance lives in one worker at a time, so its lines keep their order across a respawn; the lines of different workers interleave.
-- monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
+- monitor_output is in the ledger, one line per output, until monitor_output_off or the end of the connection that set it takes the line out, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
 - output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
 - show_external_ui and hide_external_ui go to the worker that holds the instance and its resp comes back unchanged; the window is the worker's, on the display session of the daemon's environment (WAYLAND_DISPLAY, else DISPLAY), which every worker inherits; a daemon with neither refuses both with -902 hosting.window.no-display and sends the worker nothing; the ledger keeps the latest of the two per instance, so a respawn shows again a window that was shown.
 - with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.

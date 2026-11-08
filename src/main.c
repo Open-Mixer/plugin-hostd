@@ -279,6 +279,8 @@ int main(int argc, char **argv)
         /* the answers of a controller that is gone go to nobody; its writes still land */
         verbs_drop();
         relay_controller_gone();
+        /* a monitor ends with the connection that set it: the next controller starts with none of them */
+        sup_monitors_disconnect();
         /* the next controller starts with nothing granted */
         session_reset();
     }

@@ -175,6 +175,19 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, OMX_VERB_CURVE_POINTS))
         return ntok == 4 ? sup_call(atoi(tok[1]), line)
                          : strdup(ntok < 4 ? MESSAGE_FEW_ARGUMENTS : MESSAGE_MANY_ARGUMENTS);
+    /* monitor_output_off <instance> <symbol>: plugin-hostd-protocol's, not mod-host's, so it is not in g_instance_verbs.
+     * Only the connection that set a monitor ends it: an output with no monitor held here (never monitored, ended,
+     * its instance gone) is refused -543, and the ledger forgets the monitor it ends (src/supervisor.c, ledger_verb) */
+    if (!strcmp(verb, OMX_VERB_MONITOR_OUTPUT_OFF))
+    {
+        char *end;
+
+        if (ntok != 3 || (strtol(tok[1], &end, 10), end == tok[1] || *end))
+            return sup_resp(ERR_INVALID_OPERATION);
+        if (!sup_monitor_held(atoi(tok[1]), tok[2]))
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_OUTPUT_NOT_MONITORED_RESP);
+        return sup_call(atoi(tok[1]), line);
+    }
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {

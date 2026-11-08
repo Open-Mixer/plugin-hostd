@@ -216,7 +216,7 @@ the instance number in a relayed line is already the controller's: add hands it 
 .IP \(bu 2
 a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out before its worker_died event; an instance lives in one worker at a time, so its lines keep their order across a respawn; the lines of different workers interleave.
 .IP \(bu 2
-monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
+monitor_output is in the ledger, one line per output, until monitor_output_off or the end of the connection that set it takes the line out, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
 .IP \(bu 2
 output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
 .IP \(bu 2
