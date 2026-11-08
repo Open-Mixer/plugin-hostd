@@ -1482,6 +1482,82 @@ def a_respawned_worker_reports_the_same_outputs_once_each():
 
 
 @test
+def monitor_output_off_ends_one_monitor_and_a_respawn_does_not_replay_it():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output 0 input_level_0", "resp 1")
+        wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 5, "output_set before the off")
+        d.expect("monitor_output_off 0 gain_reduction", "resp 0")
+        mark = d.mark()
+        time.sleep(0.2)
+        check(outputs(d, 0, "gain_reduction", mark) == [],
+              "nothing more of the ended output: %s" % outputs(d, 0, "gain_reduction", mark))
+        check(len(outputs(d, 0, "input_level_0", mark)) > 0, "the other monitor still reads")
+        _, w = d.holder(0)
+        mark2 = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark2)
+        pid = d.holder(0)[1]["pid"]
+        wait_for(lambda: len(outputs(d, 0, "input_level_0", mark2)) >= 5, "output_set input_level_0 after the respawn")
+        time.sleep(0.2)
+        check(outputs(d, 0, "gain_reduction", mark2) == [],
+              "the ended monitor is not replayed into the respawn: %s" % outputs(d, 0, "gain_reduction", mark2))
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1].strip() for l in f if l.startswith("%d " % pid)]
+        mon = [l for l in sent if l.startswith("monitor_output")]
+        check(mon == ["monitor_output 0 input_level_0"], "the new worker is asked only for the live monitor: %s" % mon)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def monitor_output_off_refuses_what_this_connection_did_not_monitor():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output_off 0 never_monitored", "resp -543")
+        d.expect("monitor_output_off 9 gain_reduction", "resp -543")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output_off 0 gain_reduction", "resp 0")
+        d.expect("monitor_output_off 0 gain_reduction", "resp -543")
+        d.expect("monitor_output_off 0", "resp -902")
+        d.expect("monitor_output_off x gain_reduction", "resp -902")
+        d.expect("monitor_output_off 0 gain_reduction extra", "resp -902")
+    finally:
+        d.close()
+
+
+@test
+def a_monitor_ends_with_the_connection_that_set_it():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 5, "output_set before the disconnect")
+        pid = d.holder(0)[1]["pid"]
+        d.reconnect()
+        mark = d.mark()
+        time.sleep(0.2)
+        check(outputs(d, 0, "gain_reduction", mark) == [],
+              "the next connection gets nothing of the earlier connection's monitor: %s" % outputs(d, 0, "gain_reduction", mark))
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1].strip() for l in f if l.startswith("%d " % pid)]
+        check("monitor_output_off 0 gain_reduction" in sent, "the worker is told the monitor ended: %s" % sent)
+        d.expect("monitor_output_off 0 gain_reduction", "resp -543")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def a_worker_is_read_when_no_controller_reads_the_feedback():
     """a worker whose feedback port no one reads stops on a full socket, as a real host does: the daemon reads it
     with no feedback port of its own, so the worker still answers"""

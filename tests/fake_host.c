@@ -100,6 +100,7 @@
  *                               process: a line lost, doubled or out of order shows as a gap or a repeat in k.
  *                               FAKE_FEEDBACK_BURST sends that many lines per output every 20 ms instead of one, and
  *                               a feedback port no one reads then fills and stops the fake, as it stops a real host
+ *   monitor_output_off <n> <sym>  "resp 0" always; the matching monitor_output, if any, sends nothing more
  *
  * Its layout is one CLAP parameter whose default is FAKE_LAYOUT_DEFAULT (0.5 without it); "fake-host -L" prints its
  * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
@@ -709,6 +710,16 @@ static void receive(msg_t *msg)
             g_out[g_nout++].k = 0;
         }
         answer(fd, "resp %d", strcmp(tok[2], "none") ? 1 : 0);
+    }
+    else if (!strcmp(verb, OMX_VERB_MONITOR_OUTPUT_OFF) && ntok == 3)
+    {
+        for (k = 0; k < g_nout; k++)
+            if (g_out[k].inst == n && !strcmp(g_out[k].sym, tok[2]))
+            {
+                g_out[k--] = g_out[--g_nout];
+                break;
+            }
+        answer(fd, "resp 0");
     }
     else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
         answer(fd, "resp 0");

@@ -263,6 +263,8 @@ int main(int argc, char **argv)
     {
         socket_run(0);
         relay_controller_gone();
+        /* a monitor ends with the connection that set it: the next controller starts with none of them */
+        sup_monitors_disconnect();
         /* the next controller starts with nothing granted */
         session_reset();
     }

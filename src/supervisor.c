@@ -2359,6 +2359,38 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
     return 0;
 }
 
+/* every tail entry keyed as key, gone: the caller's to find none */
+static void tail_drop_key(instance_t *i, const char *key)
+{
+    int n, kept = 0;
+
+    for (n = 0; n < i->ntail; n++)
+    {
+        if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+        {
+            free(i->tail[n].line);
+            free(i->tail[n].key);
+            continue;
+        }
+        i->tail[kept++] = i->tail[n];
+    }
+    i->ntail = kept;
+}
+
+/* monitor_output_off <instance> <symbol>: the matching monitor_output tail entry, keyed as record() keyed it, is
+ * dropped; nothing is added, so a respawn after this does not restore what it ended. 0 whether or not one matched: a
+ * symbol never monitored is not the ledger's error to raise, the worker already answered it */
+static int ledger_monitor_off(instance_t *i, char **tok, int ntok)
+{
+    char key[160];
+
+    if (ntok <= 2)
+        return 0;
+    snprintf(key, sizeof(key), "%.*s %s", verb_len(MONITOR_OUTPUT), MONITOR_OUTPUT, tok[2]);
+    tail_drop_key(i, key);
+    return 0;
+}
+
 /* the ledger keeps param_set_many as the param_set of each of its pairs, so a replay sets each value as a param_set
  * does, and a later param_set of one of them compacts it as it compacts its own */
 static int ledger_set_many(instance_t *i, char **tok, int ntok)
@@ -2442,10 +2474,72 @@ static int ledger_verb(instance_t *i, const char *line)
         rc = ledger_set_many(i, tok, ntok);
     else if (ntok && !strcmp(tok[0], OMX_VERB_CURVE_BIND))
         rc = ledger_curve_bind(i, line, tok, ntok);
+    else if (ntok && !strcmp(tok[0], OMX_VERB_MONITOR_OUTPUT_OFF))
+        rc = ledger_monitor_off(i, tok, ntok);
     else if (ntok)
         rc = record(i, line, tok, ntok);
     free(copy);
     return rc;
+}
+
+/* 1 when the connection now open set a monitor on this output of this instance and it still stands: the ledger's
+ * monitor_output entry is the record, and sup_monitors_disconnect empties it as a connection ends, so one an earlier
+ * connection set is not there. An instance that is not up (never added, or removed) holds none */
+int sup_monitor_held(int id, const char *symbol)
+{
+    instance_t *i = id >= 0 && id < MAX_INSTANCE ? g_inst[id] : NULL;
+    char key[160];
+    int n;
+
+    if (!i)
+        return 0;
+    snprintf(key, sizeof(key), "%.*s %s", verb_len(MONITOR_OUTPUT), MONITOR_OUTPUT, symbol);
+    for (n = 0; n < i->ntail; n++)
+        if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+            return 1;
+    return 0;
+}
+
+/* monitor_output_off the way the connection that set it ends it: every instance's tail is searched for a monitor_output
+ * entry (the ledger's own key for one, "monitor_output <symbol>"), the worker told so while it is up (best effort: its
+ * answer is not waited on past that), and the tail forgets the line either way, so a respawn after this does not
+ * replay it. Called as the connection ends (main.c, beside relay_controller_gone and session_reset), so the next
+ * connection starts with none of it, as doc/protocol.md's Monitors rules */
+void sup_monitors_disconnect(void)
+{
+    size_t plen = verb_len(MONITOR_OUTPUT);
+    int id;
+
+    for (id = 0; id < MAX_INSTANCE; id++)
+    {
+        instance_t *i = g_inst[id];
+        int n;
+
+        if (!i)
+            continue;
+        for (n = 0; n < i->ntail; )
+        {
+            const char *key = i->tail[n].key;
+            char sym[128], off[160], drop[160];
+
+            if (!key || strncmp(key, MONITOR_OUTPUT, plen) || key[plen] != ' ')
+            {
+                n++;
+                continue;
+            }
+            snprintf(sym, sizeof(sym), "%s", key + plen + 1);
+            if (i->w && i->w->state == W_UP)
+            {
+                char *reply;
+
+                snprintf(off, sizeof(off), OMX_VERB_MONITOR_OUTPUT_OFF " %d %s", id, sym);
+                reply = sup_call(id, off);
+                free(reply);
+            }
+            snprintf(drop, sizeof(drop), "%.*s %s", (int)plen, MONITOR_OUTPUT, sym);
+            tail_drop_key(i, drop);
+        }
+    }
 }
 
 /* the verb the worker died on is not replayed: it never entered the ledger, and the controller is told so */
