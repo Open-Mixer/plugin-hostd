@@ -75,6 +75,9 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](own-host.md), nine commands from
 nothing to a plugin running.
 
+How plugins are grouped into workers, chains, plans and pools, drawn, with what the benchmark measures of each:
+[docs/groupings.md](groupings.md).
+
 Under Zynthian on a Raspberry Pi 5: <https://openmixer.org/docs/zynthian> says what it changes, how to install and use
 it and where it stands; the measurements are at <https://openmixer.org/benchmarks>, and how they were taken, with the
 design of pins, chains and grouping, in the technical notes at <https://openmixer.org/notes>.
@@ -226,7 +229,8 @@ jack client name, passed on. An instance that crashed in a pool is placed
 Grouped workers against one process per plugin
 ----------------------------------------------
 
-A chain runs its plugins in one worker; the other way is one process per plugin. One measurement of the two, with
+A chain runs its plugins in one worker; the other way is one process per plugin ([docs/groupings.md](groupings.md) draws
+both). One measurement of the two, with
 16 plugins, with the numbers of the page at <https://www.openmixer.org/docs/grouped-vs-processes>:
 
 | | grouped | one process per plugin | |
