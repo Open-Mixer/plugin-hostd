@@ -105,6 +105,32 @@ leaves alone (grouping.json), under
 time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
+%package full
+Summary: The whole plugin host stack: daemon, workers, plugins, qualifier
+BuildArch: noarch
+# The whole plugin host stack in one install, on any Fedora (docs/install.md): the daemon at its own version, its
+# CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records of this machine's class
+# (plugin-qualification-records, provided by every plugin-db-qualification set of its architecture). Each a floor at the
+# release this one is tested with and a ceiling below the next minor (tests/full_ranges.py). The panel is a weak
+# dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
+Requires: %{name} = %{version}-%{release}
+Requires: (omx-clap-host >= 0.31.0 with omx-clap-host < 0.32)
+Requires: (omx-plugins >= 0.19.1 with omx-plugins < 0.20)
+Requires: (plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)
+Requires: (plugin-qualification-records >= 0.20.0 with plugin-qualification-records < 0.21)
+Recommends: (omx-panel >= 0.12.0 with omx-panel < 0.13)
+
+%description full
+Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
+the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
+plugins, plugin-qualify, which measures each installed plugin before it is
+trusted live, and the qualification records of this machine's class, so the
+plugins measured on a machine like this one are taken from the records.
+
+omx-panel, the plugin panels in a browser, is a weak dependency. Install with
+--setopt=install_weak_deps=False for a machine with no screen.
+Its documentation is on openmixer.org.
+
 %package tests
 Summary: A stand-in plugin worker to test a program that drives plugin-hostd
 Requires: %{name}%{?_isa} = %{version}-%{release}
@@ -155,6 +181,9 @@ make test-daemon check-generated check-rendered
 %{_mandir}/man1/plugin-hostd-probe.1*
 # the read-only pins of packages: a package that ships pins co-owns it with %dir
 %dir %{_datadir}/plugin-hostd/pins.d
+
+%files full
+%license COPYING
 
 %files tests
 %license COPYING

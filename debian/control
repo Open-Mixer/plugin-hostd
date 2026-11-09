@@ -40,6 +40,33 @@ Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  .
  Its documentation is on openmixer.org.
 
+# The whole plugin host stack in one install, on any Debian, Zynthian or not (docs/install.md): the daemon at its own
+# version, its CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records of this machine's
+# class (plugin-qualification-records, provided by every plugin-db-qualification set of its architecture). Each a floor
+# at the release this one is tested with and a ceiling below the next minor (tests/full_ranges.py). The panel is
+# recommended: `apt install --no-install-recommends plugin-hostd-full` is the headless install, with no panel.
+Package: plugin-hostd-full
+Section: metapackages
+Architecture: all
+Depends: plugin-hostd (= ${source:Version}),
+         omx-clap-host (>= 0.31.0~), omx-clap-host (<< 0.32~),
+         omx-plugins (>= 0.19.1~), omx-plugins (<< 0.20~),
+         plugin-qualify (>= 0.20.0~), plugin-qualify (<< 0.21~),
+         plugin-qualification-records (>= 0.20.0~), plugin-qualification-records (<< 0.21~),
+         ${misc:Depends}
+Recommends: omx-panel (>= 0.12.0~), omx-panel (<< 0.13~)
+Description: the whole plugin host stack: daemon, workers, plugins, qualifier
+ Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
+ the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
+ plugins, plugin-qualify, which measures each installed plugin before it is
+ trusted live, and the qualification records of this machine's class, so the
+ plugins measured on a machine like this one are taken from the records.
+ .
+ omx-panel, the plugin panels in a browser, is recommended. Install with
+ --no-install-recommends for a machine with no screen.
+ .
+ Its documentation is on openmixer.org.
+
 Package: plugin-hostd-tests
 Architecture: any
 Depends: plugin-hostd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
