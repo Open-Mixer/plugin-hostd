@@ -1,3 +1,19 @@
+plugin-hostd (0.20.0) unstable; urgency=medium
+
+  * curve_bind and curve_points reach the worker that holds the instance, and
+    the ledger keeps the binding for a respawn; a word that is no number is
+    refused with -902.
+  * show_external_ui and hide_external_ui reach the worker that holds the
+    instance; the ledger keeps the latest of the two.
+  * monitor_output_off ends one monitor, and a monitor ends with the
+    connection that set it; an output this connection did not monitor is
+    refused with -543.
+  * Built against plugin-hostd-protocol >= 0.5.0 and < 0.6, plugin-db
+    >= 0.3.0 and < 0.4, omx-clap-core-contract >= 0.31.0 and < 0.32, and
+    omx-contract >= 3.11.0 and < 4; tested against omx-clap-host 0.31.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sun, 08 Nov 2026 23:56:11 +0100
+
 plugin-hostd (0.19.1) unstable; urgency=medium
 
   * The daemon writes its files on a thread of its own, so the command loop
