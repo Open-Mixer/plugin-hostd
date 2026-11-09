@@ -18,7 +18,9 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <dirent.h>
 #include <limits.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -46,6 +48,39 @@ static const char *lv2_search(const conf_t *conf)
     return conf->lv2_path;
 }
 
+/* A .clap that is a directory (Cardinal, Ildaeil) is a bundle whose one object the host loads: the one regular .clap file
+ * in it, else the one .so. Fills `object` with its name; 0, or -1 when there is none or not exactly one. */
+static int bundle_object(const char *dir, char *object, size_t size)
+{
+    DIR *handle = opendir(dir);
+    struct dirent *entry;
+    char clap[NAME_MAX + 1] = "", so[NAME_MAX + 1] = "";
+    unsigned n_clap = 0, n_so = 0;
+
+    if (!handle)
+        return -1;
+    while ((entry = readdir(handle)) != NULL)
+    {
+        const size_t n = strlen(entry->d_name);
+        const int is_clap = n > 5 && !strcmp(entry->d_name + n - 5, ".clap");
+        const int is_so = n > 3 && !strcmp(entry->d_name + n - 3, ".so");
+        char path[PATH_MAX];
+        struct stat st;
+
+        if ((!is_clap && !is_so) || snprintf(path, sizeof(path), "%s/%s", dir, entry->d_name) >= (int)sizeof(path) ||
+            stat(path, &st) != 0 || !S_ISREG(st.st_mode))
+            continue;
+        if (is_clap && n_clap++ == 0)
+            snprintf(clap, sizeof(clap), "%s", entry->d_name);
+        else if (is_so && n_so++ == 0)
+            snprintf(so, sizeof(so), "%s", entry->d_name);
+    }
+    closedir(handle);
+    if (n_clap != 1 && !(n_clap == 0 && n_so == 1))
+        return -1;
+    return snprintf(object, size, "%s", n_clap ? clap : so) >= (int)size ? -1 : 0;
+}
+
 /* clap:<path>#<id>: the .clap file is what a host loads, and a pin holds the files beside it that it names */
 int clap_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files)
 {
@@ -67,13 +102,29 @@ int clap_pin_collect(const char *uri, const char *search, char *root, size_t siz
         if (phd_pin_path_decode(slash + 1, name, sizeof(name)) != 0 ||
             phd_pin_path_encode(name, word, sizeof(word)) != 0)
             return pin_refuse(uri, slash + 1, "is not a percent-encoded file name");
+        encoded[slash - encoded] = '\0';
+        if (phd_pin_path_decode(encoded, root, size) != 0)
+            return pin_refuse(uri, encoded, "is not a percent-encoded path");
+        {
+            /* a directory bundle: the pin holds the object inside it, as <bundle>/<object> */
+            char dir[PATH_MAX * 2], object[NAME_MAX + 1], oword[PATH_MAX * 3];
+            struct stat st;
+
+            if (snprintf(dir, sizeof(dir), "%s/%s", root, name) < (int)sizeof(dir) && stat(dir, &st) == 0 &&
+                S_ISDIR(st.st_mode))
+            {
+                if (bundle_object(dir, object, sizeof(object)) != 0)
+                    return pin_refuse(uri, name, "is a directory without exactly one .clap or .so file in it");
+                if (phd_pin_path_encode(object, oword, sizeof(oword)) != 0 ||
+                    snprintf(dir, sizeof(dir), "%s/%s", word, oword) >= (int)sizeof(dir))
+                    return pin_refuse(uri, object, "is not a percent-encoded file name");
+                return names_add(files, dir) != 0 ? ERR_MEMORY_ALLOCATION : SUCCESS;
+            }
+        }
         if (names_add(files, word) != 0)
             return ERR_MEMORY_ALLOCATION;
+        return SUCCESS;
     }
-    encoded[slash - encoded] = '\0';
-    if (phd_pin_path_decode(encoded, root, size) != 0)
-        return pin_refuse(uri, encoded, "is not a percent-encoded path");
-    return SUCCESS;
 }
 
 int clap_binary(const char *uri, const char *search, char *path, size_t size)
