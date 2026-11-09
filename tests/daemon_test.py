@@ -2245,8 +2245,9 @@ class Plugins:
     def daemon(self, conf=None, env=None, cpus=None):
         # strict unless a test asks for first-use; the store and the pins_dir are the test's own, never the user's or
         # the system's
-        c = {"require_pins": 1, "pin_mode": "strict", "lv2_path": self.lv2_dir, "pin_store": self.store,
-             "pins_dir": self.pins_dir}
+        # the CLAP search path is the fixture's own directory: first use learns only inside the declared search path
+        c = {"require_pins": 1, "pin_mode": "strict", "lv2_path": self.lv2_dir, "clap_path": self.dir,
+             "pin_store": self.store, "pins_dir": self.pins_dir}
         c.update(conf or {})
         e = {"FAKE_LOG": self.log}
         e.update(env or {})
@@ -2314,6 +2315,66 @@ def a_clap_directory_bundle_pins_and_loads_by_its_one_object():
         write(obj, b"bundle object")
         d.expect("pin_set %s Bundled.clap=%s %s" % (uri, "0" * 64, fake_layout()), "resp 0")
         d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_binary_swapped_between_the_hash_and_the_load_is_refused():
+    """the daemon hashes the pinned file, then the worker opens it by path: a file exchanged in between (here by the
+    worker itself, just before it maps the plugin, FAKE_SWAP_ON_ADD) is refused with PIN_BINARY_MISMATCH, its worker is
+    stopped and no instance is kept. Both the plain exchange and one put back right after the load (a directory
+    exchanged and restored, so the pinned file itself is never touched) are caught, and so is a pinned file the worker
+    reads without mapping it (an LV2 .ttl); adds with no swap still run."""
+    for what in ("file", "directory put back"):
+        p = Plugins()
+        try:
+            if what == "file":
+                evil = os.path.join(p.dir, "clap", "evil.clap")
+                write(evil, b"a build nobody hashed")
+                env = {"FAKE_SWAP_ON_ADD": "%s=%s" % (p.clap, evil)}
+            else:
+                evil = os.path.join(p.dir, "evil")
+                os.makedirs(evil)
+                write(os.path.join(evil, "omx-fault.clap"), b"a build nobody hashed")
+                env = {"FAKE_SWAP_ON_ADD": "%s=%s" % (os.path.dirname(p.clap), evil), "FAKE_SWAP_BACK": "1"}
+            d = p.daemon(env=env)
+            try:
+                d.expect(p.clap_pin(), "resp 0")
+                d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+                check(p.verbs("add"), "%s: the worker was asked to load it: %s" % (what, p.received()))
+                check(d.workers() == {}, "%s: the worker that loaded it is stopped: %s" % (what, d.workers()))
+                d.expect("instance_info 0", "resp -3")
+            finally:
+                d.close()
+        finally:
+            p.close()
+    # a pinned file the worker reads but does not map (an LV2 bundle's .ttl) exchanged in between: its path is no longer
+    # the file that was hashed
+    p = Plugins()
+    try:
+        evil = os.path.join(p.dir, "evil.ttl")
+        write(evil, b"lv2:port [ lv2:index 0 ; lv2:symbol \"other\" ] .")
+        d = p.daemon(env={"FAKE_SWAP_ON_ADD": "%s=%s" % (os.path.join(p.bundle, "pinned.ttl"), evil)})
+        try:
+            d.expect(p.lv2_pin(), "resp 0")
+            d.expect("add %s 1" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
+            check(p.verbs("add"), "ttl: the worker was asked to load it: %s" % p.received())
+            check(d.workers() == {}, "ttl: the worker that loaded it is stopped: %s" % d.workers())
+        finally:
+            d.close()
+    finally:
+        p.close()
+    # the positive control: the same pins and adds, nothing swapped, are loaded and kept
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect(p.lv2_pin(), "resp 0")
+        d.expect("add %s 1" % LV2_URI, "resp 1")
+        check(len(d.workers()) == 2, "adds with nothing swapped keep their workers: %s" % d.workers())
     finally:
         d.close()
         p.close()
@@ -3059,6 +3120,37 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
               "the stored pin is checked after a restart and learned nothing: %s" % p.received())
     finally:
         d.close()
+        p.close()
+
+
+@test
+def first_use_learns_no_pin_outside_the_declared_search_path():
+    """first use pins what it finds only in a directory clap_path or lv2_path declares: a .clap anywhere else, reached
+    by its own path, by a .. out of a declared directory or by a symbolic link inside one, stays unpinned (PIN_ABSENT),
+    nothing is learned and no worker starts"""
+    p = Plugins()
+    outside = tempfile.mkdtemp(prefix="plugin-hostd-outside.")
+    try:
+        stray = os.path.join(outside, "stray.clap")
+        write(stray, b"a build nobody installed")
+        link = os.path.join(p.dir, "clap", "linked.clap")
+        os.symlink(stray, link)
+        climb = os.path.join(p.dir, "clap", "..", "..", os.path.basename(outside), "stray.clap")
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            for path in (stray, climb, link):
+                d.expect("add clap:%s#org.openmixer.fault 0" % path, resp("PIN_ABSENT"))
+            check(store_lines(p) == [], "nothing outside the search path is learned: %s" % store_lines(p))
+            check(p.received() == [], "no worker saw a refused add: %s" % p.received())
+            check(d.workers() == {}, "no worker started: %s" % d.workers())
+            # inside it, first use still learns
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            writes_landed(d)
+            check([l[1] for l in store_lines(p)] == [p.clap_uri], "the declared plugin is learned: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
+        shutil.rmtree(outside, ignore_errors=True)
         p.close()
 
 
@@ -5158,7 +5250,7 @@ def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by
     pin = "pin_set %s Surge%%20XT.clap=%s %s" % (uri, sha(path), fake_layout())
     store = os.path.join(s.dir, "pins")
     pins_dir = os.path.join(s.dir, "pins.d")
-    conf = {"require_pins": 1, "pin_mode": "strict", "pin_store": store, "pins_dir": pins_dir}
+    conf = {"require_pins": 1, "pin_mode": "strict", "pin_store": store, "pins_dir": pins_dir, "clap_path": s.dir}
     env = {"FAKE_LOG": os.path.join(s.dir, "commands.log")}
     d = s.daemon(conf=conf, env=env)
     try:
@@ -5218,7 +5310,7 @@ def a_clap_file_whose_name_holds_a_space_is_added_bare_quoted_or_encoded_and_pin
     raw = "clap:%s#%s" % (path, CLAP_ID)
     store = os.path.join(s.dir, "pins")
     env = {"FAKE_LOG": os.path.join(s.dir, "commands.log")}
-    learn = {"require_pins": 1, "pin_mode": "first-use", "pin_store": store}
+    learn = {"require_pins": 1, "pin_mode": "first-use", "pin_store": store, "clap_path": s.dir}
     d = s.daemon(conf=learn, env=env)
     try:
         d.expect("add %s 0" % raw, "resp 0")

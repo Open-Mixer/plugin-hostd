@@ -88,7 +88,7 @@ Chains vs processes runs the same N plugins in each of these modes, one row per 
 |------|------|-----------|
 | `individual` | H2, no chain declared | the daemon and N workers |
 | `chain` | H2, `chain 1 <ids>` | the daemon and one worker |
-| `chain-add` | H2, each plugin added with `add <uri> <id> chain:1` (plugin-hostd#348): no worker per plugin and no move; a plugin the chain refuses (a width its head does not take) is added `own`, as Zynthian adds it, and the row says how many | the daemon and one worker, plus one per plugin added own |
+| `chain-add` | H2, each plugin added with `add <uri> <id> chain:1` (plugin-hostd#143): no worker per plugin and no move; a plugin the chain refuses (a width its head does not take) is added `own`, as Zynthian adds it, and the row says how many | the daemon and one worker, plus one per plugin added own |
 | `shared-process` | H1 | one omx-clap-host |
 | `shared-process` | H3 | one mod-host |
 | `individual` | H4 | N jalv processes |
@@ -102,7 +102,7 @@ Grouping vs processes (`grp8`, `grp16`) runs one strip four ways under H2 only:
 | `plan` | `grouping on`, `require_pins 1`, a verdict per plugin; `plan 1 <ids>` | the daemon and one worker per segment |
 | `pool` | the same plan, then the members it left alone that the pins let share leave for `pool:g1` | the daemon, the chain workers, the isolated ones, one pool worker |
 
-A row of `plan` or `pool` needs a plugin-hostd with the planner (plugin-hostd#185). Without it the daemon refuses the
+A row of `plan` or `pool` needs a plugin-hostd with the planner (plugin-hostd#101). Without it the daemon refuses the
 `grouping` setting and the row says `unsupported`, with that as its note. The runner starts a daemon once to let it learn
 each plugin's pin, then writes a verdict on each line of the daemon's own pin store: `isolated` for the plugins the
 scenario names under `unshared`, `in-process` for the rest, and starts the row's daemon on that store with the package

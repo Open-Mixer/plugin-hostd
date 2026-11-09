@@ -21,6 +21,8 @@
 #ifndef PINS_H
 #define PINS_H
 
+#include <sys/types.h>
+
 #include <plugin-db/pin.h>
 
 #include "formats.h"
@@ -70,8 +72,11 @@ int pins_pool_cores(const char *uri);
 const char *pins_verdict(const char *uri);
 
 /* first use: the files the format loads for the uri, hashed, recorded with an unknown layout and written to the store.
- * SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP when they cannot be collected (nothing is recorded) */
-int pins_learn(const format_t *format, const char *uri, const char *search);
+ * Only files that resolve inside a directory of `declared` (the format's declared search path, ':'-separated, a leading
+ * ~ the home) are learned. SUCCESS; OMX_REPLY_HOST_PIN_ABSENT_RESP when a file lies outside it, or `declared` is NULL
+ * (nothing is recorded, the uri stays unpinned); OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP when they cannot be
+ * collected (nothing is recorded) */
+int pins_learn(const format_t *format, const char *uri, const char *search, const char *declared);
 
 /* pin_accept: the same collection for a uri that has a pin, which it replaces; the layout is unknown again and the
  * verdict gone; over a package pin it is the host's that then holds. OMX_REPLY_HOST_PIN_ABSENT_RESP when there is no pin to replace,
@@ -88,6 +93,13 @@ int pins_set_layout(const char *uri, const char *layout);
  * unknown, or OMX_REPLY_HOST_PIN_ABSENT_RESP or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP for the pinned files under a
  * verdict of refused. */
 int pins_check(const format_t *format, const char *uri, const char *search, const char **layout);
+
+/* After the worker `worker` answered the add of `uri` that the last pins_check admitted: every file that check hashed is
+ * still, at its path, the file it hashed (device, inode, size and change time as the hashed descriptor had them: a file
+ * renamed, replaced or written since changes one), and the worker maps `binary` (the file the plugin's code is loaded
+ * from, NULL for none) as that very inode. SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP: the worker
+ * loaded something the pin did not check. */
+int pins_loaded(const char *uri, pid_t worker, const char *binary);
 
 /* a refusal of a pin, with the reason on stderr: OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP */
 int pin_refuse(const char *uri, const char *path, const char *why);
