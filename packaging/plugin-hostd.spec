@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.1
+Version: 0.20.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -14,20 +14,20 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: (pkgconfig(plugin-db) >= 0.3.0 with pkgconfig(plugin-db) < 0.4)
+BuildRequires: (pkgconfig(plugin-db) >= 0.3.1 with pkgconfig(plugin-db) < 0.4)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor
-BuildRequires: (plugin-hostd-protocol-devel >= 0.5.0 with plugin-hostd-protocol-devel < 0.6)
+BuildRequires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-devel < 0.6)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: (omx-contract-devel >= 3.11.0 with omx-contract-devel < 4)
+BuildRequires: (omx-contract-devel >= 3.12.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
-Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.0 with plugin-hostd-protocol%{?_isa} < 0.6)
+Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.2 with plugin-hostd-protocol%{?_isa} < 0.6)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -35,22 +35,22 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.0 with plugin-hostd-protocol%{?_
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
-BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)
+BuildRequires: (omx-clap-host-tests >= 0.31.1 with omx-clap-host-tests < 0.32)
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: (omx-contract >= 3.11.0 with omx-contract < 4)
+BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: (plugin-hostd-protocol-contract >= 0.5.0 with plugin-hostd-protocol-contract < 0.6)
-BuildRequires: (omx-clap-core-contract >= 0.31.0 with omx-clap-core-contract < 0.32)
+BuildRequires: (plugin-hostd-protocol-contract >= 0.5.2 with plugin-hostd-protocol-contract < 0.6)
+BuildRequires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: (omx-clap-host >= 0.31.0 with omx-clap-host < 0.32)
+Recommends: (omx-clap-host >= 0.31.1 with omx-clap-host < 0.32)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -71,9 +71,9 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: (plugin-hostd-protocol-devel >= 0.5.0 with plugin-hostd-protocol-devel < 0.6)
+Requires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-devel < 0.6)
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: (plugin-db-devel >= 0.3.0 with plugin-db-devel < 0.4)
+Requires: (plugin-db-devel >= 0.3.1 with plugin-db-devel < 0.4)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -88,12 +88,12 @@ Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: (plugin-hostd-protocol-contract >= 0.5.0 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.31.0 with omx-clap-core-contract < 0.32)
+Requires: (plugin-hostd-protocol-contract >= 0.5.2 with plugin-hostd-protocol-contract < 0.6)
+Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: (omx-contract >= 3.11.0 with omx-contract < 4)
+Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
@@ -115,10 +115,10 @@ BuildArch: noarch
 # next year's first (tests/full_ranges.py). The panel is a weak
 # dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
 Requires: %{name} = %{version}-%{release}
-Requires: (omx-clap-host >= 0.31.0 with omx-clap-host < 0.32)
-Requires: (omx-plugins >= 0.19.1 with omx-plugins < 0.20)
-Requires: (plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)
-Recommends: (omx-panel >= 0.12.0 with omx-panel < 0.13)
+Requires: (omx-clap-host >= 0.31.1 with omx-clap-host < 0.32)
+Requires: (omx-plugins >= 0.19.2 with omx-plugins < 0.20)
+Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)
+Recommends: (omx-panel >= 0.13.0 with omx-panel < 0.14)
 # recommended until the package is in the channel: a hard dependency now would leave plugin-hostd-full uninstallable
 Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)
 
@@ -208,6 +208,15 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Mon Nov 09 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.2-1
+- built and run against the inner layers' latest releases: plugin-hostd-protocol
+  >= 0.5.2, plugin-db >= 0.3.1, omx-clap-core and omx-clap-host >= 0.31.1,
+  omx-contract >= 3.12.0, each below the next minor (omx-contract below 4)
+- plugin-hostd-full: omx-plugins >= 0.19.2, plugin-qualify >= 0.20.1 and the
+  recommended omx-panel >= 0.13.0 and < 0.14
+- tools/zynthian/pi-packages.sh lists plugin-qualification-records, the one
+  records package, in place of a source name with no binary package
+
 * Mon Nov 09 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.1-1
 - plugin-hostd-full: the whole plugin host stack in one install, with
   plugin-hostd at this version, omx-clap-host 0.31, omx-plugins 0.19 and
