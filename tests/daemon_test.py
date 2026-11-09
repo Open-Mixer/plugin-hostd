@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import json, os, re, shutil, signal, subprocess, sys, tempfile, time
+import errno, json, os, re, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
@@ -30,6 +30,52 @@ def ready_line_and_empty_table():
         check(d.workers() == {}, "a daemon with no controller work holds no worker")
         d.expect("worker_list", "resp 0")
         d.expect("instance_info 0", "resp -3")
+    finally:
+        d.close()
+
+
+def proc_status(pid):
+    with open("/proc/%d/status" % pid) as f:
+        return dict(l.rstrip("\n").split(":\t", 1) for l in f if ":\t" in l)
+
+
+def open_files(pid):
+    """what each descriptor of the process names: socket:[ino], pipe:[ino] or a path"""
+    out = {}
+    for fd in os.listdir("/proc/%d/fd" % pid):
+        try:
+            out[int(fd)] = os.readlink("/proc/%d/fd/%s" % (pid, fd))
+        except OSError:
+            pass
+    return out
+
+
+@test
+def a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscalls():
+    """the least privilege a worker runs plugin code under (docs/threat-model.md): no_new_privs set before the exec, no
+    descriptor of the daemon's past stdin, stdout and stderr (the command socket, a controller's, another worker's), and
+    a seccomp filter that answers EPERM to ptrace, process_vm_readv/writev, mount, kexec, module loading and the like;
+    nothing a JACK client's real-time audio needs"""
+    d = daemon()
+    try:
+        d.expect("add clap:/x.clap#first 0", "resp 0")
+        d.expect("add clap:/x.clap#second 1", "resp 1")
+        daemon_files = set(v for v in open_files(d.proc.pid).values() if v.startswith(("socket:", "pipe:", "anon_inode:")))
+        workers = d.workers()
+        check(len(workers) == 2, "two workers: %s" % workers)
+        for k, w in workers.items():
+            st = proc_status(w["pid"])
+            check(st.get("NoNewPrivs") == "1", "%s runs with no_new_privs: %s" % (k, st.get("NoNewPrivs")))
+            check(st.get("Seccomp") == "2", "%s runs under a seccomp filter: %s" % (k, st.get("Seccomp")))
+            mine = open_files(w["pid"])
+            shared = sorted(v for v in mine.values() if v in daemon_files)
+            check(not shared, "%s holds none of the daemon's sockets or pipes: %s" % (k, shared))
+            # what the worker inherits is stdin, stdout and stderr; everything else it opened itself after the exec
+            check(mine.get(1) == mine.get(2) and "/" in mine.get(1, ""), "%s writes its log on 1 and 2: %s" % (k, mine))
+        # the filter answers, it does not kill: a ptrace of the worker's own (untraced) self is ESRCH without it
+        d.expect("param_get 0 ptrace", "resp 0 %d" % errno.EPERM)
+        d.expect("param_get 1 ptrace", "resp 0 %d" % errno.EPERM)
+        check(len(d.workers()) == 2, "both workers live on: %s" % d.workers())
     finally:
         d.close()
 
