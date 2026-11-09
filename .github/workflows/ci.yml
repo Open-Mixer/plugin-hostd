@@ -113,7 +113,7 @@ jobs:
       # plugin of omx-plugins-clap that publishes one and of omx-clap-host-tests' fake compressor, which publishes none
       - name: Test panel_get against the installed scanner and real plugins
         run: |
-          dnf install -y --setopt=retries=10 omx-plugins-clap
+          dnf install -y --setopt=retries=10 omx-plugins-clap omx-plugins-contract
           make test-panel-wire
 
       # mod-host itself, the LV2 worker, from the OpenMixer channel, with the patches FreeMixer/.github carries. The
