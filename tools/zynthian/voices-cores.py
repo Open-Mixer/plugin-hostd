@@ -46,6 +46,16 @@ def log(msg):
     print("voices-cores: " + msg, file=sys.stderr, flush=True)
 
 
+def tail_of(path, lines=12):
+    """the last lines of a log, or why there are none: a row that fails says what the process it ran said"""
+    try:
+        with open(path, errors="replace") as f:
+            kept = f.read().splitlines()[-lines:]
+    except OSError as e:
+        return "(no %s: %s)" % (os.path.basename(path), e.strerror)
+    return " | ".join(kept) if kept else "(%s is empty)" % os.path.basename(path)
+
+
 def mem_available_mb():
     with open("/proc/meminfo") as f:
         for line in f:
@@ -112,7 +122,8 @@ class server:
     def __init__(self, a, out):
         self.name = "vc%d" % os.getpid()
         self.env = dict(os.environ, JACK_DEFAULT_SERVER=self.name)
-        self.logf = open(os.path.join(out, "jackd.log"), "a")
+        self.logpath = os.path.join(out, "jackd.log")
+        self.logf = open(self.logpath, "a")
         alsa = getattr(a, "alsa", "")
         # with no session bus jackd cannot reserve the device: as the jack2 unit does, it goes without the reservation
         driver = ["-P", "70", "-s", "-S", "-d", "alsa", "-d", alsa, "-n", "3", "-X", "raw"] if alsa else ["-d", "dummy"]
@@ -120,12 +131,14 @@ class server:
             self.env["JACK_NO_AUDIO_RESERVATION"] = "1"
         self.proc = subprocess.Popen(["jackd", "-n", self.name] + driver + ["-r", str(a.rate), "-p", str(a.frames)], env=self.env,
                                      stdout=self.logf, stderr=subprocess.STDOUT, start_new_session=True)
-        end = time.monotonic() + 10
+        end = time.monotonic() + getattr(a, "server_wait", 10)
         while time.monotonic() < end:
             if subprocess.run(["jack_lsp"], env=self.env, capture_output=True).returncode == 0:
                 return
             time.sleep(0.2)
-        raise SystemExit("the private JACK server did not start")
+        status = self.proc.poll()
+        raise SystemExit("the private JACK server did not start (%s): %s" % (
+            "still running" if status is None else "exit %d" % status, tail_of(self.logpath)))
 
     def ports(self, flags=()):
         out = subprocess.run(["jack_lsp", "-p", "-t"], env=self.env, capture_output=True, text=True).stdout.splitlines()
@@ -177,7 +190,9 @@ class protocol_host:
             except OSError:
                 time.sleep(0.1)
         if not self.sock:
-            raise RuntimeError("%s never listened" % a.host)
+            status = self.proc.poll()
+            raise RuntimeError("%s never listened on %d (%s): %s" % (
+                a.host, port, "still running" if status is None else "exit %d" % status, tail_of(os.path.join(out, "host.log"))))
         self.buf = b""
 
     def cmd(self, line, timeout=120):
@@ -423,8 +438,12 @@ def one_row(a, srv, inst, notes, rep, out, port):
         row["hz"] = hzs[0] if hzs else ""
         row["xruns"] = max(xruns) if xruns else ""
         row["status"] = "ok"
-    except (RuntimeError, OSError, subprocess.SubprocessError, ValueError) as e:
-        row["note"] = str(e).replace("\t", " ")[:300]
+    except Exception as e:   # a row that fails says why: the kind of error, its words and the host's last lines
+        detail = str(e) or type(e).__name__
+        if not isinstance(e, (RuntimeError, OSError, subprocess.SubprocessError, ValueError)):
+            detail = "%s: %s" % (type(e).__name__, detail)
+        row["note"] = detail.replace("\t", " ").replace("\n", " ")[:600]
+        log("%s rep %d failed: %s; host.log: %s" % (a.name, rep, detail, tail_of(os.path.join(out, "host.log"))))
     finally:
         if cpu_load and cpu_load.poll() is None:
             cpu_load.kill()
