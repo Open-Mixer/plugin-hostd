@@ -72,10 +72,10 @@ jobs:
       # the harnesses read the protocol library's headers: the OpenMixer channel's plugin-hostd-protocol-devel, at or
       # above the floor the spec declares for the build
       - name: Add the OpenMixer channel
-        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
-      - uses: Open-Mixer/.github/.github/actions/wave-deps@main
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
       - name: Install the protocol headers from the OpenMixer channel
         run: |
