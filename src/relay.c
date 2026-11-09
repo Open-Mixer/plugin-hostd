@@ -58,6 +58,11 @@ typedef struct SOURCE_T {
      * as many as there are (a pool has no size limit by default) */
     int *abi;
     int nabi, capabi;
+    /* the instances whose plugin moved a value of its own (a param_set line the worker wrote: a preset the plugin loaded, an
+     * LFO, a knob on its own window), not yet taken by the supervisor: each once. The state the plugin holds now is not the
+     * state the last checkpoint saved, so the supervisor checkpoints it */
+    int *moved;
+    int nmoved, capmoved;
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -206,6 +211,35 @@ static void abi_seen(source_t *s, const char *line)
     s->abi[s->nabi++] = (int)id;
 }
 
+/* a param_set line the worker wrote: its instance is kept for the supervisor until it takes it; past memory, none is kept
+ * (the next move of the same instance says it again) */
+static void moved_seen(source_t *s, const char *line)
+{
+    size_t word = strlen(PHD_EVENT_PARAM_SET);
+    const char *digits = line + word + 1;
+    long id;
+    char *end;
+
+    if (strncmp(line, PHD_EVENT_PARAM_SET, word) || line[word] != ' ' || !isdigit((unsigned char)*digits))
+        return;
+    id = strtol(digits, &end, 10);
+    if (*end != ' ' || id > INT_MAX)
+        return;
+    for (int n = 0; n < s->nmoved; n++)
+        if (s->moved[n] == (int)id)
+            return;
+    if (s->nmoved == s->capmoved)
+    {
+        int cap = s->capmoved ? 2 * s->capmoved : 16, *grown = realloc(s->moved, (size_t)cap * sizeof(int));
+
+        if (!grown)
+            return;
+        s->moved = grown;
+        s->capmoved = cap;
+    }
+    s->moved[s->nmoved++] = (int)id;
+}
+
 /* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
  * held, so nothing is written between the two parts */
 static void gesture_end(const char *held)
@@ -298,6 +332,7 @@ static void drain(source_t *s)
                 gesture_seen(s, start);
                 xruns_seen(s, start);
                 abi_seen(s, start);
+                moved_seen(s, start);
             }
             start = nul + 1;
         }
@@ -445,6 +480,7 @@ void relay_finish(void)
         close(g_src[i].fd);
         free(g_src[i].buf);
         free(g_src[i].abi);
+        free(g_src[i].moved);
         gestures_end(&g_src[i]);
     }
     g_nsrc = 0;
@@ -568,6 +604,24 @@ int relay_abi_clobbers(int fd, int *ids, int max)
     return n;
 }
 
+int relay_param_moves(int fd, int *ids, int max)
+{
+    int i, n = 0;
+
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; i < g_nsrc; i++)
+        if (g_src[i].fd == fd)
+        {
+            for (n = 0; n < g_src[i].nmoved && n < max; n++)
+                ids[n] = g_src[i].moved[n];
+            memmove(g_src[i].moved, g_src[i].moved + n, (size_t)(g_src[i].nmoved - n) * sizeof(int));
+            g_src[i].nmoved -= n;
+            break;
+        }
+    pthread_mutex_unlock(&g_lock);
+    return n;
+}
+
 void relay_instance_gone(int id)
 {
     int i;
@@ -584,6 +638,9 @@ void relay_instance_gone(int id)
             {
                 g_src[i].abi[n--] = g_src[i].abi[--g_src[i].nabi];
             }
+        for (int n = 0; n < g_src[i].nmoved; n++)
+            if (g_src[i].moved[n] == id)
+                g_src[i].moved[n--] = g_src[i].moved[--g_src[i].nmoved];
     }
     pthread_mutex_unlock(&g_lock);
 }
@@ -603,6 +660,7 @@ void relay_remove(int fd)
             gestures_end(&g_src[i]);
             free(g_src[i].buf);
             free(g_src[i].abi);
+            free(g_src[i].moved);
             g_src[i] = g_src[--g_nsrc];
             break;
         }
