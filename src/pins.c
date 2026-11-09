@@ -29,6 +29,8 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -952,8 +954,11 @@ int pins_clear(const char *uri)
     return SUCCESS;
 }
 
+static void seen_free(void);
+
 void pins_finish(void)
 {
+    seen_free();
     own_free();
     pkg_free();
     accepted_free();
@@ -985,7 +990,127 @@ static int full_path(const char *root, const char *path, char *full, size_t size
     return snprintf(full, size, "%s/%s", root, name) >= (int)size ? -1 : 0;
 }
 
-/* the file of a pin hashed over one open descriptor */
+/* ---------------------------------------------------------------- what the last check hashed */
+
+/* each file the last pins_check hashed, as the descriptor it hashed was: a worker opens the file again by path, so after
+ * its add the path must still be that file, unchanged, and the plugin's code mapped in the worker that very file */
+typedef struct
+{
+    char *path;
+    dev_t dev;
+    ino_t ino;
+    struct timespec ctime;
+    off_t size;
+} seen_t;
+
+static seen_t *g_seen;
+static int g_nseen, g_seen_cap;
+static char *g_seen_uri;
+
+static void seen_reset(const char *uri)
+{
+    while (g_nseen)
+        free(g_seen[--g_nseen].path);
+    free(g_seen_uri);
+    g_seen_uri = uri ? strdup(uri) : NULL;
+}
+
+static void seen_free(void)
+{
+    seen_reset(NULL);
+    free(g_seen);
+    g_seen = NULL;
+    g_seen_cap = 0;
+}
+
+static int seen_add(const char *path, const struct stat *st)
+{
+    if (g_nseen == g_seen_cap)
+    {
+        int cap = g_seen_cap ? g_seen_cap * 2 : 8;
+        seen_t *more = realloc(g_seen, cap * sizeof(seen_t));
+
+        if (!more)
+            return -1;
+        g_seen = more;
+        g_seen_cap = cap;
+    }
+    if (!(g_seen[g_nseen].path = strdup(path)))
+        return -1;
+    g_seen[g_nseen].dev = st->st_dev;
+    g_seen[g_nseen].ino = st->st_ino;
+    g_seen[g_nseen].ctime = st->st_ctim;
+    g_seen[g_nseen].size = st->st_size;
+    g_nseen++;
+    return 0;
+}
+
+/* whether /proc/<pid>/maps maps the file `s` hashed: its inode, on its device or at its path (a btrfs subvolume shows
+ * stat a device of its own and the maps the filesystem's) */
+static int mapped(pid_t pid, const seen_t *s)
+{
+    char maps[64], line[PATH_MAX + 256], real[PATH_MAX];
+    FILE *f;
+    int found = 0, have_real = realpath(s->path, real) != NULL;
+
+    snprintf(maps, sizeof(maps), "/proc/%d/maps", (int)pid);
+    if (!(f = fopen(maps, "re")))
+        return 0;
+    while (!found && fgets(line, sizeof(line), f))
+    {
+        unsigned int maj, min;
+        unsigned long long ino;
+        int at = 0;
+        char *name;
+
+        if (sscanf(line, "%*s %*s %*s %x:%x %llu %n", &maj, &min, &ino, &at) < 3 || !at || (ino_t)ino != s->ino)
+            continue;
+        name = line + at;
+        name[strcspn(name, "\n")] = '\0';
+        found = (maj == major(s->dev) && min == minor(s->dev)) || (have_real && !strcmp(name, real));
+    }
+    fclose(f);
+    return found;
+}
+
+int pins_loaded(const char *uri, pid_t worker, const char *binary)
+{
+    const seen_t *code = NULL;
+    struct stat st;
+    int n;
+
+    if (!g_seen_uri || strcmp(g_seen_uri, uri))
+        return pin_refuse(uri, binary ? binary : "", "was loaded without a check of its pin");
+    for (n = 0; n < g_nseen; n++)
+    {
+        const seen_t *s = &g_seen[n];
+
+        if (stat(s->path, &st) != 0 || st.st_dev != s->dev || st.st_ino != s->ino || st.st_size != s->size ||
+            st.st_ctim.tv_sec != s->ctime.tv_sec || st.st_ctim.tv_nsec != s->ctime.tv_nsec)
+            return pin_refuse(uri, s->path, "changed between its hash and the worker's load");
+    }
+    /* the file the plugin's code is loaded from, by its name (never by what is at the path now): a directory bundle's is
+     * the one pinned file inside it */
+    if (binary)
+    {
+        char want[PATH_MAX], real[PATH_MAX];
+        size_t len = strlen(binary);
+        int dir = stat(binary, &st) == 0 && S_ISDIR(st.st_mode), have = realpath(binary, want) != NULL;
+
+        for (n = 0; n < g_nseen && !code; n++)
+            if (dir ? !strncmp(g_seen[n].path, binary, len) && g_seen[n].path[len] == '/'
+                    : !strcmp(g_seen[n].path, binary) ||
+                      (have && realpath(g_seen[n].path, real) && !strcmp(real, want)))
+                code = &g_seen[n];
+        if (!code)
+            return pin_refuse(uri, binary, "is not a file its pin holds");
+        if (!mapped(worker, code))
+            return pin_refuse(uri, code->path, "is not the file the worker loaded");
+    }
+    return SUCCESS;
+}
+
+/* the file of a pin hashed over one open descriptor, its identity kept for pins_loaded */
 static int hash_file(const char *root, const char *path, const char *want, const char *uri)
 {
     char full[PATH_MAX * 2], hex[PHD_SHA256_HEX_LEN + 1];
@@ -1001,6 +1126,8 @@ static int hash_file(const char *root, const char *path, const char *want, const
         rc = pin_refuse(uri, path, "is not a file");
     else if (phd_pin_fd_digest(fd, hex) != 0 || strcmp(hex, want))
         rc = pin_refuse(uri, path, "differs from its pin");
+    else if (seen_add(full, &st) != 0)
+        rc = ERR_MEMORY_ALLOCATION;
     close(fd);
     return rc;
 }
@@ -1193,6 +1320,7 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
                                                           : "no pin");
         return OMX_REPLY_HOST_PIN_ABSENT_RESP;
     }
+    seen_reset(uri);
     /* what the format says the host loads for the plugin, each held by the pin, then every file the pin holds hashed */
     rc = format->pin_collect(uri, search, root, sizeof(root), &files);
     for (n = 0; n < files.n && rc == SUCCESS; n++)
