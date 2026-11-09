@@ -21,7 +21,12 @@
 /* A worker that is not a plugin host: it answers mod-host's protocol for the verbs the daemon routes, keeps
  * its parameters as text, saves and loads them as state, and dies or hangs on cue.
  *
- *   add <uri> <n> [client]      "crash_on_add" in the uri aborts, "refuse" in it answers -101,
+ *   add <uri> <n> [client]      maps the plugin's code as a host's dlopen does: the .clap of a clap: uri (decoded), or
+ *                               every .so of the bundles of LV2_PATH whose manifest names an lv2 uri, read-only, kept
+ *                               mapped; FAKE_SWAP_ON_ADD=<a>=<b> exchanges the two paths just before (renameat2
+ *                               RENAME_EXCHANGE: a file swapped between the daemon's hash and the load) and
+ *                               FAKE_SWAP_BACK exchanges them again after the mapping (the original back in place);
+ *                               "crash_on_add" in the uri aborts, "refuse" in it answers -101,
  *                               "nostate" in it makes an instance that never writes state; an lv2: uri is the
  *                               adapter's (mod-host is given it bare), and the fake answers it as omx-clap-host does:
  *                               "adapter_midi", "adapter_missing", "adapter_wide" or "adapter_unrealised" in it is a
@@ -127,6 +132,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/ptrace.h>
 #include <sys/stat.h>
@@ -300,6 +306,133 @@ static const char *adapter_refusal(const char *uri)
     return NULL;
 }
 
+/* what a host's dlopen leaves in /proc/<pid>/maps: the file mapped read-only, never unmapped; of a directory bundle, the
+ * .clap or .so inside it */
+static void map_file(const char *path)
+{
+    struct stat st;
+    int fd;
+
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+    {
+        DIR *d = opendir(path);
+        struct dirent *e;
+
+        while (d && (e = readdir(d)) != NULL)
+        {
+            size_t n = strlen(e->d_name);
+            char inner[4096 + 256];
+
+            if (((n > 5 && !strcmp(e->d_name + n - 5, ".clap")) || (n > 3 && !strcmp(e->d_name + n - 3, ".so"))) &&
+                snprintf(inner, sizeof(inner), "%s/%s", path, e->d_name) < (int)sizeof(inner))
+                map_file(inner);
+        }
+        if (d)
+            closedir(d);
+        return;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+        return;
+    if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0)
+        (void)mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+}
+
+/* every .so of a bundle of LV2_PATH whose manifest names the uri */
+static void map_lv2(const char *uri)
+{
+    const char *path = getenv("LV2_PATH");
+    char *copy = path ? strdup(path) : NULL, *dir, *save = NULL;
+
+    for (dir = copy ? strtok_r(copy, ":", &save) : NULL; dir; dir = strtok_r(NULL, ":", &save))
+    {
+        DIR *d = opendir(dir);
+        struct dirent *e;
+
+        while (d && (e = readdir(d)) != NULL)
+        {
+            char bundle[4096], manifest[4096 + 16], text[65536];
+            FILE *f;
+            size_t got;
+
+            if (e->d_name[0] == '.' || snprintf(bundle, sizeof(bundle), "%s/%s", dir, e->d_name) >= (int)sizeof(bundle))
+                continue;
+            snprintf(manifest, sizeof(manifest), "%s/manifest.ttl", bundle);
+            if (!(f = fopen(manifest, "r")))
+                continue;
+            got = fread(text, 1, sizeof(text) - 1, f);
+            fclose(f);
+            text[got] = '\0';
+            if (strstr(text, uri))
+            {
+                DIR *b = opendir(bundle);
+                struct dirent *s;
+
+                while (b && (s = readdir(b)) != NULL)
+                {
+                    size_t n = strlen(s->d_name);
+                    char so[4096 + 256];
+
+                    if (n > 3 && !strcmp(s->d_name + n - 3, ".so") &&
+                        snprintf(so, sizeof(so), "%s/%s", bundle, s->d_name) < (int)sizeof(so))
+                        map_file(so);
+                }
+                if (b)
+                    closedir(b);
+            }
+        }
+        if (d)
+            closedir(d);
+    }
+    free(copy);
+}
+
+static void swap_paths(void)
+{
+    const char *spec = getenv("FAKE_SWAP_ON_ADD"), *eq = spec ? strchr(spec, '=') : NULL;
+    char a[4096];
+
+    if (!eq || (size_t)(eq - spec) >= sizeof(a))
+        return;
+    snprintf(a, sizeof(a), "%.*s", (int)(eq - spec), spec);
+    if (renameat2(AT_FDCWD, a, AT_FDCWD, eq + 1, RENAME_EXCHANGE) != 0)
+        perror("fake-host: FAKE_SWAP_ON_ADD");
+}
+
+/* the plugin's code mapped, as the add of a host loads it */
+static void load_plugin(const char *uri)
+{
+    char path[4096];
+    const char *hash;
+    size_t n, k = 0;
+
+    swap_paths();
+    if (!strncmp(uri, "clap:", 5))
+    {
+        hash = strrchr(uri, '#');
+        n = hash ? (size_t)(hash - uri) : strlen(uri);
+        for (size_t c = 5; c < n && k + 1 < sizeof(path); c++)
+        {
+            if (uri[c] == '%' && c + 2 < n && isxdigit((unsigned char)uri[c + 1]) && isxdigit((unsigned char)uri[c + 2]))
+            {
+                char hex[3] = { uri[c + 1], uri[c + 2], 0 };
+
+                path[k++] = (char)strtol(hex, NULL, 16);
+                c += 2;
+            }
+            else
+                path[k++] = uri[c];
+        }
+        path[k] = '\0';
+        map_file(path);
+    }
+    else
+        map_lv2(strncmp(uri, "lv2:", 4) ? uri : uri + 4);
+    if (getenv("FAKE_SWAP_BACK"))
+        swap_paths();
+}
+
 static void receive(msg_t *msg)
 {
     /* as many words as a line holds (PHD_LINE_WORDS_MAX): a curve_bind of a third of a 32-band EQ is 49 */
@@ -415,6 +548,7 @@ static void receive(msg_t *msg)
             answer(fd, "resp -2");
         else
         {
+            load_plugin(tok[1]);
             memset(&g_inst[id], 0, sizeof(inst_t));
             g_inst[id].exists = 1;
             g_expect[id][0] = '\0';

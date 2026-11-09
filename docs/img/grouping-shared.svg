@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="230" viewBox="0 0 800 230" role="img" aria-labelledby="title desc">
+  <title id="title">Shared process: one host program holds every plugin</title>
+  <desc id="desc">One host process, omx-clap-host or mod-host, holds omx-comp, omx-delay and omx-drive. Each plugin is a JACK client of its own inside that process, and the host links them in series through JACK, from the sine source to the playback ports.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="800" height="230" rx="12" fill="#fbfbf9" stroke="#d9d9d3"/>
+  <rect x="16" y="16" width="768" height="160" rx="14" fill="#f2f2ef" stroke="#8a8a86" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="32" y="38" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#8a8a86" text-anchor="start" font-weight="600">JACK graph</text>
+  <text x="118" y="38" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">three JACK clients, all in one process</text>
+  <rect x="34" y="101" width="56" height="26" rx="13" fill="#ffffff" stroke="#8a8a86" stroke-width="1.2"/>
+  <text x="62" y="118.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#55554f" text-anchor="middle">sine</text>
+  <rect x="124" y="54" width="606" height="106" rx="10" fill="#e1ebfa" stroke="#2f6fd0" stroke-width="1.5"/>
+  <text x="140" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#2f6fd0" text-anchor="start" font-weight="600">host process</text>
+  <text x="236" y="76" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#55554f" text-anchor="start">omx-clap-host (H1) or mod-host (H3)</text>
+  <rect x="160" y="98" width="130" height="36" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="225" y="120.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">omx-comp</text>
+  <rect x="360" y="98" width="130" height="36" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="425" y="120.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">omx-delay</text>
+  <rect x="560" y="98" width="130" height="36" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="625" y="120.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">omx-drive</text>
+  <line x1="92" y1="114" x2="122" y2="114" fill="none" stroke="#2b2b2b" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="292" y1="116" x2="358" y2="116" fill="none" stroke="#2b2b2b" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="492" y1="116" x2="558" y2="116" fill="none" stroke="#2b2b2b" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="732" y1="116" x2="746" y2="116" fill="none" stroke="#2b2b2b" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="752" y="120" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#55554f" text-anchor="start">out</text>
+  <text x="24" y="208" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1d1d1b" text-anchor="start" font-weight="700">1</text>
+  <text x="41" y="208" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">process</text>
+  <text x="124" y="208" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1d1d1b" text-anchor="start" font-weight="700">3</text>
+  <text x="141" y="208" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">JACK clients</text>
+  <text x="259" y="208" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1d1d1b" text-anchor="start" font-weight="700">3</text>
+  <text x="276" y="208" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">plugins lost to a crash, nothing restarts them</text>
+</svg>

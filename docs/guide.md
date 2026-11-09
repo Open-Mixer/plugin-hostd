@@ -75,6 +75,9 @@ you would a mod-host plugin. `man plugin-hostd` has the options; the full protoc
 Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](own-host.md), nine commands from
 nothing to a plugin running.
 
+How plugins are grouped into workers, chains, plans and pools, drawn, with what the benchmark measures of each:
+[docs/groupings.md](groupings.md).
+
 Under Zynthian on a Raspberry Pi 5: <https://openmixer.org/docs/zynthian> says what it changes, how to install and use
 it and where it stands; the measurements are at <https://openmixer.org/benchmarks>, and how they were taken, with the
 design of pins, chains and grouping, in the technical notes at <https://openmixer.org/notes>.
@@ -226,7 +229,8 @@ jack client name, passed on. An instance that crashed in a pool is placed
 Grouped workers against one process per plugin
 ----------------------------------------------
 
-A chain runs its plugins in one worker; the other way is one process per plugin. One measurement of the two, with
+A chain runs its plugins in one worker; the other way is one process per plugin ([docs/groupings.md](groupings.md) draws
+both). One measurement of the two, with
 16 plugins, with the numbers of the page at <https://www.openmixer.org/docs/grouped-vs-processes>:
 
 | | grouped | one process per plugin | |
@@ -661,7 +665,10 @@ every file the host loads for it, and its parameter layout fingerprint. Before a
 `clap:<path>#<id>` names, the `.clap` itself among them; for an LV2 the files of the bundle whose `manifest.ttl` names
 the URI, the manifest among them, and every file the manifest names with `lv2:binary` or `rdfs:seeAlso` for the plugin
 must be held by the pin. No pin, or a layout pin in a scheme this version does not know, answers `PHD_ERR_PIN_ABSENT`;
-a file missing, changed or not held answers `PHD_ERR_PIN_BINARY_MISMATCH`. For a CLAP the daemon then sends the worker
+a file missing, changed or not held answers `PHD_ERR_PIN_BINARY_MISMATCH`. The worker opens the files again by path,
+so once it answers the `add` the daemon checks that each pinned path is still the file it hashed (device, inode, size
+and change time) and that the worker maps the plugin's binary as that very inode (`/proc/<pid>/maps`); a file swapped in
+between answers `PHD_ERR_PIN_BINARY_MISMATCH` too, and the worker that loaded it is stopped. For a CLAP the daemon then sends the worker
 `pin_expect <instance> <layout pin>` and the `add` unchanged, and the worker answers `PHD_ERR_PIN_LAYOUT_MISMATCH`
 when the layout after `init` is not the pinned one; a worker that refuses `pin_expect` gets no `add`, and its refusal
 is the reply, and one that dies on it or does not answer it is dropped with `PHD_ERR_VERB_DROPPED`, the

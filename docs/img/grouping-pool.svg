@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="290" viewBox="0 0 820 290" role="img" aria-labelledby="title desc">
+  <title id="title">Pool: the plan's lone shareable plugins share one pool worker</title>
+  <desc id="desc">The same grp8 strip after the pool step. Plugins 0 comp, 2 delay and 7 delay, which the plan left alone but whose pins let them share, move into one violet pool worker named g1. The chain of 4 comp and 5 comp stays, and the three isolated drives keep a red worker each. The signal still runs 0 to 7 in order, through JACK.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="820" height="290" rx="12" fill="#fbfbf9" stroke="#d9d9d3"/>
+  <rect x="16" y="16" width="788" height="196" rx="14" fill="#f2f2ef" stroke="#8a8a86" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="32" y="38" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#8a8a86" text-anchor="start" font-weight="600">JACK graph</text>
+  <text x="118" y="38" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">signal order unchanged: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7, through JACK</text>
+  <rect x="32" y="56" width="268" height="100" rx="10" fill="#ebe5fa" stroke="#7550c9" stroke-width="1.5"/>
+  <text x="44" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#7550c9" text-anchor="start" font-weight="600">pool:g1</text>
+  <text x="110" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">one worker</text>
+  <rect x="44" y="98" width="72" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="80" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">0 comp</text>
+  <rect x="128" y="98" width="72" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="164" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">2 delay</text>
+  <rect x="212" y="98" width="72" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="248" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">7 delay</text>
+  <rect x="316" y="56" width="196" height="100" rx="10" fill="#ddf2ee" stroke="#138a7e" stroke-width="1.5"/>
+  <text x="328" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#138a7e" text-anchor="start" font-weight="600">chain:1.4</text>
+  <rect x="326" y="86" width="176" height="56" rx="8" fill="#fcefd2" stroke="#c4860f" stroke-width="1.5"/>
+  <rect x="336" y="98" width="68" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="370" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">4 comp</text>
+  <rect x="424" y="98" width="68" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="458" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">5 comp</text>
+  <line x1="405" y1="115" x2="422" y2="115" fill="none" stroke="#2b2b2b" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <rect x="528" y="56" width="84" height="100" rx="10" fill="#fbe2df" stroke="#c8423a" stroke-width="1.5"/>
+  <text x="536" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#c8423a" text-anchor="start" font-weight="600">isolated</text>
+  <rect x="536" y="98" width="68" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="570" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">1 drive</text>
+  <rect x="620" y="56" width="84" height="100" rx="10" fill="#fbe2df" stroke="#c8423a" stroke-width="1.5"/>
+  <text x="628" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#c8423a" text-anchor="start" font-weight="600">isolated</text>
+  <rect x="628" y="98" width="68" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="662" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">3 drive</text>
+  <rect x="712" y="56" width="84" height="100" rx="10" fill="#fbe2df" stroke="#c8423a" stroke-width="1.5"/>
+  <text x="720" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11" fill="#c8423a" text-anchor="start" font-weight="600">isolated</text>
+  <rect x="720" y="98" width="68" height="30" rx="6" fill="#ffffff" stroke="#2b2b2b" stroke-width="1.4"/>
+  <text x="754" y="117.5" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#1d1d1b" text-anchor="middle">6 drive</text>
+  <text x="32" y="186" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#55554f" text-anchor="start">remove 0, 2, 7, then add each again with pool:g1</text>
+  <text x="24" y="240" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1d1d1b" text-anchor="start" font-weight="700">5</text>
+  <text x="41" y="240" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">workers, plus the daemon, against 7 for the plan and 8 one per plugin</text>
+  <text x="24" y="266" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#55554f" text-anchor="start">A crash in the pool stops the three plugins it holds; the isolated drives are never pooled.</text>
+</svg>

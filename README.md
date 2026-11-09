@@ -7,6 +7,9 @@ else. It speaks mod-host's socket protocol, same ports, same replies, so a mod-h
 works unchanged; audio never passes through the daemon, every worker is a JACK client. It is for
 anyone who runs plugins live on Linux, on a mixing console, a stage rig or a Raspberry Pi.
 
+**New here? Read [How plugins are grouped](docs/groupings.md) first.** It draws what a worker, a chain, a plan and a
+pool are, and how the benchmark compares them.
+
 Install
 -------
 
@@ -38,8 +41,8 @@ Documentation
 -------------
 
 - <https://www.openmixer.org/projects/plugin-hostd>, and the documentation at <https://www.openmixer.org/docs>.
-- In the source tree: the whole guide, with the protocol, placement, grouping, pins and formats,
-  in [docs/guide.md](docs/guide.md); using it from your own host in [docs/own-host.md](docs/own-host.md).
+- In the source tree: how plugins are grouped into workers, drawn, in [docs/groupings.md](docs/groupings.md); the whole
+  guide, with the protocol, placement, grouping, pins and formats, in [docs/guide.md](docs/guide.md); using it from your own host in [docs/own-host.md](docs/own-host.md).
 
 Building from source: see [BUILDING.md](BUILDING.md).
 
