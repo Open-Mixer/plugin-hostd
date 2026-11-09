@@ -300,12 +300,32 @@ static const char *adapter_refusal(const char *uri)
     return NULL;
 }
 
-/* what a host's dlopen leaves in /proc/<pid>/maps: the file mapped read-only, never unmapped */
+/* what a host's dlopen leaves in /proc/<pid>/maps: the file mapped read-only, never unmapped; of a directory bundle, the
+ * .clap or .so inside it */
 static void map_file(const char *path)
 {
     struct stat st;
-    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    int fd;
 
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+    {
+        DIR *d = opendir(path);
+        struct dirent *e;
+
+        while (d && (e = readdir(d)) != NULL)
+        {
+            size_t n = strlen(e->d_name);
+            char inner[4096 + 256];
+
+            if (((n > 5 && !strcmp(e->d_name + n - 5, ".clap")) || (n > 3 && !strcmp(e->d_name + n - 3, ".so"))) &&
+                snprintf(inner, sizeof(inner), "%s/%s", path, e->d_name) < (int)sizeof(inner))
+                map_file(inner);
+        }
+        if (d)
+            closedir(d);
+        return;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         return;
     if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0)

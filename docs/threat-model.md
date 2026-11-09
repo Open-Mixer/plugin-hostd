@@ -73,7 +73,11 @@ What the code assumes and enforces
   the pin, and each pinned file is opened once, checked to be a regular file, and SHA-256 hashed on that descriptor
   (`hash_file`). Missing pin: `-508`; changed, missing or unheld file: `-509`; `verdict=refused`: `-516` unless the
   user's `pin_accept`. Pin paths are relative, without `..` or empty components, and percent-escaped (`path_valid`,
-  `full_path`). A `pin_set` line that does not fit `line_max` is refused.
+  `full_path`). A `pin_set` line that does not fit `line_max` is refused. The device, inode, size and change time of each
+  hashed descriptor are kept; once the worker answers the `add` (and each replayed `add`), every pinned path must still
+  be that file, unchanged, and the worker's `/proc/<pid>/maps` must map the plugin's binary as that very inode
+  (`pins_loaded`). Otherwise the add answers `-509`, a `pin_changed` event is sent, and the worker, which ran what it
+  loaded, is stopped; any other instance it held is replayed in a new one.
 - LV2 manifests (`src/lv2.c`): read only when a regular file of at most 4 MiB (`MANIFEST_MAX`); a name that climbs out
   of the bundle or is absolute is never matched by a pin; a manifest using `@base` is refused with `-509`.
 - Pinned LV2 plugins get a worker of their own whose LV2 world is narrowed to the plugin's bundle (`src/lv2.c`,
@@ -85,8 +89,11 @@ What the code assumes and enforces
 
 Not enforced:
 
-- The pin is checked by the daemon and the file is then opened again, by path, by the worker; a file swapped between
-  the two is not caught by the daemon.
+- The worker opens the pinned files again, by path, after the daemon hashed them, and the check of what it loaded runs
+  after its `add`: a swapped binary's load-time code (constructors, the CLAP entry's `init`) has already run in that
+  worker by the time the worker is stopped. Loading from the descriptor the daemon hashed would close this, and needs
+  the workers (omx-clap-host, mod-host) to take one. A swap inside a directory above the pin's root that is restored
+  before the check is caught for the binary (by the mapping) but not for a file the worker reads without mapping it.
 - `state_root` defaults to `$XDG_RUNTIME_DIR`, else `/tmp`. The daemon `mkdir`s `plugin-hostd/<pid>` there mode 0755
   without checking the result or the owner, and writes worker and scan logs with `O_TRUNC` and no `O_NOFOLLOW`
   (`proc_spawn` in `src/proc.c`, `src/supervisor.c`, `src/descriptors.c`).

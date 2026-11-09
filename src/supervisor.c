@@ -1490,6 +1490,22 @@ static int replay_add(worker_t *w, instance_t *i)
         replay_refused(w, i, add, code);
         return 0;
     }
+    /* what the respawned worker loaded must be what replay_pin hashed; one that loaded anything else ran it, and goes */
+    if (g_conf.require_pins)
+    {
+        const format_t *f = format_at(i->fmt);
+        char binary[PATH_MAX];
+        int have = f->binary && f->binary(i->uri, search_of(i->fmt), binary, sizeof(binary)) == 0;
+
+        code = pins_loaded(i->uri, w->pid, have ? binary : NULL);
+        if (code != SUCCESS)
+        {
+            replay_refused(w, i, "pin", code);
+            kill(w->pid, SIGKILL);
+            on_death(w, -1);
+            return -1;
+        }
+    }
     /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
      * has no track_info, so a worker that does not answer the instance verbs never gets it */
     if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
@@ -2225,6 +2241,29 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             return adapter_refused(fwd, why);
         }
         return reply;
+    }
+    /* the worker opened the plugin by path after the daemon hashed it: what it loaded must be what was hashed. A worker
+     * that loaded anything else ran that code, so it is stopped, whatever else it held (those are replayed) */
+    if (g_conf.require_pins)
+    {
+        char binary[PATH_MAX];
+        int have = format->binary && format->binary(fwd, search_of(fmt), binary, sizeof(binary)) == 0;
+
+        int loaded = pins_loaded(fwd, w->pid, have ? binary : NULL);
+
+        if (loaded != SUCCESS)
+        {
+            pin_changed_event(fwd, loaded);
+            free(reply);
+            if (w->ninst == 0)
+                worker_retire(w);
+            else
+            {
+                kill(w->pid, SIGKILL);
+                on_death(w, -1);
+            }
+            return sup_resp(loaded);
+        }
     }
     if (g_conf.require_pins && !layout && format->layout_check)
         learn_layout(w, id, fwd);
