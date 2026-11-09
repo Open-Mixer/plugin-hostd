@@ -50,7 +50,7 @@ PROTOCOL_JSON = $(PROTOCOL_DIR)/protocol/plugin-hostd.json
 MODHOST_JSON = $(PROTOCOL_DIR)/protocol/mod-host.json
 endif
 
-# The declared protocol is plugin-hostd-protocol's (0.4.4 or later, before 0.5), never this tree's: <plugin-hostd/protocol.h> and
+# The declared protocol is plugin-hostd-protocol's (0.5.0 or later, before 0.6), never this tree's: <plugin-hostd/protocol.h> and
 # the headers it includes are found through PROTOCOL_CFLAGS, after this tree's -Iinclude (which holds the
 # vocabulary of data/, and in a scratch tree of tests/sabotage.py a changed copy of the protocol headers); the JSON of
 # protocol.h (PROTOCOL_JSON) and mod-host's (MODHOST_JSON) are its files. make check-no-protocol-copy fails when a copy
@@ -538,7 +538,15 @@ JACK_SERVER ?= pipewire
 # the real workers over jack in a PipeWire of its own: omx-clap-host (OMX_CLAP_HOST) and, when MOD_HOST is
 # given, mod-host with an LV2 bundle (LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM name the plugin); with omx-clap-host's
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
-test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios
+# the reply curve_points must give, from omx-dsp's omx_curve_points (header only): the real instances' curves are held
+# to it in tests/jack_e2e.py
+OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= 0.32.0' 'omxdsp < 0.33' 2>/dev/null)
+tests/curve_reply: tests/curve_reply.c
+	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel >= 0.32.0 and < 0.33" >&2; exit 1; }
+	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) -o $@ $< -lm
+
+test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply
+	CURVE_REPLY=$(abspath tests/curve_reply) \
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 

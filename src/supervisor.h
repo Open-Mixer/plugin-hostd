@@ -216,4 +216,13 @@ void sup_after_reply(int id, const char *verb);
 
 int sup_worker_count(void);
 
+/* every monitor_output the connection now ending set is ended (monitor_output_off), as doc/protocol.md's Monitors
+ * rules: the worker is told while it is up, and the ledger forgets the line either way, so a respawn after this does
+ * not replay it */
+void sup_monitors_disconnect(void);
+
+/* whether the connection now open holds a monitor on this output of this instance (monitor_output_off refuses -543 when
+ * it does not) */
+int sup_monitor_held(int id, const char *symbol);
+
 #endif

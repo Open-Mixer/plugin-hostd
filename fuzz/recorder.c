@@ -288,7 +288,7 @@ static char *answer(struct rec_call *c, const char *shape, int changes)
     if (changes)
         g_rec.state = mix_call(g_rec.state, c);
     /* the reply a verb declares fits one line of the protocol
-     * mutant: include/plugin-hostd/protocol.h:63 `4096` -> `4`
+     * mutant: include/plugin-hostd/protocol.h:78 `4096` -> `4`
      * input: mod-host-bypass */
     if (syntax_instantiate(shape, buf, sizeof(buf)) < 0)
         abort();
@@ -345,6 +345,15 @@ char *sup_call(int id, const char *line)
     arg_i(c, id);
     arg_line(c, line);
     return answer(c, REC_MOD_HOST_SHAPE, 1);
+}
+
+/* monitor_output_off asks first whether this connection's monitor stands: the harness holds every one, so the line
+ * goes on to sup_call and is recorded there */
+int sup_monitor_held(int id, const char *symbol)
+{
+    (void)id;
+    (void)symbol;
+    return 1;
 }
 
 char *sup_remove(int id)
