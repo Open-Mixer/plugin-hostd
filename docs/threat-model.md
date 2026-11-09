@@ -21,9 +21,14 @@ and MIDI never pass through it, every worker is a JACK client (`README.md`, `doc
   no real-time priority; it only sets CPU affinity (`src/supervisor.c`, `src/proc.c`). A worker's audio thread gets
   its priority from the JACK client library.
 - Isolation: one process per plugin, per pool or per chain, so a crash takes down its worker only. Workers run as
-  the daemon's user with its environment, with `PR_SET_PDEATHSIG`; there is no namespace, seccomp, cgroup or rlimit
-  around a worker. The descriptor scan (`plugin-hostd-probe describe|panel`) also runs in a child of its own
-  (`src/descriptors.c`). Only `plugin-hostd-probe run` bounds its measured child (rlimits, memory cgroup, no new
+  the daemon's user with its environment, with `PR_SET_PDEATHSIG`. Before the exec (`proc_confine` in `src/proc.c`)
+  each worker, and the descriptor scan (`plugin-hostd-probe describe|panel`, a child of its own, `src/descriptors.c`),
+  gets `PR_SET_NO_NEW_PRIVS`, closes every descriptor past 0, 1 and 2 (so no plugin holds the command socket, a
+  controller's or another worker's), and a seccomp filter that answers `EPERM` to `ptrace`,
+  `process_vm_readv`/`writev`, `mount`, `umount2`, `pivot_root`, `kexec_*`, module loading, `reboot`, `swapon`/`swapoff`,
+  `acct`, `open_by_handle_at`, `bpf`, `userfaultfd`, `iopl`/`ioperm`, and to any system call of another architecture.
+  None of it touches scheduling, memory locking or the audio path. There is no namespace, cgroup or rlimit around a
+  worker. Only `plugin-hostd-probe run` bounds its measured child (rlimits, memory cgroup, no new
   privileges, capabilities dropped; `src/probe.c`, `src/probe_cgroup.c`, `docs/guide.md`).
 
 Inputs
@@ -92,6 +97,9 @@ Not enforced:
   (`proc_spawn` in `src/proc.c`, `src/supervisor.c`, `src/descriptors.c`).
 - The probe's stdout is read into memory without a size cap before parsing (`src/descriptors.c`).
 - Worker ports on `127.0.0.1` accept any local process; only the daemon is meant to connect.
+- A worker still sees the daemon user's whole file system and network, and the filter is a denylist. Next steps that
+  would need a measurement on each machine class before they ship: a mount namespace with the plugin paths and the
+  JACK socket only, an allowlist filter, and an rlimit or cgroup on memory.
 - With `require_pins 0` no file is checked at all.
 
 Fuzz coverage

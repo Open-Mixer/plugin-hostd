@@ -305,6 +305,7 @@ static void scan_start(scan_t *s, int panel)
         dup2(out, STDOUT_FILENO);
         dup2(log >= 0 ? log : out, STDERR_FILENO);
         signal(SIGPIPE, SIG_DFL);
+        proc_confine();
         execlp(g_conf->probe, g_conf->probe, panel ? "panel" : "describe", s->target, (char *)NULL);
         _exit(127);
     }

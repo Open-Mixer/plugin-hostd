@@ -40,6 +40,12 @@ void proc_env_clear(worker_env_t *env);
 /* Start `bin` as "<bin> -n -p <port> -f <fb_port>" (PHD_WORKER_ARGUMENTS), with env->thread_pool PHD_WORKER_THREAD_POOL_ON after
  * them, on two free ports, its stdout and stderr
  * in `logfile`. `world` is set in the worker's environment as `world_env`, when neither is NULL. */
+/* In a child after fork, before the exec of a program that runs plugin code (a worker, the descriptor scan): no new
+ * privileges, no descriptor past 0, 1 and 2, and a seccomp filter that answers EPERM to the system calls no plugin
+ * needs (ptrace, process_vm_readv/writev, mount, kexec, module loading, reboot, swap, bpf, userfaultfd and the like).
+ * Each step that the kernel refuses is skipped; none of them touches scheduling, memory locking or the audio path. */
+void proc_confine(void);
+
 int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const char *world, const worker_env_t *env,
                const char *logfile, pid_t *pid, int *port, int *fb_port);
 
