@@ -5,7 +5,7 @@ name: ci
 # here: release.yml is a release, run from a version tag, and its dry run is the last job.
 #
 # The RPM build and the channel are the composite actions of
-# FreeMixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
+# Open-Mixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
 # omx-clap-host-tests packages of the OpenMixer channel, installed by dnf builddep / apt-get build-dep from the
 # floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here. A pull request
 # into dedupe/all, and a push to it, take the siblings listed in .github/wave-deps from their own dedupe/all instead.
@@ -57,9 +57,9 @@ jobs:
           fi
 
   # the checks every FreeMixer repository runs on what it publishes: commit messages, private references, and no
-  # local copy of either (FreeMixer/.github's public-sources-check)
+  # local copy of either (Open-Mixer/.github's public-sources-check)
   public-sources:
-    uses: FreeMixer/.github/.github/workflows/public-sources-check.yml@v1
+    uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@main
 
   test:
     name: build and test
@@ -82,10 +82,10 @@ jobs:
 
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
 
-      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
-      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@main
 
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
@@ -116,7 +116,7 @@ jobs:
           dnf install -y --setopt=retries=10 omx-plugins-clap omx-plugins-contract
           make test-panel-wire
 
-      # mod-host itself, the LV2 worker, from the OpenMixer channel, with the patches FreeMixer/.github carries. The
+      # mod-host itself, the LV2 worker, from the OpenMixer channel, with the patches Open-Mixer/.github carries. The
       # floor is the first build whose ports listen on 127.0.0.1 unless told otherwise (11.3).
       - name: Install mod-host from the channel
         run: |
@@ -174,10 +174,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Add the OpenMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
 
-      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
-      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@main
 
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
@@ -221,18 +221,18 @@ jobs:
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
 
-      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
-      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@main
 
       # the worker and the fixtures: omx-clap-host-tests Depends on omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
         run: apt-get build-dep -y --no-install-recommends ./
 
       # the CLAP headers, which Debian does not package either: built and installed from the pin of
-      # FreeMixer/.github, the same one the RPM and DEB builds of the CLAP worker use
-      - uses: FreeMixer/.github/.github/actions/deb-deps@v1
+      # Open-Mixer/.github, the same one the RPM and DEB builds of the CLAP worker use
+      - uses: Open-Mixer/.github/.github/actions/deb-deps@main
         with:
           names: clap-headers
 
@@ -283,10 +283,10 @@ jobs:
 
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
 
-      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
-      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@main
 
       # the packages the clean root installs beside plugin-hostd's: the protocol library and mod-host's protocol library,
       # from the channel. mod-host itself is only suggested, so the clean root runs the daemon without it
@@ -298,7 +298,7 @@ jobs:
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
           dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)" plugin-db-devel
 
-      - uses: FreeMixer/.github/.github/actions/build-rpm@v1
+      - uses: Open-Mixer/.github/.github/actions/build-rpm@main
 
       - name: Check the file lists
         run: |
@@ -368,7 +368,7 @@ jobs:
       - name: Build the fake worker
         run: make tests/fake-host tests/slow-fsync.so
 
-      - uses: FreeMixer/.github/.github/actions/install-clean@v1
+      - uses: Open-Mixer/.github/.github/actions/install-clean@main
         with:
           rpms: |
             dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
@@ -453,17 +453,17 @@ jobs:
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
 
-      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
-      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@main
 
       # the CLAP headers Debian does not package; the protocol library is the channel's
-      - uses: FreeMixer/.github/.github/actions/deb-deps@v1
+      - uses: Open-Mixer/.github/.github/actions/deb-deps@main
         with:
           names: clap-headers
 
-      - uses: FreeMixer/.github/.github/actions/build-deb@v1
+      - uses: Open-Mixer/.github/.github/actions/build-deb@main
 
       # the data packages plugin-hostd-contract depends on are the channel's, not Debian's: the clean container
       # installs them from here, like the protocol library; omx-contract too, whose schema reads the tables (#165)
@@ -655,7 +655,7 @@ jobs:
           test "$(dpkg-query -W -f='${Version}' plugin-hostd-contract)" = "$(cat /tmp/run-version)"
 
   # The spike's Zynthian engine (tools/zynthian/spike-engine.sh reads its patch from the commit it was last changed at;
-  # the engine that ships is FreeMixer/zynthian-ui's), applied to zynthian-ui at its pin,
+  # the engine that ships is Open-Mixer/zynthian-ui's), applied to zynthian-ui at its pin,
   # declares a chain of three omx-plugins members (omx-strip and omx-limiter CLAP, omx-delay LV2 on the adapter row)
   # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
   # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
@@ -686,7 +686,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: The FreeMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@main
 
       - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
         run: |
