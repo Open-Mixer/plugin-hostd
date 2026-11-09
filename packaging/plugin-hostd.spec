@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.19.1
+Version: 0.20.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -177,6 +177,16 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Sun Nov 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.0-1
+- curve_bind and curve_points reach the worker that holds the instance; the
+  ledger keeps the binding for a respawn; a word that is no number is -902
+- show_external_ui and hide_external_ui reach the worker that holds the
+  instance; the ledger keeps the latest of the two
+- monitor_output_off ends one monitor, and a monitor ends with its connection;
+  an output this connection did not monitor is -543
+- built against plugin-hostd-protocol 0.5, plugin-db 0.3, omx-clap-core-contract
+  0.31 and omx-contract 3.11; tested against omx-clap-host 0.31
+
 * Sat Nov 07 2026 Pau Aliagas <linuxnow@gmail.com> - 0.19.1-1
 - The daemon writes its files on a thread of its own, so the command loop never waits on the disk: a
   history save, a pin store or a descriptor on a slow disk left every command unanswered until the
