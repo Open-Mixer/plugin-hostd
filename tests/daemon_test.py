@@ -2270,6 +2270,30 @@ def an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts():
 
 
 @test
+def a_clap_directory_bundle_pins_and_loads_by_its_one_object():
+    # Cardinal and Ildaeil ship <name>.clap as a DIRECTORY holding the one shared object; the pin holds that object's
+    # file, and the add is not refused as "is not a file" (-509)
+    p = Plugins()
+    bundle = os.path.join(p.dir, "clapdir", "Bundled.clap")
+    os.makedirs(bundle)
+    obj = os.path.join(bundle, "Bundled.clap")
+    write(obj, b"bundle object")
+    uri = "clap:%s#org.openmixer.fault" % bundle
+    d = p.daemon()
+    try:
+        d.expect("pin_set %s Bundled.clap/Bundled.clap=%s %s" % (uri, sha(obj), fake_layout()), "resp 0")
+        d.expect("add %s 0" % uri, "resp 0")
+        write(obj, b"another object")
+        d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
+        write(obj, b"bundle object")
+        d.expect("pin_set %s Bundled.clap=%s %s" % (uri, "0" * 64, fake_layout()), "resp 0")
+        d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_swapped_clap_binary_is_refused_before_any_worker_sees_add():
     p = Plugins()
     d = p.daemon()
