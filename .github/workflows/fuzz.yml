@@ -1,15 +1,15 @@
 name: fuzz
 
-# The libFuzzer harnesses of fuzz/ (fuzz/README.md), on every push and pull request: each built with clang under
+# The libFuzzer harnesses of fuzz/ (fuzz/README.md), on a v* tag and on workflow_dispatch: each built with clang under
 # AddressSanitizer and UndefinedBehaviorSanitizer and fuzzed for 60 s from its seed corpus, every mutant of
 # fuzz/sabotage/ found by its own property, every check's record met, the coverage witness held to its floor, and the
 # corpus current. An input
 # that crashes a harness is uploaded as the fuzz-findings artifact. The command socket's chunking test stays in ci.yml.
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read

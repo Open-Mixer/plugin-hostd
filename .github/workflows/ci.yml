@@ -1,7 +1,7 @@
 name: ci
 
-# The tests that need no audio server run on every push and pull request, then the RPMs are built as
-# artifacts, on both architectures, and installed in a clean container. Nothing is signed or published
+# The tests that need no audio server run on every push and pull request; on workflow_dispatch the RPMs are
+# also built as artifacts, on both architectures, and installed in a clean container. Nothing is signed or published
 # here: release.yml is a release, run from a version tag, and its dry run is the last job.
 #
 # The RPM build and the channel are the composite actions of
@@ -14,6 +14,7 @@ on:
   pull_request:
   push:
     branches: [main, dedupe/all]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,8 +26,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # The packages and their smoke tests are built from the whole tree but fuzz/, bench/, the top-level pages and the licence:
-  # a pull request that changes only those skips them (the jobs below that need this one). main and tags run them always.
+  # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
+  # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
   changes:
     name: what the pull request changes
     runs-on: ubuntu-latest
@@ -34,27 +35,13 @@ jobs:
     outputs:
       packages: ${{ steps.diff.outputs.packages }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      # The checkout of a pull request is its merge commit and the first parent is the base, so this diff is what the
-      # pull request adds. Any other event, or a diff that cannot be read, says true: main and tags always run it.
+      # Packaging runs only on workflow_dispatch (the release dry run fast-release dispatches on a release head);
+      # a pull request or a push runs the tests alone. release.yml builds and publishes on a v* tag.
       - id: diff
         env:
           EVENT: ${{ github.event_name }}
         run: |
-          set -euo pipefail
-          if [ "$EVENT" != pull_request ] || ! changed=$(git diff --name-only HEAD^1 HEAD) || [ -z "$changed" ]; then
-            echo "packages=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          printf '%s\n' "$changed"
-          if grep -qvE '^(fuzz/|bench/|[^/]*\.md$|COPYING$|LICENSE$|\.github/workflows/fuzz\.yml$)' <<<"$changed"; then
-            echo "packages=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "packages=false" >> "$GITHUB_OUTPUT"
-          fi
+          if [ "$EVENT" = workflow_dispatch ]; then echo "packages=true"; else echo "packages=false"; fi >> "$GITHUB_OUTPUT"
 
   # the checks every FreeMixer repository runs on what it publishes: commit messages, private references, and no
   # local copy of either (FreeMixer/.github's public-sources-check)
