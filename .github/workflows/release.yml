@@ -77,7 +77,7 @@ jobs:
         mode: [default, headless]
     steps:
       - uses: actions/checkout@v4
-      - uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+      - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
       - run: bash tools/full-install-check.sh deb "$GITHUB_REF_NAME" ${{ matrix.mode }}
 
   full-rpm:
@@ -97,5 +97,5 @@ jobs:
         mode: [default, headless]
     steps:
       - uses: actions/checkout@v4
-      - uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+      - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
       - run: bash tools/full-install-check.sh rpm "$GITHUB_REF_NAME" ${{ matrix.mode }}
