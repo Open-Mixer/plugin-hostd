@@ -1151,8 +1151,39 @@ static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX
     return rc;
 }
 
-/* the pin of a uri from the files on disk now, layout unknown, learned */
-static int record(const format_t *format, const char *uri, const char *search)
+/* whether `file` resolves (symbolic links and .. followed) inside one directory of the ':'-separated `declared` */
+static int inside_declared(const char *file, const char *declared)
+{
+    char real[PATH_MAX], dir[PATH_MAX], rdir[PATH_MAX];
+    const char *c = declared, *home = getenv("HOME");
+
+    if (!realpath(file, real))
+        return 0;
+    while (c && *c)
+    {
+        size_t n = strcspn(c, ":");
+        int made;
+
+        if (c[0] == '~' && (n == 1 || c[1] == '/'))
+            made = home && *home ? snprintf(dir, sizeof(dir), "%s%.*s", home, (int)n - 1, c + 1) : -1;
+        else
+            made = snprintf(dir, sizeof(dir), "%.*s", (int)n, c);
+        if (n && made > 0 && made < (int)sizeof(dir) && dir[0] == '/' && realpath(dir, rdir))
+        {
+            size_t len = strlen(rdir);
+
+            if (!strcmp(rdir, "/") || (!strncmp(real, rdir, len) && real[len] == '/'))
+                return 1;
+        }
+        c += n;
+        if (*c == ':')
+            c++;
+    }
+    return 0;
+}
+
+/* the pin of a uri from the files on disk now, layout unknown, learned; with `declared`, only files inside it */
+static int record(const format_t *format, const char *uri, const char *search, const char *declared, int first_use)
 {
     char root[PATH_MAX], hex[PHD_SHA256_HEX_LEN + 1], *words;
     names_t files = { NULL, 0 };
@@ -1167,6 +1198,23 @@ static int record(const format_t *format, const char *uri, const char *search)
         fprintf(stderr, "plugin-hostd: %s: %s; not learned\n", uri, g_store_unreadable
                 ? "the pin store could not be read" : "its line in the pin store is corrupt");
         rc = OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP;
+    }
+    if (rc != SUCCESS)
+    {
+        names_free(&files);
+        return rc;
+    }
+    /* first use trusts the files it finds: only in a directory the settings declare plugins in, never any path an add names */
+    for (n = 0; first_use && rc == SUCCESS && n < files.n; n++)
+    {
+        char full[PATH_MAX * 2];
+
+        if (!declared || full_path(root, files.name[n], full, sizeof(full)) != 0 || !inside_declared(full, declared))
+        {
+            fprintf(stderr, "plugin-hostd: %s: %s/%s is outside the declared search path (%s); not learned\n", uri, root,
+                    files.name[n], declared ? declared : "none");
+            rc = OMX_REPLY_HOST_PIN_ABSENT_RESP;
+        }
     }
     if (rc != SUCCESS)
     {
@@ -1211,9 +1259,9 @@ static int record(const format_t *format, const char *uri, const char *search)
     return SUCCESS;
 }
 
-int pins_learn(const format_t *format, const char *uri, const char *search)
+int pins_learn(const format_t *format, const char *uri, const char *search, const char *declared)
 {
-    return record(format, uri, search);
+    return record(format, uri, search, declared, 1);
 }
 
 int pins_accept(const format_t *format, const char *uri, const char *search)
@@ -1228,7 +1276,7 @@ int pins_accept(const format_t *format, const char *uri, const char *search)
     chosen = pkg_refused(bare(uri)) != NULL || refused(p);
     if (chosen && (!g_accepting || accepted_add(bare(uri)) != 0))
         return g_accepting ? ERR_MEMORY_ALLOCATION : OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
-    rc = record(format, uri, search);
+    rc = record(format, uri, search, NULL, 0);
     if (chosen && rc != SUCCESS)
         accepted_drop(bare(uri));
     if (chosen)

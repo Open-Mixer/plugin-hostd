@@ -100,7 +100,7 @@ def one_run(site=None, nth=1, every_after=False):
         conf = "%s/plugin-hostd.conf" % tmp
         with open(conf, "w") as f:
             for k, v in (("mod_host", os.path.basename(FAKE)), ("clap_host", os.path.basename(FAKE)), ("state_root", tmp), ("require_pins", 1),
-                         ("pin_mode", "first-use"), ("grouping", "on"), ("lv2_worker", "mod-host"),
+                         ("pin_mode", "first-use"), ("clap_path", tmp), ("grouping", "on"), ("lv2_worker", "mod-host"),
                          ("lv2_path", tmp + "/lv2"), ("pin_store", tmp + "/pins"), ("pins_dir", tmp + "/pins.d"),
                          ("history_file", tmp + "/history"), ("descriptor_dir", tmp + "/descriptors"),
                          ("qualification_dir", tmp + "/qualification"), ("probe", shutil.which("true")),
