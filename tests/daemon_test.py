@@ -663,6 +663,32 @@ def a_connect_the_new_worker_cannot_make_yet_is_asked_again():
 
 
 @test
+def a_value_the_plugin_moved_itself_survives_a_respawn():
+    """#7: the ledger replays what the controller set; a value the plugin moved on its own reached the daemon only as
+    feedback, so no checkpoint held it and the respawned plugin came back without it"""
+    d = daemon(conf={"checkpoint_ms": 300})
+    try:
+        ck = os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("param_set 0 mine 1.0000", "resp 0")
+        wait_for(lambda: os.path.exists(ck), "the checkpoint of what the controller set")
+        time.sleep(0.8)   # the checkpoint is taken: nothing of the controller's is dirty now
+        seen = os.path.getmtime(ck)
+        d.expect("param_get 0 moved=0.7500", "resp 0 0")
+        wait_for(lambda: os.path.getmtime(ck) > seen or None, "a checkpoint after the plugin moved its value", timeout=5.0)
+        before = d.send("param_get 0 0")
+        check(before.startswith("resp 0 "), "the plugin holds the value it moved: %s" % before)
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        check(d.send("param_get 0 0") == before, "the respawned plugin holds the value it had moved: %s, was %s" % (d.send("param_get 0 0"), before))
+        check(d.send("param_get 0 mine").startswith("resp 0 "), "and the controller's own setting")
+    finally:
+        d.close()
+
+
+@test
 def replay_is_text_identical_and_state_checkpoint_is_byte_identical():
     d = daemon(conf={"checkpoint_ms": 300})
     try:
