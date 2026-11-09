@@ -168,6 +168,39 @@ static char *handle(char *line, char **tok, int ntok)
     /* the bulk verbs: several parameters of one instance, which the worker that holds it answers alone */
     if (!strcmp(verb, OMX_VERB_PARAM_GET_MANY) || !strcmp(verb, OMX_VERB_PARAM_SET_MANY))
         return ntok > 2 ? sup_call(atoi(tok[1]), line) : sup_resp(ERR_INVALID_OPERATION);
+    /* the curve verbs (plugin-hostd-protocol, doc/protocol.md, Curves): a display of an instance's panel bound to its
+     * parameters and drawn, which the worker that holds it answers; the ledger keeps the binding for a respawn */
+    /* a line the format (%i %i %s ... and %i %i %i) does not take, too few or too many words or a word where a number
+     * goes, is refused here with -902, a code both verbs declare: never relayed for a worker to read a word as 0 */
+    if (!strcmp(verb, OMX_VERB_CURVE_BIND))
+    {
+        int id, display;
+
+        if (ntok < 4 || !number(tok[1], &id) || !number(tok[2], &display))
+            return sup_resp(ERR_INVALID_OPERATION);
+        return sup_call(id, line);
+    }
+    if (!strcmp(verb, OMX_VERB_CURVE_POINTS))
+    {
+        int id, display, points;
+
+        if (ntok != 4 || !number(tok[1], &id) || !number(tok[2], &display) || !number(tok[3], &points))
+            return sup_resp(ERR_INVALID_OPERATION);
+        return sup_call(id, line);
+    }
+    /* monitor_output_off <instance> <symbol>: plugin-hostd-protocol's, not mod-host's, so it is not in g_instance_verbs.
+     * Only the connection that set a monitor ends it: an output with no monitor held here (never monitored, ended,
+     * its instance gone) is refused -543, and the ledger forgets the monitor it ends (src/supervisor.c, ledger_verb) */
+    if (!strcmp(verb, OMX_VERB_MONITOR_OUTPUT_OFF))
+    {
+        char *end;
+
+        if (ntok != 3 || (strtol(tok[1], &end, 10), end == tok[1] || *end))
+            return sup_resp(ERR_INVALID_OPERATION);
+        if (!sup_monitor_held(atoi(tok[1]), tok[2]))
+            return sup_resp(OMX_REPLY_PLUGIN_HOSTD_OUTPUT_NOT_MONITORED_RESP);
+        return sup_call(atoi(tok[1]), line);
+    }
 
     if (!strcmp(verb, PHD_VERB_ADD))
     {

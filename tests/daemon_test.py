@@ -219,6 +219,72 @@ def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_re
 
 
 @test
+def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_the_worker_held_it():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        ka, wa = d.holder(0)
+        kb, wb = d.holder(1)
+        check(wa["pid"] != wb["pid"], "two workers, one instance each")
+        d.expect("curve_points 1 0 64", "resp -537")
+        # a 32-band binding in three lines, as a controller sends one that does not fit a line
+        thirds = []
+        for k in range(3):
+            terms = " ".join("band_freq.%d=f%d:hz band_gain.%d=g%d:db band_q.%d=q%d band_type.%d=t%d@bell|lowshelf" % ((b,) * 8)
+                             for b in range(k * 11, min(32, (k + 1) * 11)))
+            thirds.append("curve_bind 1 0 eq_response eq " + terms)
+            d.expect(thirds[-1], "resp 0")
+        d.expect("curve_points 1 0 64", "resp 0 1 0,128")
+        # a term replaced: the binding is the same terms
+        d.expect("curve_bind 1 0 eq_response eq band_freq.0=f0:hz", "resp 0")
+        d.expect("curve_points 1 0 64", "resp 0 1 0,128")
+        # a second display, a transfer curve that is then started again by another family, and a third that is cleared
+        d.expect("curve_bind 1 1 transfer_curve dynamics threshold=thr:db ratio=r:ratio knee=k:db", "resp 0")
+        d.expect("curve_bind 1 1 transfer_curve gate threshold=thr:db range=rg:db", "resp 0")
+        d.expect("curve_points 1 1 9", "resp 0 1 1,2")
+        d.expect("curve_bind 1 2 transfer_curve dynamics threshold=thr:db ratio=r:ratio", "resp 0")
+        d.expect("curve_bind 1 2 clear", "resp 0")
+        d.expect("curve_points 1 2 9", "resp -537")
+        # the first third sent again, as a panel that opens again sends it
+        d.expect(thirds[0], "resp 0")
+        # refused by the worker: the ledger keeps nothing of it
+        d.expect("curve_bind 1 3 transfer_curve dynamics threshold=nope:db", "resp -103")
+        d.expect("curve_bind 7 0 transfer_curve dynamics threshold=thr:db", "resp -3")
+        d.expect("curve_points 7 0 9", "resp -3")
+        d.expect("curve_bind 1 0", "resp -902")
+        d.expect("curve_points 1 0", "resp -902")
+        d.expect("curve_points 1 0 9 9", "resp -902")
+        with open(log) as f:
+            sent = [l.split(" ", 1) for l in f.read().splitlines()]
+        curve = [(int(pid), l) for pid, l in sent if l.startswith("curve_")]
+        check(curve and all(pid == wb["pid"] for pid, _ in curve),
+              "only the worker that holds instance 1 (%d) is sent the curve lines: %r" % (wb["pid"], curve))
+        # the respawned worker is given the binding the controller made, and holds what the first held
+        mark = d.mark()
+        os.kill(wb["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 1 ", since=mark)
+        d.expect("curve_points 1 0 64", "resp 0 1 0,128")
+        d.expect("curve_points 1 1 9", "resp 0 1 1,2")
+        d.expect("curve_points 1 2 9", "resp -537")
+        d.expect("curve_points 1 3 9", "resp -537")
+        kb2, wb2 = d.holder(1)
+        with open(log) as f:
+            replayed = [l.split(" ", 1)[1] for l in f.read().splitlines() if l.startswith("%d curve_bind" % wb2["pid"])]
+        # display 0's four lines (the third sent again last, once), display 1's gate, nothing of 2 and 3, in order
+        want = [thirds[1], thirds[2], "curve_bind 1 0 eq_response eq band_freq.0=f0:hz",
+                "curve_bind 1 1 transfer_curve gate threshold=thr:db range=rg:db", thirds[0]]
+        check(replayed == want, "the respawn was given %r, not %r" % (replayed, want))
+        # remove drops the binding with the instance: a new add of the same number holds none
+        d.expect("remove 1", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        d.expect("curve_points 1 0 64", "resp -537")
+    finally:
+        d.close()
+
+
+@test
 def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
@@ -1422,6 +1488,84 @@ def a_respawned_worker_reports_the_same_outputs_once_each():
 
 
 @test
+def monitor_output_off_ends_one_monitor_and_a_respawn_does_not_replay_it():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output 0 input_level_0", "resp 1")
+        wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 5, "output_set before the off")
+        d.expect("monitor_output_off 0 gain_reduction", "resp 0")
+        # a line the worker wrote before it took the off is already on the feedback port: let it land, then count
+        time.sleep(0.1)
+        mark = d.mark()
+        time.sleep(0.2)
+        check(outputs(d, 0, "gain_reduction", mark) == [],
+              "nothing more of the ended output: %s" % outputs(d, 0, "gain_reduction", mark))
+        check(len(outputs(d, 0, "input_level_0", mark)) > 0, "the other monitor still reads")
+        _, w = d.holder(0)
+        mark2 = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark2)
+        pid = d.holder(0)[1]["pid"]
+        wait_for(lambda: len(outputs(d, 0, "input_level_0", mark2)) >= 5, "output_set input_level_0 after the respawn")
+        time.sleep(0.2)
+        check(outputs(d, 0, "gain_reduction", mark2) == [],
+              "the ended monitor is not replayed into the respawn: %s" % outputs(d, 0, "gain_reduction", mark2))
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1].strip() for l in f if l.startswith("%d " % pid)]
+        mon = [l for l in sent if l.startswith("monitor_output")]
+        check(mon == ["monitor_output 0 input_level_0"], "the new worker is asked only for the live monitor: %s" % mon)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def monitor_output_off_refuses_what_this_connection_did_not_monitor():
+    d = daemon()
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output_off 0 never_monitored", "resp -543")
+        d.expect("monitor_output_off 9 gain_reduction", "resp -543")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        d.expect("monitor_output_off 0 gain_reduction", "resp 0")
+        d.expect("monitor_output_off 0 gain_reduction", "resp -543")
+        d.expect("monitor_output_off 0", "resp -902")
+        d.expect("monitor_output_off x gain_reduction", "resp -902")
+        d.expect("monitor_output_off 0 gain_reduction extra", "resp -902")
+    finally:
+        d.close()
+
+
+@test
+def a_monitor_ends_with_the_connection_that_set_it():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+        wait_for(lambda: len(outputs(d, 0, "gain_reduction")) >= 5, "output_set before the disconnect")
+        pid = d.holder(0)[1]["pid"]
+        d.reconnect()
+        mark = d.mark()
+        time.sleep(0.2)
+        check(outputs(d, 0, "gain_reduction", mark) == [],
+              "the next connection gets nothing of the earlier connection's monitor: %s" % outputs(d, 0, "gain_reduction", mark))
+        with open(log) as f:
+            sent = [l.split(" ", 1)[1].strip() for l in f if l.startswith("%d " % pid)]
+        check("monitor_output_off 0 gain_reduction" in sent, "the worker is told the monitor ended: %s" % sent)
+        d.expect("monitor_output_off 0 gain_reduction", "resp -543")
+        d.expect("monitor_output 0 gain_reduction", "resp 1")
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def a_worker_is_read_when_no_controller_reads_the_feedback():
     """a worker whose feedback port no one reads stops on a full socket, as a real host does: the daemon reads it
     with no feedback port of its own, so the worker still answers"""
@@ -1460,7 +1604,8 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
     d = daemon(env={"FAKE_LOG": log})
     try:
         check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                             "all_notes_off", "preset_list", "preset_get"}, "declared: %s" % VERBS)
+                             "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"},
+              "declared: %s" % VERBS)
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -1593,6 +1738,88 @@ def track_info_is_replayed_once_after_the_add_and_before_the_state():
         d.wait_event("instance_restored 0 ", since=mark)
         sent = sent_to(log, d.holder(0)[1]["pid"])
         check(not [c for c in sent if c.startswith("track_info")], "a removed instance's track_info is gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+# a display session the daemon's workers would put a window on; the fake shows nothing, it only answers
+DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
+
+
+@test
+def the_window_verbs_go_to_the_worker_that_holds_the_instance_and_its_resp_comes_back():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env=dict(DISPLAY_ENV, FAKE_LOG=log))
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#nowindow 1 pool:p", "resp 1")
+        d.expect("add fake:lv2 2", "resp 2")
+        d.expect("show_external_ui 0", "resp 0")
+        d.expect("hide_external_ui 0", "resp 0")
+        d.expect("show_external_ui 1", "resp -404 hosting.window.unsupported")
+        d.expect("show_external_ui 2", "resp -902")
+        d.expect("hide_external_ui 2", "resp -902")
+        d.expect("show_external_ui 9", "resp -3")
+        d.expect("hide_external_ui 9", "resp -3")
+        d.expect("show_external_ui 0 x", "resp -902")
+        pid0, pid1, pid2 = (d.holder(n)[1]["pid"] for n in (0, 1, 2))
+        window = lambda pid: [c for c in sent_to(log, pid) if c.split(" ", 1)[0].endswith("_external_ui")]
+        check(window(pid0) == ["show_external_ui 0", "hide_external_ui 0"], "instance 0's worker got both: %s" % window(pid0))
+        check(window(pid1) == ["show_external_ui 1"], "instance 1's worker got its show, and nothing else: %s" % window(pid1))
+        check(pid2 not in (pid0, pid1) and window(pid2) == [], "mod-host's worker is sent neither: %s" % window(pid2))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_shown_window_is_shown_again_after_a_respawn_and_a_hidden_one_is_not():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env=dict(DISPLAY_ENV, FAKE_LOG=log))
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("show_external_ui 0", "resp 0")
+        d.expect("show_external_ui 0", "resp 0")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        check([c for c in sent if c.split(" ", 1)[0].endswith("_external_ui")] == ["show_external_ui 0"],
+              "the respawned worker shows the window once: %s" % sent)
+        check(verbs.index("show_external_ui") > verbs.index("state_load") > verbs.index("add"),
+              "after the add and after the state: %s" % sent)
+        d.expect("hide_external_ui 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("show_external_ui")], "a hidden window is not shown again: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_daemon_with_no_display_refuses_the_window_verbs_and_sends_the_worker_nothing():
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log, "DISPLAY": None, "WAYLAND_DISPLAY": ""})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("show_external_ui 0", "resp -902 hosting.window.no-display")
+        d.expect("hide_external_ui 0", "resp -902 hosting.window.no-display")
+        d.expect("show_external_ui 9", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0].endswith("_external_ui")]
+        check(got == [], "no worker is sent a window verb: %s" % got)
     finally:
         d.close()
         if os.path.exists(log):

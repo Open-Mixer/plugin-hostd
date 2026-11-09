@@ -123,23 +123,25 @@ static const char *const g_state_states[W_COUNT] = {
 #undef X
 };
 
-/* the instance verbs the ledger keeps; the key compacts repeats of the same setting */
-/* the instance commands of mod-host.h the ledger keeps; the key compacts repeats of the same setting */
-static const struct { const char *format; int kind; int key_arg; } g_recorded[] = {
-    { EFFECT_PARAM_SET, KIND_STATE, 2 },
-    { EFFECT_PATCH_SET, KIND_STATE, 2 },
-    { EFFECT_PRESET_LOAD, KIND_STATE, 0 },
-    { EFFECT_BYPASS, KIND_HOST, 1 },
-    { EFFECT_PARAM_MON, KIND_HOST, 0 },
-    { MONITOR_OUTPUT, KIND_HOST, 2 },
-    { MIDI_LEARN, KIND_HOST, 0 },
-    { MIDI_MAP, KIND_HOST, 0 },
-    { MIDI_UNMAP, KIND_HOST, 0 },
-    { CC_MAP, KIND_HOST, 0 },
-    { CC_UNMAP, KIND_HOST, 0 },
-    { CC_VALUE_SET, KIND_HOST, 0 },
-    { CV_MAP, KIND_HOST, 0 },
-    { CV_UNMAP, KIND_HOST, 0 },
+/* the instance verbs the ledger keeps; the key compacts repeats of the same setting: the verb and the word key_arg, or,
+ * for a pair of verbs that are one setting, key_verb and that word, so the latest of the pair is the one kept */
+static const struct { const char *format; int kind; int key_arg; const char *key_verb; } g_recorded[] = {
+    { EFFECT_PARAM_SET, KIND_STATE, 2, NULL },
+    { EFFECT_PATCH_SET, KIND_STATE, 2, NULL },
+    { EFFECT_PRESET_LOAD, KIND_STATE, 0, NULL },
+    { EFFECT_BYPASS, KIND_HOST, 1, NULL },
+    { EFFECT_PARAM_MON, KIND_HOST, 0, NULL },
+    { MONITOR_OUTPUT, KIND_HOST, 2, NULL },
+    { PHD_VERB_SHOW_EXTERNAL_UI, KIND_HOST, 1, PHD_VERB_SHOW_EXTERNAL_UI },
+    { OMX_VERB_HIDE_EXTERNAL_UI, KIND_HOST, 1, PHD_VERB_SHOW_EXTERNAL_UI },
+    { MIDI_LEARN, KIND_HOST, 0, NULL },
+    { MIDI_MAP, KIND_HOST, 0, NULL },
+    { MIDI_UNMAP, KIND_HOST, 0, NULL },
+    { CC_MAP, KIND_HOST, 0, NULL },
+    { CC_UNMAP, KIND_HOST, 0, NULL },
+    { CC_VALUE_SET, KIND_HOST, 0, NULL },
+    { CV_MAP, KIND_HOST, 0, NULL },
+    { CV_UNMAP, KIND_HOST, 0, NULL },
 };
 
 /* the commands every worker shares that the daemon keeps (PHD_HOST_SETTINGS), and the latest line of each, in the order
@@ -2335,7 +2337,8 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
 
             if (g_recorded[v].key_arg && ntok > g_recorded[v].key_arg)
             {
-                snprintf(keybuf, sizeof(keybuf), "%s %s", tok[0], tok[g_recorded[v].key_arg]);
+                snprintf(keybuf, sizeof(keybuf), "%s %s", g_recorded[v].key_verb ? g_recorded[v].key_verb : tok[0],
+                         tok[g_recorded[v].key_arg]);
                 key = keybuf;
             }
             else if (g_recorded[v].key_arg)
@@ -2360,6 +2363,38 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
     return 0;
 }
 
+/* every tail entry keyed as key, gone: the caller's to find none */
+static void tail_drop_key(instance_t *i, const char *key)
+{
+    int n, kept = 0;
+
+    for (n = 0; n < i->ntail; n++)
+    {
+        if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+        {
+            free(i->tail[n].line);
+            free(i->tail[n].key);
+            continue;
+        }
+        i->tail[kept++] = i->tail[n];
+    }
+    i->ntail = kept;
+}
+
+/* monitor_output_off <instance> <symbol>: the matching monitor_output tail entry, keyed as record() keyed it, is
+ * dropped; nothing is added, so a respawn after this does not restore what it ended. 0 whether or not one matched: a
+ * symbol never monitored is not the ledger's error to raise, the worker already answered it */
+static int ledger_monitor_off(instance_t *i, char **tok, int ntok)
+{
+    char key[160];
+
+    if (ntok <= 2)
+        return 0;
+    snprintf(key, sizeof(key), "%.*s %s", verb_len(MONITOR_OUTPUT), MONITOR_OUTPUT, tok[2]);
+    tail_drop_key(i, key);
+    return 0;
+}
+
 /* the ledger keeps param_set_many as the param_set of each of its pairs, so a replay sets each value as a param_set
  * does, and a later param_set of one of them compacts it as it compacts its own */
 static int ledger_set_many(instance_t *i, char **tok, int ntok)
@@ -2378,6 +2413,53 @@ static int ledger_set_many(instance_t *i, char **tok, int ntok)
     return rc;
 }
 
+/* curve_bind <instance> <display> clear | <kind> <family> <term> ...: the display's binding lines, kept in the order
+ * they were sent and replayed as they were sent, so the respawned worker binds what the controller bound. Each line is
+ * keyed by its display, kind and family: clear, or a line of another kind or family, drops the display's earlier lines
+ * (the worker starts its binding again on them), and a line the ledger already holds moves to the end, as it is sent
+ * again. What only the host keeps (KIND_HOST): a checkpoint keeps it. 0, or -1 with the ledger as it was when memory runs
+ * out. */
+static int ledger_curve_bind(instance_t *i, const char *line, char **tok, int ntok)
+{
+    char display[64], key[256], *prev;
+    size_t dlen;
+    int n, kept = 0, clear;
+
+    if (ntok < 4)
+        return 0;
+    clear = !strcmp(tok[3], "clear");
+    if (!clear && ntok < 6)
+        return 0;
+    dlen = (size_t)snprintf(display, sizeof(display), "%s %s ", OMX_VERB_CURVE_BIND, tok[2]);
+    if (!clear && snprintf(key, sizeof(key), "%s%s %s", display, tok[3], tok[4]) >= (int)sizeof(key))
+        return 0;
+    for (n = 0; n < i->ntail; n++)
+    {
+        const char *k = i->tail[n].key;
+        int mine = k && !strncmp(k, display, dlen);
+
+        if (mine && (clear || strcmp(k, key) != 0 || !strcmp(i->tail[n].line, line)))
+        {
+            free(i->tail[n].line);
+            free(i->tail[n].key);
+            continue;
+        }
+        i->tail[kept++] = i->tail[n];
+    }
+    i->ntail = kept;
+    if (clear)
+        return 0;
+    /* appended unkeyed, then keyed: a display's lines share their key, and tail_add would fold them into one */
+    if (tail_add(i, line, NULL, KIND_HOST, &prev) != 0)
+        return -1;
+    if (!(i->tail[i->ntail - 1].key = strdup(key)))
+    {
+        free(i->tail[--i->ntail].line);
+        return -1;
+    }
+    return 0;
+}
+
 /* the ledger takes the verb of one forwarded line, if it is one it keeps; 0, or -1 when memory runs out */
 static int ledger_verb(instance_t *i, const char *line)
 {
@@ -2394,10 +2476,74 @@ static int ledger_verb(instance_t *i, const char *line)
     }
     if (ntok && !strcmp(tok[0], OMX_VERB_PARAM_SET_MANY))
         rc = ledger_set_many(i, tok, ntok);
+    else if (ntok && !strcmp(tok[0], OMX_VERB_CURVE_BIND))
+        rc = ledger_curve_bind(i, line, tok, ntok);
+    else if (ntok && !strcmp(tok[0], OMX_VERB_MONITOR_OUTPUT_OFF))
+        rc = ledger_monitor_off(i, tok, ntok);
     else if (ntok)
         rc = record(i, line, tok, ntok);
     free(copy);
     return rc;
+}
+
+/* 1 when the connection now open set a monitor on this output of this instance and it still stands: the ledger's
+ * monitor_output entry is the record, and sup_monitors_disconnect empties it as a connection ends, so one an earlier
+ * connection set is not there. An instance that is not up (never added, or removed) holds none */
+int sup_monitor_held(int id, const char *symbol)
+{
+    instance_t *i = id >= 0 && id < MAX_INSTANCE ? g_inst[id] : NULL;
+    char key[160];
+    int n;
+
+    if (!i)
+        return 0;
+    snprintf(key, sizeof(key), "%.*s %s", verb_len(MONITOR_OUTPUT), MONITOR_OUTPUT, symbol);
+    for (n = 0; n < i->ntail; n++)
+        if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+            return 1;
+    return 0;
+}
+
+/* monitor_output_off the way the connection that set it ends it: every instance's tail is searched for a monitor_output
+ * entry (the ledger's own key for one, "monitor_output <symbol>"), the worker told so while it is up (best effort: its
+ * answer is not waited on past that), and the tail forgets the line either way, so a respawn after this does not
+ * replay it. Called as the connection ends (main.c, beside relay_controller_gone and session_reset), so the next
+ * connection starts with none of it, as doc/protocol.md's Monitors rules */
+void sup_monitors_disconnect(void)
+{
+    size_t plen = verb_len(MONITOR_OUTPUT);
+    int id;
+
+    for (id = 0; id < MAX_INSTANCE; id++)
+    {
+        instance_t *i = g_inst[id];
+        int n;
+
+        if (!i)
+            continue;
+        for (n = 0; n < i->ntail; )
+        {
+            const char *key = i->tail[n].key;
+            char sym[128], off[160], drop[160];
+
+            if (!key || strncmp(key, MONITOR_OUTPUT, plen) || key[plen] != ' ')
+            {
+                n++;
+                continue;
+            }
+            snprintf(sym, sizeof(sym), "%s", key + plen + 1);
+            if (i->w && i->w->state == W_UP)
+            {
+                char *reply;
+
+                snprintf(off, sizeof(off), OMX_VERB_MONITOR_OUTPUT_OFF " %d %s", id, sym);
+                reply = sup_call(id, off);
+                free(reply);
+            }
+            snprintf(drop, sizeof(drop), "%.*s %s", (int)plen, MONITOR_OUTPUT, sym);
+            tail_drop_key(i, drop);
+        }
+    }
 }
 
 /* the verb the worker died on is not replayed: it never entered the ledger, and the controller is told so */
@@ -2651,12 +2797,13 @@ char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
     instance_t *i = NULL;
-    int count;
+    int count, window;
     long id;
 
     if (!copy)
         return sup_resp(ERR_MEMORY_ALLOCATION);
     word = words(copy, &count);
+    window = count > 0 && (!strcmp(word[0], PHD_VERB_SHOW_EXTERNAL_UI) || !strcmp(word[0], OMX_VERB_HIDE_EXTERNAL_UI));
     id = count > 1 ? strtol(word[1], &end, 10) : -1;
     if (count < 2 || *end || end == word[1])
         reply = sup_resp(ERR_INVALID_OPERATION);
@@ -2666,10 +2813,21 @@ char *sup_instance_verb(const char *line, int ledger)
         reply = sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]) && !phd_note_valid(word, count))
         reply = sup_resp(ERR_INVALID_OPERATION);
+    else if (window && count != 2)
+        reply = sup_resp(ERR_INVALID_OPERATION);
+    /* the window is the worker's, on the daemon's display session: with none, no worker is asked */
+    else if (window && !phd_has_display())
+    {
+        char refused[64];
+
+        snprintf(refused, sizeof(refused), "resp %d %s", ERR_INVALID_OPERATION, PHD_EXTERNAL_UI_NO_DISPLAY);
+        reply = strdup(refused);
+    }
+    /* sup_call keeps a window verb in the ledger, replayed after the state */
     else if (format_at(i->fmt)->native_instance_verbs)
     {
         reply = sup_call(id, line);
-        if (ledger == PHD_LEDGER_REPLACE && resp_code(reply) >= 0 && g_inst[id] == i)
+        if (ledger == PHD_LEDGER_REPLACE && !strcmp(word[0], OMX_VERB_TRACK_INFO) && resp_code(reply) >= 0 && g_inst[id] == i)
         {
             char *kept = strdup(line);
 

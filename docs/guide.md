@@ -349,8 +349,10 @@ stays held at the controller. omx-clap-host writes these lines from FreeMixer/om
 | `note_on` | `<instance> <channel> <key> <velocity>` | `resp 0` | play a key: channel 0 to 15, key 0 to 127, velocity 1 to 127, a MIDI note on at the start of the worker's next cycle; (-513) for a plugin that takes no notes, (-514) for an instance of a worker that takes none on its socket, -902 for a word out of its range |
 | `note_off` | `<instance> <channel> <key> <velocity>` | `resp 0` | release a key, velocity 0 to 127, a MIDI note off; answered as note_on is |
 | `all_notes_off` | `<instance>` | `resp 0` | release every key of every channel, MIDI's all notes off (controller 123) on each; answered as note_on is |
+| `show_external_ui` | `<instance>` | `resp 0` | put the plugin's own window on the display, as jalv and mod-host show one: the worker that holds the instance answers, and its resp comes back as it wrote it (omx-clap-host: -404 and a hosting.window code when no window shows); -902 for an instance whose worker has no window (mod-host's), and -902 hosting.window.no-display from a daemon with no display session. The ledger keeps the latest of this verb and hide_external_ui as one setting: a window shown is shown again after a respawn, after the state |
+| `hide_external_ui` | `<instance>` | `resp 0` | take the plugin's own window off the display, kept for the next show_external_ui; answered as show_external_ui is, resp 0 also when no window is shown; in the ledger it takes back the show, so a respawn shows nothing |
 
-The ledger keeps the latest `track_info` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
+The ledger keeps the latest `track_info`, `show_external_ui`, `hide_external_ui` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
 <!-- END GENERATED protocol:instance-verbs -->
 
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
@@ -395,7 +397,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `cc_unmap` | mod-ui | absent | absent | absent | absent |
 | `hmi_map` | mod-ui | absent | absent | absent | absent |
 | `hmi_unmap` | mod-ui | absent | absent | absent | absent |
-| `show_external_ui` | mod-ui | absent | absent | absent | absent |
+| `show_external_ui` | mod-ui | optional | optional | optional | optional |
 | `set_midi_program_change_pedalboard_bank_channel` | mod-ui | absent | absent | absent | absent |
 | `set_midi_program_change_pedalboard_snapshot_channel` | mod-ui | absent | absent | absent | absent |
 | `disconnect` | mod-host | required | required | required | required |
@@ -419,6 +421,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `note_on` | daemon | optional | optional | optional | optional |
 | `note_off` | daemon | optional | optional | optional | optional |
 | `all_notes_off` | daemon | optional | optional | optional | optional |
+| `hide_external_ui` | daemon | optional | optional | optional | optional |
 | `worker_list` | daemon | required | required | required | required |
 | `instance_info` | daemon | required | required | required | required |
 | `supervisor_reset` | daemon | required | required | required | required |
@@ -487,6 +490,14 @@ Error codes the daemon adds to mod-host's:
 | `-533` | `OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP` | a member of estimate that no qualification record in qualification_dir names: never a reply, the code of the member in the reply's list |
 | `-534` | `OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP` | a member of estimate whose qualification records hold no point of the grid at that rate and quantum with a cost and a latency: never a reply, the code of the member in the reply's list |
 | `-535` | `OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP` | a member of estimate whose uri names no plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): never a reply, the code of the member in the reply's list |
+| `-536` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_KIND_UNKNOWN_RESP` | curve_bind of a family with no closed form for the display's kind, or curve_points of a binding whose values pick a band shape or a head filter slope with no closed form: no curve is drawn |
+| `-537` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_TERM_MISSING_RESP` | curve_points of a display with no binding, or of a binding that lacks a term the model needs (a band's frequency, shape or Q, a threshold, a ratio, a gate's range): no curve is drawn from a guess |
+| `-538` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_UNIT_REFUSED_RESP` | curve_bind of a term in a unit its role does not take: nothing of the line is kept |
+| `-539` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_POINTS_RANGE_RESP` | curve_points of fewer than 2 points or more than a curve carries, three anchors a drawn band counted, or of a band index past what fits |
+| `-540` | `OMX_REPLY_PLUGIN_HOSTD_DURABLE_WRITE_FAILED_RESP` | the daemon's writer thread could not write the file the verb changes (history_clear, pin_clear, pin_accept): the change is not on disk, and stderr names the path and the error |
+| `-541` | `OMX_REPLY_PLUGIN_HOSTD_WRITER_QUEUE_FULL_RESP` | the daemon's writer queue holds its most writes or bytes: the write the verb needs is refused and nothing of the verb changed; the controller may send it again |
+| `-542` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_VALUE_NOT_FINITE_RESP` | curve_points of a binding whose value, as the instance holds it, is not finite, or of an instance that runs at no rate: no curve is drawn |
+| `-543` | `OMX_REPLY_PLUGIN_HOSTD_OUTPUT_NOT_MONITORED_RESP` | monitor_output_off of an output this connection did not monitor: a monitor ends with the connection that set it, and only that connection ends it earlier |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.
@@ -546,8 +557,9 @@ Every worker is started as `<program> -n -p <command port> -f <feedback port>`.
 - every line a worker writes on its feedback port goes out on the daemon's feedback port as the worker wrote it: output_set, param_set, data_finish and the rest of mod-host's feedback, and a line the daemon does not know.
 - the instance number in a relayed line is already the controller's: add hands it to the worker unchanged, so nothing in a line is rewritten.
 - a worker's lines go out in the order it wrote them, and what a worker wrote before it died goes out before its worker_died event; an instance lives in one worker at a time, so its lines keep their order across a respawn; the lines of different workers interleave.
-- monitor_output is in the ledger, one line per output, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
+- monitor_output is in the ledger, one line per output, until monitor_output_off or the end of the connection that set it takes the line out, and param_monitor as it was sent; a respawn replays them after the add, so a respawned instance reports the same outputs, each once, starting again from its first value.
 - output_data_ready names no instance and goes to every worker; each worker's data_finish is relayed.
+- show_external_ui and hide_external_ui go to the worker that holds the instance and its resp comes back unchanged; the window is the worker's, on the display session of the daemon's environment (WAYLAND_DISPLAY, else DISPLAY), which every worker inherits; a daemon with neither refuses both with -902 hosting.window.no-display and sends the worker nothing; the ledger keeps the latest of the two per instance, so a respawn shows again a window that was shown.
 - with no feedback port, or no controller on it, a line is dropped, as mod-host drops it; the daemon reads every worker's feedback all the time, so no worker waits on it.
 <!-- END GENERATED protocol:relay -->
 
