@@ -2294,6 +2294,47 @@ def a_clap_directory_bundle_pins_and_loads_by_its_one_object():
 
 
 @test
+def a_binary_swapped_between_the_hash_and_the_load_is_refused():
+    """the daemon hashes the pinned file, then the worker opens it by path: a file exchanged in between (here by the
+    worker itself, just before it maps the plugin, FAKE_SWAP_ON_ADD) is refused with PIN_BINARY_MISMATCH, its worker is
+    stopped and no instance is kept. Both the plain exchange and one put back right after the load (a directory
+    exchanged and restored, so the pinned file itself is never touched) are caught; an add with no swap still runs."""
+    for what in ("file", "directory put back"):
+        p = Plugins()
+        try:
+            if what == "file":
+                evil = os.path.join(p.dir, "clap", "evil.clap")
+                write(evil, b"a build nobody hashed")
+                env = {"FAKE_SWAP_ON_ADD": "%s=%s" % (p.clap, evil)}
+            else:
+                evil = os.path.join(p.dir, "evil")
+                os.makedirs(evil)
+                write(os.path.join(evil, "omx-fault.clap"), b"a build nobody hashed")
+                env = {"FAKE_SWAP_ON_ADD": "%s=%s" % (os.path.dirname(p.clap), evil), "FAKE_SWAP_BACK": "1"}
+            d = p.daemon(env=env)
+            try:
+                d.expect(p.clap_pin(), "resp 0")
+                d.expect("add %s 0" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+                check(p.verbs("add"), "%s: the worker was asked to load it: %s" % (what, p.received()))
+                check(d.workers() == {}, "%s: the worker that loaded it is stopped: %s" % (what, d.workers()))
+                d.expect("instance_info 0", "resp -3")
+            finally:
+                d.close()
+        finally:
+            p.close()
+    # the positive control: the same pin and add, nothing swapped, is loaded and kept
+    p = Plugins()
+    d = p.daemon()
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(len(d.workers()) == 1, "an add with nothing swapped keeps its worker: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_swapped_clap_binary_is_refused_before_any_worker_sees_add():
     p = Plugins()
     d = p.daemon()
