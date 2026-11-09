@@ -46,6 +46,9 @@ typedef struct FORMAT_T {
 
     const char *(*worker)(const conf_t *conf);  /* the program that serves it */
     const char *(*search)(const conf_t *conf);  /* where its plugins are searched, NULL for nowhere */
+    /* the declared plugin search path of the format (the settings' lv2_path or clap_path), the only directories a first-use
+     * pin is learned in; NULL: first use learns no pin of the format */
+    const char *(*declared)(const conf_t *conf);
     const char *world_env;                      /* the worker's variable for the search path, NULL for none */
     /* a directory under `dir` that makes the worker's world the union of the n plugins' (one for an own worker, a chain's
      * members for a chain's), malloc'd; NULL when a plugin is not found: never a wider world than the plugins' */

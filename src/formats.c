@@ -48,6 +48,11 @@ static const char *lv2_search(const conf_t *conf)
     return conf->lv2_path;
 }
 
+static const char *clap_declared(const conf_t *conf)
+{
+    return conf->clap_path;
+}
+
 /* A .clap that is a directory (Cardinal, Ildaeil) is a bundle whose one object the host loads: the one regular .clap file
  * in it, else the one .so. Fills `object` with its name; 0, or -1 when there is none or not exactly one. */
 static int bundle_object(const char *dir, char *object, size_t size)
@@ -181,6 +186,7 @@ static const format_t g_builtin[] = {
         .fallback = 1,
         .worker = lv2_worker_program,
         .search = lv2_search,
+        .declared = lv2_search,
         .world_env = "LV2_PATH",
         .narrow_world = lv2_narrow_world,
         .pin_collect = lv2_pin_collect,
@@ -199,6 +205,7 @@ static const format_t g_builtin[] = {
         .strip_prefix = 0,
         .fallback = 0,
         .worker = clap_worker,
+        .declared = clap_declared,
         .pin_collect = clap_pin_collect,
         .binary = clap_binary,
         .worker_word = clap_worker_word,
@@ -221,6 +228,7 @@ static const format_t g_builtin[] = {
         .worker_prefix = LV2_PREFIX,
         .worker = clap_worker,
         .search = lv2_search,
+        .declared = lv2_search,
         .world_env = "LV2_PATH",
         .narrow_world = lv2_narrow_world,
         .pin_collect = lv2_pin_collect,

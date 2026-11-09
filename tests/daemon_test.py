@@ -5164,7 +5164,7 @@ def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by
     pin = "pin_set %s Surge%%20XT.clap=%s %s" % (uri, sha(path), fake_layout())
     store = os.path.join(s.dir, "pins")
     pins_dir = os.path.join(s.dir, "pins.d")
-    conf = {"require_pins": 1, "pin_mode": "strict", "pin_store": store, "pins_dir": pins_dir}
+    conf = {"require_pins": 1, "pin_mode": "strict", "pin_store": store, "pins_dir": pins_dir, "clap_path": s.dir}
     env = {"FAKE_LOG": os.path.join(s.dir, "commands.log")}
     d = s.daemon(conf=conf, env=env)
     try:
@@ -5224,7 +5224,7 @@ def a_clap_file_whose_name_holds_a_space_is_added_bare_quoted_or_encoded_and_pin
     raw = "clap:%s#%s" % (path, CLAP_ID)
     store = os.path.join(s.dir, "pins")
     env = {"FAKE_LOG": os.path.join(s.dir, "commands.log")}
-    learn = {"require_pins": 1, "pin_mode": "first-use", "pin_store": store}
+    learn = {"require_pins": 1, "pin_mode": "first-use", "pin_store": store, "clap_path": s.dir}
     d = s.daemon(conf=learn, env=env)
     try:
         d.expect("add %s 0" % raw, "resp 0")
