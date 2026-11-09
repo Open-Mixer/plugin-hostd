@@ -13,13 +13,13 @@
 #           check names who pulls them so a new one is red: libxcb (the X protocol client library) only for
 #           omx-clap-host, which links it to embed a plugin's window; nodejs only for plugin-qualify and omx-contract
 #           (and Debian's node-* modules of nodejs itself).
-# Both: plugin-hostd is <version>, and the plugin-qualification-records provider is the set of this machine's class
-# (rpi5 on arm64/aarch64, x86-64 on amd64/x86_64). The channel must already be configured (add-openmixer); Pages
+# Both: plugin-hostd is <version>, and plugin-qualification-records is the build of this machine's architecture,
+# holding the sets of its class (rpi5 on arm64/aarch64, x86-64 on amd64/x86_64). The channel must already be configured (add-openmixer); Pages
 # serves a fresh publish a little late, so the install is retried before it is called broken.
 set -euo pipefail
 
 kind=$1 ver=${2#v} mode=$3
-STACK="plugin-hostd plugin-hostd-full omx-clap-host omx-plugins plugin-qualify"
+STACK="plugin-hostd plugin-hostd-full omx-clap-host omx-plugins plugin-qualify plugin-qualification-records"
 X_DEB="libx11-6 libwayland-client0 libgtk-3-0 libgtk-4-1 xserver-common xserver-xorg-core"
 X_RPM="libX11 libwayland-client gtk3 gtk4 xorg-x11-server-common xorg-x11-server-Xorg"
 # who may pull what headless (see above)
@@ -71,17 +71,19 @@ for p in plugin-hostd plugin-hostd-full; do
     case $(version_of "$p") in "$ver"|"$ver"-*|"$ver"~*|"$ver"+*) ;; *) fail "$p is $(version_of "$p"), not $ver" ;; esac
 done
 
-# the records of this machine's class, and of no other
+# plugin-qualification-records: one package, built per architecture; the one installed is this machine's, and holds
+# the sets of this machine's class
+records=plugin-qualification-records
+installed "$records" || fail "$records is not installed"
 if [ "$kind" = deb ]; then
-    providers=$(dpkg-query -W -f '${Package} ${Status} ${Provides}\n' 'plugin-db-qualification-*' 2>/dev/null |
-        awk '/install ok installed/ && /plugin-qualification-records/ {print $1}')
+    rarch=$(dpkg-query -W -f '${Architecture}' "$records"); want=$(dpkg --print-architecture)
 else
-    providers=$(rpm -q --whatprovides plugin-qualification-records --qf '%{NAME}\n' 2>/dev/null | grep -v '^no package' || true)
+    rarch=$(rpm -q --qf '%{ARCH}' "$records"); want=$machine
 fi
-[ -n "$providers" ] || fail "nothing provides plugin-qualification-records"
-for p in $providers; do
-    case $p in plugin-db-qualification-$class-*) echo "records: $p" ;; *) fail "$p is not a $class set ($machine)" ;; esac
-done
+[ "$rarch" = "$want" ] || fail "$records is built for $rarch, this machine is $want"
+d=/usr/share/omx/qualification/$class
+[ -n "$(ls -A "$d" 2>/dev/null)" ] || fail "$records $(version_of "$records") holds no set under $d"
+echo "records: $records $(version_of "$records") ($rarch): $(ls "$d" | tr '\n' ' ')"
 
 if [ "$mode" = default ]; then
     installed omx-panel || fail "omx-panel, recommended, is not installed"

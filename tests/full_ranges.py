@@ -3,7 +3,8 @@
 # plugin-hostd-full, the metapackage that installs the whole plugin host stack, in the RPM spec (%package full) and
 # debian/control (Package: plugin-hostd-full) alike:
 # - it hard-depends on exactly HARD, plugin-hostd at its own version (= %{version}-%{release}, = ${source:Version}) and
-#   every other name with a floor and a ceiling below the next minor (a version 1 or later: the next major), and
+#   every other name with a floor and a ceiling below the next minor (a version 1 or later: the next major; a dated
+#   version YYYYMMDDXX, plugin-qualification-records': the first of the next year, (YYYY+1)000000), and
 #   recommends exactly SOFT the same way: omx-panel is a weak dependency, so the headless install
 #   (--no-install-recommends, install_weak_deps=False) leaves it out;
 # - the RPM and the Debian ranges are the same numbers;
@@ -23,7 +24,10 @@ def vtuple(v):
 
 
 def next_step(floor):
-    """the ceiling a floor must have: the next minor below 1.0, the next major from 1.0"""
+    """the ceiling a floor must have: the next minor below 1.0, the next major from 1.0, the next year's first for a
+    dated version"""
+    if re.fullmatch(r"\d{10}", floor):
+        return f"{int(floor[:4]) + 1}000000"
     t = vtuple(floor)
     return f"{t[0]}.{t[1] + 1}" if t[0] == 0 else f"{t[0] + 1}"
 
@@ -167,7 +171,8 @@ SABOTAGE = [
     ("a floor with no ceiling (deb)", [("debian/control", ", omx-plugins (<< 0.20~)", "")], "not a floor and a ceiling"),
     ("a floor with no ceiling (rpm)", [("packaging/plugin-hostd.spec", "(plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)", "plugin-qualify >= 0.20.0")], "not a floor and a ceiling"),
     ("a ceiling past the next minor", [("debian/control", "plugin-qualify (<< 0.21~)", "plugin-qualify (<< 0.22~)")], "the next step is 0.21"),
-    ("the records left out", [("packaging/plugin-hostd.spec", "Requires: (plugin-qualification-records >= 0.20.0 with plugin-qualification-records < 0.21)\n", "")], "names"),
+    ("the records left out", [("packaging/plugin-hostd.spec", "Requires: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)\n", "")], "names"),
+    ("a dated ceiling past the next year", [("debian/control", "plugin-qualification-records (<< 2027000000~)", "plugin-qualification-records (<< 2028000000~)")], "the next step is 2027000000"),
     ("the panel a hard dependency", [("debian/control", "Recommends: omx-panel (>= 0.12.0~), omx-panel (<< 0.13~)\n", ""),
                                      ("debian/control", "         ${misc:Depends}\nRecommends", "         omx-panel (>= 0.12.0~), omx-panel (<< 0.13~),\n         ${misc:Depends}\nRecommends")], "names"),
     ("the daemon not at its own version", [("debian/control", "plugin-hostd (= ${source:Version}),\n         omx-clap-host", "plugin-hostd (>= 0.20.0~),\n         omx-clap-host")], "not exactly"),
