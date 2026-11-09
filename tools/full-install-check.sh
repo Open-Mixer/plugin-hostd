@@ -19,7 +19,7 @@
 set -euo pipefail
 
 kind=$1 ver=${2#v} mode=$3
-STACK="plugin-hostd plugin-hostd-full omx-clap-host omx-plugins plugin-qualify plugin-qualification-records"
+STACK="plugin-hostd plugin-hostd-full omx-clap-host omx-plugins plugin-qualify"
 X_DEB="libx11-6 libwayland-client0 libgtk-3-0 libgtk-4-1 xserver-common xserver-xorg-core"
 X_RPM="libX11 libwayland-client gtk3 gtk4 xorg-x11-server-common xorg-x11-server-Xorg"
 # who may pull what headless (see above)
@@ -73,8 +73,19 @@ done
 
 # plugin-qualification-records: one package, built per architecture; the one installed is this machine's, and holds
 # the sets of this machine's class
+# (recommended until the package is in the channel: required in a default install once the channel has it, checked
+# whenever it is installed)
 records=plugin-qualification-records
-installed "$records" || fail "$records is not installed"
+if [ "$kind" = deb ]; then
+    have=$(apt-cache policy "$records" 2>/dev/null | awk '/Candidate:/ {print $2}')
+    [ "$have" = "(none)" ] && have=
+else
+    have=$(dnf -q repoquery --latest-limit 1 "$records" 2>/dev/null | head -1)
+fi
+if [ "$mode" = default ] && [ -n "$have" ]; then installed "$records" || fail "$records, recommended and in the channel, is not installed"; fi
+if ! installed "$records"; then
+    echo "records: $records not installed (${have:-not in the channel})"
+else
 if [ "$kind" = deb ]; then
     rarch=$(dpkg-query -W -f '${Architecture}' "$records"); want=$(dpkg --print-architecture)
 else
@@ -84,6 +95,7 @@ fi
 d=/usr/share/omx/qualification/$class
 [ -n "$(ls -A "$d" 2>/dev/null)" ] || fail "$records $(version_of "$records") holds no set under $d"
 echo "records: $records $(version_of "$records") ($rarch): $(ls "$d" | tr '\n' ' ')"
+fi
 
 if [ "$mode" = default ]; then
     installed omx-panel || fail "omx-panel, recommended, is not installed"

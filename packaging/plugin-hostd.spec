@@ -118,8 +118,9 @@ Requires: %{name} = %{version}-%{release}
 Requires: (omx-clap-host >= 0.31.0 with omx-clap-host < 0.32)
 Requires: (omx-plugins >= 0.19.1 with omx-plugins < 0.20)
 Requires: (plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)
-Requires: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)
 Recommends: (omx-panel >= 0.12.0 with omx-panel < 0.13)
+# recommended until the package is in the channel: a hard dependency now would leave plugin-hostd-full uninstallable
+Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)
 
 %description full
 Installs plugin-hostd with everything it runs plugins with: omx-clap-host,

@@ -15,8 +15,9 @@ import os, re, sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SELF = "plugin-hostd"
-HARD = {"omx-clap-host", "omx-plugins", "plugin-qualify", "plugin-qualification-records"}
-SOFT = {"omx-panel"}
+HARD = {"omx-clap-host", "omx-plugins", "plugin-qualify"}
+# plugin-qualification-records is recommended until the package is in the channel; it moves to HARD then
+SOFT = {"omx-panel", "plugin-qualification-records"}
 
 
 def vtuple(v):
@@ -171,8 +172,9 @@ SABOTAGE = [
     ("a floor with no ceiling (deb)", [("debian/control", ", omx-plugins (<< 0.20~)", "")], "not a floor and a ceiling"),
     ("a floor with no ceiling (rpm)", [("packaging/plugin-hostd.spec", "(plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)", "plugin-qualify >= 0.20.0")], "not a floor and a ceiling"),
     ("a ceiling past the next minor", [("debian/control", "plugin-qualify (<< 0.21~)", "plugin-qualify (<< 0.22~)")], "the next step is 0.21"),
-    ("the records left out", [("packaging/plugin-hostd.spec", "Requires: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)\n", "")], "names"),
+    ("the records left out", [("packaging/plugin-hostd.spec", "Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)\n", "")], "names"),
     ("a dated ceiling past the next year", [("debian/control", "plugin-qualification-records (<< 2027000000~)", "plugin-qualification-records (<< 2028000000~)")], "the next step is 2027000000"),
+    ("the qualifier left out", [("packaging/plugin-hostd.spec", "Requires: (plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)\n", "")], "names"),
     ("the panel a hard dependency", [("debian/control", "Recommends: omx-panel (>= 0.12.0~), omx-panel (<< 0.13~)\n", ""),
                                      ("debian/control", "         ${misc:Depends}\nRecommends", "         omx-panel (>= 0.12.0~), omx-panel (<< 0.13~),\n         ${misc:Depends}\nRecommends")], "names"),
     ("the daemon not at its own version", [("debian/control", "plugin-hostd (= ${source:Version}),\n         omx-clap-host", "plugin-hostd (>= 0.20.0~),\n         omx-clap-host")], "not exactly"),
@@ -194,7 +196,8 @@ def main():
         print("FAIL " + line)
     if not p:
         print("ok   plugin-hostd-full: plugin-hostd at its version, "
-              + ", ".join(sorted(HARD)) + " each a floor and a ceiling; omx-panel recommended the same way")
+              + ", ".join(sorted(HARD)) + " each a floor and a ceiling; " + ", ".join(sorted(SOFT))
+              + " recommended the same way")
     return 1 if p or bad else 0
 
 
