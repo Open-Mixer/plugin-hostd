@@ -253,9 +253,9 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
         d.expect("curve_bind 1 3 transfer_curve dynamics threshold=nope:db", "resp -103")
         d.expect("curve_bind 7 0 transfer_curve dynamics threshold=thr:db", "resp -3")
         d.expect("curve_points 7 0 9", "resp -3")
-        d.expect("curve_bind 1 0", "few arguments")
-        d.expect("curve_points 1 0", "few arguments")
-        d.expect("curve_points 1 0 9 9", "many arguments")
+        d.expect("curve_bind 1 0", "resp -902")
+        d.expect("curve_points 1 0", "resp -902")
+        d.expect("curve_points 1 0 9 9", "resp -902")
         with open(log) as f:
             sent = [l.split(" ", 1) for l in f.read().splitlines()]
         curve = [(int(pid), l) for pid, l in sent if l.startswith("curve_")]
