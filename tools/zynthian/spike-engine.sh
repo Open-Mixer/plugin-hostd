@@ -14,7 +14,8 @@
 # Exit 2 with the reason named when the patch cannot be read or does not apply.
 ZUI_SHA=f46b0189b6163472db39aa607369f397ed23b65a
 SPIKE_REV=b0190da1278f00253964b038ae3624762805472c
-SPIKE_PATCH_URL=https://raw.githubusercontent.com/FreeMixer/plugin-hostd/$SPIKE_REV/docs/zynthian/zynthian_engine_plugind.patch
+# the organisation is the runner's (Open-Mixer while FreeMixer is restricted), never a default
+SPIKE_PATCH_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY_OWNER:?GITHUB_REPOSITORY_OWNER is unset; it names the organisation the spike patch is read from}/plugin-hostd/$SPIKE_REV/docs/zynthian/zynthian_engine_plugind.patch
 
 spike_engine_fetch() {
     [ -n "${SPIKE_ENGINE_PATCH:-}" ] && return 0
