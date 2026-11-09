@@ -103,4 +103,14 @@ file amp.so" ]; check $? "a bundle directory with a space: its own file:// IRI n
 out=$("$daemon" -c "$work/conf" --pin-files "clap:/usr/lib/clap/some plugin.clap#org.example.x"); rc=$?
 [ $rc -eq 0 ] && [ "$out" = "root /usr/lib/clap
 file some%20plugin.clap" ]; check $? "a CLAP plugin: its .clap file beside its directory, one percent-encoded word"
+# a CLAP directory bundle (Cardinal, Ildaeil): the pin holds the one object inside it, not the directory
+mkdir -p "$work/clapdir/Bundled.clap"
+: > "$work/clapdir/Bundled.clap/Bundled.clap"
+out=$("$daemon" -c "$work/conf" --pin-files "clap:$work/clapdir/Bundled.clap#org.example.x"); rc=$?
+[ $rc -eq 0 ] && [ "$out" = "root $work/clapdir
+file Bundled.clap/Bundled.clap" ]; check $? "a CLAP directory bundle: its one object inside it (rc $rc)"
+[ "$rc" -eq 0 ] || echo "$out" | sed 's/^/     /'
+: > "$work/clapdir/Bundled.clap/Second.clap"
+"$daemon" -c "$work/conf" --pin-files "clap:$work/clapdir/Bundled.clap#org.example.x" >/dev/null 2>"$work/err"; rc=$?
+[ $rc -ne 0 ] && grep -q 'without exactly one' "$work/err"; check $? "a directory bundle with two .clap files is refused with its reason ($rc: $(cat "$work/err"))"
 exit $failed
