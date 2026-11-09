@@ -55,7 +55,7 @@ Depends: plugin-hostd (= ${source:Version}),
          plugin-qualification-records (>= 0.20.0~), plugin-qualification-records (<< 0.21~),
          ${misc:Depends}
 Recommends: omx-panel (>= 0.12.0~), omx-panel (<< 0.13~)
-Description: the whole plugin host stack: daemon, workers, plugins, qualifier
+Description: whole plugin host stack: daemon, workers, plugins, qualifier
  Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
  the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
  plugins, plugin-qualify, which measures each installed plugin before it is

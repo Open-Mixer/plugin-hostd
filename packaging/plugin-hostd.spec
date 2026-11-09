@@ -106,7 +106,7 @@ time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
 %package full
-Summary: The whole plugin host stack: daemon, workers, plugins, qualifier
+Summary: Whole plugin host stack: daemon, workers, plugins, qualifier
 BuildArch: noarch
 # The whole plugin host stack in one install, on any Fedora (docs/install.md): the daemon at its own version, its
 # CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records of this machine's class
