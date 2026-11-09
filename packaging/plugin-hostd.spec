@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.0
+Version: 0.20.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -208,6 +208,12 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Mon Nov 09 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.1-1
+- plugin-hostd-full: the whole plugin host stack in one install, with
+  plugin-hostd at this version, omx-clap-host 0.31, omx-plugins 0.19 and
+  plugin-qualify 0.20; omx-panel and plugin-qualification-records are weak
+  dependencies (install_weak_deps=False leaves them out)
+
 * Sun Nov 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.0-1
 - curve_bind and curve_points reach the worker that holds the instance; the
   ledger keeps the binding for a respawn; a word that is no number is -902
