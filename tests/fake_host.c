@@ -64,6 +64,8 @@
  *   param_set <n> gesture <v>   v other than 0 writes what a CLAP worker relays when the user turns a knob of the plugin's
  *                               own: "param_gesture <n> 0 begin", "param_set <n> 0 <v>" (v as sent), "param_gesture <n> 0 end", then
  *                               "remote_page_suggest <n> 8", in that order
+ *   param_get <n> moved=<v>     the plugin moves its parameter "0" to v by itself: the fake holds it and writes "param_set <n> 0 <v>" on
+ *                               the feedback port; "resp 0 0", and a read is no setting of the controller's
  *   param_set <n> hold <v>      v other than 0 writes "param_gesture <n> 0 begin" and never its end
  *   param_set <n> moves <v>     v other than 0 writes "param_set <n> 0 <v>" (v as sent) and "param_set <n> 0 0.25" on the
  *                               feedback port, with no gesture, as a worker reports a value its plugin moved by itself
@@ -639,6 +641,17 @@ static void receive(msg_t *msg)
         char event[128];
 
         snprintf(event, sizeof(event), PHD_EVENT_XRUNS " %s", tok[2] + 6);
+        socket_send_feedback(event);
+        answer(fd, "resp 0 0");
+    }
+    else if (verb_is(verb, EFFECT_PARAM_GET) && ntok == 3 && !strncmp(tok[2], "moved=", 6))
+    {
+        /* the plugin moves its parameter "0" by itself: it holds the value and says so on the feedback port, and no
+         * setting of the controller's is in it (a read, so the daemon's ledger keeps nothing of it) */
+        char event[128];
+
+        set_param(&g_inst[n], "0", tok[2] + 6);
+        snprintf(event, sizeof(event), PHD_EVENT_PARAM_SET_FMT, n, "0", tok[2] + 6);
         socket_send_feedback(event);
         answer(fd, "resp 0 0");
     }

@@ -264,7 +264,7 @@ def setup(s):
     """a daemon in front of the fake worker under pin_mode first-use, with two CLAP instances whose scan is done and
     an LV2 one; the first-use pins of the CLAP adds are recorded, so pin_accept takes them"""
     lay = subprocess.check_output([FAKE, "-L"], text=True).strip()
-    d = s.daemon(conf={"require_pins": 1, "pin_mode": "first-use"})
+    d = s.daemon(conf={"require_pins": 1, "pin_mode": "first-use", "clap_path": s.dir})
     for n in (1, 2):
         d.expect("add %s %d" % (s.clap_uri, n), "resp %d" % n)
     d.expect("add lv2:%s 3" % scan_fixture.LV2_COMPRESSOR, "resp 3")

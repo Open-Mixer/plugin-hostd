@@ -61,6 +61,10 @@ int relay_xruns(int fd, unsigned long long *count);
  * An instance removed meanwhile (relay_instance_gone) is not given. */
 int relay_abi_clobbers(int fd, int *ids, int max);
 
+/* The instances whose plugin moved a value of its own (a PHD_EVENT_PARAM_SET line the worker of this feedback socket wrote)
+ * since the last call, as relay_abi_clobbers gives them: up to max into ids, each once, what did not fit waiting. */
+int relay_param_moves(int fd, int *ids, int max);
+
 /* An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on. */
 void relay_instance_gone(int id);
 

@@ -1669,6 +1669,33 @@ static void abi_isolate(void)
     }
 }
 
+/* a value the plugin moved itself is state the last checkpoint does not hold, and no verb of the controller's said so:
+ * each instance the worker reported is dirty from now (from the first move, so a plugin that moves all the time is still
+ * checkpointed every checkpoint_ms), and the checkpoint a respawn loads carries the value */
+static void moved_dirty(void)
+{
+    enum { MAX_REPORTS = 256 };
+    int ids[MAX_REPORTS];
+    int n, k;
+    const int64_t now = proc_now_ms();
+
+    for (n = 0; n < g_nworkers; n++)
+        if (g_workers[n]->state == W_UP && g_workers[n]->fb_fd >= 0)
+        {
+            const int got = relay_param_moves(g_workers[n]->fb_fd, ids, MAX_REPORTS);
+
+            for (k = 0; k < got; k++)
+            {
+                instance_t *i = ids[k] >= 0 && ids[k] < MAX_INSTANCE ? g_inst[ids[k]] : NULL;
+
+                if (!i || i->w != g_workers[n] || i->dirty)
+                    continue;
+                i->dirty = 1;
+                i->changed_ms = now;
+            }
+        }
+}
+
 void sup_tick(void)
 {
     int n;
@@ -1677,6 +1704,7 @@ void sup_tick(void)
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
 
     sup_pins_poll();
+    moved_dirty();
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
     {
@@ -2060,7 +2088,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         /* a plugin that has no pin gets one, from the files as they are now; it is not asked about again */
         if (rc == OMX_REPLY_HOST_PIN_ABSENT_RESP && first_use && !pins_known(fwd))
         {
-            rc = pins_learn(format, fwd, search_of(fmt));
+            rc = pins_learn(format, fwd, search_of(fmt), format->declared ? format->declared(&g_conf) : NULL);
             if (rc == SUCCESS)
                 rc = pins_check(format, fwd, search_of(fmt), &layout);
         }
