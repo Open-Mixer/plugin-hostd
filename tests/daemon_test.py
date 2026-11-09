@@ -72,6 +72,7 @@ def a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscal
             check(not shared, "%s holds none of the daemon's sockets or pipes: %s" % (k, shared))
             # what the worker inherits is stdin, stdout and stderr; everything else it opened itself after the exec
             check(mine.get(1) == mine.get(2) and "/" in mine.get(1, ""), "%s writes its log on 1 and 2: %s" % (k, mine))
+            check(mine.get(0) == "/dev/null", "%s reads nothing on stdin, not the daemon's: %s" % (k, mine.get(0)))
         # the filter answers, it does not kill: a ptrace of the worker's own (untraced) self is ESRCH without it
         d.expect("param_get 0 ptrace", "resp 0 %d" % errno.EPERM)
         d.expect("param_get 1 ptrace", "resp 0 %d" % errno.EPERM)

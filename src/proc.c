@@ -332,6 +332,16 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const
         dup2(log, STDERR_FILENO);
         if (log > STDERR_FILENO)
             close(log);
+        /* a worker reads nothing on stdin: not the daemon's, which may be a pipe of whoever started it */
+        {
+            int null = open("/dev/null", O_RDONLY);
+
+            if (null >= 0 && null != STDIN_FILENO)
+            {
+                dup2(null, STDIN_FILENO);
+                close(null);
+            }
+        }
         signal(SIGPIPE, SIG_DFL);
         if (world_env && world)
             setenv(world_env, world, 1);

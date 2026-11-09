@@ -23,8 +23,8 @@ and MIDI never pass through it, every worker is a JACK client (`README.md`, `doc
 - Isolation: one process per plugin, per pool or per chain, so a crash takes down its worker only. Workers run as
   the daemon's user with its environment, with `PR_SET_PDEATHSIG`. Before the exec (`proc_confine` in `src/proc.c`)
   each worker, and the descriptor scan (`plugin-hostd-probe describe|panel`, a child of its own, `src/descriptors.c`),
-  gets `PR_SET_NO_NEW_PRIVS`, closes every descriptor past 0, 1 and 2 (so no plugin holds the command socket, a
-  controller's or another worker's), and a seccomp filter that answers `EPERM` to `ptrace`,
+  gets `PR_SET_NO_NEW_PRIVS`, a stdin of `/dev/null`, closes every descriptor past 0, 1 and 2 (so no plugin holds
+  the command socket, a controller's, another worker's or the daemon's own stdin), and a seccomp filter that answers `EPERM` to `ptrace`,
   `process_vm_readv`/`writev`, `mount`, `umount2`, `pivot_root`, `kexec_*`, module loading, `reboot`, `swapon`/`swapoff`,
   `acct`, `open_by_handle_at`, `bpf`, `userfaultfd`, `iopl`/`ioperm`, and to any system call of another architecture.
   None of it touches scheduling, memory locking or the audio path. There is no namespace, cgroup or rlimit around a
