@@ -47,8 +47,8 @@ Inputs
 A loaded plugin is arbitrary code running as the daemon's user inside its worker. The code assumes nothing about it
 beyond what a pin says: with `require_pins 1` (the default) the bytes it loads are the bytes that were hashed, and
 with a `verdict=in-process` pin it may share a worker. A pin records which files were checked; it does not make a
-plugin safe, and under `pin_mode first-use` (the default) the first `add` of any path records its pin without any
-qualification.
+plugin safe, and under `pin_mode first-use` (the default) the first `add` of a plugin inside the declared search path
+records its pin without any qualification.
 
 Trust boundary
 --------------
@@ -74,6 +74,10 @@ What the code assumes and enforces
   (`hash_file`). Missing pin: `-508`; changed, missing or unheld file: `-509`; `verdict=refused`: `-516` unless the
   user's `pin_accept`. Pin paths are relative, without `..` or empty components, and percent-escaped (`path_valid`,
   `full_path`). A `pin_set` line that does not fit `line_max` is refused.
+- First use (`record` in `src/pins.c`): a pin is learned only for files that resolve, symbolic links and `..`
+  followed, inside a directory of the format's declared search path (`clap_path`, or `lv2_path` with `lv2_extra`);
+  anything else stays unpinned and its `add` answers `-508` before any worker sees it. Whoever can write into a declared
+  directory still gets a first-use pin for what they put there.
 - LV2 manifests (`src/lv2.c`): read only when a regular file of at most 4 MiB (`MANIFEST_MAX`); a name that climbs out
   of the bundle or is absolute is never matched by a pin; a manifest using `@base` is refused with `-509`.
 - Pinned LV2 plugins get a worker of their own whose LV2 world is narrowed to the plugin's bundle (`src/lv2.c`,

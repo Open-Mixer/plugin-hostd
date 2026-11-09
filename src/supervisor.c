@@ -2088,7 +2088,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         /* a plugin that has no pin gets one, from the files as they are now; it is not asked about again */
         if (rc == OMX_REPLY_HOST_PIN_ABSENT_RESP && first_use && !pins_known(fwd))
         {
-            rc = pins_learn(format, fwd, search_of(fmt));
+            rc = pins_learn(format, fwd, search_of(fmt), format->declared ? format->declared(&g_conf) : NULL);
             if (rc == SUCCESS)
                 rc = pins_check(format, fwd, search_of(fmt), &layout);
         }
