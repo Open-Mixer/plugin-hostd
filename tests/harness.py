@@ -77,7 +77,12 @@ def alive(pid):
         return False
 
 
-def wait_for(cond, what, timeout=10.0, step=0.02):
+# The ceilings below are generous on purpose: a wait ends on the thing it waits for (the daemon's reply, its feedback
+# line, a process state), never on a count of milliseconds, so a loaded runner costs time and not a verdict.
+CEILING = 60.0
+
+
+def wait_for(cond, what, timeout=CEILING, step=0.02):
     end = time.monotonic() + timeout
     while time.monotonic() < end:
         v = cond()
@@ -95,8 +100,8 @@ class Daemon:
         self.tmp = tempfile.mkdtemp(prefix="plugin-hostd-test.")
         settings = {
             "mod_host": worker, "clap_host": clap_worker or worker, "state_root": self.tmp,
-            "backoff_base_ms": 20, "backoff_max_ms": 80, "checkpoint_ms": 600000, "ready_timeout_ms": 4000,
-            "rpc_timeout_ms": 1500, "idle_ms": 10,
+            "backoff_base_ms": 20, "backoff_max_ms": 80, "checkpoint_ms": 600000, "ready_timeout_ms": 20000,
+            "rpc_timeout_ms": 10000, "idle_ms": 10,
             # the tests of placement, replay and attribution add plugins no one pinned; the pin tests turn it back on,
             # and a None leaves a setting out of the file, so the daemon's own default holds
             "require_pins": 0,
@@ -202,7 +207,7 @@ class Daemon:
         r = self.send(msg)
         check(r == expect, "%s -> %r, wanted %r" % (msg, r, expect))
 
-    def until_ok(self, msg, timeout=5.0):
+    def until_ok(self, msg, timeout=30.0):
         """a jack port is announced to the other clients a moment after it is registered: ask again"""
         end = time.monotonic() + timeout
         while True:
@@ -234,7 +239,7 @@ class Daemon:
                 return k, w
         raise Fail("no worker holds instance %d" % inst)
 
-    def wait_event(self, prefix, timeout=10.0, since=0):
+    def wait_event(self, prefix, timeout=CEILING, since=0):
         def find():
             if self.proc.poll() is not None:
                 raise Fail("the daemon exited with %s: %s" % (self.proc.returncode, self.log()[-600:]))
@@ -245,11 +250,26 @@ class Daemon:
             return None
         return wait_for(find, "event '%s' (have %s)" % (prefix, self.events), timeout)
 
+    def settle(self, since, quiet=0.3, ceiling=CEILING):
+        """the feedback lines the daemon wrote about what just happened have all arrived: none came for `quiet` seconds.
+        The quiet is counted from the last line that arrived, not from the call, so a reader that is late because the
+        machine is busy is waited for"""
+        end = time.monotonic() + ceiling
+        last_n, last_t = self.mark(), time.monotonic()
+        while time.monotonic() < end:
+            time.sleep(0.02)
+            n = self.mark()
+            if n != last_n:
+                last_n, last_t = n, time.monotonic()
+            elif time.monotonic() - last_t >= quiet:
+                return list(self.events[since:])
+        raise Fail("feedback did not go quiet within %.0f s" % ceiling)
+
     def mark(self):
         with self.lock:
             return len(self.events)
 
-    def wait_up(self, inst, timeout=10.0):
+    def wait_up(self, inst, timeout=CEILING):
         return wait_for(lambda: self._up(inst), "instance %d up" % inst, timeout)
 
     def _up(self, inst):

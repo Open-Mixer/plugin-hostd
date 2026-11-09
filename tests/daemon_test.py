@@ -144,8 +144,7 @@ def kill_and_collect(d, inst):
     os.kill(w["pid"], signal.SIGKILL)
     wait_for(lambda: d.holder(inst)[1]["pid"] != w["pid"], "instance %d respawned" % inst)
     wait_for(lambda: any("instance_restored" in e for e in d.events[mark:]), "instance %d restored" % inst)
-    time.sleep(0.3)
-    return list(d.events[mark:])
+    return d.settle(mark)
 
 
 @test
@@ -1964,7 +1963,7 @@ def a_value_the_plugin_moved_by_itself_reaches_the_controller_and_a_controllers_
             d.expect(line, "resp 0")
         d.expect("param_set 3 moves 0.6000", "resp 0")
         wait_for(lambda: len(from_plugin(d, mark)) >= 2, "the two values the plugin moved")
-        time.sleep(0.2)
+        d.settle(mark)
         check(from_plugin(d, mark) == ["param_set 3 0 0.6000", "param_set 3 0 0.25"],
               "the plugin's values only, as written and in order, none for the controller's: %s" % d.events[mark:])
     finally:
@@ -3858,7 +3857,7 @@ def a_chain_that_does_not_form_is_said_once_with_the_member_the_step_and_the_cod
         open(refuse, "w").close()
         mark = d.mark()
         d.expect("chain 1 1 2 3", "resp 0")
-        stalled = d.wait_event("chain_stalled 1 ", since=mark, timeout=6)
+        stalled = d.wait_event("chain_stalled 1 ", since=mark)
         check(stalled == "chain_stalled 1 1 add -101", "the stall names the member, the step and the code: %s" % stalled)
         time.sleep(1.5)
         check(len([e for e in d.events[mark:] if e.startswith("chain_stalled 1 ")]) == 1, "said once: %s" % d.events[mark:])
@@ -6194,8 +6193,8 @@ def while_a_promised_write_waits_the_daemon_still_supervises_and_reports_at_once
         wait_for(lambda: in_flight(mark) or None, "the clear's write in flight", timeout=10.0)
         t0 = time.monotonic()
         os.kill(w["pid"], signal.SIGKILL)
-        d.wait_event("worker_died %s " % key, since=since, timeout=5.0)
-        d.wait_event("instance_restored 0 ", since=since, timeout=5.0)
+        d.wait_event("worker_died %s " % key, since=since)
+        d.wait_event("instance_restored 0 ", since=since)
         took = time.monotonic() - t0
         busy = in_flight(mark)
         check(took < 1.0, "the death was said and the worker respawned in %.2f s while the write waited" % took)
