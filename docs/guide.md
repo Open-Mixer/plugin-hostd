@@ -490,6 +490,13 @@ Error codes the daemon adds to mod-host's:
 | `-533` | `OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP` | a member of estimate that no qualification record in qualification_dir names: never a reply, the code of the member in the reply's list |
 | `-534` | `OMX_REPLY_PLUGIN_HOSTD_NO_CELL_RESP` | a member of estimate whose qualification records hold no point of the grid at that rate and quantum with a cost and a latency: never a reply, the code of the member in the reply's list |
 | `-535` | `OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP` | a member of estimate whose uri names no plugin installed here (its format cannot tell the plugin's binary, or the binary is not there): never a reply, the code of the member in the reply's list |
+| `-536` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_KIND_UNKNOWN_RESP` | curve_bind of a family with no closed form for the display's kind, or curve_points of a binding whose values pick a band shape or a head filter slope with no closed form: no curve is drawn |
+| `-537` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_TERM_MISSING_RESP` | curve_points of a display with no binding, or of a binding that lacks a term the model needs (a band's frequency, shape or Q, a threshold, a ratio, a gate's range): no curve is drawn from a guess |
+| `-538` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_UNIT_REFUSED_RESP` | curve_bind of a term in a unit its role does not take: nothing of the line is kept |
+| `-539` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_POINTS_RANGE_RESP` | curve_points of fewer than 2 points or more than a curve carries, three anchors a drawn band counted, or of a band index past what fits |
+| `-540` | `OMX_REPLY_PLUGIN_HOSTD_DURABLE_WRITE_FAILED_RESP` | the daemon's writer thread could not write the file the verb changes (history_clear, pin_clear, pin_accept): the change is not on disk, and stderr names the path and the error |
+| `-541` | `OMX_REPLY_PLUGIN_HOSTD_WRITER_QUEUE_FULL_RESP` | the daemon's writer queue holds its most writes or bytes: the write the verb needs is refused and nothing of the verb changed; the controller may send it again |
+| `-542` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_VALUE_NOT_FINITE_RESP` | curve_points of a binding whose value, as the instance holds it, is not finite, or of an instance that runs at no rate: no curve is drawn |
 | `-543` | `OMX_REPLY_PLUGIN_HOSTD_OUTPUT_NOT_MONITORED_RESP` | monitor_output_off of an output this connection did not monitor: a monitor ends with the connection that set it, and only that connection ends it earlier |
 <!-- END GENERATED protocol:errors -->
 

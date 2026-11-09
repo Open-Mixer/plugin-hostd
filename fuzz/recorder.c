@@ -347,6 +347,15 @@ char *sup_call(int id, const char *line)
     return answer(c, REC_MOD_HOST_SHAPE, 1);
 }
 
+/* monitor_output_off asks first whether this connection's monitor stands: the harness holds every one, so the line
+ * goes on to sup_call and is recorded there */
+int sup_monitor_held(int id, const char *symbol)
+{
+    (void)id;
+    (void)symbol;
+    return 1;
+}
+
 char *sup_remove(int id)
 {
     struct rec_call *c = record(REC_REMOVE);
