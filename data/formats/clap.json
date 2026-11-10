@@ -1723,8 +1723,9 @@
       },
       "omx_clap_panel_role.role": {
         "from": "omx_clap_ext.h#omx_clap_panel_role.role",
-        "dropped": {
-          "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+        "word": {
+          "word": "controls[].meaning",
+          "transform": "role-to-meaning"
         }
       },
       "omx_clap_panel_section.key": {

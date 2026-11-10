@@ -117,6 +117,7 @@ format side.
 | `scale-points` | `<number> <label>` -> one point of the control's `values` and `labels` | the point back as `<number> <label>` | none |
 | `group-path` | a CLAP module path `a/b` -> the group `["a","b"]` | the group joined by `/` | none |
 | `port-group` | an LV2 group's label -> the group `["label"]`; a `pg:subGroupOf` label -> a level put before the group read so far | the path's last level, the group a port names | none |
+| `role-to-meaning` | a declared panel's role -> the meaning it plays, from the contract directory's role tables; a role no package declares gives nothing (the meaning stays `unknown`) | the one role that plays the meaning; refused when two or more do | the contract directory's `roleMeanings` items, never the row's own `values` |
 | `output-symbol` | a CLAP meter's name -> the output symbol a host reads it by, omx-clap-core's rule (`doc/reference.md`): each byte outside `[A-Za-z0-9_]` is `_`, a leading digit gets a `_` before it; an empty name is refused | the symbol itself, refused when it is no symbol | none |
 
 A new transform is added when a row needs it, never before; `make test-transforms` runs every function and its inverse
@@ -166,7 +167,7 @@ The first line is `# omx-clap-scan --fields 1`, the format's version; a dump wit
 
 ## The descriptor `describe` writes
 
-`plugin-hostd-probe describe [--table <file>] [--fields-from <dump.tsv>] clap:<path>#<id> | lv2:<uri>` writes the
+`plugin-hostd-probe describe [--table <file>] [--fields-from <dump.tsv>] [--contract-dir <dir>] clap:<path>#<id> | lv2:<uri>` writes the
 `scanned` descriptor on stdout, exit 0; 2 when nothing is written (usage, a table it cannot read, a refused dump), 3 when
 the dump cannot be made. Without `--fields-from` it runs `omx-clap-scan --fields` under the probe runner's limits, in a
 child of its own (`run`'s isolation); with it, it reads a recorded dump, which is what its own tests do.
@@ -196,6 +197,14 @@ What the tables leave to `describe`:
   kind is carried in the bag (`meter:<index>/clap_meter_info.kind`) and nothing else of it is written. A meter of more than one channel answers to `<symbol>_<channel>` from 0, and a plugin
   whose meters give one output symbol twice, or one a parameter's `symbol` answers to, is refused naming the symbol,
   as omx-clap-core refuses it;
+- a CLAP control's meaning from its declared panel's role: the role tables are the `roleMeanings` items of the
+  contract directory (omx-contract's `docs/contract-dir.md`, "A package's role meanings"), read from
+  `--contract-dir <dir>`, else `$OMX_CONTRACT_PATH`, else the directory plugin-hostd was built for, under its major:
+  every package's `MANIFEST.json` and each `.json` file it lists, each checked against its hash. A role declared
+  twice (`contract.role.duplicate`), a file that does not match its hash, a role whose `param_id` no parameter has, and
+  two roles giving one parameter two meanings are refused. With no role table installed every meaning stays `unknown`;
+  a role that plays none (`unknown`) leaves it so. The tests read the fixture directory
+  `tests/fixtures/contract-dir`, never the machine's;
 - an LV2 port's group path is its `pg:group` label with one `pg:subGroupOf` record per group above it, nearest first
   (the scanner follows the chain, `lv2:name` else `rdfs:label` of each group); the path is read outermost first, and a
   `pg:subGroupOf` with no `pg:group` before it is refused;

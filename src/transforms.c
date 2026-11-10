@@ -521,6 +521,43 @@ int transforms_output_symbol_inverse(const transforms_data_t *d, const char *val
     return TRANSFORMS_OK;
 }
 
+/* ---------------------------------------------------------------- role-to-meaning */
+
+/* a declared panel's role -> the meaning it plays, from the role tables of the contract directory (omx-contract
+ * docs/contract-dir.md, "A package's role meanings"), which describe gives as the data (from: the roles, to: the
+ * meanings as JSON literals). A role no package declares gives nothing: the control's meaning stays unknown */
+int transforms_role_to_meaning(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    size_t i;
+
+    for (i = 0; i < d->n; i++)
+        if (strcmp(d->from[i], value) == 0)
+        {
+            if (strlen(d->to[i]) + 1 > size)
+                return TRANSFORMS_REFUSED;
+            memcpy(out, d->to[i], strlen(d->to[i]) + 1);
+            return TRANSFORMS_OK;
+        }
+    return TRANSFORMS_NONE;
+}
+
+/* a meaning back as the one role that plays it: nothing when no role does, refused when two or more do (hpf_freq and
+ * low_cut both play lowCut), since the inverse would have to choose */
+int transforms_role_to_meaning_inverse(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    size_t i, found = 0, at = 0;
+
+    for (i = 0; i < d->n; i++)
+        if (strcmp(d->to[i], value) == 0)
+            found++, at = i;
+    if (found == 0)
+        return TRANSFORMS_NONE;
+    if (found > 1 || strlen(d->from[at]) + 1 > size)
+        return TRANSFORMS_REFUSED;
+    memcpy(out, d->from[at], strlen(d->from[at]) + 1);
+    return TRANSFORMS_OK;
+}
+
 /* ---------------------------------------------------------------- the list */
 
 #define TRANSFORMS_ENTRY(name, in, inverse) { name, in, inverse },
