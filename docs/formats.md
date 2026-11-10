@@ -87,8 +87,11 @@ which the row quotes. A field this section rules out is dropped by `docs/formats
 - a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back);
 - every field of the panel description (`omx_clap_plugin_panel_description.*` and the `omx_clap_panel_*` structures of
   omx-clap-core's `omx_clap_ext.h`): the panel travels whole, as the scan's `panel` object, by `panel_get`
-  ([panel.md](panel.md)), and the descriptor carries none of it. A panel field's row is a drop and nothing else;
-  `describe` refuses a table that makes one a word or the bag.
+  ([panel.md](panel.md)), and the descriptor carries none of it. A panel field's row is a drop and nothing else,
+  but for one: a role's `omx_clap_panel_role.role` is the word `controls[].meaning` through `role-to-meaning`, the
+  meaning the role plays given to the control its `param_id` names (omx-panel's `docs/panel-layout.md`, "Meanings and
+  roles": a declared panel names the role, a descriptor the meaning). `describe` refuses a table that makes any other
+  panel field a word or the bag, and the role field a word by any other transform.
 
 A TERM omx-contract marks `used` is never dropped: its row is a word or the bag.
 
