@@ -50,6 +50,7 @@
 /* the long options with no short one */
 #define OPT_PLACEMENT           256
 #define OPT_PIN_FILES           257
+#define OPT_SEARCH_PATH         258
 #define SOCKET_MSG_BUFFER_SIZE  PHD_LINE_MAX
 
 static volatile int running;
@@ -132,6 +133,59 @@ static int print_pin_files(const char *uri)
     return rc == SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+/* a ':'-separated list as the daemon reads it, each "~" or "~/..." entry under $HOME as first use expands it */
+static void print_list(const char *list)
+{
+    const char *c = list, *home = getenv("HOME");
+    int first = 1;
+
+    while (c && *c)
+    {
+        size_t n = strcspn(c, ":");
+
+        if (n)
+        {
+            if (!first)
+                putchar(':');
+            if (c[0] == '~' && (n == 1 || c[1] == '/') && home && *home)
+                printf("%s%.*s", home, (int)n - 1, c + 1);
+            else
+                printf("%.*s", (int)n, c);
+            first = 0;
+        }
+        c += n;
+        if (*c == ':')
+            c++;
+    }
+    putchar('\n');
+}
+
+/* --search-path (plugin-qualify#9): the directories the daemon searches with these settings, from the code it searches
+ * with, so a qualifier scans exactly them. One "<key> TAB <source> TAB <value>" a line: lv2_path and clap_path with their
+ * source (file, env, default), lv2_extra (file, or default for none), then lv2 and clap, the lists as searched (lv2_path
+ * followed by lv2_extra; "~" expanded) under the source "effective". */
+static int print_search_path(const conf_t *conf, const char *lv2_path)
+{
+    const format_t *lv2 = format_at(format_by_name(PHD_FORMAT_LV2)), *clap = format_at(format_by_name(PHD_FORMAT_CLAP));
+
+    if (!lv2 || !lv2->declared || !clap || !clap->declared)
+    {
+        fprintf(stderr, "plugin-hostd: no LV2 or CLAP format to ask where it searches\n");
+        return EXIT_FAILURE;
+    }
+    printf("lv2_path\t%s\t", conf_source(conf, CONF_STRING_lv2_path));
+    print_list(lv2_path);
+    printf("lv2_extra\t%s\t", conf_source(conf, CONF_STRING_lv2_extra));
+    print_list(conf->lv2_extra);
+    printf("clap_path\t%s\t", conf_source(conf, CONF_STRING_clap_path));
+    print_list(conf->clap_path);
+    printf("lv2\teffective\t");
+    print_list(lv2->declared(conf));
+    printf("clap\teffective\t");
+    print_list(clap->declared(conf));
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv)
 {
     static const struct option long_options[] = {
@@ -141,6 +195,7 @@ int main(int argc, char **argv)
         {"config", required_argument, 0, 'c'},
         {"placement", required_argument, 0, OPT_PLACEMENT},
         {"pin-files", required_argument, 0, OPT_PIN_FILES},
+        {"search-path", no_argument, 0, OPT_SEARCH_PATH},
         {"nofork", no_argument, 0, 'n'},
         {"version", no_argument, 0, 'V'},
         {"help", no_argument, 0, 'h'},
@@ -148,6 +203,8 @@ int main(int argc, char **argv)
     };
     int opt, opt_index = 0, socket_port = SOCKET_DEFAULT_PORT, feedback_port = 0, nofork = 0;
     const char *config = getenv("PLUGIN_HOSTD_CONF"), *placement = NULL, *pin_files = NULL, *bind_address = NULL;
+    int search_path = 0;
+    char lv2_path[sizeof(g_conf.lv2_path)];
     char default_config[4096];
     struct sigaction sig;
 
@@ -180,6 +237,9 @@ int main(int argc, char **argv)
             case OPT_PIN_FILES:
                 pin_files = optarg;
                 break;
+            case OPT_SEARCH_PATH:
+                search_path = 1;
+                break;
             case 'V':
                 printf("%s version: %s\n", argv[0], VERSION);
                 return EXIT_SUCCESS;
@@ -193,6 +253,8 @@ int main(int argc, char **argv)
                        "  -c, --config=<file>            settings, one \"key value\" per line\n"
                        "      --placement=spread|none    pin the workers across the audio cores, or nothing; over the file\n"
                        "      --pin-files=<uri>          print the files a pin of the plugin holds, as an add checks them, and exit\n"
+                       "      --search-path              print the LV2 and CLAP directories the daemon searches with these settings, and\n"
+                       "                                 where each list comes from (file, env, default), and exit\n"
                        "  -n, --nofork                   accepted; the daemon never forks\n"
                        "  -V, --version                  print program version and exit\n"
                        "  -h, --help                     print this help and exit\n",
@@ -231,8 +293,11 @@ int main(int argc, char **argv)
         fprintf(stderr, "--bind-address '%s' is too long\n", bind_address);
         return EXIT_FAILURE;
     }
+    snprintf(lv2_path, sizeof(lv2_path), "%s", g_conf.lv2_path);
     if (conf_merge_extra(&g_conf) != 0 || conf_check(&g_conf) != 0)
         return EXIT_FAILURE;
+    if (search_path)
+        return print_search_path(&g_conf, lv2_path);
     if (pin_files)
         return print_pin_files(pin_files);
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
