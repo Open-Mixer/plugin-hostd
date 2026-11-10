@@ -76,12 +76,8 @@ done
 # (recommended until the package is in the channel: required in a default install once the channel has it, checked
 # whenever it is installed)
 records=plugin-qualification-records
-if [ "$kind" = deb ]; then
-    have=$(apt-cache policy "$records" 2>/dev/null | awk '/Candidate:/ {print $2}')
-    [ "$have" = "(none)" ] && have=
-else
-    have=$(dnf -q repoquery --latest-limit 1 "$records" 2>/dev/null | head -1)
-fi
+# in the channel means a candidate for this machine's architecture (tools/records-candidate.sh)
+have=$(bash "$(dirname "$0")/records-candidate.sh" "$kind" "$records")
 if [ "$mode" = default ] && [ -n "$have" ]; then installed "$records" || fail "$records, recommended and in the channel, is not installed"; fi
 if ! installed "$records"; then
     echo "records: $records not installed (${have:-not in the channel})"

@@ -203,9 +203,17 @@ Where plugins are searched is written once, in `include/plugin-hostd/search_path
 `LV2_PATH` order (`/usr/lib/lv2`, `/usr/lib/<multiarch>/lv2`, `/usr/local/lib/lv2`, `/usr/local/lib/<multiarch>/lv2`)
 and then the lib64 folders; the CLAP rule is CLAP's own, `$CLAP_PATH`, then `~/.clap`, then `/usr/lib/clap`. A site adds
 its own folders in `lv2_extra` (a Zynthian image: `/zynthian/zynthian-plugins/lv2` and the like), searched after
-`lv2_path`; plugin-qualify and omx-panel read `lv2_path`, `lv2_extra` and `clap_path` from this file, or run
-`tools/search-paths.py lv2|clap [--existing] [--env]`, and keep no list of their own. The benchmark and the scripts of
-`tools/zynthian/` use the same script.
+`lv2_path`. A setting is taken from the settings file, else from its variable (`LV2_PATH`; `CLAP_PATH`, searched before
+the CLAP default), else from the default: the file wins.
+
+`plugin-hostd --search-path [-c <file>]` prints what the daemon searches with those settings, from the code it searches
+with, and exits: one `<key> TAB <source> TAB <value>` line each for `lv2_path` and `clap_path` (source `file`, `env` or
+`default`) and `lv2_extra` (`file`, or `default` for none), then `lv2` and `clap` with the source `effective`, the lists
+as searched (`lv2_path` then `lv2_extra`, `~` expanded under `$HOME`). plugin-qualify scans those lists and keeps none
+of its own (plugin-qualify#9). A list whose source is `env` or `default` is what a daemon started from the same
+environment searches; one written in the file is what every daemon reading that file searches. The benchmark and the
+scripts of `tools/zynthian/` use `tools/search-paths.py lv2|clap [--existing] [--env]`, the defaults and the variables
+without the file.
 
 <!-- BEGIN GENERATED protocol:constants -->
 | name | value | meaning |
@@ -687,9 +695,11 @@ resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ER
 Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set` or from a `pin_file` loaded at start, and a
 plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
 files, keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`) and places the instance `own`; the layout is
-asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files that resolve, links and
-`..` followed, inside a directory of the declared search path: `clap_path` for CLAP, `lv2_path` (with `lv2_extra`) for
-LV2. A plugin anywhere else stays unpinned and its `add` answers `-508` (`PIN_ABSENT`), so a controller cannot have any
+asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files whose path as listed, `..`
+taken by its text and the file's own links not followed, is inside a directory of the declared search path: `clap_path`
+for CLAP, `lv2_path` (with `lv2_extra`) for LV2. A bundle in the search path whose binary is a link out of it (Debian's
+`calf.lv2/calf.so`) is learned, the pin holds the digest of the file the link resolves to and the log names both paths;
+a link put outside the search path that points into it is not. A plugin anywhere else stays unpinned and its `add` answers `-508` (`PIN_ABSENT`), so a controller cannot have any
 path it names trusted; such a plugin needs a `pin_set`, a `pin_file` or a directory added to the search path. A host that pins by itself sets `pin_mode strict`.
 The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
 verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin

@@ -45,6 +45,24 @@ void conf_defaults(conf_t *conf)
         snprintf(conf->clap_path, sizeof(conf->clap_path), "%s:%s", env, PHD_DEFAULT_CLAP_PATH);
 }
 
+const char *conf_source(const conf_t *conf, enum conf_string_key key)
+{
+    static const char *const envname[CONF_STRINGS_N] = {
+#define X(name, size, def, env, meaning) env,
+        PHD_CONF_STRINGS(X)
+#undef X
+    };
+    const char *name, *value;
+
+    if ((int)key < 0 || key >= CONF_STRINGS_N)
+        return "default";
+    name = key == CONF_STRING_clap_path ? "CLAP_PATH" : envname[key];
+    if (conf->from_file[key])
+        return "file";
+    value = *name ? getenv(name) : NULL;
+    return value && *value ? "env" : "default";
+}
+
 int conf_merge_extra(conf_t *conf)
 {
     size_t have = strlen(conf->lv2_path);
@@ -72,7 +90,10 @@ static int set_key(conf_t *conf, const char *key, const char *value)
 {
 #define X(name, size, def, env, meaning) \
     if (!strcmp(key, #name)) \
-        return set_string(conf->name, sizeof(conf->name), value);
+    { \
+        conf->from_file[CONF_STRING_##name] = 1; \
+        return set_string(conf->name, sizeof(conf->name), value); \
+    }
     PHD_CONF_STRINGS(X)
 #undef X
 #define X(name, def, unit, meaning) \
