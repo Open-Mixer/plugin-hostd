@@ -170,16 +170,16 @@ def planted(root, edits):
 
 SABOTAGE = [
     ("a floor with no ceiling (deb)", [("debian/control", ", omx-plugins (<< 0.20~)", "")], "not a floor and a ceiling"),
-    ("a floor with no ceiling (rpm)", [("packaging/plugin-hostd.spec", "(plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)", "plugin-qualify >= 0.20.0")], "not a floor and a ceiling"),
+    ("a floor with no ceiling (rpm)", [("packaging/plugin-hostd.spec", "(plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)", "plugin-qualify >= 0.20.1")], "not a floor and a ceiling"),
     ("a ceiling past the next minor", [("debian/control", "plugin-qualify (<< 0.21~)", "plugin-qualify (<< 0.22~)")], "the next step is 0.21"),
     ("the records left out", [("packaging/plugin-hostd.spec", "Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)\n", "")], "names"),
     ("a dated ceiling past the next year", [("debian/control", "plugin-qualification-records (<< 2027000000~)", "plugin-qualification-records (<< 2028000000~)")], "the next step is 2027000000"),
-    ("the qualifier left out", [("packaging/plugin-hostd.spec", "Requires: (plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)\n", "")], "names"),
-    ("the panel a hard dependency", [("debian/control", "Recommends: omx-panel (>= 0.12.0~), omx-panel (<< 0.13~),\n            plugin-qualification",
+    ("the qualifier left out", [("packaging/plugin-hostd.spec", "Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)\n", "")], "names"),
+    ("the panel a hard dependency", [("debian/control", "Recommends: omx-panel (>= 0.13.0~), omx-panel (<< 0.14~),\n            plugin-qualification",
                                       "Recommends: plugin-qualification"),
-                                     ("debian/control", "         ${misc:Depends}\nRecommends", "         omx-panel (>= 0.12.0~), omx-panel (<< 0.13~),\n         ${misc:Depends}\nRecommends")], "names"),
+                                     ("debian/control", "         ${misc:Depends}\nRecommends", "         omx-panel (>= 0.13.0~), omx-panel (<< 0.14~),\n         ${misc:Depends}\nRecommends")], "names"),
     ("the daemon not at its own version", [("debian/control", "plugin-hostd (= ${source:Version}),\n         omx-clap-host", "plugin-hostd (>= 0.20.0~),\n         omx-clap-host")], "not exactly"),
-    ("the formats disagree", [("packaging/plugin-hostd.spec", "(omx-panel >= 0.12.0 with omx-panel < 0.13)", "(omx-panel >= 0.12.1 with omx-panel < 0.13)")], "in the spec and"),
+    ("the formats disagree", [("packaging/plugin-hostd.spec", "(omx-panel >= 0.13.0 with omx-panel < 0.14)", "(omx-panel >= 0.13.1 with omx-panel < 0.14)")], "in the spec and"),
 ]
 
 

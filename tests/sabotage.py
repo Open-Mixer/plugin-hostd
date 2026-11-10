@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Break the daemon on purpose, one guard at a time, and require the named test to go red; the unbroken daemon must
 # pass the same test first, or a red proves nothing. A guard whose sabotage leaves its test green is decoration.
-import os, shutil, subprocess, sys, tempfile
+import os, re, shutil, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import declared
 import sabotage_pool
@@ -560,32 +560,32 @@ SABOTAGE = [
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "", "no pin anywhere", "nopins"),
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "", "no pin anywhere", "nopins"),
     ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.8)\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
@@ -1634,6 +1634,14 @@ SABOTAGE = [
     ("the handler of a declared verb is deleted: plan", "src/verbs.c",
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
+
+# the omx-clap-host-tests pin cases name the floor and the ceiling the spec declares today, so raising the pin
+# never leaves them breaking a line that is no longer there
+_PIN = re.search(r"^BuildRequires: \(omx-clap-host-tests >= ([0-9.]+) with omx-clap-host-tests < ([0-9.]+)\)$",
+                 open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M) \
+    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor and ceiling")
+SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)).replace("@CEIL", _PIN.group(2)) if isinstance(x, str) else x
+                  for x in case) for case in SABOTAGE]
 
 
 def rebuild(tree, jack):

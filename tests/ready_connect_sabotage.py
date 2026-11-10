@@ -17,7 +17,8 @@ subprocess.run([cc, *shlex.split(cflags), "-Isrc", "-c", "-o", os.path.join(tmp,
 subprocess.run([cc, os.path.join(tmp, "main.o"), *others, *shlex.split(libs), "-pthread", "-lm", "-o", out], check=True)
 r = subprocess.run([sys.executable, "tests/ready_connect_test.py"], env=dict(os.environ, PLUGIN_HOSTD=out, FAKE_HOST=fake),
                    capture_output=True, text=True)
-print(r.stdout.strip())
+# the expected red is quoted, indented: a line starting with FAIL is a verdict, and this run passes
+print("\n".join("  | " + l for l in r.stdout.strip().splitlines()))
 if r.returncode == 0:
     print("FAIL the ready line before the sockets passed the test: it does not test what it claims")
     sys.exit(1)
