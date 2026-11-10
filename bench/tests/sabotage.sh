@@ -3,6 +3,7 @@
 #   validator: a shipped example passes; a document with one field broken fails, naming file, scenario and rule
 #   teardown:  a copy of the runner whose host stop leaves the host, and one whose last stop leaves the JACK server,
 #              both end non-zero naming the process left; the runner as it is ends with nothing left
+#   work dir:  a teardown that keeps /tmp/omx-bench-* when --logs is given turns TeardownWork red
 # The teardown part needs jackd2, jack-example-tools and omx-clap-host: run it with --teardown.
 set -euo pipefail
 
@@ -96,6 +97,10 @@ break_unit dsp-warmup lib/bench.py '        return vals[1:]' '        return val
 break_unit dsp-client lib/bench.py '        if not self.client:
             raise Failed("the probe has no JACK client to read the DSP load from")' '        pass' Xruns.test_a_probe_without_a_client_cannot_read_the_dsp_load
 break_unit probe-latency lib/bench.py 'return int(rng.max)' 'return int(rng.min)' Xruns.test_the_latency_is_the_longest_of_the_range
+break_unit work-dir lib/bench.py '        shutil.rmtree(self.work, ignore_errors=True)
+        if os.path.exists' '        if self.args.logs is None: shutil.rmtree(self.work, ignore_errors=True)
+        if os.path.exists' \
+    TeardownWork.test_work_dir_removed_with_logs_elsewhere
 break_unit log-offset lib/bench.py 'f.seek(offset)' 'f.seek(0)' Xruns.test_the_servers_log_counts_new_xrun_lines_only
 break_unit stress-pin lib/bench.py 'os.sched_setaffinity(0, {int(sys.argv[1])})' 'pass' Stress.test_a_busy_loop_runs_on_its_core_only
 break_unit stress-mem lib/bench.py 'bytearray(int(sys.argv[1]) << 20)' 'bytearray(int(sys.argv[1]) << 10)' Stress.test_the_memory_touch_holds_its_size
