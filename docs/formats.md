@@ -114,6 +114,7 @@ format side.
 | `scale-points` | `<number> <label>` -> one point of the control's `values` and `labels` | the point back as `<number> <label>` | none |
 | `group-path` | a CLAP module path `a/b` -> the group `["a","b"]` | the group joined by `/` | none |
 | `port-group` | an LV2 group's label -> the group `["label"]`; a `pg:subGroupOf` label -> a level put before the group read so far | the path's last level, the group a port names | none |
+| `output-symbol` | a CLAP meter's name -> the output symbol a host reads it by, omx-clap-core's rule (`doc/reference.md`): each byte outside `[A-Za-z0-9_]` is `_`, a leading digit gets a `_` before it; an empty name is refused | the symbol itself, refused when it is no symbol | none |
 
 A new transform is added when a row needs it, never before; `make test-transforms` runs every function and its inverse
 over its vectors (in, out, back in, equal).
@@ -145,8 +146,8 @@ one transform renamed) and each arm must go red naming the field.
 ```
 
 - `scope`: `plugin`; `param:<index>` (CLAP, in `clap_plugin_params.get_info` order); `audio_in:<index>`,
-  `audio_out:<index>`, `note_in:<index>`, `note_out:<index>` (CLAP ports); `port:<index>` (an LV2 port, by
-  `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too. A CLAP plugin
+  `audio_out:<index>`, `note_in:<index>`, `note_out:<index>` (CLAP ports); `meter:<index>` (a CLAP meter of
+  `clap.meters/1`, in `get_info` order); `port:<index>` (an LV2 port, by `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too. A CLAP plugin
   that serves a panel description adds `panel`, `section:<index>`, `control:<index>`, `role:<index>`,
   `display:<index>` and `placement_default:<index>` (omx-clap-scan 0.20.0); these scopes are no entry of the
   descriptor, and each of their fields is dropped (above).
@@ -183,6 +184,15 @@ What the tables leave to `describe`:
   on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
   `toggle` defaults to its default being non-zero;
+- a CLAP parameter's contract entry (`org.openmixer.param-contract/1`) gives its `symbol`, its unit (a contract unit
+  `none` is the plugin stating none: `unknown`), its scale, and its `step` when the step is not 0 (0 is a continuous
+  travel, written as no step);
+- a CLAP `meter:` scope is one item of `meters[]` (omx-contract's `docs/descriptors.md`), in the plugin's order: a
+  gain reduction's unit is `dB`, a level's `dBFS` (`clap.meters/1`'s kinds), and its `scale` is `unknown`, as an
+  unstated CLAP scale is. A meter of a kind the descriptor has no word for (`CLAP_METER_KIND_OTHER`) is no item: its
+  kind is carried in the bag (`meter:<index>/clap_meter_info.kind`) and nothing else of it is written. A meter of more than one channel answers to `<symbol>_<channel>` from 0, and a plugin
+  whose meters give one output symbol twice, or one a parameter's `symbol` answers to, is refused naming the symbol,
+  as omx-clap-core refuses it;
 - an LV2 port's group path is its `pg:group` label with one `pg:subGroupOf` record per group above it, nearest first
   (the scanner follows the chain, `lv2:name` else `rdfs:label` of each group); the path is read outermost first, and a
   `pg:subGroupOf` with no `pg:group` before it is refused;
