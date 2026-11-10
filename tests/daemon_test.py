@@ -2321,6 +2321,40 @@ def a_clap_directory_bundle_pins_and_loads_by_its_one_object():
 
 
 @test
+def a_manifest_with_a_leading_bom_still_pins_its_binary():
+    # TAL-NoiseMaker and Vitalium both ship a manifest.ttl with a leading UTF-8 BOM. Unskipped, it glues onto the
+    # first @prefix, which is then read as a plain name rather than a directive, so the prefix it would declare is
+    # never registered; when lv2:binary depends on that prefix, first use learns a pin missing the plugin's own
+    # binary, and a binary swapped in afterwards goes uncaught (no file is there for pins_loaded to compare against)
+    p = Plugins()
+    bundle = os.path.join(p.lv2_dir, "bom.lv2")
+    os.makedirs(bundle)
+    uri = "urn:test:bom-noisy"
+    binary = os.path.join(bundle, "Noisy.so")
+    write(os.path.join(bundle, "manifest.ttl"),
+          b"\xef\xbb\xbf@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n"
+          b"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+          b"<%s> a lv2:Plugin ; lv2:binary <Noisy.so> ; rdfs:seeAlso <Noisy.ttl> .\n" % uri.encode())
+    write(binary, b"noisy binary")
+    write(os.path.join(bundle, "Noisy.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add lv2:%s 0" % uri, "resp 0")
+    finally:
+        d.close()
+    with open(p.store) as f:
+        saved = f.read()
+    check("Noisy.so=%s" % sha(binary) in saved, "the learned pin holds the plugin's own binary, past the BOM: %r" % saved)
+    write(binary, b"SWAPPED")
+    d = p.daemon(conf={"pin_mode": "strict"})
+    try:
+        d.expect("add lv2:%s 1" % uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def a_binary_swapped_between_the_hash_and_the_load_is_refused():
     """the daemon hashes the pinned file, then the worker opens it by path: a file exchanged in between (here by the
     worker itself, just before it maps the plugin, FAKE_SWAP_ON_ADD) is refused with PIN_BINARY_MISMATCH, its worker is
