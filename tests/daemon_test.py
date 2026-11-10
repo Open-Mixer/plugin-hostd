@@ -3159,20 +3159,20 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
 
 @test
 def first_use_learns_no_pin_outside_the_declared_search_path():
-    """first use pins what it finds only in a directory clap_path or lv2_path declares: a .clap anywhere else, reached
-    by its own path, by a .. out of a declared directory or by a symbolic link inside one, stays unpinned (PIN_ABSENT),
-    nothing is learned and no worker starts"""
+    """first use pins what it finds only in a directory clap_path or lv2_path declares, judged on the path as listed: a
+    .clap anywhere else, reached by its own path, by a .. out of a declared directory, or by a symbolic link put outside
+    the search path that points into it, stays unpinned (PIN_ABSENT), nothing is learned and no worker starts"""
     p = Plugins()
     outside = tempfile.mkdtemp(prefix="plugin-hostd-outside.")
     try:
         stray = os.path.join(outside, "stray.clap")
         write(stray, b"a build nobody installed")
-        link = os.path.join(p.dir, "clap", "linked.clap")
-        os.symlink(stray, link)
         climb = os.path.join(p.dir, "clap", "..", "..", os.path.basename(outside), "stray.clap")
+        inward = os.path.join(outside, "inward.clap")
+        os.symlink(p.clap, inward)
         d = p.daemon(conf={"pin_mode": "first-use"})
         try:
-            for path in (stray, climb, link):
+            for path in (stray, climb, inward):
                 d.expect("add clap:%s#org.openmixer.fault 0" % path, resp("PIN_ABSENT"))
             check(store_lines(p) == [], "nothing outside the search path is learned: %s" % store_lines(p))
             check(p.received() == [], "no worker saw a refused add: %s" % p.received())
@@ -3181,6 +3181,46 @@ def first_use_learns_no_pin_outside_the_declared_search_path():
             d.expect("add %s 0" % p.clap_uri, "resp 0")
             writes_landed(d)
             check([l[1] for l in store_lines(p)] == [p.clap_uri], "the declared plugin is learned: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
+        shutil.rmtree(outside, ignore_errors=True)
+        p.close()
+
+
+@test
+def first_use_learns_a_binary_linked_out_of_a_bundle_in_the_search_path_by_the_file_it_resolves_to():
+    """Debian's calf.lv2/calf.so -> ../../calf/calf.so: the bundle is in lv2_path as listed, so first use learns it; the
+    pin holds the digest of the file the link resolves to, the log names both paths, and a change of that file is
+    refused. A .clap linked out of clap_path is learned the same way."""
+    p = Plugins()
+    outside = tempfile.mkdtemp(prefix="plugin-hostd-outside.")
+    try:
+        real_so = os.path.join(outside, "pinned.so")
+        write(real_so, b"lv2 binary of the package")
+        so = os.path.join(p.bundle, "pinned.so")
+        os.unlink(so)
+        os.symlink(real_so, so)
+        real_clap = os.path.join(outside, "linked.clap")
+        write(real_clap, b"a clap the package installs elsewhere")
+        link = os.path.join(p.dir, "clap", "linked.clap")
+        os.symlink(real_clap, link)
+        linked_uri = "clap:%s#org.openmixer.fault" % link
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 0" % LV2_URI, "resp 0")
+            d.expect("add %s 1" % linked_uri, "resp 1")
+            writes_landed(d)
+            log = d.log()
+            for listed, real in ((so, real_so), (link, real_clap)):
+                check("%s resolves to %s" % (os.path.normpath(listed), os.path.realpath(real)) in log,
+                      "the log names the listed and the resolved path of %s: %s" % (listed, log))
+            lines = dict((l[1], l) for l in store_lines(p))
+            check("pinned.so=%s" % sha(real_so) in " ".join(lines[LV2_URI]), "the LV2 pin holds the resolved file's digest: %s" % lines)
+            check("linked.clap=%s" % sha(real_clap) in " ".join(lines[linked_uri]), "the CLAP pin holds the resolved file's digest: %s" % lines)
+            d.expect("remove 0", "resp 0")
+            write(real_so, b"another build")
+            d.expect("add %s 2" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
         finally:
             d.close()
     finally:

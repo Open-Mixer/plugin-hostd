@@ -1151,13 +1151,67 @@ static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX
     return rc;
 }
 
-/* whether `file` resolves (symbolic links and .. followed) inside one directory of the ':'-separated `declared` */
+/* `path` with "." and ".." taken out and repeated slashes folded, by its text alone: no link is followed. -1 for a
+ * relative path or one that does not fit. */
+static int lexical_path(const char *path, char *out, size_t size)
+{
+    size_t used = 0;
+    const char *c = path;
+
+    if (path[0] != '/' || size < 2)
+        return -1;
+    out[used++] = '/';
+    out[used] = '\0';
+    while (*c)
+    {
+        size_t n;
+
+        while (*c == '/')
+            c++;
+        n = strcspn(c, "/");
+        if (n == 0 || (n == 1 && c[0] == '.'))
+            ;
+        else if (n == 2 && c[0] == '.' && c[1] == '.')
+        {
+            while (used > 1 && out[used - 1] != '/')
+                used--;
+            if (used > 1)
+                used--;
+            out[used] = '\0';
+        }
+        else
+        {
+            if (used + (used > 1) + n + 1 > size)
+                return -1;
+            if (used > 1)
+                out[used++] = '/';
+            memcpy(out + used, c, n);
+            used += n;
+            out[used] = '\0';
+        }
+        c += n;
+    }
+    return 0;
+}
+
+/* whether `under`, a lexical path, is `dir` or below it */
+static int below(const char *under, const char *dir)
+{
+    size_t len = strlen(dir);
+
+    return !strcmp(dir, "/") || (!strncmp(under, dir, len) && (under[len] == '/' || under[len] == '\0'));
+}
+
+/* whether `file`, as it is listed (its own links not followed, ".." taken by its text), is inside one directory of the
+ * ':'-separated `declared`, each taken as written and as it resolves. A bundle in the search path whose binary is a link
+ * out of it (Debian's calf.lv2/calf.so -> /usr/lib/calf/calf.so) is inside; a link put outside the path pointing in is
+ * not. */
 static int inside_declared(const char *file, const char *declared)
 {
-    char real[PATH_MAX], dir[PATH_MAX], rdir[PATH_MAX];
+    char listed[PATH_MAX], dir[PATH_MAX], ldir[PATH_MAX], rdir[PATH_MAX];
     const char *c = declared, *home = getenv("HOME");
 
-    if (!realpath(file, real))
+    if (lexical_path(file, listed, sizeof(listed)) != 0)
         return 0;
     while (c && *c)
     {
@@ -1168,11 +1222,11 @@ static int inside_declared(const char *file, const char *declared)
             made = home && *home ? snprintf(dir, sizeof(dir), "%s%.*s", home, (int)n - 1, c + 1) : -1;
         else
             made = snprintf(dir, sizeof(dir), "%.*s", (int)n, c);
-        if (n && made > 0 && made < (int)sizeof(dir) && dir[0] == '/' && realpath(dir, rdir))
+        if (n && made > 0 && made < (int)sizeof(dir) && dir[0] == '/')
         {
-            size_t len = strlen(rdir);
-
-            if (!strcmp(rdir, "/") || (!strncmp(real, rdir, len) && real[len] == '/'))
+            if (lexical_path(dir, ldir, sizeof(ldir)) == 0 && below(listed, ldir) && strcmp(listed, ldir))
+                return 1;
+            if (realpath(dir, rdir) && below(listed, rdir) && strcmp(listed, rdir))
                 return 1;
         }
         c += n;
@@ -1180,6 +1234,16 @@ static int inside_declared(const char *file, const char *declared)
             c++;
     }
     return 0;
+}
+
+/* a learned file whose listed path is a link: both paths, so what was hashed (the file it resolves to) is on record */
+static void say_resolved(const char *uri, const char *full)
+{
+    char real[PATH_MAX], listed[PATH_MAX];
+
+    if (lexical_path(full, listed, sizeof(listed)) == 0 && realpath(full, real) && strcmp(real, listed))
+        fprintf(stderr, "plugin-hostd: %s: %s resolves to %s; learned by its listed path, hashed as the file it resolves to\n",
+                uri, listed, real);
 }
 
 /* the pin of a uri from the files on disk now, layout unknown, learned; with `declared`, only files inside it */
@@ -1215,6 +1279,8 @@ static int record(const format_t *format, const char *uri, const char *search, c
                     files.name[n], declared ? declared : "none");
             rc = OMX_REPLY_HOST_PIN_ABSENT_RESP;
         }
+        else
+            say_resolved(uri, full);
     }
     if (rc != SUCCESS)
     {
