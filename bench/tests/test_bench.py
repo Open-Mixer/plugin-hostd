@@ -1613,5 +1613,34 @@ class FormatScenarios(unittest.TestCase):
         self.assertTrue({("H1", "shared-process"), ("H2", "chain"), ("H2", "individual")} <= hosts)
 
 
+class TeardownWork(unittest.TestCase):
+    """the run's /tmp/omx-bench-* goes at the end, also when --logs keeps the logs elsewhere"""
+
+    def run_teardown(self, logs):
+        b = load("bench_teardown", os.path.join(BENCH, "lib", "bench.py"))
+        b.reap, b.marked, b.time = (lambda: None), (lambda: []), types.SimpleNamespace(sleep=lambda s: None)
+        work = tempfile.mkdtemp(prefix="omx-bench-")
+        os.makedirs(os.path.join(work, "state"))
+        open(os.path.join(work, "out-1.wav"), "w").close()
+        r = types.SimpleNamespace(work=work, args=types.SimpleNamespace(logs=logs),
+                                  procs=types.SimpleNamespace(stop_all=lambda: None), governor_off=lambda: None)
+        return b.Runner.teardown(r), work
+
+    def test_work_dir_removed_with_logs_elsewhere(self):
+        logs = tempfile.mkdtemp()
+        try:
+            ok, work = self.run_teardown(logs)
+            self.assertTrue(ok)
+            self.assertFalse(os.path.exists(work), "teardown left its work dir %s" % work)
+            self.assertTrue(os.path.isdir(logs), "teardown removed the --logs directory")
+        finally:
+            subprocess.run(["rm", "-rf", logs])
+
+    def test_work_dir_removed_without_logs(self):
+        ok, work = self.run_teardown(None)
+        self.assertTrue(ok)
+        self.assertFalse(os.path.exists(work), "teardown left its work dir %s" % work)
+
+
 if __name__ == "__main__":
     unittest.main()

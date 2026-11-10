@@ -1883,8 +1883,11 @@ class Runner:
         reap()
         time.sleep(0.2)
         left = marked()
-        if not self.args.logs:
-            shutil.rmtree(self.work, ignore_errors=True)
+        # the run's own temporary directory goes whatever happened; --logs keeps the logs outside it
+        shutil.rmtree(self.work, ignore_errors=True)
+        if os.path.exists(self.work):
+            log("teardown could not remove the work dir %s" % self.work)
+            return False
         if left:
             stop_strays(left)
             log("teardown left %d process(es) of this run: %s" % (len(left), ", ".join("%d %s" % x for x in left)))
