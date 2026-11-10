@@ -114,7 +114,7 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
@@ -137,6 +137,7 @@ $(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
 src/machine.o src/json.o src/transforms.o: INCS += $(CONTRACT_CFLAGS)
 
 src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
+src/describe.o src/lv2.o: src/pages.h
 
 # meta-rule to generate the object files
 %.o: %.c

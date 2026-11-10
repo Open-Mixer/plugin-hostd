@@ -32,4 +32,10 @@ int describe_dump(const char *table_text, const char *dump_text, const char *tar
  * unread. */
 int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size);
 
+/* the pages of the target's descriptor (docs/formats.md#the-pages-describe-pages-writes): the same table and dump as
+ * describe_dump, every control of exactly one page of its group's run, in declared order, cut at PAGE_SLOTS
+ * (src/pages.h); 0 with the pages in out, -1 refused as describe_dump refuses, with why. */
+int describe_pages(const char *table_text, const char *dump_text, const char *target, sb_t *out, char *why,
+                   size_t why_size);
+
 #endif
