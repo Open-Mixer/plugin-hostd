@@ -70,6 +70,19 @@ typedef struct TOKEN_T {
     char text[PATH_MAX];
 } token_t;
 
+/* text/size, past a leading UTF-8 BOM: unskipped, it reads as a T_NAME glued to the file's first token, so the first
+ * @prefix or @base is never seen as a directive (TAL-NoiseMaker, Vitalium both write one) */
+static void scan_start(scan_t *s, const char *text, size_t size)
+{
+    if (size >= 3 && (unsigned char)text[0] == 0xef && (unsigned char)text[1] == 0xbb && (unsigned char)text[2] == 0xbf)
+    {
+        text += 3;
+        size -= 3;
+    }
+    s->p = text;
+    s->end = text + size;
+}
+
 static void skip_space(scan_t *s)
 {
     while (s->p < s->end)
@@ -286,8 +299,7 @@ static int manifest_files(const char *text, size_t size, const char *bundle, con
 
     if (!s)
         return -1;
-    s->p = text;
-    s->end = text + size;
+    scan_start(s, text, size);
     for (next(s, &t); t.kind != T_END; next(s, &t))
     {
         if (t.kind == T_PUNCT && (t.text[0] == '[' || t.text[0] == '('))
@@ -653,8 +665,7 @@ static void graph_parse(graph_t *g, const char *text, size_t size)
 
     if (s == NULL)
         return;
-    s->p = text;
-    s->end = text + size;
+    scan_start(s, text, size);
     for (next(s, &t); t.kind != T_END; next(s, &t))
     {
         if (t.kind == T_DIRECTIVE)

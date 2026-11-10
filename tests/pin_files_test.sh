@@ -68,6 +68,22 @@ file Piano.so"
 "$daemon" -c "$work/conf" --pin-files http://example.org/mda/Pian >/dev/null 2>"$work/err"; rc=$?
 [ $rc -eq 1 ] && grep -q 'in no bundle of lv2_path' "$work/err"; check $? "a name that is only the start of a prefixed name is in no bundle ($rc)"
 
+# a manifest with a leading UTF-8 BOM before its first @prefix (TAL-NoiseMaker's, Vitalium's both ship one): unskipped,
+# the BOM glues onto "@prefix" so it is read as a plain name, never a directive, and the prefix it would have declared
+# is never registered; when that is the one lv2:binary or rdfs:seeAlso depends on, the pin silently drops the file
+bombundle=$work/lv2/bom-fixture.lv2
+mkdir -p "$bombundle"
+: > "$bombundle/Noisy.so"
+: > "$bombundle/Noisy.ttl"
+printf '\357\273\277@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n<urn:plugin-hostd:test:noisy> a lv2:Plugin ; lv2:binary <Noisy.so> ; rdfs:seeAlso <Noisy.ttl> .\n' > "$bombundle/manifest.ttl"
+out=$("$daemon" -c "$work/conf" --pin-files urn:plugin-hostd:test:noisy); rc=$?
+want="root $bombundle
+file manifest.ttl
+file Noisy.so
+file Noisy.ttl"
+[ $rc -eq 0 ] && [ "$out" = "$want" ]; check $? "a manifest with a leading UTF-8 BOM: its first @prefix still resolves, so its binary and files are still pinned (rc $rc)"
+[ "$out" = "$want" ] || echo "$out" | sed 's/^/     /'
+
 # a file named by a percent-encoded IRI (Surge XT's libSurge%20XT.so): listed as the manifest writes it, the word of a pin
 ebundle=$work/lv2/Surge-fixture.lv2
 mkdir -p "$ebundle"
