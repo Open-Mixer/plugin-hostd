@@ -216,6 +216,8 @@ make test-daemon check-generated check-rendered
   recommended omx-panel >= 0.13.0 and < 0.14
 - tools/zynthian/pi-packages.sh lists plugin-qualification-records, the one
   records package, in place of a source name with no binary package
+- the full install check counts a recommended records package as in the channel
+  only when it is published for the architecture under test
 
 * Mon Nov 09 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.1-1
 - plugin-hostd-full: the whole plugin host stack in one install, with
