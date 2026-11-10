@@ -203,9 +203,17 @@ Where plugins are searched is written once, in `include/plugin-hostd/search_path
 `LV2_PATH` order (`/usr/lib/lv2`, `/usr/lib/<multiarch>/lv2`, `/usr/local/lib/lv2`, `/usr/local/lib/<multiarch>/lv2`)
 and then the lib64 folders; the CLAP rule is CLAP's own, `$CLAP_PATH`, then `~/.clap`, then `/usr/lib/clap`. A site adds
 its own folders in `lv2_extra` (a Zynthian image: `/zynthian/zynthian-plugins/lv2` and the like), searched after
-`lv2_path`; plugin-qualify and omx-panel read `lv2_path`, `lv2_extra` and `clap_path` from this file, or run
-`tools/search-paths.py lv2|clap [--existing] [--env]`, and keep no list of their own. The benchmark and the scripts of
-`tools/zynthian/` use the same script.
+`lv2_path`. A setting is taken from the settings file, else from its variable (`LV2_PATH`; `CLAP_PATH`, searched before
+the CLAP default), else from the default: the file wins.
+
+`plugin-hostd --search-path [-c <file>]` prints what the daemon searches with those settings, from the code it searches
+with, and exits: one `<key> TAB <source> TAB <value>` line each for `lv2_path` and `clap_path` (source `file`, `env` or
+`default`) and `lv2_extra` (`file`, or `default` for none), then `lv2` and `clap` with the source `effective`, the lists
+as searched (`lv2_path` then `lv2_extra`, `~` expanded under `$HOME`). plugin-qualify scans those lists and keeps none
+of its own (plugin-qualify#9). A list whose source is `env` or `default` is what a daemon started from the same
+environment searches; one written in the file is what every daemon reading that file searches. The benchmark and the
+scripts of `tools/zynthian/` use `tools/search-paths.py lv2|clap [--existing] [--env]`, the defaults and the variables
+without the file.
 
 <!-- BEGIN GENERATED protocol:constants -->
 | name | value | meaning |
