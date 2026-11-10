@@ -7,6 +7,8 @@ import declared
 import sabotage_pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# the organisation the workflows name (Open-Mixer while FreeMixer is restricted): the runner's, never a default
+ORG = os.environ.get("GITHUB_REPOSITORY_OWNER") or sys.exit("sabotage.py: GITHUB_REPOSITORY_OWNER is unset; it names the organisation the workflows use")
 PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
@@ -589,8 +591,8 @@ SABOTAGE = [
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
      "no pin anywhere", "nopins"),
     ("a workflow checks omx-clap-core out again", ".github/workflows/ci.yml",
-     "      - uses: actions/checkout@v4\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the OpenMixer channel\n        uses: FreeMixer/.github/.github/actions/add-openmixer@v1\n\n      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it\n      - uses: FreeMixer/.github/.github/actions/wave-deps@main\n\n      # the worker and the fixtures",
-     "      - uses: actions/checkout@v4\n        with:\n          repository: FreeMixer/omx-clap-core\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the OpenMixer channel\n        uses: FreeMixer/.github/.github/actions/add-openmixer@v1\n\n      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it\n      - uses: FreeMixer/.github/.github/actions/wave-deps@main\n\n      # the worker and the fixtures",
+     "      - uses: actions/checkout@v4\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n",
+     "      - uses: actions/checkout@v4\n        with:\n          repository: %s/omx-clap-core\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n" % ORG,
      "no pin anywhere", "nopins"),
     ("the tempo is not handed to a new or a respawned worker", "src/supervisor.c", "    if (host_settings_replay(w) != 0)\n",
      "    if (0)\n", "tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add"),

@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.0
+Version: 0.20.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -105,6 +105,34 @@ leaves alone (grouping.json), under
 time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
+%package full
+Summary: Whole plugin host stack: daemon, workers, plugins, qualifier
+BuildArch: noarch
+# The whole plugin host stack in one install, on any Fedora (docs/install.md): the daemon at its own version, its
+# CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records (plugin-qualification-records,
+# one package built per architecture: the desk sets on x86_64, the Raspberry Pi 5 set on aarch64). Each a floor at the
+# release this one is tested with and a ceiling below the next minor; the records' dated version (YYYYMMDDXX) below the
+# next year's first (tests/full_ranges.py). The panel is a weak
+# dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
+Requires: %{name} = %{version}-%{release}
+Requires: (omx-clap-host >= 0.31.0 with omx-clap-host < 0.32)
+Requires: (omx-plugins >= 0.19.1 with omx-plugins < 0.20)
+Requires: (plugin-qualify >= 0.20.0 with plugin-qualify < 0.21)
+Recommends: (omx-panel >= 0.12.0 with omx-panel < 0.13)
+# recommended until the package is in the channel: a hard dependency now would leave plugin-hostd-full uninstallable
+Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)
+
+%description full
+Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
+the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
+plugins, plugin-qualify, which measures each installed plugin before it is
+trusted live, and the qualification records of this machine's class, so the
+plugins measured on a machine like this one are taken from the records.
+
+omx-panel, the plugin panels in a browser, is a weak dependency. Install with
+--setopt=install_weak_deps=False for a machine with no screen.
+Its documentation is on openmixer.org.
+
 %package tests
 Summary: A stand-in plugin worker to test a program that drives plugin-hostd
 Requires: %{name}%{?_isa} = %{version}-%{release}
@@ -156,6 +184,9 @@ make test-daemon check-generated check-rendered
 # the read-only pins of packages: a package that ships pins co-owns it with %dir
 %dir %{_datadir}/plugin-hostd/pins.d
 
+%files full
+%license COPYING
+
 %files tests
 %license COPYING
 %doc README.md
@@ -177,6 +208,12 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Mon Nov 09 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.1-1
+- plugin-hostd-full: the whole plugin host stack in one install, with
+  plugin-hostd at this version, omx-clap-host 0.31, omx-plugins 0.19 and
+  plugin-qualify 0.20; omx-panel and plugin-qualification-records are weak
+  dependencies (install_weak_deps=False leaves them out)
+
 * Sun Nov 08 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.0-1
 - curve_bind and curve_points reach the worker that holds the instance; the
   ledger keeps the binding for a respawn; a word that is no number is -902

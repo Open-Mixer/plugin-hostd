@@ -294,9 +294,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dep-rpms
-          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol
+          # plugin-db-devel is built per architecture (the pin header and the library's link), not noarch
+          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol plugin-db-devel
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
-          dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)" plugin-db-devel
+          dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)"
 
       - uses: Open-Mixer/.github/.github/actions/build-rpm@openmixer-v1
 
@@ -373,7 +374,7 @@ jobs:
           rpms: |
             dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
             dep-rpms/plugin-hostd-protocol-contract-[0-9]*.noarch.rpm
-            dep-rpms/plugin-db-devel-[0-9]*.noarch.rpm
+            dep-rpms/plugin-db-devel-[0-9]*.${{ matrix.arch }}.rpm
             dep-rpms/mod-host-protocol-[0-9]*.rpm
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm

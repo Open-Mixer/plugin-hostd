@@ -9,12 +9,15 @@
 # Usage: no_pins.py [root]. The scan proves it can see a planted pin before it trusts an empty result.
 import os, re, shutil, sys, tempfile
 
+# the organisation the workflows name (Open-Mixer while FreeMixer is restricted): the runner's, never a default
+ORG = os.environ.get("GITHUB_REPOSITORY_OWNER") or sys.exit("no_pins.py: GITHUB_REPOSITORY_OWNER is unset; it names the organisation the workflows use")
+
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEP = "omx-clap-host-tests"
 
 # (what it is, file glob test, line regex): a line in a workflow that pins a dependency
 WORKFLOW_PINS = [
-    ("a checkout of a sibling repository", re.compile(r"^\s*repository:\s*(FreeMixer|FreeREAC|linuxnow)/(?!\.github\b)\S+")),
+    ("a checkout of a sibling repository", re.compile(r"^\s*repository:\s*(%s|FreeMixer|FreeREAC|linuxnow)/(?!\.github\b)\S+" % re.escape(ORG))),
     ("a ref variable", re.compile(r"\b[A-Z][A-Z0-9_]*_REF\b")),
     ("a tag ref on a checkout", re.compile(r"^\s*ref:\s*\$\{\{|^\s*ref:\s*v\d")),
     ("a pins file", re.compile(r"\bpins\.txt\b")),
@@ -160,7 +163,7 @@ def main():
     try:
         scratch = os.path.join(tmp, "t")
         os.makedirs(os.path.join(scratch, ".github", "workflows"))
-        plant = ("env:\n  OMX_CLAP_HOST_REF: v0.4.0\n  - uses: actions/checkout@v4\n    with:\n      repository: FreeMixer/omx-clap-core\n"
+        plant = ("env:\n  OMX_CLAP_HOST_REF: v0.4.0\n  - uses: actions/checkout@v4\n    with:\n      repository: " + ORG + "/omx-clap-core\n"
                  "      ref: v0.4.0\n  - run: make -C omx-clap-host x\n  - run: cat .github/pins.txt\n")
         open(os.path.join(scratch, ".github", "workflows", "ci.yml"), "w").write(plant)
         open(os.path.join(scratch, ".github", "pins.txt"), "w").write("x\n")

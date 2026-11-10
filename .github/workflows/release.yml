@@ -52,3 +52,50 @@ jobs:
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
       arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["amd64"]' || '["amd64", "arm64"]' }}
     secrets: inherit
+
+  # plugin-hostd-full from the channel, the way the install pages say, in a clean container of every Debian release and
+  # Fedora the stack ships for, on both architectures: the default install pulls every package of the stack, omx-panel
+  # with it, and the records of the machine's class; the headless one (--no-install-recommends,
+  # install_weak_deps=False) leaves out omx-panel and every X server, Xlib, Wayland and GTK package
+  # (tools/full-install-check.sh, which also names the only packages allowed to pull libxcb and nodejs). After the
+  # publish of a tag only: the channel is where it installs from.
+  full-deb:
+    name: plugin-hostd-full (${{ matrix.suite }}, ${{ matrix.arch }}, ${{ matrix.mode }})
+    needs: deb
+    if: ${{ !cancelled() && needs.deb.result == 'success' && github.ref_type == 'tag' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    container:
+      image: debian:${{ matrix.suite }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [bookworm, trixie]
+        arch: [amd64, arm64]
+        mode: [default, headless]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
+      - run: bash tools/full-install-check.sh deb "$GITHUB_REF_NAME" ${{ matrix.mode }}
+
+  full-rpm:
+    name: plugin-hostd-full (Fedora 44, ${{ matrix.arch }}, ${{ matrix.mode }})
+    needs: rpm
+    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    container:
+      image: fedora:44
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        mode: [default, headless]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
+      - run: bash tools/full-install-check.sh rpm "$GITHUB_REF_NAME" ${{ matrix.mode }}
