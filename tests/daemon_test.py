@@ -484,6 +484,33 @@ def preset_show_of_a_uri_is_answered_as_mod_host_answers_it_by_the_lv2_worker():
 
 
 @test
+def preset_show_of_a_uri_the_adapter_holds_is_not_hidden_by_mod_hosts_refusal_of_a_different_world():
+    """plugin-hostd#3: preset_show <uri> (mod-host's own form) used to be the lv2 row's alone to answer: an LV2
+    plugin on omx-clap-host's adapter (lv2-clap) was never preferred over mod-host (lv2), even when mod-host's world
+    does not hold the uri and the adapter's does. Both rows read lv2_path, so they are one world: mod-host's refusal
+    of a uri it does not have must not hide the adapter's answer for the uri it does"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-adapter-world.")
+    try:
+        clap_host = os.path.join(tmp, "omx-clap-host")
+        write(clap_host, ("#!/bin/sh\nexport FAKE_PRESETS_LEARN=answer\nexec %s \"$@\"\n" % FAKE).encode())
+        os.chmod(clap_host, 0o755)
+        log = os.path.join(tmp, "commands.log")
+        d = daemon(conf={"lv2_worker": "omx-clap-host", "clap_host": clap_host}, env={"FAKE_LOG": log})
+        try:
+            d.expect("lv2_worker_set urn:test:mh mod-host", "resp 0")
+            d.expect("add lv2:urn:test:mh 0", "resp 0")
+            d.expect("add lv2:urn:test:ch 1", "resp 1")
+            w0, w1 = d.holder(0)[1], d.holder(1)[1]
+            check(w0["fmt"] == "lv2" and w1["fmt"] == "lv2-clap", "one instance of each lv2 row: %s %s" % (w0, w1))
+            got = d.send("preset_show urn:test:ch#warm")
+            check(got == "resp 0", "the adapter's answer, not mod-host's refusal of a different world: %r" % got)
+        finally:
+            d.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
 def preset_show_counts_a_quoted_key_as_one_word_and_asks_the_holder_alone():
     """a key that holds a space is quoted, and is one word as the worker reads it: preset_show <instance> "<key>" is
     the instance form, the holder's to answer, not a line of four words every worker is sent"""
