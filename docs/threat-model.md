@@ -78,10 +78,12 @@ What the code assumes and enforces
   be that file, unchanged, and the worker's `/proc/<pid>/maps` must map the plugin's binary as that very inode
   (`pins_loaded`). Otherwise the add answers `-509`, a `pin_changed` event is sent, and the worker, which ran what it
   loaded, is stopped; any other instance it held is replayed in a new one.
-- First use (`record` in `src/pins.c`): a pin is learned only for files that resolve, symbolic links and `..`
-  followed, inside a directory of the format's declared search path (`clap_path`, or `lv2_path` with `lv2_extra`);
-  anything else stays unpinned and its `add` answers `-508` before any worker sees it. Whoever can write into a declared
-  directory still gets a first-use pin for what they put there.
+- First use (`record` in `src/pins.c`): a pin is learned only for files whose path as listed (`..` taken by its text,
+  the file's own symbolic links not followed) is inside a directory of the format's declared search path (`clap_path`,
+  or `lv2_path` with `lv2_extra`); anything else, a link placed outside the search path that points into it included,
+  stays unpinned and its `add` answers `-508` before any worker sees it. Whoever can write into a declared directory
+  still gets a first-use pin for what they put there, a link out of it included: the pin holds the digest of the file
+  the link resolves to, the log names both paths, and a later change of that file is refused (`-509`).
 - LV2 manifests (`src/lv2.c`): read only when a regular file of at most 4 MiB (`MANIFEST_MAX`); a name that climbs out
   of the bundle or is absolute is never matched by a pin; a manifest using `@base` is refused with `-509`.
 - Pinned LV2 plugins get a worker of their own whose LV2 world is narrowed to the plugin's bundle (`src/lv2.c`,

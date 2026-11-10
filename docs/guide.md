@@ -687,9 +687,11 @@ resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ER
 Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set` or from a `pin_file` loaded at start, and a
 plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
 files, keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`) and places the instance `own`; the layout is
-asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files that resolve, links and
-`..` followed, inside a directory of the declared search path: `clap_path` for CLAP, `lv2_path` (with `lv2_extra`) for
-LV2. A plugin anywhere else stays unpinned and its `add` answers `-508` (`PIN_ABSENT`), so a controller cannot have any
+asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files whose path as listed, `..`
+taken by its text and the file's own links not followed, is inside a directory of the declared search path: `clap_path`
+for CLAP, `lv2_path` (with `lv2_extra`) for LV2. A bundle in the search path whose binary is a link out of it (Debian's
+`calf.lv2/calf.so`) is learned, the pin holds the digest of the file the link resolves to and the log names both paths;
+a link put outside the search path that points into it is not. A plugin anywhere else stays unpinned and its `add` answers `-508` (`PIN_ABSENT`), so a controller cannot have any
 path it names trusted; such a plugin needs a `pin_set`, a `pin_file` or a directory added to the search path. A host that pins by itself sets `pin_mode strict`.
 The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
 verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin
