@@ -1974,6 +1974,40 @@ def a_clap_worker_is_started_with_clap_path_so_browsing_a_plugin_outside_the_def
 
 
 @test
+def preset_save_of_an_lv2_instance_writes_a_pset_bundle_a_standard_lv2_loader_reads_back():
+    """plugin-hostd#3: preset_save of an LV2 instance is mod-host's own five-word grammar, `<instance> <dir> <file
+    name> <label>`; what the worker writes there is a standard LV2 pset bundle (docs/presets.md), never this tree's
+    own org.openmixer.preset. A standard LV2 host's preset loader (lilv) reads the bundle back by its own rdf:type
+    and label, not by a format of ours"""
+    try:
+        import lilv
+    except ImportError:
+        print("     skip: python3-lilv is not installed")
+        return
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-lv2-preset.")
+    try:
+        d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
+        try:
+            d.expect("add fake:a 0", "resp 0")
+            d.expect('preset_save 0 %s warm "Warm Pad"' % tmp, "resp 0")
+        finally:
+            d.close()
+        bundle = os.path.join(tmp, "warm.lv2")
+        check(os.path.exists(os.path.join(bundle, "manifest.ttl")),
+              "the worker's bundle, dir/<file name>.lv2: %s" % (os.listdir(tmp) if os.path.isdir(tmp) else tmp))
+        world = lilv.World()
+        world.load_bundle(world.new_file_uri(None, bundle + "/"))
+        rdf_type = world.new_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        preset_class = world.new_uri("http://lv2plug.in/ns/ext/presets#Preset")
+        presets = list(world.find_nodes(None, rdf_type, preset_class))
+        check(len(presets) == 1, "one standard LV2 preset in the bundle, not our own file format: %s" % presets)
+        label = world.get(presets[0], world.new_uri("http://www.w3.org/2000/01/rdf-schema#label"), None)
+        check(str(label) == "Warm Pad", "labelled as preset_save's own word asked: %r" % label)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
 def a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_unchanged_and_in_order():
     d = daemon()
     try:
