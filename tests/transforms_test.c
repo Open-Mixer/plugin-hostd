@@ -65,6 +65,8 @@ static const vector_t VECTORS[] = {
     { "group-path", &NONE, "Delay", "[\"Delay\"]" },
     { "port-group", &NONE, "Detector", "[\"Detector\"]" },
     { "port-group", &NONE, "Main in", "[\"Main in\"]" },
+    { "output-symbol", &NONE, "compGr", "\"compGr\"" },
+    { "output-symbol", &NONE, "_2band_gr", "\"_2band_gr\"" },
 };
 
 /* what a transform refuses (inbound unless inverse is set), or reads as no value */
@@ -99,6 +101,10 @@ static const edge_t EDGES[] = {
     { "port-group", &NONE, 0, "", TRANSFORMS_NONE },                  /* no group */
     { "port-group", &NONE, 1, "[]", TRANSFORMS_REFUSED },             /* no level */
     { "port-group", &NONE, 1, "[\"\"]", TRANSFORMS_REFUSED },         /* an empty level */
+    { "output-symbol", &NONE, 0, "", TRANSFORMS_REFUSED },            /* no name, no symbol */
+    { "output-symbol", &NONE, 1, "\"comp Gr\"", TRANSFORMS_REFUSED }, /* no symbol */
+    { "output-symbol", &NONE, 1, "\"2band\"", TRANSFORMS_REFUSED },   /* a leading digit */
+    { "output-symbol", &NONE, 1, "\"\"", TRANSFORMS_REFUSED },        /* empty */
 };
 
 int main(void)

@@ -480,6 +480,47 @@ int transforms_port_group_inverse(const transforms_data_t *d, const char *value,
     return done(&o);
 }
 
+/* ---------------------------------------------------------------- output-symbol */
+
+static int symbol_byte(unsigned char c)
+{
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+/* a meter's name -> the output symbol a host reads it by (omx-clap-core's doc/reference.md): every byte outside
+ * [A-Za-z0-9_] is _, and a leading digit gets a _ before it. An empty name gives no symbol and is refused */
+int transforms_output_symbol(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    out_t o = { out, 0, size, 0 };
+    const char *p;
+
+    (void)d;
+    if (*value == '\0')
+        return TRANSFORMS_REFUSED;
+    put(&o, "\"", 1);
+    if (*value >= '0' && *value <= '9')
+        put(&o, "_", 1);
+    for (p = value; *p; p++)
+        put(&o, symbol_byte((unsigned char)*p) ? p : "_", 1);
+    put(&o, "\"", 1);
+    return done(&o);
+}
+
+/* a symbol back as the name that gives it: itself, refused when it is no symbol */
+int transforms_output_symbol_inverse(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    out_t o = { out, 0, size, 0 };
+    const char *p = read_string(skip(value), &o), *q;
+
+    (void)d;
+    if (p == NULL || o.full || *skip(p) != '\0' || o.len == 0 || (out[0] >= '0' && out[0] <= '9'))
+        return TRANSFORMS_REFUSED;
+    for (q = out; *q; q++)
+        if (!symbol_byte((unsigned char)*q))
+            return TRANSFORMS_REFUSED;
+    return TRANSFORMS_OK;
+}
+
 /* ---------------------------------------------------------------- the list */
 
 #define TRANSFORMS_ENTRY(name, in, inverse) { name, in, inverse },
