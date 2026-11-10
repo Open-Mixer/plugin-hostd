@@ -97,6 +97,9 @@
  *
  * Its layout is one CLAP parameter whose default is FAKE_LAYOUT_DEFAULT (0.5 without it); "fake-host -L" prints its
  * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
+ * FAKE_DRIFT_FILE=<file>: while the file exists (the worker removes it) every instance's plugin moves its "drift"
+ * parameter by itself, to FAKE_DRIFT_VALUE (0.7777 without it): the value is written on the feedback port and kept, no
+ * controller verb says it. (A signal would do, but a signal breaks the library's select and recv: it closes the socket.)
  * FAKE_WARN_BEFORE_READY=<n> writes n warning lines to stderr before "ready!", as lilv writes one for every entry of
  * a world that is no bundle (plugin-hostd#105: a world of a few dozen stray files buries the marker under 5 KB).
  */
@@ -796,6 +799,19 @@ static void idle(void)
     int n, times = burst ? atoi(burst) : 1, t;
     char line[256];
 
+    if (getenv("FAKE_DRIFT_FILE") && access(getenv("FAKE_DRIFT_FILE"), F_OK) == 0)
+    {
+        const char *value = getenv("FAKE_DRIFT_VALUE") ? getenv("FAKE_DRIFT_VALUE") : "0.7777";
+
+        unlink(getenv("FAKE_DRIFT_FILE"));
+        for (n = 0; n < MAX_INST; n++)
+            if (g_inst[n].exists)
+            {
+                set_param(&g_inst[n], "drift", value);
+                snprintf(line, sizeof(line), PHD_EVENT_PARAM_SET_FMT, n, "drift", value);
+                socket_send_feedback(line);
+            }
+    }
     for (n = 0; n < g_nout; n++)
         for (t = 0; t < times; t++)
         {

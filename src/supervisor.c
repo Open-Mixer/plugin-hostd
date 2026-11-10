@@ -1196,6 +1196,8 @@ static void clear_suspects(worker_t *w)
     }
 }
 
+static void moved_apply(void);
+
 static void on_death(worker_t *w, int in_flight)
 {
     int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst;
@@ -1224,6 +1226,7 @@ static void on_death(worker_t *w, int in_flight)
     /* what it wrote before it died goes out before the news of its death */
     relay_remove(w->fb_fd);
     w->fb_fd = -1;
+    moved_apply();
     instances_of(w, ids, sizeof(ids));
     event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)w->pid, how, ids[0] ? ids : PHD_WORD_NONE);
     if (w->fd >= 0)
@@ -1292,6 +1295,31 @@ static void on_death(worker_t *w, int in_flight)
 }
 
 /* ---------------------------------------------------------------- checkpoint and replay */
+
+/* the values the plugins moved by themselves, into the ledgers: a respawn gives each back as a param_set, though no
+ * controller ever sent it. Kept apart from what a controller sent: it is no suspect when its worker dies, and a
+ * controller's later value for the parameter replaces it as it replaces any other (moved_apply runs before each
+ * controller line is recorded, so the order the ledger holds is the order things happened in) */
+static void moved_apply(void)
+{
+    int id;
+    char sym[64], value[64], line[256], key[96], *prev;
+
+    while (relay_moved(&id, sym, sizeof(sym), value, sizeof(value)))
+    {
+        instance_t *i = id < MAX_INSTANCE ? g_inst[id] : NULL;
+
+        if (!i)
+            continue;
+        snprintf(line, sizeof(line), EFFECT_PARAM_SET, id, sym, value);
+        snprintf(key, sizeof(key), "%.*s %s", verb_len(EFFECT_PARAM_SET), EFFECT_PARAM_SET, sym);
+        if (tail_add(i, line, key, KIND_STATE, &prev) != 0)
+            continue;
+        free(prev);
+        i->dirty = 1;
+        i->changed_ms = proc_now_ms();
+    }
+}
 
 static void checkpoint(worker_t *w)
 {
@@ -1675,6 +1703,7 @@ void sup_tick(void)
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
 
     sup_pins_poll();
+    moved_apply();
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
     {
@@ -2322,10 +2351,14 @@ static char *refuse_worker(worker_t *w)
 
 static int64_t g_sus_seq;
 
+static void moved_apply(void);
+
 /* 0, or -1 with the ledger as it was when memory runs out */
 static int record(instance_t *i, const char *line, char **tok, int ntok)
 {
     size_t v;
+
+    moved_apply();
 
     for (v = 0; v < sizeof(g_recorded) / sizeof(g_recorded[0]); v++)
         if (verb_is(tok[0], g_recorded[v].format))

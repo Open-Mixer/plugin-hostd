@@ -1719,6 +1719,46 @@ def a_value_the_plugin_moved_by_itself_reaches_the_controller_and_a_controllers_
 
 
 @test
+def a_value_the_plugin_moved_by_itself_is_back_after_the_worker_respawns():
+    """#7: a respawn replays what a controller sent, and a plugin's own move (the fake worker's drift file: automation, an
+    LFO) is in none of it. The daemon keeps what the worker writes on its feedback port, so the value is read back after
+    the worker is killed and respawned; and a controller's later value for the same parameter still wins, as it does
+    for any other"""
+    trigger = tempfile.mktemp(prefix="plugin-hostd-fake-drift.")
+    d = daemon(env={"FAKE_DRIFT_FILE": trigger})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("param_set 0 gain 0.5000", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        open(trigger, "w").close()
+        d.wait_event("param_set 0 drift 0.7777", since=mark)
+        d.expect("param_get 0 drift", "resp 0 0.7777")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 drift", "resp 0 0.7777")
+        d.expect("param_get 0 gain", "resp 0 0.5000")
+        # the controller's later value replaces the plugin's own
+        d.expect("param_set 0 drift 0.1000", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 drift", "resp 0 0.1000")
+        # and the plugin's own value replaces the controller's
+        _, w = d.holder(0)
+        mark = d.mark()
+        open(trigger, "w").close()
+        d.wait_event("param_set 0 drift 0.7777", since=mark)
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        d.expect("param_get 0 drift", "resp 0 0.7777")
+    finally:
+        d.close()
+
+
+@test
 def a_gesture_its_worker_did_not_end_is_ended_by_the_daemon_before_worker_died():
     d = daemon()
     try:

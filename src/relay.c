@@ -73,6 +73,13 @@ static int g_nsrc, g_capsrc;
 
 static size_t (*g_prefix)(char *buf, size_t size);
 
+/* the values the plugins moved by themselves, the latest of each (instance, parameter): kept for the supervisor, which
+ * writes them into its ledger so a respawn gives them back (relay_moved). g_lock guards the table */
+typedef struct { int id; char sym[64]; char value[64]; } moved_t;
+enum { MOVED_MAX = 512 };
+static moved_t g_moved[MOVED_MAX];
+static int g_nmoved;
+
 void relay_set_prefix(size_t (*prefix)(char *buf, size_t size))
 {
     g_prefix = prefix;
@@ -206,6 +213,55 @@ static void abi_seen(source_t *s, const char *line)
     s->abi[s->nabi++] = (int)id;
 }
 
+/* a param_set line a worker wrote: "param_set <instance> <symbol> <value>", the value a plugin moved by itself or a
+ * control it took from its own gesture. The latest of each parameter is kept; past the table, none is kept */
+static void moved_seen(const char *line)
+{
+    size_t word = strlen(PHD_EVENT_PARAM_SET);
+    char sym[64], value[64], tail;
+    int id, n;
+
+    if (strncmp(line, PHD_EVENT_PARAM_SET, word) || line[word] != ' ')
+        return;
+    if (sscanf(line + word + 1, "%d %63s %63s%c", &id, sym, value, &tail) != 3 || id < 0)
+        return;
+    for (n = 0; n < g_nmoved; n++)
+        if (g_moved[n].id == id && !strcmp(g_moved[n].sym, sym))
+            break;
+    if (n == g_nmoved)
+    {
+        if (g_nmoved == MOVED_MAX)
+        {
+            fprintf(stderr, "plugin-hostd: %d moved values are waiting: the value of %s on instance %d is not kept\n", MOVED_MAX, sym, id);
+            return;
+        }
+        g_nmoved++;
+    }
+    g_moved[n].id = id;
+    snprintf(g_moved[n].sym, sizeof(g_moved[n].sym), "%s", sym);
+    snprintf(g_moved[n].value, sizeof(g_moved[n].value), "%s", value);
+}
+
+int relay_moved(int *id, char *sym, size_t sym_size, char *value, size_t value_size)
+{
+    int got = 0;
+
+    pthread_mutex_lock(&g_lock);
+    for (int n = 0; n < g_nsrc; n++)
+        if (!g_src[n].eof)
+            drain(&g_src[n]);
+    if (g_nmoved)
+    {
+        *id = g_moved[0].id;
+        snprintf(sym, sym_size, "%s", g_moved[0].sym);
+        snprintf(value, value_size, "%s", g_moved[0].value);
+        g_moved[0] = g_moved[--g_nmoved];
+        got = 1;
+    }
+    pthread_mutex_unlock(&g_lock);
+    return got;
+}
+
 /* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
  * held, so nothing is written between the two parts */
 static void gesture_end(const char *held)
@@ -230,6 +286,7 @@ static void gestures_end(source_t *s)
 }
 
 static void drain(source_t *s);
+static void moved_seen(const char *line);
 
 /* an instance removed ends the gestures it held, once each, whichever worker held them; g_lock is held */
 static void gestures_end_instance(source_t *s, int id)
@@ -298,6 +355,7 @@ static void drain(source_t *s)
                 gesture_seen(s, start);
                 xruns_seen(s, start);
                 abi_seen(s, start);
+                moved_seen(start);
             }
             start = nul + 1;
         }
@@ -585,6 +643,10 @@ void relay_instance_gone(int id)
                 g_src[i].abi[n--] = g_src[i].abi[--g_src[i].nabi];
             }
     }
+    /* a value moved on the removed instance is not one of whatever takes its number next */
+    for (i = 0; i < g_nmoved; i++)
+        if (g_moved[i].id == id)
+            g_moved[i--] = g_moved[--g_nmoved];
     pthread_mutex_unlock(&g_lock);
 }
 
