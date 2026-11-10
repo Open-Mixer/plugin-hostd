@@ -1501,6 +1501,16 @@ SABOTAGE = [
      "phd_pin_path_decode(iri, decoded, sizeof(decoded)) == 0 &&",
      "snprintf(decoded, sizeof(decoded), \"%s\", iri) >= 0 &&",
      "a bundle directory with a space: its own file:// IRI names a file of the bundle", "pinfiles"),
+    ("--search-path does not know the file set a key: a file value is named env or default", "src/conf.c",
+     "        conf->from_file[CONF_STRING_##name] = 1; \\\n", "        ; \\\n",
+     "the file is over LV2_PATH, named file", "searchpath"),
+    ("--search-path prints lv2_path as the LV2 list searched, without lv2_extra", "src/main.c",
+     "    print_list(lv2->declared(conf));", "    print_list(lv2_path);",
+     "the LV2 list searched is lv2_path then lv2_extra", "searchpath"),
+    ("--search-path leaves ~ as written", "src/main.c",
+     "            if (c[0] == '~' && (n == 1 || c[1] == '/') && home && *home)",
+     "            if (0)",
+     "the default CLAP list has ~ expanded", "searchpath"),
     ("a record's id is matched in its own spelling only", "src/qualcost.c",
      "    if (phd_pin_path_decode(id, out, size) != 0)\n", "    if (1)\n",
      "a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling", "qualcost"),
@@ -1817,6 +1827,10 @@ def run_test(tree, name, jack=False):
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
         p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, "plugin-hostd")],
+                           capture_output=True, text=True, timeout=120)
+        return p.returncode, p.stdout + p.stderr
+    if jack == "searchpath":
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, "plugin-hostd")],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "placement":
