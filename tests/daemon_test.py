@@ -1928,6 +1928,25 @@ def presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_
 
 
 @test
+def a_clap_worker_is_started_with_clap_path_so_browsing_a_plugin_outside_the_default_does_not_answer_104():
+    """plugin-hostd#3: Surge XT CLAP on Zynthian, pinned at /usr/local/lib/clap, answered preset_list -104
+    (ERR_HOST_INVALID_PRESET_URI): an add never searches clap_path (the plugin's own path is given directly), so the
+    daemon never set CLAP_PATH for the worker, and the worker's own preset browsing, which does search it, found
+    nothing there. clap_path is this fixture's own directory, as it would hold the Pi's /usr/local/lib/clap once
+    configured; the fake answers -104 in its place unless CLAP_PATH holds it"""
+    p = Plugins()
+    try:
+        d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_PRESET_NEEDS_CLAP_PATH": p.dir})
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("preset_list 0", "resp 2")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
 def a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_unchanged_and_in_order():
     d = daemon()
     try:

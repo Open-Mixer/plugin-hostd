@@ -73,7 +73,9 @@
  *   param_set <n> moves <v>     v other than 0 writes "param_set <n> 0 <v>" (v as sent) and "param_set <n> 0 0.25" on the
  *                               feedback port, with no gesture, as a worker reports a value its plugin moved by itself
  *                               (an LFO, a preset load); no other param_set writes any feedback
- *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
+ *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index; with
+ *                               FAKE_PRESET_NEEDS_CLAP_PATH=<dir> set, -104 (ERR_HOST_INVALID_PRESET_URI) unless the
+ *                               fake's own CLAP_PATH holds <dir>, as a worker whose preset browsing depends on it does
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
  *                               as omx-clap-host answers for a plugin with no window it can show; hide_external_ui <n>
@@ -892,7 +894,14 @@ static void receive(msg_t *msg)
     else if (!strcmp(verb, OMX_VERB_REMOTE_PAGE_GET) && ntok == 3)
         answer(fd, "resp -902");
     else if (!strcmp(verb, OMX_VERB_PRESET_LIST) && ntok == 2)
-        answer(fd, "resp 2");
+    {
+        /* plugin-hostd#3: a plugin pinned outside the worker's own preset search (Zynthian's Surge XT, at
+         * /usr/local/lib/clap) browses nothing until CLAP_PATH holds that directory; FAKE_PRESET_NEEDS_CLAP_PATH
+         * stands for that directory, and the fake answers as a worker whose CLAP_PATH does not hold it does */
+        const char *need = getenv("FAKE_PRESET_NEEDS_CLAP_PATH"), *have = getenv("CLAP_PATH");
+
+        answer(fd, need && (!have || !strstr(have, need)) ? "resp %d" : "resp 2", ERR_HOST_INVALID_PRESET_URI);
+    }
     else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "0"))
         answer(fd, "resp 0 \"file:///presets/warm.clap-preset\" \"Warm\"");
     else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "1"))
