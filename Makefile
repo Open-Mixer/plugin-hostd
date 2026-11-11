@@ -679,6 +679,13 @@ test-install-schemas: all
 check-ci-guards:
 	python3 tests/ci_guards.py
 
+# ci.yml's sabotage-gate job sums what each shard of the matrix reports; this proves the gate itself is red when a
+# shard went missing, reported twice, disagreed on the table size, or the shards together ran fewer arms than the
+# table holds (#23)
+test: check-sabotage-gate
+check-sabotage-gate:
+	python3 tests/sabotage_gate_test.py
+
 # the probe output's words shared with omx-contract are the contract's: each enum the template takes from it matches the
 # installed omx-vocabulary.schema.json, and the template types none of the contract's lists by hand
 test-vocabulary:
