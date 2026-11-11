@@ -83,7 +83,9 @@ The records
 -----------
 
 Every `abort()` of a harness, of `fuzz/recorder.c` and of `fuzz/fuzz.h` is a check, and its comment says what breaks
-it: one or more pairs of lines
+it: a `record: <key>` line naming one block of `src/fuzz_records.h`, the one file every mutant and input record lives
+in, or one line `not a property: <reason>` for a stop that is no property, the harness's own allocation failing. A
+block of `src/fuzz_records.h` is introduced by its own `record: <key>` line and holds one or more pairs of lines
 
 ```
 mutant: src/relay.c:267 `> LINE_LIMIT` -> `>= LINE_LIMIT`
@@ -91,14 +93,15 @@ input: line-at-the-limit
 ```
 
 a one-line change of `src/` or `include/` (the text between the first backticks, once on that line, becomes the text
-between the second) and the seed of the harness's corpus on which that check aborts; or one line `not a property:
-<reason>` for a stop that is no property, the harness's own allocation failing. This is the form the OSS Verify
+between the second) and the seed of the harness's corpus on which that check aborts. This is the form the OSS Verify
 enrolment reads. `make fuzz-records` applies each record alone, builds the plain harness (clang and libFuzzer, no
 sanitizer), runs the record's seed, and is red unless the harness aborts (exit status 134) at that check's own
 `abort()`, and exits 0 on the same seed without the change; the changed file is restored from a copy. To tell which
 `abort()` fired, the records build includes a header that makes `abort()` name its file and line on standard error.
-`fuzz/checks.awk` is the ratchet: `make fuzz-coverage` and `make fuzz-records` are red on a check whose comment has no
-record and no `not a property:` line.
+`fuzz/checks.awk` reads `src/fuzz_records.h` once and expands each check's `record:` line into its block's pairs
+before it is read as that check's record; it is the ratchet, and `make fuzz-coverage` and `make fuzz-records` are red
+on a check whose comment has no `record:` and no `not a property:` line, or a `record:` naming no block of
+`src/fuzz_records.h`.
 
 There are 37 records for the 32 property checks, at least one each, and 10 stops not a property.
 
