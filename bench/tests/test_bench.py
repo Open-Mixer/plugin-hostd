@@ -1505,6 +1505,16 @@ class MachineState(unittest.TestCase):
         self.assertAlmostEqual(sine["rms_db"], -9.0, delta=0.1)
         self.assertEqual(bench.wav_level(os.path.join(d, "silent.wav"))["rms_db"], -200.0)
 
+    def test_an_unreadable_capture_fails_its_row_and_not_the_pass(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", d]))
+        for name, body in (("empty", b""), ("junk", b"RIFF not a wav at all")):
+            path = os.path.join(d, name + ".wav")
+            with open(path, "wb") as f:
+                f.write(body)
+            with self.assertRaises(bench.Failed):
+                bench.wav_level(path)
+
 
 class SettleGate(unittest.TestCase):
     def fake(self, again):
