@@ -649,6 +649,12 @@ check-full-ranges:
 test-records-candidate:
 	bash tests/records_candidate.sh
 
+# SABOTAGE_SHARD=i/n keeps every n-th arm of tests/sabotage.py; this proves the partition for every shard count
+# ci.yml's matrix might use, not a live run (#23)
+test: check-sabotage-shard
+check-sabotage-shard:
+	python3 tests/sabotage_shard_test.py
+
 # the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
 test: check-protocol-floor
