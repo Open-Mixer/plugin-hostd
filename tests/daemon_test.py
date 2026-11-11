@@ -484,6 +484,33 @@ def preset_show_of_a_uri_is_answered_as_mod_host_answers_it_by_the_lv2_worker():
 
 
 @test
+def preset_show_of_a_uri_the_adapter_holds_is_not_hidden_by_mod_hosts_refusal_of_a_different_world():
+    """plugin-hostd#3: preset_show <uri> (mod-host's own form) used to be the lv2 row's alone to answer: an LV2
+    plugin on omx-clap-host's adapter (lv2-clap) was never preferred over mod-host (lv2), even when mod-host's world
+    does not hold the uri and the adapter's does. Both rows read lv2_path, so they are one world: mod-host's refusal
+    of a uri it does not have must not hide the adapter's answer for the uri it does"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-adapter-world.")
+    try:
+        clap_host = os.path.join(tmp, "omx-clap-host")
+        write(clap_host, ("#!/bin/sh\nexport FAKE_PRESETS_LEARN=answer\nexec %s \"$@\"\n" % FAKE).encode())
+        os.chmod(clap_host, 0o755)
+        log = os.path.join(tmp, "commands.log")
+        d = daemon(conf={"lv2_worker": "omx-clap-host", "clap_host": clap_host}, env={"FAKE_LOG": log})
+        try:
+            d.expect("lv2_worker_set urn:test:mh mod-host", "resp 0")
+            d.expect("add lv2:urn:test:mh 0", "resp 0")
+            d.expect("add lv2:urn:test:ch 1", "resp 1")
+            w0, w1 = d.holder(0)[1], d.holder(1)[1]
+            check(w0["fmt"] == "lv2" and w1["fmt"] == "lv2-clap", "one instance of each lv2 row: %s %s" % (w0, w1))
+            got = d.send("preset_show urn:test:ch#warm")
+            check(got == "resp 0", "the adapter's answer, not mod-host's refusal of a different world: %r" % got)
+        finally:
+            d.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
 def preset_show_counts_a_quoted_key_as_one_word_and_asks_the_holder_alone():
     """a key that holds a space is quoted, and is one word as the worker reads it: preset_show <instance> "<key>" is
     the instance form, the holder's to answer, not a line of four words every worker is sent"""
@@ -1925,6 +1952,59 @@ def presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_
         d.close()
         if os.path.exists(log):
             os.unlink(log)
+
+
+@test
+def a_clap_worker_is_started_with_clap_path_so_browsing_a_plugin_outside_the_default_does_not_answer_104():
+    """plugin-hostd#3: Surge XT CLAP on Zynthian, pinned at /usr/local/lib/clap, answered preset_list -104
+    (ERR_HOST_INVALID_PRESET_URI): an add never searches clap_path (the plugin's own path is given directly), so the
+    daemon never set CLAP_PATH for the worker, and the worker's own preset browsing, which does search it, found
+    nothing there. clap_path is this fixture's own directory, as it would hold the Pi's /usr/local/lib/clap once
+    configured; the fake answers -104 in its place unless CLAP_PATH holds it"""
+    p = Plugins()
+    try:
+        d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_PRESET_NEEDS_CLAP_PATH": p.dir})
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("preset_list 0", "resp 2")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def preset_save_of_an_lv2_instance_writes_a_pset_bundle_a_standard_lv2_loader_reads_back():
+    """plugin-hostd#3: preset_save of an LV2 instance is mod-host's own five-word grammar, `<instance> <dir> <file
+    name> <label>`; what the worker writes there is a standard LV2 pset bundle (docs/presets.md), never this tree's
+    own org.openmixer.preset. A standard LV2 host's preset loader (lilv) reads the bundle back by its own rdf:type
+    and label, not by a format of ours"""
+    try:
+        import lilv
+    except ImportError:
+        print("     skip: python3-lilv is not installed")
+        return
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-lv2-preset.")
+    try:
+        d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
+        try:
+            d.expect("add fake:a 0", "resp 0")
+            d.expect('preset_save 0 %s warm "Warm Pad"' % tmp, "resp 0")
+        finally:
+            d.close()
+        bundle = os.path.join(tmp, "warm.lv2")
+        check(os.path.exists(os.path.join(bundle, "manifest.ttl")),
+              "the worker's bundle, dir/<file name>.lv2: %s" % (os.listdir(tmp) if os.path.isdir(tmp) else tmp))
+        world = lilv.World()
+        world.load_bundle(world.new_file_uri(None, bundle + "/"))
+        rdf_type = world.new_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        preset_class = world.new_uri("http://lv2plug.in/ns/ext/presets#Preset")
+        presets = list(world.find_nodes(None, rdf_type, preset_class))
+        check(len(presets) == 1, "one standard LV2 preset in the bundle, not our own file format: %s" % presets)
+        label = world.get(presets[0], world.new_uri("http://www.w3.org/2000/01/rdf-schema#label"), None)
+        check(str(label) == "Warm Pad", "labelled as preset_save's own word asked: %r" % label)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 @test

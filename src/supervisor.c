@@ -2759,21 +2759,28 @@ char *sup_broadcast(const char *line)
     return broadcast(line, -1);
 }
 
-/* the same, but the answer is that of the first LV2 worker (mod-host) that is up, when one is: a line of mod-host's
- * own that only mod-host's LV2 world answers (preset_show <uri>) */
+/* the same, but the answer is that of the first worker of the LV2 world that is up, when one is: a line of mod-host's
+ * own that only the LV2 world answers (preset_show <uri>). The world is mod-host's row or omx-clap-host's LV2 adapter
+ * row, whichever is up: both read lv2_path, and a controller addressing a bare uri does not know, or care, which of
+ * them is running the plugin */
 static char *broadcast_lv2(const char *line)
 {
     return broadcast(line, format_by_name(PHD_FORMAT_LV2));
 }
 
 /* the line to every worker that is up; the answer is the first refusal, else the first answer, or, with fmt >= 0,
- * that of the first worker of format fmt when one answered */
+ * that of the worker of fmt's world (fmt's row, and any other row that shares its search: the LV2 row and its
+ * omx-clap-host adapter row both read lv2_path) that answers it, preferring one of them that does over one that
+ * does not: unlike two unrelated formats, which must each answer a broadcast verb on their own plugin, two rows of
+ * one world answer the same question, so a member that does not hold the uri (-101, or this fake's -902) must not
+ * hide the answer of the member that does */
 static char *broadcast(const char *line, int fmt)
 {
     char *first = NULL, *reply = NULL, *own = NULL;
     int n, rc, id;
     worker_t *list[1024];
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
+    const format_t *target = fmt >= 0 ? format_at(fmt) : NULL;
 
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
@@ -2788,9 +2795,16 @@ static char *broadcast(const char *line, int fmt)
             on_death(w, -1);
             continue;
         }
-        /* the answer of the first worker of the format asked for is the answer, whatever the others say */
-        if (fmt >= 0 && w->fmt == fmt && !own)
-            own = reply;
+        if (target && target->search && format_at(w->fmt)->search == target->search)
+        {
+            if (!own || (resp_code(own) < 0 && resp_code(reply) >= 0))
+            {
+                free(own);
+                own = reply;
+            }
+            else
+                free(reply);
+        }
         else if (!first || (resp_code(first) >= 0 && resp_code(reply) < 0))
         {
             free(first);
