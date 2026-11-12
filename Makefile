@@ -714,6 +714,8 @@ tests/probe-child: tests/probe_child.c
 # descriptor, which validates; each refusal names what it refuses; a stand-in child gives the same descriptor
 test-describe: $(PROBE)
 	PROBE=./$(PROBE) python3 tests/describe_test.py
+	PROBE=./$(PROBE) python3 tests/describe_clap_meters_test.py
+	PROBE=./$(PROBE) python3 tests/describe_twin_test.py
 
 # what is omx-contract's is read from it: the runner's default rates, the protocol's parameter scales and the probe
 # schema's latency methods follow a scratch copy of its headers with other values

@@ -43,7 +43,9 @@ typedef int (*transforms_fn_t)(const transforms_data_t *d, const char *in, char 
     X("flag", transforms_flag, transforms_flag_inverse)                                                                \
     X("scale-points", transforms_scale_points, transforms_scale_points_inverse)                                        \
     X("group-path", transforms_group_path, transforms_group_path_inverse)                                              \
-    X("port-group", transforms_port_group, transforms_port_group_inverse)
+    X("port-group", transforms_port_group, transforms_port_group_inverse)                                              \
+    X("output-symbol", transforms_output_symbol, transforms_output_symbol_inverse)                                     \
+    X("role-to-meaning", transforms_role_to_meaning, transforms_role_to_meaning_inverse)
 
 #define TRANSFORMS_DECLARE(name, in, inverse)                                                                          \
     int in(const transforms_data_t *d, const char *value, char *out, size_t size);                                     \

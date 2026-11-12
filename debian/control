@@ -22,7 +22,7 @@ Package: plugin-hostd
 Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.5.2~), libplugin-hostd-protocol0 (<< 0.6~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.31.1~), omx-clap-host (<< 0.32~)
+Recommends: omx-clap-host (>= 0.31.2~), omx-clap-host (<< 0.32~)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -51,8 +51,8 @@ Package: plugin-hostd-full
 Section: metapackages
 Architecture: all
 Depends: plugin-hostd (= ${source:Version}),
-         omx-clap-host (>= 0.31.1~), omx-clap-host (<< 0.32~),
-         omx-plugins (>= 0.19.2~), omx-plugins (<< 0.20~),
+         omx-clap-host (>= 0.31.2~), omx-clap-host (<< 0.32~),
+         omx-plugins (>= 0.19.3~), omx-plugins (<< 0.20~),
          plugin-qualify (>= 0.20.1~), plugin-qualify (<< 0.21~),
          ${misc:Depends}
 Recommends: omx-panel (>= 0.13.0~), omx-panel (<< 0.14~),
