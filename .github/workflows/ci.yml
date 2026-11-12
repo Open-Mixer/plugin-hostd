@@ -96,7 +96,7 @@ jobs:
       - name: Validate the staged contract directory with the installed omx-contract
         run: make check-contract-dir
 
-      # panel_get on the wire: the installed omx-clap-scan (0.20.0 or later, which the test checks) reads the panel of a
+      # panel_get on the wire: the installed omx-clap-scan (0.31.2 or later, which the test checks) reads the panel of a
       # plugin of omx-plugins-clap that publishes one and of omx-clap-host-tests' fake compressor, which publishes none
       - name: Test panel_get against the installed scanner and real plugins
         run: |

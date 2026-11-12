@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # panel_get on the wire, against the installed scanner and real plugins (docs/panel.md): the daemon, this tree's probe
-# and the installed omx-clap-scan (omx-clap-core 0.20.0 or later), the add answered by the fake worker. For a plugin that
+# and the installed omx-clap-scan (omx-clap-core 0.31.2 or later), the add answered by the fake worker. For a plugin that
 # publishes a panel (PANEL_CLAP, default omx-plugins' omx-delay) panel_get answers the path of a file whose panel is the
 # object omx-clap-scan --json prints for it, its bytes as the scan wrote them; for one that publishes none (NO_PANEL_CLAP,
 # default omx-clap-host-tests' fake compressor) the panel is null. descriptor_get answers beside it for both. The
 # probe reads this tree's clap table (a wrapper adds --table), since the installed one may predate the panel rows.
+# The descriptors carry in their bag what omx-clap-scan 0.31.2 added to the dump (docs/formats.md#the-field-dump): the
+# delay's parameter contract and the compressor's meters, each as omx-clap-scan --json prints it for the installed file.
 #
 #   panel_wire.py   PLUGIN_HOSTD, FAKE_HOST, PROBE (default ./plugin-hostd, ./tests/fake-host, ./plugin-hostd-probe);
 #                   OMX_CLAP_SCAN (default omx-clap-scan on PATH); PANEL_CLAP and NO_PANEL_CLAP as <file>#<id>
@@ -22,7 +24,7 @@ SCAN = os.environ.get("OMX_CLAP_SCAN", "omx-clap-scan")
 PANEL_CLAP = os.environ.get("PANEL_CLAP", "/usr/lib/clap/omx-delay.clap#org.openmixer.delay")
 NO_PANEL_CLAP = os.environ.get("NO_PANEL_CLAP", "/usr/libexec/omx-clap-host/tests/fake_compressor.clap"
                                "#org.omx-clap-host.test.compressor")
-SCANNER_FLOOR = (0, 20, 0)
+SCANNER_FLOOR = (0, 31, 2)
 WRAPPER = """#!/bin/sh
 # this tree's probe; describe reads this tree's clap table
 if [ "$1" = describe ]; then shift; exec %(probe)s describe --table %(table)s "$@"; fi
@@ -53,6 +55,16 @@ def scanned(target):
     plugins = [p for f in doc["files"] for p in f.get("plugins", []) if p.get("id") == pid]
     check(len(plugins) == 1, "the scan lists %s once" % pid)
     return text, plugins[0]
+
+
+def dumped(v):
+    """a value of omx-clap-scan --json as the field dump writes it: a number in %.17g, a text as it is"""
+    return v if isinstance(v, str) else "%.17g" % v
+
+
+def bag_of(path):
+    """the CLAP extension bag of the descriptor at path"""
+    return json.load(open(path)).get("extensions", {}).get("clap", {})
 
 
 def answered_path(d, verb, uri):
@@ -88,6 +100,19 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         check(descriptor is not None and os.path.basename(path) == os.path.basename(descriptor)
               and os.path.dirname(path) == os.path.join(os.path.dirname(descriptor), "panels"),
               "the panel is filed under the descriptor's name in panels/: %s, %s" % (path, descriptor))
+        # the parameter contract the installed omx-delay offers, in the bag of its descriptor as the scan prints it
+        bag, contract = bag_of(descriptor), plugin.get("param_contract")
+        check(isinstance(contract, dict), "the scan prints the parameter contract of %s" % PANEL_CLAP)
+        check(bag.get("omx_clap_plugin_param_contract_ext.version") == dumped(contract["version"])
+              and bag.get("omx_clap_plugin_param_contract_ext.fingerprint") == contract["fingerprint"],
+              "the descriptor carries the contract's version and fingerprint: %s" % contract)
+        check(plugin["params"] and all("contract" in p for p in plugin["params"]),
+              "the scan prints a contract entry for each parameter of %s" % PANEL_CLAP)
+        for i, p in enumerate(plugin["params"]):
+            for k in ("symbol", "unit", "scale", "step"):
+                key = "param:%d/omx_clap_param_contract_entry.%s" % (i, k)
+                check(bag.get(key) == dumped(p["contract"][k]), "%s is %r: %r" % (key, p["contract"][k], bag.get(key)))
+
         raw = open(path).read()
         doc = json.loads(raw)
         check(doc["plugin"] == {"format": "clap", "id": PANEL_CLAP.rsplit("#", 1)[1]}, "it names its plugin: %s"
@@ -120,7 +145,16 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         doc = json.load(open(path))
         check(doc == {"plugin": {"format": "clap", "id": NO_PANEL_CLAP.rsplit("#", 1)[1]}, "panel": None},
               "a plugin that publishes no panel answers a null panel: %s" % doc)
-        check(answered_path(d, "descriptor_get", without) is not None, "and its descriptor beside it")
+        descriptor = answered_path(d, "descriptor_get", without)
+        check(descriptor is not None, "and its descriptor beside it")
+        # the meters the fake compressor offers, in the bag of its descriptor as the scan prints them
+        bag = bag_of(descriptor)
+        check(bare.get("meters"), "the scan prints the meters of %s" % NO_PANEL_CLAP)
+        for i, m in enumerate(bare["meters"]):
+            for k, field in (("id", "id"), ("name", "name"), ("channels", "channel_count"), ("min", "min_value"),
+                             ("max", "max_value")):
+                key = "meter:%d/clap_meter_info.%s" % (i, field)
+                check(bag.get(key) == dumped(m[k]), "%s is %r: %r" % (key, m[k], bag.get(key)))
         d.expect("panel_get", "resp -902")
     finally:
         d.close()
