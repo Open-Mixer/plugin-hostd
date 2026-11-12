@@ -19,7 +19,7 @@
     }
   },
   "bin": {
-    "plugin-hostd-codec": "./dist/cli.js"
+    "plugin-hostd-codec": "dist/cli.js"
   },
   "files": [
     "dist/index.js",
