@@ -247,6 +247,15 @@ make test-daemon check-generated check-rendered
   installed protocol table and held to each other on shared fixtures (#29).
 - Floors: plugin-hostd-protocol >= 0.5.5 and omx-clap-host >= 0.32.1 (< 0.33),
   whose preset_save is mod-host's form, the table's (#38).
+- The clients read the plan, plan_get and estimate replies: the segments and
+  cores of a plan, the reasons a plan_get gives (instance, reason, its word, the
+  reply code of a plan-refused and retry), and every estimate figure by its
+  protocol name; a word of another shape is a ProtocolError, and counts above
+  2^53-1 are refused in both clients (#39, #41).
+- @openmixer/plugin-hostd-client ships a README, so its npm page says what the
+  client is and what it reads (#40).
+- The npm publish step logs the trusted-publishing token exchange, so a refused
+  publisher names its reason (#37).
 
 * Tue Nov 10 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.3-1
 - describe writes a CLAP plugin's clap.meters/1 meters as the descriptor's
