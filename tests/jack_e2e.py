@@ -75,6 +75,22 @@ def crash(d, inst):
     check(r in ("resp 0", resp("VERB_DROPPED")), "param_set that crashes the plugin -> %r" % r)
 
 
+PRETTY_NAME = "http://jackaudio.org/metadata/pretty-name"
+INSTANCE_KEY = "http://openmixer.org/ns/plugin-hostd#instance"
+
+
+def metadata(client):
+    """{key: value} of the JACK metadata on a client's uuid, by name (jack_property, on jackd and on PipeWire)"""
+    out = subprocess.run(["jack_property", "--client", "-l", client], capture_output=True, text=True, timeout=10).stdout
+    found = {}
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("key: ") and " value: " in line:
+            key, rest = line[5:].split(" value: ", 1)
+            found[key] = rest.rsplit(" type: ", 1)[0]
+    return found
+
+
 def ckpt(d, inst):
     return os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_%d.clapstate" % inst)
 
@@ -551,6 +567,31 @@ if FAKE_CLAP:
             d.expect("remote_pages 0", "resp 2")
         finally:
             d.close()
+
+
+@test
+def a_hosted_node_carries_its_plugin_name_and_instance_for_every_client():
+    """plugin-hostd#33: the JACK client stays effect_<instance>; its metadata names the plugin and the instance"""
+    d = daemon(conf={"checkpoint_ms": 300})
+    try:
+        d.expect("add %s 0" % STRESS, "resp 0")
+        d.expect("add %s 7" % STRESS, "resp 7")
+        check(has_ports(0) and has_ports(7), "both inserts are in the graph under effect_<instance>")
+        for inst in (0, 7):
+            wait_for(lambda: PRETTY_NAME in metadata("effect_%d" % inst), "effect_%d's pretty-name" % inst, 10)
+            m = metadata("effect_%d" % inst)
+            check(m.get(PRETTY_NAME) == "stress (%d)" % inst, "effect_%d is named stress (%d): %r" % (inst, inst, m))
+            check(m.get(INSTANCE_KEY) == str(inst), "effect_%d carries the instance marker %d: %r" % (inst, inst, m))
+        _, w = d.holder(7)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        wait_for(lambda: not has_ports(7), "effect_7's ports to leave the graph (the kill landed)")
+        d.wait_event("instance_restored 7 ", since=mark)
+        wait_for(lambda: has_ports(7), "effect_7's ports to come back")
+        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == "stress (7)", "the respawned effect_7's pretty-name", 10)
+        check(metadata("effect_7").get(INSTANCE_KEY) == "7", "the respawned effect_7 carries its marker")
+    finally:
+        d.close()
 
 
 sys.exit(run_tests(TESTS))
