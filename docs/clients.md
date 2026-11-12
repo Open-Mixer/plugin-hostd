@@ -40,7 +40,7 @@ TypeScript):
 - **decode**(line): a command line back into its verb, its arguments and its request tag, by the same table;
   **reencode**(line), the same line decoded and encoded again.
 - **parse**(line): what the host or the daemon answered, a request tag (`@<tag>`) and a sequence number
-  first when the line carries them: `resp <code> [data]` with the code's name and its sentence, a
+  first when the line carries them: `resp <code> [data]` with the code's name, a
   feedback line by its declared arguments, or a protocol error.
 - the words of a line (`words`, `quote`), the percent-encoded path of a `clap:` uri (`encode_path`,
   `decode_path`, `uri_word`, `pin_key`), as the grammar and the pin section of plugin-hostd-protocol's

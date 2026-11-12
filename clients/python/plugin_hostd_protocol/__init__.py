@@ -24,6 +24,8 @@ class ProtocolError(ValueError):
 # ---- the words of a line, as plugin-hostd-protocol's grammar (core.abnf: word, quoted, escaped-quote) writes them,
 # and the percent-encoded path of a clap: uri, as its pin section does (PHD_PIN_PATH_EXCLUDED, PHD_PIN_PATH_ESCAPE)
 
+# the daemon's tokenizer splits at C's isspace(): these six, and no other character
+SPACE = " \t\n\v\f\r"
 CLAP_PREFIX = "clap:"
 ESCAPE = "%"
 EXCLUDED = ",= \t\r\n"
@@ -35,7 +37,7 @@ def words(line):
     never closes runs to the end of the line."""
     out, i, n = [], 0, len(line)
     while i < n:
-        if line[i].isspace():
+        if line[i] in SPACE:
             i += 1
         elif line[i] == '"':
             i += 1
@@ -49,7 +51,7 @@ def words(line):
             out.append("".join(word))
         else:
             j = i
-            while j < n and not line[j].isspace():
+            while j < n and line[j] not in SPACE:
                 j += 1
             out.append(line[i:j])
             i = j
@@ -63,7 +65,7 @@ def quote(value):
 
 def _word(value):
     """A string as one word: bare when it can be, quoted when it is empty or holds whitespace or a quote."""
-    if value and not any(c.isspace() or c == '"' for c in value):
+    if value and not any(c in SPACE or c == '"' for c in value):
         return value
     return quote(value)
 
@@ -155,6 +157,8 @@ def format_number(value):
 
 
 _INT = re.compile(r"^-?[0-9]+$")
+# a decimal numeral, as both clients read one (no digit separator, no other script's digits, no inf or nan)
+_FLOAT = re.compile(r"^-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
 
 # ---- the installed files
@@ -290,10 +294,9 @@ class Protocol:
                 raise ProtocolError("%s is not an integer" % word)
             return int(word)
         if kind == "float":
-            try:
-                v = float(word)
-            except ValueError as e:
-                raise ProtocolError("%s is not a number" % word) from e
+            if not _FLOAT.match(word):
+                raise ProtocolError("%s is not a number" % word)
+            v = float(word)
             if not math.isfinite(v):
                 raise ProtocolError("%s is not a finite number" % word)
             return v
