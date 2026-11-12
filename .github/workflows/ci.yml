@@ -63,13 +63,17 @@ jobs:
       - name: Install the build tools
         run: |
           dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
 
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.4, the floor (PRESET_NOT_APPLIED, the
+          # clients' fixtures read it), is staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -89,6 +93,11 @@ jobs:
         env:
           PROBE_REQUIRE_REALTIME: "1"
         run: make test
+
+      # the protocol clients (docs/clients.md): each one's tests on the shared fixtures, then the two held to each other on
+      # them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
+      - name: The protocol clients agree
+        run: make test-clients
 
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,
       # then the installed omx-contract (the builddep above) validates it with its own tables and omx-clap-core's; red on
@@ -162,6 +171,10 @@ jobs:
 
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.4, the floor (PRESET_NOT_APPLIED, the
+          # clients' fixtures read it), is staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -209,6 +222,10 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.4, the floor (PRESET_NOT_APPLIED, the
+          # clients' fixtures read it), is staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -271,6 +288,10 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.4, the floor (PRESET_NOT_APPLIED, the
+          # clients' fixtures read it), is staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -442,6 +463,10 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.4, the floor (PRESET_NOT_APPLIED, the
+          # clients' fixtures read it), is staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -675,6 +700,10 @@ jobs:
 
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.4, the floor (PRESET_NOT_APPLIED, the
+          # clients' fixtures read it), is staged and not yet served
+          staging: 'true'
 
       - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
         run: |

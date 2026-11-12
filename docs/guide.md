@@ -502,6 +502,7 @@ Error codes the daemon adds to mod-host's:
 | `-525` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_NEEDS_STATE_RESP` | the worker: a preset file that carries state for a worker that cannot take state yet |
 | `-526` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_PLUGIN_CHANGED_RESP` | the worker: the preset file's plugin id, version or fingerprint is not the instance's; nothing of it is applied |
 | `-527` | `OMX_REPLY_PLUGIN_HOSTD_LOAD_REFUSED_RESP` | the worker: the plugin refused the preset or the state its file carries |
+| `-544` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_NOT_APPLIED_RESP` | the worker: the plugin took the preset and had not run once since when the host's wait for that ran out |
 | `-528` | `OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP` | descriptor_dir or qualification_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get and panel_get of that plugin answer this code |
 | `-529` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP` | descriptor_get (panel_get) of a plugin that has no descriptor (panel) in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
 | `-530` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
