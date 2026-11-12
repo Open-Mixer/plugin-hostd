@@ -149,7 +149,13 @@ one transform renamed) and each arm must go red naming the field.
   `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too. A CLAP plugin
   that serves a panel description adds `panel`, `section:<index>`, `control:<index>`, `role:<index>`,
   `display:<index>` and `placement_default:<index>` (omx-clap-scan 0.20.0); these scopes are no entry of the
-  descriptor, and each of their fields is dropped (above).
+  descriptor, and each of their fields is dropped (above). A CLAP plugin that offers `clap.meters/1` adds
+  `meter:<index>` (omx-clap-scan 0.31.2, `clap_meter_info.*` of omx-clap-core's `clap_meters.h`, in
+  `clap_plugin_meters.get_info` order): no entry of the descriptor either, each of its fields carried in the bag
+  (`extensions.clap["meter:<index>/clap_meter_info.kind"]`). One that offers `org.openmixer.param-contract/1` adds,
+  from the same scanner, `omx_clap_plugin_param_contract_ext.version` and `.fingerprint` to `plugin` and
+  `omx_clap_param_contract_entry.symbol`, `.unit`, `.scale` and `.step` to each `param:<index>`, all carried in the
+  bag. A scope no table row reads is refused like a field with no row: `describe` writes no descriptor.
 - `field`: a row key, as named above.
 - `value`: the field's value as text. A number in `%.17g`; a CLAP constant (a flag bit, a port type, a note dialect,
   an extension id, a feature the headers define) by its macro name, one record per flag set or per item; an LV2 URI as
