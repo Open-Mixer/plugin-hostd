@@ -74,7 +74,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.0,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -192,7 +192,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.0,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -243,7 +243,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.0,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -309,7 +309,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.0,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -484,7 +484,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.0,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -725,7 +725,7 @@ jobs:
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.0,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
