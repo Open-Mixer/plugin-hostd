@@ -85,6 +85,12 @@ jobs:
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
+      # the clients' tests read a sentence in Catalan from the installed catalog: from plugin-hostd-protocol 0.5.6 on it
+      # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
+      # none, and its base package carries the catalog
+      - name: The protocol's Catalan catalog, where a language pack carries it
+        run: dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
+
       - name: Build
         run: make
 
