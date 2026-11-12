@@ -555,6 +555,16 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios test
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 
+# the protocol clients (docs/clients.md): each client's own tests on clients/fixtures/codec.json, then both held to each
+# other on the fixtures and on plugin-hostd-protocol's host scenarios, and that comparison's self-test
+.PHONY: test-clients
+test-clients:
+	$(MAKE) -C clients/ts build
+	PYTHONPATH=$(abspath clients/python) python3 -m unittest discover -s clients/python/tests -t clients/python
+	$(MAKE) -C clients/ts test
+	python3 tests/clients_agree.py
+	python3 tests/clients_agree.py --self-test
+
 # test-jack against JACK2's jackd (the server Zynthian runs) instead of pipewire's own jack implementation
 test-jack2:
 	$(MAKE) test-jack JACK_SERVER=jackd
