@@ -71,7 +71,11 @@ ip link set lo up
 
 case "$JACK_SERVER" in
 pipewire)
-    pipewire >"$runtime/pw.log" 2>&1 &
+    # the default metadata a session manager creates (WirePlumber), where JACK metadata lives: a hosted node's name
+    mkdir -p "$runtime/config/pipewire/pipewire.conf.d"
+    echo 'context.objects = [ { factory = metadata args = { metadata.name = default } } ]' \
+        >"$runtime/config/pipewire/pipewire.conf.d/default-metadata.conf"
+    XDG_CONFIG_HOME=$runtime/config pipewire >"$runtime/pw.log" 2>&1 &
     for _ in $(seq 50); do [ -S "$runtime/pipewire-0" ] && break; sleep 0.1; done
     [ -S "$runtime/pipewire-0" ] || { echo "pipewire did not come up" >&2; cat "$runtime/pw.log" >&2; exit 2; }
     pw-metadata -n settings 0 clock.force-rate 48000 >/dev/null

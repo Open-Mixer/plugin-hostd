@@ -42,6 +42,17 @@ TypeScript):
 - **parse**(line): what the host or the daemon answered, a request tag (`@<tag>`) and a sequence number
   first when the line carries them: `resp <code> [data]` with the code's name, a
   feedback line by its declared arguments, or a protocol error.
+- **read_plan**(data), **read_plan_get**(data), **read_estimate**(data) (`readPlan`, `readPlanGet`,
+  `readEstimate` in TypeScript): the data words of the three replies that have a shape of their own, as
+  the guide writes them. A plan is its `segments` (the instances that share a worker, in signal order) and
+  its `cores` in the same shape, none for a member that is not pinned. A plan read back also gives its
+  `reasons`: the instance, the reason as written, its word of `PLUGIN_HOSTD_GROUPING_REASONS`, the reply
+  code a `plan-refused` carries with its name, and `retry`, true for the reasons a later plan may not give
+  again with the chain unchanged (`RETRY_REASONS`: `no-verdict`, `plan-refused`; a list the clients
+  hold, the grouping declaration has no such attribute). An estimate is every figure by the protocol's
+  name (`latency_frames`, `cpu_percent`, `ram_bytes`, `workers`, `unknown_count`, `members` with the
+  reply code of each one that has no figure, and the four memory figures), none for a figure the daemon
+  answers `-`. A word that is not the shape is an error, never a guess.
 - the words of a line (`words`, `quote`), the percent-encoded path of a `clap:` uri (`encode_path`,
   `decode_path`, `uri_word`, `pin_key`), as the grammar and the pin section of plugin-hostd-protocol's
   documentation write them.

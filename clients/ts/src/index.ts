@@ -32,6 +32,41 @@ export type Reply =
   | { readonly kind: 'protocol_error'; readonly tag?: string; readonly seq?: number; readonly code: number; readonly name: string }
   | { readonly kind: 'feedback'; readonly tag?: string; readonly seq?: number; readonly line: string; readonly args: Arg[] };
 
+/** What plan answers: the segments in signal order, and the audio core of each member's worker (null: not pinned). */
+export interface Plan {
+  readonly segments: number[][];
+  readonly cores: (number | null)[][];
+}
+
+/** A member of a plan that has a reason: the word of PLUGIN_HOSTD_GROUPING_REASONS, the code a plan-refused carries. */
+export interface PlanReason {
+  readonly instance: number;
+  readonly reason: string;
+  readonly word: string;
+  readonly code: number | null;
+  readonly name: string | null;
+  /** A later plan may answer otherwise without the chain changing (RETRY_REASONS). */
+  readonly retry: boolean;
+}
+
+export interface PlanRead extends Plan {
+  readonly reasons: PlanReason[];
+}
+
+/** What estimate answers, each figure by the name the protocol gives it; null for one the daemon has no figure for. */
+export interface Estimate {
+  readonly latency_frames: number;
+  readonly cpu_percent: number;
+  readonly ram_bytes: number | null;
+  readonly workers: number;
+  readonly unknown_count: number;
+  readonly members: { readonly member: number; readonly code: number; readonly name: string | null }[];
+  readonly ram_used_bytes: number | null;
+  readonly ram_added_bytes: number | null;
+  readonly ram_budget_bytes: number | null;
+  readonly ram_unknown_count: number | null;
+}
+
 // ---- the words of a line, as plugin-hostd-protocol's grammar (core.abnf: word, quoted, escaped-quote) writes them,
 // and the percent-encoded path of a clap: uri, as its pin section does (PHD_PIN_PATH_EXCLUDED, PHD_PIN_PATH_ESCAPE)
 
@@ -217,6 +252,45 @@ export interface ProtocolOptions {
   readonly datadir?: string;
 }
 
+/** A figure or a list the daemon has none for. */
+const NONE = '-';
+/**
+ * The reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
+ * (no-verdict), what refused a segment may pass (plan-refused).
+ */
+export const RETRY_REASONS: readonly string[] = ['no-verdict', 'plan-refused'];
+
+function count(word: string): number {
+  if (!INT.test(word) || word.startsWith('-') || Number(word) > Number.MAX_SAFE_INTEGER) {
+    throw new ProtocolError(`${word} is not a count`);
+  }
+  return Number(word);
+}
+
+function countOrNone(word: string): number | null {
+  return word === NONE ? null : count(word);
+}
+
+/** '1,2;3' as [[1, 2], [3]]. */
+function segmentsOf(word: string): number[][] {
+  return word.split(';').map((segment) => segment.split(',').map(count));
+}
+
+function coresOf(word: string | undefined, segments: number[][]): (number | null)[][] {
+  if (word === undefined) return segments.map((s) => s.map(() => null));
+  const cores = word.split(';').map((segment) => segment.split(',').map(countOrNone));
+  if (cores.length !== segments.length || cores.some((c, i) => c.length !== segments[i]!.length)) {
+    throw new ProtocolError(`the cores ${word} are not the shape of the segments`);
+  }
+  return cores;
+}
+
+/** The two halves of a word at its first colon. */
+function atColon(item: string): [string, string] {
+  const i = item.indexOf(':');
+  return i < 0 ? [item, ''] : [item.slice(0, i), item.slice(i + 1)];
+}
+
 /** plugin-hostd's protocol as its installed files declare it. */
 export class Protocol {
   readonly tablePath: string;
@@ -383,6 +457,79 @@ export class Protocol {
       return { kind: 'feedback', ...head, line: w[0]!, args };
     }
     throw new ProtocolError(`no reply the protocol declares: ${line}`);
+  }
+
+  // ---- the replies with a shape of their own
+
+  /**
+   * What plan answers after resp 0, as words: the segments in signal order, each the instances that share a worker,
+   * and the cores, the same shape with the audio core of each member's worker (null for one that is not pinned, and
+   * for every member when the daemon answers no cores).
+   */
+  readPlan(data: readonly string[]): Plan {
+    if (data.length !== 1 && data.length !== 2) {
+      throw new ProtocolError(`a plan is its segments and its cores: ${data.join(' ')}`);
+    }
+    const segments = segmentsOf(data[0]!);
+    return { segments, cores: coresOf(data[1], segments) };
+  }
+
+  /**
+   * What plan_get answers after resp 0, as words: the plan as readPlan gives it and, between the segments and the
+   * cores, the members that have a reason, in the daemon's order.
+   */
+  readPlanGet(data: readonly string[]): PlanRead {
+    if (data.length !== 2 && data.length !== 3) {
+      throw new ProtocolError(`a plan read back is its segments, its reasons and its cores: ${data.join(' ')}`);
+    }
+    const segments = segmentsOf(data[0]!);
+    const reasons = (data[1] === NONE ? [] : data[1]!.split(',')).map((item): PlanReason => {
+      const [instance, reason] = atColon(item);
+      if (!reason) throw new ProtocolError(`${item} is not <instance>:<reason>`);
+      const [word, detail] = atColon(reason);
+      const code = INT.test(detail) ? Number(detail) : null;
+      return {
+        instance: count(instance),
+        reason,
+        word,
+        code,
+        name: code === null ? null : (this.names.get(code) ?? null),
+        retry: RETRY_REASONS.includes(word),
+      };
+    });
+    return { segments, reasons, cores: coresOf(data[2], segments) };
+  }
+
+  /**
+   * What estimate answers after resp 0, as words; null for a figure the daemon does not have (-), and for the four
+   * memory figures a daemon that answers six words leaves out. members: the members no figure could be read for,
+   * counted from 0 in the order they were asked, each with the reply code that says why and its name.
+   */
+  readEstimate(data: readonly string[]): Estimate {
+    if (data.length !== 6 && data.length !== 10) {
+      throw new ProtocolError(`an estimate is six figures, or ten: ${data.join(' ')}`);
+    }
+    const members = (data[5] === NONE ? [] : data[5]!.split(',')).map((item) => {
+      const [member, code] = atColon(item);
+      if (!INT.test(code)) throw new ProtocolError(`${item} is not <member>:<code>`);
+      return { member: count(member), code: Number(code), name: this.names.get(Number(code)) ?? null };
+    });
+    if (!FLOAT.test(data[1]!) || !Number.isFinite(Number(data[1]))) {
+      throw new ProtocolError(`${data[1]} is not a finite number`);
+    }
+    const more = (k: number): number | null => (data.length === 10 ? countOrNone(data[6 + k]!) : null);
+    return {
+      latency_frames: count(data[0]!),
+      cpu_percent: Number(data[1]),
+      ram_bytes: countOrNone(data[2]!),
+      workers: count(data[3]!),
+      unknown_count: count(data[4]!),
+      members,
+      ram_used_bytes: more(0),
+      ram_added_bytes: more(1),
+      ram_budget_bytes: more(2),
+      ram_unknown_count: more(3),
+    };
   }
 
   // ---- codes

@@ -121,7 +121,58 @@ def tier_scan(root):
     return found
 
 
+# A job tests the daemon of its own run: plugin-hostd and plugin-hostd-contract are installed from the packages the run
+# built (./rpms/..., ./debs/...), never by name from a repository. By name, dnf or apt takes the channel's daemon, and
+# the job tests the served release instead of the change; with a floor the served one does not meet (omx-clap-host
+# >= 0.32 against a served plugin-hostd that wants < 0.32), it cannot even install (#44's Zynthian chain).
+INSTALL = re.compile(r"\b(dnf5?|apt-get|apt)\s+(?:-\S+\s+)*(install|download)\b")
+OWN_PACKAGE = re.compile(r"(?<![\w./*\[-])'?plugin-hostd(?:-contract)?(?=['\s<>=]|$)")
+# bench.yml tests the benchmark harness, not the daemon: it drives the hosts the channel serves, plugin-hostd among them
+SERVED_HOSTS = {"bench.yml"}
+
+
+def own_build_scan(root):
+    """every finding as 'path:line what'"""
+    found = []
+    for path in workflow_files(root):
+        if os.path.basename(path) in SERVED_HOSTS:
+            continue
+        lines = open(path).read().split("\n")
+        for n, line in enumerate(lines):
+            if line.lstrip().startswith("#") or not INSTALL.search(line):
+                continue
+            command, k = line, n
+            while command.rstrip().endswith("\\") and k + 1 < len(lines):
+                k += 1
+                command = command.rstrip()[:-1] + " " + lines[k].strip()
+            if OWN_PACKAGE.search(command):
+                found.append("%s:%d installs plugin-hostd by name: from a repository it is the channel's daemon, not this run's"
+                             % (os.path.relpath(path, root), n + 1))
+    return found
+
+
 def main():
+    own = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+    try:
+        wf = os.path.join(own, ".github", "workflows")
+        os.makedirs(wf)
+        open(os.path.join(wf, "ci.yml"), "w").write(
+            "          dnf install -y --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.32.0' \\\n"
+            "            omx-plugins-clap\n"
+            "          dnf install -y omx-clap-host-tests \\\n            'plugin-hostd-contract >= 0.20'\n"
+            "          # dnf install plugin-hostd\n")
+        seen = own_build_scan(own)
+        open(os.path.join(wf, "ci.yml"), "w").write(
+            "          dnf install -y ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \\\n"
+            "            plugin-hostd-protocol-devel /usr/bin/plugin-hostd 'omx-clap-host >= 0.32.0'\n"
+            "          apt-get install -y ./debs/plugin-hostd_*.deb\n")
+        if [s.split(" ")[0] for s in seen] != [".github/workflows/ci.yml:1", ".github/workflows/ci.yml:3"] or own_build_scan(own):
+            print("FAIL the own-build scan misses a planted install of plugin-hostd by name, or refuses the run's files: saw %s" % seen)
+            return 1
+    finally:
+        shutil.rmtree(own, ignore_errors=True)
+    print("ok   the own-build scan sees a planted plugin-hostd and plugin-hostd-contract by name, and passes the run's own files")
+    gate = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     gate = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
         wf = os.path.join(gate, ".github", "workflows")
@@ -185,6 +236,11 @@ def main():
         shutil.rmtree(tiers, ignore_errors=True)
     print("ok   the tier scan sees a planted sabotage, a whole suite matrix and a dry run on a pull request, and passes them split")
     failed = 0
+    for f in own_build_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   every job installs plugin-hostd from its own run's packages, none by name from the channel")
     for f in tier_scan(ROOT):
         print("FAIL %s" % f)
         failed += 1
