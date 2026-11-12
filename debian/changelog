@@ -1,3 +1,18 @@
+plugin-hostd (0.20.4) unstable; urgency=medium
+
+  * Each hosted plugin's JACK client carries its name and instance in JACK
+    metadata (plugin-hostd-protocol's node_metadata), set by omx-clap-host
+    0.32.1; the client stays effect_<instance>, and clients match a hosted
+    node on the instance key (#33).
+  * The protocol clients: a Python package (python3-plugin-hostd-protocol) and
+    a TypeScript one (@openmixer/plugin-hostd-client on npm), both written
+    from the installed protocol table and held to each other on shared
+    fixtures (#29).
+  * Floors: plugin-hostd-protocol >= 0.5.5 and omx-clap-host >= 0.32.1 (<
+    0.33), whose preset_save is mod-host's form, the table's (#38).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 12 Nov 2026 18:30:00 +0000
+
 plugin-hostd (0.20.3) unstable; urgency=medium
 
   * describe writes a CLAP plugin's clap.meters/1 meters as the descriptor's
