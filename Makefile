@@ -702,6 +702,8 @@ tests/probe-child: tests/probe_child.c
 # descriptor, which validates; each refusal names what it refuses; a stand-in child gives the same descriptor
 test-describe: $(PROBE)
 	PROBE=./$(PROBE) python3 tests/describe_test.py
+	PROBE=./$(PROBE) python3 tests/describe_clap_meters_test.py
+	PROBE=./$(PROBE) python3 tests/describe_twin_test.py
 
 # describe --pages (docs/formats.md#the-pages-describe-pages-writes): a group's controls one page per 8, in declared
 # order; several hundred ungrouped parameters still get pages, the same on every run

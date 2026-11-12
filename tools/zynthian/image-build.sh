@@ -4,8 +4,8 @@
 #
 #   tools/zynthian/image-build.sh <zynthianos-vangelis.img.xz> <work-dir>
 #
-# It takes upstream's image as it is, points /zynthian/zynthian-sys and /zynthian/zynthian-ui at the FreeMixer forks
-# (branch vangelis), and runs, inside the image's root file system (systemd-nspawn, arm64 through qemu-user-static),
+# It takes upstream's image as it is, points /zynthian/zynthian-sys and /zynthian/zynthian-ui at the OpenMixer forks
+# (branch openmixer), and runs, inside the image's root file system (systemd-nspawn, arm64 through qemu-user-static),
 # what a Zynthian runs to update: update_zynthian_sys.sh (which makes OpenMixer the default with
 # recipes/install_openmixer.sh), update_zynthian_code.sh, then install_openmixer.sh --upgrade. It then cleans the
 # logs and apt caches and writes <work-dir>/zynthianos-vangelis-omx.img, with its .xz and .xz.sha256 next to it.
@@ -22,9 +22,9 @@ src=${1:?upstream image .img.xz}
 work=$(mkdir -p "${2:?work dir}" && cd "$2" && pwd)
 QEMU_AARCH64=${QEMU_AARCH64:-/usr/bin/qemu-aarch64-static}
 GROW=${GROW:-2G}
-SYS_REPO=${SYS_REPO:-https://github.com/FreeMixer/zynthian-sys.git}
-UI_REPO=${UI_REPO:-https://github.com/FreeMixer/zynthian-ui.git}
-BRANCH=${BRANCH:-vangelis}
+SYS_REPO=${SYS_REPO:-https://github.com/Open-Mixer/zynthian-sys.git}
+UI_REPO=${UI_REPO:-https://github.com/Open-Mixer/zynthian-ui.git}
+BRANCH=${BRANCH:-openmixer}
 here=$(cd "$(dirname "$0")" && pwd)
 img=$work/zynthianos-vangelis-omx.img
 mnt=$work/mnt
@@ -95,7 +95,7 @@ sudo systemd-nspawn -q -D "$mnt" --resolv-conf=replace-host --setenv=SYS_REPO="$
 	: >/root/.bash_history
 	sys=$(git -C /zynthian/zynthian-sys rev-parse --short=12 HEAD)
 	ui=$(git -C /zynthian/zynthian-ui rev-parse --short=12 HEAD)
-	{ echo; echo "OpenMixer: zynthian-sys $sys, zynthian-ui $ui (FreeMixer forks, $BRANCH)"; echo "Updated: $(date --rfc-3339=date)"; } >>/zynthian/build_info.txt
+	{ echo; echo "OpenMixer: zynthian-sys $sys, zynthian-ui $ui (OpenMixer forks, $BRANCH)"; echo "Updated: $(date --rfc-3339=date)"; } >>/zynthian/build_info.txt
 	dpkg-query -W -f="\${Package} \${Version}\n" openmixer-release plugin-hostd omx-clap-host omx-plugins omx-panel plugin-qualify || exit 1
 ' 2>&1 | tee -a "$log"
 # A step the update scripts could not find is skipped by them without failing: it fails the build here

@@ -1,3 +1,20 @@
+plugin-hostd (0.20.3) unstable; urgency=medium
+
+  * describe writes a CLAP plugin's clap.meters/1 meters as the descriptor's
+    meters[] (id, output symbol, kind, channels, display range; dB for a gain
+    reduction, dBFS for a level) and refuses meters whose output symbols
+    collide with each other or with a parameter's
+  * describe gives a CLAP parameter its param-contract symbol, unit, scale and
+    step, and the contract's version and fingerprint in the extensions
+  * describe gives a CLAP control the meaning its declared panel's role plays,
+    read from the role tables of the contract directory (--contract-dir, else
+    $OMX_CONTRACT_PATH); a role no table declares leaves the meaning unknown
+  * The LV2 table reads the ratio unit omx-plugins' faces write
+  * omx-clap-host >= 0.31.2 (its scan writes the meter and contract records);
+    plugin-hostd-full: omx-plugins >= 0.19.3 (it installs the role table)
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 10 Nov 2026 23:54:41 +0100
+
 plugin-hostd (0.20.2) unstable; urgency=medium
 
   * Built and run against the inner layers' latest releases: plugin-hostd-protocol

@@ -33,7 +33,11 @@ static const char *const UNIT_TO[] = { "\"dB\"", "\"Hz\"", "\"%\"" };
 static const char *const BOOL_FROM[] = { "CLAP_PARAM_IS_AUTOMATABLE" };
 static const char *const BOOL_TO[] = { "true" };
 
+static const char *const ROLE_FROM[] = { "mix", "threshold", "hpf_freq", "low_cut", "band_type" };
+static const char *const ROLE_TO[] = { "\"wetDryRatio\"", "\"threshold\"", "\"lowCut\"", "\"lowCut\"", "\"unknown\"" };
+
 static const transforms_data_t NONE = { 0 };
+static const transforms_data_t ROLES = { "omx_clap_panel_role.role", ROLE_FROM, ROLE_TO, 5, 0 };
 static const transforms_data_t UNITS = { "units:unit", UNIT_FROM, UNIT_TO, 3, 0 };
 static const transforms_data_t AUTOMATABLE = { "CLAP_PARAM_IS_AUTOMATABLE", BOOL_FROM, BOOL_TO, 1, 0 };
 static const transforms_data_t KHZ = { "units:khz", NULL, NULL, 0, 1000 };
@@ -65,6 +69,10 @@ static const vector_t VECTORS[] = {
     { "group-path", &NONE, "Delay", "[\"Delay\"]" },
     { "port-group", &NONE, "Detector", "[\"Detector\"]" },
     { "port-group", &NONE, "Main in", "[\"Main in\"]" },
+    { "output-symbol", &NONE, "compGr", "\"compGr\"" },
+    { "output-symbol", &NONE, "_2band_gr", "\"_2band_gr\"" },
+    { "role-to-meaning", &ROLES, "mix", "\"wetDryRatio\"" },
+    { "role-to-meaning", &ROLES, "threshold", "\"threshold\"" },
 };
 
 /* what a transform refuses (inbound unless inverse is set), or reads as no value */
@@ -99,6 +107,14 @@ static const edge_t EDGES[] = {
     { "port-group", &NONE, 0, "", TRANSFORMS_NONE },                  /* no group */
     { "port-group", &NONE, 1, "[]", TRANSFORMS_REFUSED },             /* no level */
     { "port-group", &NONE, 1, "[\"\"]", TRANSFORMS_REFUSED },         /* an empty level */
+    { "output-symbol", &NONE, 0, "", TRANSFORMS_REFUSED },            /* no name, no symbol */
+    { "output-symbol", &NONE, 1, "\"comp Gr\"", TRANSFORMS_REFUSED }, /* no symbol */
+    { "output-symbol", &NONE, 1, "\"2band\"", TRANSFORMS_REFUSED },   /* a leading digit */
+    { "output-symbol", &NONE, 1, "\"\"", TRANSFORMS_REFUSED },        /* empty */
+    { "role-to-meaning", &ROLES, 0, "ratio", TRANSFORMS_NONE },       /* a role no package declares */
+    { "role-to-meaning", &NONE, 0, "mix", TRANSFORMS_NONE },          /* no table installed */
+    { "role-to-meaning", &ROLES, 1, "\"lowCut\"", TRANSFORMS_REFUSED }, /* two roles play it */
+    { "role-to-meaning", &ROLES, 1, "\"gain\"", TRANSFORMS_NONE },    /* no role plays it */
 };
 
 int main(void)

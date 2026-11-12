@@ -1,0 +1,294 @@
+# omx-clap-scan --fields 1
+plugin	doap:license	https://www.gnu.org/licenses/gpl-3.0.html
+plugin	doap:name	omx comp
+plugin	lv2:binary	omx-comp.lv2/omx-comp.so
+plugin	lv2:microVersion	1
+plugin	lv2:minorVersion	19
+plugin	lv2:optionalFeature	lv2:hardRTCapable
+plugin	lv2:project	https://github.com/FreeMixer/omx-plugins
+plugin	rdf:type	lv2:CompressorPlugin
+plugin	rdf:type	lv2:Plugin
+plugin	rdfs:comment	The console's compressor: threshold, ratio and knee set how hard it holds the level down, attack and release how fast, with makeup gain and a dry/wet mix. Kind picks the RMS detector (Compressor) or the peak detector (Limiter), and detector oversampling can run the control path at 4x; detector topology has it hear the input (feedforward) or its own output (feedback). Its detector can listen to a key routed to its sidechain input instead, through a high-pass, a low-pass and a tilt, on the louder leg, the mid or the side, with a hold; key listen puts what the detector hears on the output, and duck holds the reduction to a set depth. The DSP is omx-dsp's <omxdsp/fx/omx_comp_instance.h>, the console's own compressor.
+plugin	rdfs:seeAlso	omx-comp.lv2/modgui.ttl
+plugin	rdfs:seeAlso	omx-comp.lv2/omx-comp.ttl
+port:0	lv2:default	1
+port:0	lv2:designation	lv2:enabled
+port:0	lv2:maximum	1
+port:0	lv2:minimum	0
+port:0	lv2:name	Enabled
+port:0	lv2:portProperty	lv2:toggled
+port:0	lv2:symbol	enabled
+port:0	rdf:type	lv2:ControlPort
+port:0	rdf:type	lv2:InputPort
+port:1	lv2:designation	lv2:latency
+port:1	lv2:name	Latency
+port:1	lv2:portProperty	lv2:integer
+port:1	lv2:symbol	latency
+port:1	rdf:type	lv2:ControlPort
+port:1	rdf:type	lv2:OutputPort
+port:1	units:unit	units:frame
+port:2	lv2:maximum	0
+port:2	lv2:minimum	-60
+port:2	lv2:name	Gain reduction
+port:2	lv2:symbol	compGr
+port:2	rdf:type	lv2:ControlPort
+port:2	rdf:type	lv2:OutputPort
+port:2	units:unit	units:db
+port:3	lv2:maximum	6
+port:3	lv2:minimum	-60
+port:3	lv2:name	Input level L
+port:3	lv2:symbol	compIn_0
+port:3	rdf:type	lv2:ControlPort
+port:3	rdf:type	lv2:OutputPort
+port:3	units:unit	urn:openmixer:unit#dBFS
+port:4	lv2:maximum	6
+port:4	lv2:minimum	-60
+port:4	lv2:name	Input level R
+port:4	lv2:symbol	compIn_1
+port:4	rdf:type	lv2:ControlPort
+port:4	rdf:type	lv2:OutputPort
+port:4	units:unit	urn:openmixer:unit#dBFS
+port:5	lv2:maximum	6
+port:5	lv2:minimum	-60
+port:5	lv2:name	Output level L
+port:5	lv2:symbol	compOut_0
+port:5	rdf:type	lv2:ControlPort
+port:5	rdf:type	lv2:OutputPort
+port:5	units:unit	urn:openmixer:unit#dBFS
+port:6	lv2:maximum	6
+port:6	lv2:minimum	-60
+port:6	lv2:name	Output level R
+port:6	lv2:symbol	compOut_1
+port:6	rdf:type	lv2:ControlPort
+port:6	rdf:type	lv2:OutputPort
+port:6	units:unit	urn:openmixer:unit#dBFS
+port:7	lv2:maximum	0
+port:7	lv2:minimum	-60
+port:7	lv2:name	Key level
+port:7	lv2:symbol	compKey
+port:7	rdf:type	lv2:ControlPort
+port:7	rdf:type	lv2:OutputPort
+port:7	units:unit	urn:openmixer:unit#dBFS
+port:8	lv2:name	In L
+port:8	lv2:symbol	in_l
+port:8	rdf:type	lv2:AudioPort
+port:8	rdf:type	lv2:InputPort
+port:9	lv2:name	In R
+port:9	lv2:symbol	in_r
+port:9	rdf:type	lv2:AudioPort
+port:9	rdf:type	lv2:InputPort
+port:10	lv2:name	Key (Sidechain)
+port:10	lv2:portProperty	lv2:connectionOptional
+port:10	lv2:portProperty	lv2:isSideChain
+port:10	lv2:symbol	key
+port:10	rdf:type	lv2:AudioPort
+port:10	rdf:type	lv2:InputPort
+port:11	lv2:name	Out L
+port:11	lv2:symbol	out_l
+port:11	rdf:type	lv2:AudioPort
+port:11	rdf:type	lv2:OutputPort
+port:12	lv2:name	Out R
+port:12	lv2:symbol	out_r
+port:12	rdf:type	lv2:AudioPort
+port:12	rdf:type	lv2:OutputPort
+port:13	lv2:default	-18
+port:13	lv2:designation	param:threshold
+port:13	lv2:maximum	0
+port:13	lv2:minimum	-60
+port:13	lv2:name	Threshold
+port:13	lv2:portProperty	lv2:integer
+port:13	lv2:symbol	thresholdDb
+port:13	pg:group	Comp
+port:13	rdf:type	lv2:ControlPort
+port:13	rdf:type	lv2:InputPort
+port:13	units:unit	units:db
+port:14	lv2:default	4
+port:14	lv2:designation	param:ratio
+port:14	lv2:maximum	20
+port:14	lv2:minimum	1
+port:14	lv2:name	Ratio
+port:14	lv2:symbol	ratio
+port:14	pg:group	Comp
+port:14	rdf:type	lv2:ControlPort
+port:14	rdf:type	lv2:InputPort
+port:14	units:unit	urn:openmixer:unit#ratio
+port:15	lv2:default	6
+port:15	lv2:maximum	24
+port:15	lv2:minimum	0
+port:15	lv2:name	Knee
+port:15	lv2:symbol	kneeDb
+port:15	pg:group	Comp
+port:15	rdf:type	lv2:ControlPort
+port:15	rdf:type	lv2:InputPort
+port:15	units:unit	units:db
+port:16	lv2:default	5
+port:16	lv2:designation	param:attack
+port:16	lv2:maximum	100
+port:16	lv2:minimum	0.10000000000000001
+port:16	lv2:name	Attack
+port:16	lv2:symbol	attackMs
+port:16	pg:group	Comp
+port:16	rdf:type	lv2:ControlPort
+port:16	rdf:type	lv2:InputPort
+port:16	units:unit	units:ms
+port:17	lv2:default	200
+port:17	lv2:designation	param:release
+port:17	lv2:maximum	3000
+port:17	lv2:minimum	5
+port:17	lv2:name	Release
+port:17	lv2:portProperty	lv2:integer
+port:17	lv2:symbol	releaseMs
+port:17	pg:group	Comp
+port:17	rdf:type	lv2:ControlPort
+port:17	rdf:type	lv2:InputPort
+port:17	units:unit	units:ms
+port:18	lv2:default	0
+port:18	lv2:maximum	24
+port:18	lv2:minimum	0
+port:18	lv2:name	Makeup
+port:18	lv2:symbol	makeupDb
+port:18	pg:group	Comp
+port:18	rdf:type	lv2:ControlPort
+port:18	rdf:type	lv2:InputPort
+port:18	units:unit	units:db
+port:19	lv2:default	100
+port:19	lv2:designation	param:wetDryRatio
+port:19	lv2:maximum	100
+port:19	lv2:minimum	0
+port:19	lv2:name	Mix
+port:19	lv2:portProperty	lv2:integer
+port:19	lv2:symbol	mixPct
+port:19	pg:group	Comp
+port:19	rdf:type	lv2:ControlPort
+port:19	rdf:type	lv2:InputPort
+port:19	units:unit	units:pc
+port:20	lv2:default	0
+port:20	lv2:maximum	1
+port:20	lv2:minimum	0
+port:20	lv2:name	Kind
+port:20	lv2:portProperty	lv2:enumeration
+port:20	lv2:portProperty	lv2:integer
+port:20	lv2:scalePoint	0 Compressor
+port:20	lv2:scalePoint	1 Limiter
+port:20	lv2:symbol	kind
+port:20	pg:group	Comp
+port:20	rdf:type	lv2:ControlPort
+port:20	rdf:type	lv2:InputPort
+port:21	lv2:default	0
+port:21	lv2:maximum	2
+port:21	lv2:minimum	0
+port:21	lv2:name	Detector Oversampling
+port:21	lv2:portProperty	lv2:enumeration
+port:21	lv2:portProperty	lv2:integer
+port:21	lv2:scalePoint	0 Auto
+port:21	lv2:scalePoint	1 Off
+port:21	lv2:scalePoint	2 4x
+port:21	lv2:symbol	detectorOversampling
+port:21	pg:group	Comp
+port:21	rdf:type	lv2:ControlPort
+port:21	rdf:type	lv2:InputPort
+port:22	lv2:default	0
+port:22	lv2:maximum	1
+port:22	lv2:minimum	0
+port:22	lv2:name	Detector Topology
+port:22	lv2:portProperty	lv2:enumeration
+port:22	lv2:portProperty	lv2:integer
+port:22	lv2:scalePoint	0 Feedforward
+port:22	lv2:scalePoint	1 Feedback
+port:22	lv2:symbol	detectorTopology
+port:22	pg:group	Comp
+port:22	rdf:type	lv2:ControlPort
+port:22	rdf:type	lv2:InputPort
+port:23	lv2:default	0
+port:23	lv2:maximum	1
+port:23	lv2:minimum	0
+port:23	lv2:name	Key Source
+port:23	lv2:portProperty	lv2:enumeration
+port:23	lv2:portProperty	lv2:integer
+port:23	lv2:scalePoint	0 Self
+port:23	lv2:scalePoint	1 Sidechain
+port:23	lv2:symbol	keySource
+port:23	pg:group	Key
+port:23	rdf:type	lv2:ControlPort
+port:23	rdf:type	lv2:InputPort
+port:24	lv2:default	0
+port:24	lv2:maximum	2000
+port:24	lv2:minimum	0
+port:24	lv2:name	Key HP
+port:24	lv2:portProperty	lv2:integer
+port:24	lv2:symbol	keyHpHz
+port:24	pg:group	Key
+port:24	rdf:type	lv2:ControlPort
+port:24	rdf:type	lv2:InputPort
+port:24	units:unit	units:hz
+port:25	lv2:default	0
+port:25	lv2:maximum	20000
+port:25	lv2:minimum	0
+port:25	lv2:name	Key LP
+port:25	lv2:portProperty	lv2:integer
+port:25	lv2:symbol	keyLpHz
+port:25	pg:group	Key
+port:25	rdf:type	lv2:ControlPort
+port:25	rdf:type	lv2:InputPort
+port:25	units:unit	units:hz
+port:26	lv2:default	0
+port:26	lv2:maximum	6
+port:26	lv2:minimum	-6
+port:26	lv2:name	Key Tilt
+port:26	lv2:symbol	keyTiltDb
+port:26	pg:group	Key
+port:26	rdf:type	lv2:ControlPort
+port:26	rdf:type	lv2:InputPort
+port:26	units:unit	urn:openmixer:unit#dBoct
+port:27	lv2:default	0
+port:27	lv2:maximum	1
+port:27	lv2:minimum	0
+port:27	lv2:name	Key Listen
+port:27	lv2:portProperty	lv2:toggled
+port:27	lv2:symbol	keyListen
+port:27	pg:group	Key
+port:27	rdf:type	lv2:ControlPort
+port:27	rdf:type	lv2:InputPort
+port:28	lv2:default	0
+port:28	lv2:maximum	2000
+port:28	lv2:minimum	0
+port:28	lv2:name	Hold
+port:28	lv2:portProperty	lv2:integer
+port:28	lv2:symbol	holdMs
+port:28	pg:group	Comp
+port:28	rdf:type	lv2:ControlPort
+port:28	rdf:type	lv2:InputPort
+port:28	units:unit	units:ms
+port:29	lv2:default	0
+port:29	lv2:maximum	3
+port:29	lv2:minimum	0
+port:29	lv2:name	Detect Link
+port:29	lv2:portProperty	lv2:enumeration
+port:29	lv2:portProperty	lv2:integer
+port:29	lv2:scalePoint	2 Side
+port:29	lv2:scalePoint	0 Linked
+port:29	lv2:scalePoint	1 Mid
+port:29	lv2:scalePoint	3 Max
+port:29	lv2:symbol	detectLink
+port:29	pg:group	Key
+port:29	rdf:type	lv2:ControlPort
+port:29	rdf:type	lv2:InputPort
+port:30	lv2:default	0
+port:30	lv2:maximum	1
+port:30	lv2:minimum	0
+port:30	lv2:name	Duck
+port:30	lv2:portProperty	lv2:toggled
+port:30	lv2:symbol	duck
+port:30	pg:group	Duck
+port:30	rdf:type	lv2:ControlPort
+port:30	rdf:type	lv2:InputPort
+port:31	lv2:default	-12
+port:31	lv2:maximum	0
+port:31	lv2:minimum	-40
+port:31	lv2:name	Duck Range
+port:31	lv2:portProperty	lv2:integer
+port:31	lv2:symbol	rangeDb
+port:31	pg:group	Duck
+port:31	rdf:type	lv2:ControlPort
+port:31	rdf:type	lv2:InputPort
+port:31	units:unit	units:db

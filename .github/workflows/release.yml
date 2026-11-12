@@ -5,6 +5,12 @@ name: release
 # Anything else, a manual run from a branch or the dry run of ci.yml, builds and assembles unsigned trees and
 # publishes nothing. Everything is in Open-Mixer/.github; the secrets are the organisation's.
 
+# A manual run with staged on (never a tag) builds fc44 x86_64 and trixie amd64 only, against the staging channel, and
+# publishes them, signed, to the staging channel (staging/rpm and staging/deb of the channel repository), where the
+# next layer of the release chain finds them by adding the staging channel beside the real one. Nothing reaches the
+# real channel, and the real release still publishes once from the v<version> tag (Open-Mixer/.github build-rpm.yml
+# and build-deb.yml).
+
 on:
   push:
     tags: ['v*']
@@ -18,6 +24,14 @@ on:
         description: 'Build the aarch64/arm64 packages too; a pull request dry run passes false'
         type: boolean
         default: true
+      staged:
+        description: 'Build fc44 x86_64 and trixie amd64 only and publish them to the staging channel for the next layer; publishes nothing to the real channel'
+        type: boolean
+        default: false
+      staged-deps:
+        description: 'Ignored by the shared workflows, kept for this wave only'
+        type: string
+        default: ''
   workflow_call:
     inputs:
       publish:
@@ -27,6 +41,12 @@ on:
         type: boolean
         default: true
         description: 'Build the aarch64/arm64 packages too; the pull-request dry run passes false (arm builds run at release only)'
+      staged:
+        type: boolean
+        default: false
+      staged-deps:
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -37,6 +57,8 @@ jobs:
   rpm:
     uses: Open-Mixer/.github/.github/workflows/build-rpm.yml@openmixer-v1
     with:
+      staged: ${{ inputs.staged == true }}
+      staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
       arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["x86_64"]' || '["x86_64", "aarch64"]' }}
@@ -47,6 +69,8 @@ jobs:
   deb:
     uses: Open-Mixer/.github/.github/workflows/build-deb.yml@openmixer-v1
     with:
+      staged: ${{ inputs.staged == true }}
+      staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
       arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["amd64"]' || '["amd64", "arm64"]' }}

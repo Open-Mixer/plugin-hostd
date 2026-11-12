@@ -53,6 +53,11 @@ static const char *clap_declared(const conf_t *conf)
     return conf->clap_path;
 }
 
+/* clap_declared is also .search: an add never searches (it is given the plugin's own path), but the worker's own
+ * preset-discovery does, over CLAP_PATH (the clap/entry.h rule); a plugin pinned outside the default (Zynthian's
+ * Surge XT, at /usr/local/lib/clap) still browses its presets once the worker is started with CLAP_PATH set to
+ * conf->clap_path, which a site's clap_path setting or $CLAP_PATH can hold that directory in */
+
 /* A .clap that is a directory (Cardinal, Ildaeil) is a bundle whose one object the host loads: the one regular .clap file
  * in it, else the one .so. Fills `object` with its name; 0, or -1 when there is none or not exactly one. */
 static int bundle_object(const char *dir, char *object, size_t size)
@@ -205,7 +210,9 @@ static const format_t g_builtin[] = {
         .strip_prefix = 0,
         .fallback = 0,
         .worker = clap_worker,
+        .search = clap_declared,
         .declared = clap_declared,
+        .world_env = "CLAP_PATH",
         .pin_collect = clap_pin_collect,
         .binary = clap_binary,
         .worker_word = clap_worker_word,
