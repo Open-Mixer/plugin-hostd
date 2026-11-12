@@ -58,7 +58,8 @@ def saved_preset_loads_back_after_a_factory_patch():
         for pid, v in wanted.items():
             d.expect("param_set %d %s %.6f" % (INST, pid, v), "resp 0")
         path = os.path.join(tempfile.mkdtemp(prefix="plugin-hostd-27."), "surge-xt.json")
-        d.expect('preset_save %d %s "plugin-hostd 27"' % (INST, path), "resp 0")
+        # mod-host's form, <instance> <dir> <file name> <label> (plugin-hostd#38)
+        d.expect('preset_save %d %s %s "plugin-hostd 27"' % (INST, os.path.dirname(path), os.path.basename(path)), "resp 0")
         d.expect("preset_load %d file:%s#" % (INST, PATCH), "resp 0")
         # a CLAP preset load answers at once and applies on the plugin's main thread a moment later
         wait_for(lambda: any(abs(value(d, INST, pid) - v) > 1e-4 for pid, v in wanted.items()), "the factory patch to move a value", 10)
