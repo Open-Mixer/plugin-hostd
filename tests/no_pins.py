@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor (>= the lowest
 # version with the API it uses) and a ceiling, the next minor after the release it is tested against (`>= 0.31.0 with
-# < 0.32`; an exact pin or any other ceiling is a pin), installed from the FreeMixer channel by dnf builddep / apt-get
+# < 0.33`; an exact pin or any other ceiling is a pin), installed from the FreeMixer channel by dnf builddep / apt-get
 # build-dep. No pins file,
 # no submodule, no ref or sha a workflow checks a sibling out at, no sibling built from source.
 # omx-clap-core is a build dependency of the check stage only (%if %{with check} in the spec, <!nocheck> in
@@ -63,8 +63,8 @@ def declared(root):
     return out
 
 
-# the ceiling of omx-clap-core: the next minor after the release this tree is built and tested against (0.31.0)
-CEILING = "0.32"
+# the ceiling of omx-clap-core: the next minor after the release this tree is built and tested against (0.32.0)
+CEILING = "0.33"
 
 
 def check_declared(root):
@@ -139,12 +139,12 @@ def main():
         return 1
     print("ok   the check-stage-only scan sees a planted omx-clap-core edge in the spec and in debian/control")
     # the ceiling is the next minor: a planted exact pin, a wide ceiling and a missing one are each seen
-    good = "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n"
-    ctl_good = "Build-Depends: omx-clap-host-tests (>= 0.31.0~), omx-clap-host-tests (<< 0.32~) <!nocheck>\n"
+    good = "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < %s)\n" % CEILING
+    ctl_good = "Build-Depends: omx-clap-host-tests (>= 0.31.0~), omx-clap-host-tests (<< %s~) <!nocheck>\n" % CEILING
     for what, spec_text, ctl_text, want in (("the ceiling", good, ctl_good, 0),
-                                            ("no ceiling", good.replace(" with omx-clap-host-tests < 0.32", "").replace("(omx-clap-host-tests >= 0.31.0)", "omx-clap-host-tests >= 0.31.0"), ctl_good, 1),
-                                            ("a wide ceiling", good.replace("< 0.32", "< 1"), ctl_good, 1),
-                                            ("an exact pin in debian/control", good, ctl_good.replace("(<< 0.32~)", "(= 0.31.0)"), 1)):
+                                            ("no ceiling", good.replace(" with omx-clap-host-tests < %s" % CEILING, "").replace("(omx-clap-host-tests >= 0.31.0)", "omx-clap-host-tests >= 0.31.0"), ctl_good, 1),
+                                            ("a wide ceiling", good.replace("< %s" % CEILING, "< 1"), ctl_good, 1),
+                                            ("an exact pin in debian/control", good, ctl_good.replace("(<< %s~)" % CEILING, "(= 0.31.0)"), 1)):
         scratch = tempfile.mkdtemp(prefix="no-pins-declared.", dir=os.environ.get("TMPDIR") or ROOT)
         try:
             os.makedirs(os.path.join(scratch, "packaging"))

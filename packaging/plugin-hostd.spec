@@ -35,7 +35,7 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.5 with plugin-hostd-protocol%{?_
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
-BuildRequires: (omx-clap-host-tests >= 0.31.1 with omx-clap-host-tests < 0.32)
+BuildRequires: (omx-clap-host-tests >= 0.31.1 with omx-clap-host-tests < 0.33)
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
 # the reader that holds the committed render of data/ (make check-rendered)
@@ -43,14 +43,14 @@ BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: (plugin-hostd-protocol-contract >= 0.5.5 with plugin-hostd-protocol-contract < 0.6)
-BuildRequires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
+BuildRequires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.33)
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: (omx-clap-host >= 0.31.3 with omx-clap-host < 0.32)
+Recommends: (omx-clap-host >= 0.32.0 with omx-clap-host < 0.33)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -89,7 +89,7 @@ BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
 Requires: (plugin-hostd-protocol-contract >= 0.5.5 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
+Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.33)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
@@ -115,7 +115,7 @@ BuildArch: noarch
 # next year's first (tests/full_ranges.py). The panel is a weak
 # dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
 Requires: %{name} = %{version}-%{release}
-Requires: (omx-clap-host >= 0.31.3 with omx-clap-host < 0.32)
+Requires: (omx-clap-host >= 0.32.0 with omx-clap-host < 0.33)
 Requires: (omx-plugins >= 0.19.3 with omx-plugins < 0.20)
 Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)
 Recommends: (omx-panel >= 0.13.0 with omx-panel < 0.14)
