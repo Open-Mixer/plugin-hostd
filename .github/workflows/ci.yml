@@ -63,7 +63,7 @@ jobs:
       - name: Install the build tools
         run: |
           dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
 
       - uses: actions/checkout@v4
 
@@ -93,6 +93,11 @@ jobs:
         env:
           PROBE_REQUIRE_REALTIME: "1"
         run: make test
+
+      # the protocol clients (docs/clients.md): each one's tests on the shared fixtures, then the two held to each other on
+      # them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
+      - name: The protocol clients agree
+        run: make test-clients
 
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,
       # then the installed omx-contract (the builddep above) validates it with its own tables and omx-clap-core's; red on

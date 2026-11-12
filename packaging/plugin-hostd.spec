@@ -13,6 +13,8 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
+# %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
+BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
 BuildRequires: (pkgconfig(plugin-db) >= 0.3.1 with pkgconfig(plugin-db) < 0.4)
 BuildRequires: cjson-devel
@@ -82,6 +84,26 @@ controller speaks (the verbs, error codes, feedback events and settings) is
 declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
+
+%package -n python3-plugin-hostd-protocol
+Summary: The Python client of plugin-hostd's protocol
+BuildArch: noarch
+Requires: python3
+# what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
+# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata; a floor and the
+# next minor
+Requires: (plugin-hostd-protocol >= 0.5.5 with plugin-hostd-protocol < 0.6)
+Requires: (plugin-hostd-protocol-contract >= 0.5.5 with plugin-hostd-protocol-contract < 0.6)
+Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.33)
+Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
+
+%description -n python3-plugin-hostd-protocol
+The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec
+over the files plugin-hostd-protocol installs, which encodes and decodes every
+command the protocol declares, parses the replies, feedback lines and protocol
+errors, and gives each reply code its sentence. A controller speaks the
+protocol through it and restates nothing; the npm package
+@openmixer/plugin-hostd-client is the same codec in TypeScript.
 
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
@@ -164,6 +186,8 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %make_install PREFIX=%{_prefix}
 # the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
+# the Python client, told where pkg-config finds the files it reads (docs/clients.md)
+%make_build install-python DESTDIR=%{buildroot} PREFIX=%{_prefix} PYTHON3_SITELIB=%{python3_sitelib}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -201,6 +225,11 @@ make test-daemon check-generated check-rendered
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
+
+%files -n python3-plugin-hostd-protocol
+%license COPYING
+%doc docs/clients.md
+%{python3_sitelib}/plugin_hostd_protocol/
 
 %files contract
 %license COPYING
