@@ -7,10 +7,11 @@ import math
 import os
 import unittest
 
-from plugin_hostd_protocol import Protocol, ProtocolError, format_number
+from plugin_hostd_protocol import RETRY_REASONS, Protocol, ProtocolError, format_number
 from plugin_hostd_protocol.__main__ import answer
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "codec.json")
+GROUPING = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "grouping.json")
 
 
 def clean(value):
@@ -45,6 +46,45 @@ class Fixtures(unittest.TestCase):
         self.assertTrue(p.sentence(p.code("reply.host.param-symbol-invalid"), "en"))
         self.assertTrue(p.sentence(p.code("reply.plugin-hostd.preset-not-applied"), "ca"))
         self.assertIsNone(p.sentence(0, "en"))
+
+
+class Replies(unittest.TestCase):
+    """The replies with a shape of their own, on the lines docs/guide.md shows."""
+
+    def setUp(self):
+        self.protocol = Protocol()
+
+    def data(self, line):
+        reply = self.protocol.parse(line)
+        self.assertEqual(reply["code"], 0)
+        return reply["data"]
+
+    def test_a_plan_is_read_from_the_reply_as_it_is_parsed(self):
+        plan = self.protocol.read_plan(self.data("resp 0 1,2;3 0,0;-"))
+        self.assertEqual(plan, {"segments": [[1, 2], [3]], "cores": [[0, 0], [None]]})
+
+    def test_a_plan_read_back_names_the_reason_and_whether_to_ask_again(self):
+        plan = self.protocol.read_plan_get(self.data("resp 0 1,2;3 3:plan-refused:-544 0,0;-"))
+        self.assertEqual(plan["reasons"], [{"instance": 3, "reason": "plan-refused:-544", "word": "plan-refused",
+                                            "code": -544, "name": "reply.plugin-hostd.preset-not-applied",
+                                            "retry": True}])
+        self.assertEqual(self.protocol.read_plan_get(self.data("resp 0 1 1:verdict-isolated -"))["reasons"][0]["retry"],
+                         False)
+
+    def test_an_estimate_names_every_figure(self):
+        e = self.protocol.read_estimate(self.data("resp 0 192 24.00 - 2 1 1:-544 0 - - 3"))
+        self.assertEqual((e["latency_frames"], e["cpu_percent"], e["ram_bytes"], e["workers"], e["unknown_count"]),
+                         (192, 24.0, None, 2, 1))
+        self.assertEqual(e["members"], [{"member": 1, "code": -544, "name": "reply.plugin-hostd.preset-not-applied"}])
+        self.assertEqual((e["ram_used_bytes"], e["ram_added_bytes"], e["ram_budget_bytes"], e["ram_unknown_count"]),
+                         (0, None, None, 3))
+
+    def test_the_reasons_to_ask_again_are_words_the_daemon_declares(self):
+        with open(GROUPING) as f:
+            words = [w["word"] for w in json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].values()]
+        self.assertEqual(RETRY_REASONS, ("no-verdict", "plan-refused"))
+        for word in RETRY_REASONS:
+            self.assertIn(word, words)
 
 
 class Numbers(unittest.TestCase):

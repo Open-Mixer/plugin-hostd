@@ -81,6 +81,9 @@ jobs:
         env:
           PUBLISH: ${{ steps.what.outputs.publish }}
           DIST_TAG: ${{ steps.what.outputs.tag }}
+          # verbose: the trusted-publishing token exchange logs its refusal only at this level;
+          # without it a refused exchange shows as a bare 404 on the PUT (two runs on 2026-11-12)
+          NPM_CONFIG_LOGLEVEL: verbose
         run: |
           if [ "$PUBLISH" = true ]; then
             npm publish --provenance --access public --tag "$DIST_TAG"
