@@ -158,6 +158,9 @@ Its documentation is on openmixer.org.
 %package tests
 Summary: A stand-in plugin worker to test a program that drives plugin-hostd
 Requires: %{name}%{?_isa} = %{version}-%{release}
+# tests/lib/plugin_hostd_client.py speaks the protocol through plugin_hostd_protocol, built by this spec at the
+# same version, never its own codec
+Requires: python3-plugin-hostd-protocol = %{version}-%{release}
 
 %description tests
 A small worker that speaks the same protocol as mod-host and omx-clap-host and

@@ -71,7 +71,9 @@ Description: whole plugin host stack: daemon, workers, plugins, qualifier
 
 Package: plugin-hostd-tests
 Architecture: any
-Depends: plugin-hostd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+# tests/lib/plugin_hostd_client.py speaks the protocol through plugin_hostd_protocol, built by this source at the
+# same version, never its own codec
+Depends: plugin-hostd (= ${binary:Version}), python3-plugin-hostd-protocol (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: stand-in plugin worker to test a program that drives plugin-hostd
  A small worker that speaks the same protocol as mod-host and omx-clap-host
  and can be made to die on cue, so a program that talks to plugin-hostd can
