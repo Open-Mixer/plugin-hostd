@@ -1384,6 +1384,34 @@
           "transform": "identity"
         }
       },
+      "clap_meter_info.channel_count": {
+        "from": "clap_meters.h#clap_meter_info.channel_count",
+        "extension": true
+      },
+      "clap_meter_info.flags": {
+        "from": "clap_meters.h#clap_meter_info.flags",
+        "extension": true
+      },
+      "clap_meter_info.id": {
+        "from": "clap_meters.h#clap_meter_info.id",
+        "extension": true
+      },
+      "clap_meter_info.kind": {
+        "from": "clap_meters.h#clap_meter_info.kind",
+        "extension": true
+      },
+      "clap_meter_info.max_value": {
+        "from": "clap_meters.h#clap_meter_info.max_value",
+        "extension": true
+      },
+      "clap_meter_info.min_value": {
+        "from": "clap_meters.h#clap_meter_info.min_value",
+        "extension": true
+      },
+      "clap_meter_info.name": {
+        "from": "clap_meters.h#clap_meter_info.name",
+        "extension": true
+      },
       "clap_note_port_info.id": {
         "from": "clap/ext/note-ports.h#clap_note_port_info.id",
         "word": {
@@ -1695,6 +1723,22 @@
           "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
         }
       },
+      "omx_clap_param_contract_entry.scale": {
+        "from": "omx_clap_ext.h#omx_clap_param_contract_entry.scale",
+        "extension": true
+      },
+      "omx_clap_param_contract_entry.step": {
+        "from": "omx_clap_ext.h#omx_clap_param_contract_entry.step",
+        "extension": true
+      },
+      "omx_clap_param_contract_entry.symbol": {
+        "from": "omx_clap_ext.h#omx_clap_param_contract_entry.symbol",
+        "extension": true
+      },
+      "omx_clap_param_contract_entry.unit": {
+        "from": "omx_clap_ext.h#omx_clap_param_contract_entry.unit",
+        "extension": true
+      },
       "omx_clap_plugin_panel_description.count": {
         "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.count",
         "dropped": {
@@ -1712,6 +1756,14 @@
         "dropped": {
           "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
         }
+      },
+      "omx_clap_plugin_param_contract_ext.fingerprint": {
+        "from": "omx_clap_ext.h#omx_clap_plugin_param_contract_ext.fingerprint",
+        "extension": true
+      },
+      "omx_clap_plugin_param_contract_ext.version": {
+        "from": "omx_clap_ext.h#omx_clap_plugin_param_contract_ext.version",
+        "extension": true
       }
     }
   }

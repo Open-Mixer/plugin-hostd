@@ -430,7 +430,7 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
     } SCOPES[] = { { "param", 'p', "clap" },    { "audio_in", 'i', "clap" }, { "audio_out", 'o', "clap" },
                    { "note_in", 'n', "clap" },  { "note_out", 'N', "clap" }, { "port", 'l', "lv2" },
                    { "section", 'd', "clap" },  { "control", 'd', "clap" },  { "role", 'd', "clap" },
-                   { "display", 'd', "clap" },  { "placement_default", 'd', "clap" } };
+                   { "display", 'd', "clap" },  { "placement_default", 'd', "clap" }, { "meter", 'm', "clap" } };
     const char *colon = strchr(scope, ':');
     size_t i;
     char *end;
@@ -497,6 +497,19 @@ static int read_dump(const table_t *t, const char *text, scan_t *s)
                 return refuse("%s %s: the field has no row in the %s table", scope, field, t->format);
             if (r->cls != C_DROPPED)
                 return refuse("%s %s: a field of the panel description is dropped, never a word or the bag", scope, field);
+            continue;
+        }
+        /* a meter (omx-clap-scan 0.31.2): a scope of no entry, each field's row the bag (docs/formats.md#the-field-dump) */
+        if (kind == 'm')
+        {
+            const row_t *r = find_row(t, field);
+
+            if (r == NULL)
+                return refuse("%s %s: the field has no row in the %s table", scope, field, t->format);
+            if (r->cls == C_WORD)
+                return refuse("%s %s: a field of a meter is carried in the bag or dropped, never a word", scope, field);
+            if (r->cls == C_EXTENSION)
+                carry(s, scope, field, value);
             continue;
         }
         if (record(s, t, kind == 'g' ? entry(s, "plugin", 'g', -1) : entry(s, scope, kind, index), field, value))
