@@ -3,7 +3,7 @@
 # The two protocol clients plugin-hostd-tests ships (tests/lib/protocol.sh, tests/lib/plugin_hostd_client.py) against a
 # peer that answers in NUL-ended replies, split across writes, then its sabotage: a copy of each client that frames by
 # newline instead of NUL must fail the same checks, so the checks can tell a client that frames wrongly.
-import os, re, socket, subprocess, sys, tempfile, threading, time
+import ast, os, re, socket, subprocess, sys, tempfile, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB = os.path.join(HERE, "lib")
@@ -89,9 +89,42 @@ def check_python(libdir, port, failures):
     sys.path.pop(0)
 
 
+def check_built_on_protocol(libdir, port, failures):
+    """plugin_hostd_client.py imports plugin_hostd_protocol for its codec and defines none of it itself (no
+    module-level def shadows a name the codec exports), and its command()/reply() really go through that codec."""
+    path = os.path.join(libdir, "plugin_hostd_client.py")
+    tree = ast.parse(open(path).read(), path)
+    imported = {alias.asname or alias.name.split(".")[0]
+                for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))
+                for alias in node.names}
+    if "plugin_hostd_protocol" not in imported:
+        failures.append("plugin_hostd_client.py does not import plugin_hostd_protocol")
+        return
+    sys.path.insert(0, libdir)
+    sys.modules.pop("plugin_hostd_client", None)
+    import plugin_hostd_client as m
+    reserved = set(m.plugin_hostd_protocol.__all__)
+    defined = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    shadowed = defined & reserved
+    if shadowed:
+        failures.append("plugin_hostd_client.py defines its own %s, the codec's" % ", ".join(sorted(shadowed)))
+    try:
+        c = m.Client.connect(port)
+        want = "resp " + m.protocol().encode("add", ["clap:/x#y", 0])
+        got = c.command("add", "clap:/x#y", 0)
+        if got != want:
+            failures.append("command() -> %r, wanted %r" % (got, want))
+        if c.reply("resp 0 1 2") != m.protocol().parse("resp 0 1 2"):
+            failures.append("reply() does not match protocol().parse()")
+    except AttributeError as e:
+        failures.append("plugin_hostd_client.py has no %s" % e)
+    sys.path.pop(0)
+
+
 def run(libsh, libpy, port, failures):
     check_shell(libsh, port, failures)
     check_python(libpy, port, failures)
+    check_built_on_protocol(libpy, port, failures)
 
 
 def main():
