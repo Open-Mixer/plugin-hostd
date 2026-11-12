@@ -8,9 +8,10 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { answer } from '../cli.js';
-import { formatNumber, Protocol, ProtocolError } from '../index.js';
+import { formatNumber, Protocol, ProtocolError, RETRY_REASONS } from '../index.js';
 
 const FIXTURES = new URL('../../../fixtures/codec.json', import.meta.url);
+const GROUPING = new URL('../../../../data/grouping.json', import.meta.url);
 const { cases } = JSON.parse(readFileSync(FIXTURES, 'utf8')) as { cases: { op: string; in: unknown; expect?: unknown; error?: boolean }[] };
 
 function clean(value: unknown): unknown {
@@ -41,6 +42,48 @@ describe('the TypeScript client on the fixtures', () => {
     assert.ok(protocol.sentence(protocol.code('reply.host.param-symbol-invalid'), 'en'));
     assert.ok(protocol.sentence(protocol.code('reply.plugin-hostd.preset-not-applied'), 'ca'));
     assert.equal(protocol.sentence(0, 'en'), null);
+  });
+});
+
+describe('the replies with a shape of their own', () => {
+  const protocol = new Protocol();
+  const data = (line: string): string[] => {
+    const reply = protocol.parse(line);
+    assert.equal(reply.kind, 'resp');
+    return (reply as { data: string[] }).data;
+  };
+
+  it('reads a plan from the reply as it is parsed', () => {
+    assert.deepEqual(protocol.readPlan(data('resp 0 1,2;3 0,0;-')), { segments: [[1, 2], [3]], cores: [[0, 0], [null]] });
+  });
+
+  it('names the reason of a plan read back, and whether to ask again', () => {
+    assert.deepEqual(protocol.readPlanGet(data('resp 0 1,2;3 3:plan-refused:-544 0,0;-')).reasons, [
+      { instance: 3, reason: 'plan-refused:-544', word: 'plan-refused', code: -544, name: 'reply.plugin-hostd.preset-not-applied', retry: true },
+    ]);
+    assert.equal(protocol.readPlanGet(data('resp 0 1 1:verdict-isolated -')).reasons[0]!.retry, false);
+  });
+
+  it('names every figure of an estimate', () => {
+    assert.deepEqual(protocol.readEstimate(data('resp 0 192 24.00 - 2 1 1:-544 0 - - 3')), {
+      latency_frames: 192,
+      cpu_percent: 24,
+      ram_bytes: null,
+      workers: 2,
+      unknown_count: 1,
+      members: [{ member: 1, code: -544, name: 'reply.plugin-hostd.preset-not-applied' }],
+      ram_used_bytes: 0,
+      ram_added_bytes: null,
+      ram_budget_bytes: null,
+      ram_unknown_count: 3,
+    });
+  });
+
+  it('asks again only for words the daemon declares', () => {
+    const declared = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string }> } };
+    const words = Object.values(declared.PLUGIN_HOSTD_GROUPING_REASONS.words).map((w) => w.word);
+    assert.deepEqual([...RETRY_REASONS], ['no-verdict', 'plan-refused']);
+    for (const word of RETRY_REASONS) assert.ok(words.includes(word), word);
   });
 });
 
