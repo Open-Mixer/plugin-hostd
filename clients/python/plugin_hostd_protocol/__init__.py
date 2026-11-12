@@ -19,7 +19,7 @@ except ImportError:
     _installed = None
 
 __all__ = ["Protocol", "ProtocolError", "words", "quote", "encode_path", "decode_path", "uri_word", "pin_key",
-           "format_number"]
+           "format_number", "RETRY_REASONS"]
 
 
 class ProtocolError(ValueError):
@@ -197,6 +197,40 @@ def _texts(node, out):
             _texts(v, out)
 
 
+# a figure or a list the daemon has none for
+NONE = "-"
+# the largest count both clients hold exactly (a double's whole numbers)
+_SAFE = 2 ** 53 - 1
+# the reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
+# (no-verdict), what refused a segment may pass (plan-refused)
+RETRY_REASONS = ("no-verdict", "plan-refused")
+
+
+def _count(word, absent=False):
+    if absent and word == NONE:
+        return None
+    if not _INT.match(word) or word.startswith("-") or int(word) > _SAFE:
+        raise ProtocolError("%s is not a count" % word)
+    return int(word)
+
+
+def _segments(word, absent):
+    """'1,2;3' as [[1, 2], [3]]; with absent, a member written - is None."""
+    out = []
+    for segment in word.split(";"):
+        out.append([_count(m, absent) for m in segment.split(",")])
+    return out
+
+
+def _cores(word, segments):
+    if word is None:
+        return [[None] * len(s) for s in segments]
+    cores = _segments(word, True)
+    if [len(s) for s in cores] != [len(s) for s in segments]:
+        raise ProtocolError("the cores %s are not the shape of the segments" % word)
+    return cores
+
+
 class Protocol:
     """plugin-hostd's protocol as its installed files declare it.
 
@@ -347,6 +381,58 @@ class Protocol:
                 args = rest
             return {"kind": "feedback", "tag": tag, "seq": seq, "line": w[0], "args": args}
         raise ProtocolError("no reply the protocol declares: %s" % line)
+
+    # ---- the replies with a shape of their own
+
+    def read_plan(self, data):
+        """What plan answers after resp 0, as words: the segments in signal order, each the instances that share a
+        worker, and the cores, the same shape with the audio core of each member's worker (None for one that is not
+        pinned, and for every member when the daemon answers no cores)."""
+        if len(data) not in (1, 2):
+            raise ProtocolError("a plan is its segments and its cores: %s" % " ".join(data))
+        segments = _segments(data[0], False)
+        return {"segments": segments, "cores": _cores(data[1] if len(data) > 1 else None, segments)}
+
+    def read_plan_get(self, data):
+        """What plan_get answers after resp 0, as words: the plan as read_plan gives it and, between the segments and
+        the cores, the members that have a reason, in the daemon's order: the instance, the reason as it is written,
+        its word (PLUGIN_HOSTD_GROUPING_REASONS), the reply code a plan-refused carries with its name, and retry,
+        whether a later plan may answer otherwise without the chain changing (RETRY_REASONS)."""
+        if len(data) not in (2, 3):
+            raise ProtocolError("a plan read back is its segments, its reasons and its cores: %s" % " ".join(data))
+        segments = _segments(data[0], False)
+        reasons = []
+        for item in [] if data[1] == NONE else data[1].split(","):
+            instance, colon, reason = item.partition(":")
+            if not reason:
+                raise ProtocolError("%s is not <instance>:<reason>" % item)
+            word, _, detail = reason.partition(":")
+            code = int(detail) if _INT.match(detail) else None
+            reasons.append({"instance": _count(instance), "reason": reason, "word": word, "code": code,
+                            "name": None if code is None else self.names.get(code), "retry": word in RETRY_REASONS})
+        return {"segments": segments, "reasons": reasons,
+                "cores": _cores(data[2] if len(data) > 2 else None, segments)}
+
+    def read_estimate(self, data):
+        """What estimate answers after resp 0, as words, each figure by the name the protocol gives it; None for one
+        the daemon has no figure for (-), and for the four memory figures a daemon that answers six words leaves out.
+        members: the members no figure could be read for, counted from 0 in the order they were asked, each with the
+        reply code that says why and its name."""
+        if len(data) not in (6, 10):
+            raise ProtocolError("an estimate is six figures, or ten: %s" % " ".join(data))
+        members = []
+        for item in [] if data[5] == NONE else data[5].split(","):
+            member, _, code = item.partition(":")
+            if not _INT.match(code):
+                raise ProtocolError("%s is not <member>:<code>" % item)
+            members.append({"member": _count(member), "code": int(code), "name": self.names.get(int(code))})
+        if not _FLOAT.match(data[1]) or not math.isfinite(float(data[1])):
+            raise ProtocolError("%s is not a finite number" % data[1])
+        out = {"latency_frames": _count(data[0]), "cpu_percent": float(data[1]), "ram_bytes": _count(data[2], True),
+               "workers": _count(data[3]), "unknown_count": _count(data[4]), "members": members}
+        for k, name in enumerate(("ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count")):
+            out[name] = _count(data[6 + k], True) if len(data) == 10 else None
+        return out
 
     # ---- codes
 
