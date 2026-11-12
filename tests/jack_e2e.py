@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The real workers behind the daemon, over jack, in the namespace tests/jack_e2e.sh built.
-import filecmp, os, shutil, signal, socket, subprocess, sys, tempfile, threading, time
+import filecmp, json, os, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from declared import variable
 from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.environ["PLUGIN_HOSTD"]
@@ -75,8 +76,16 @@ def crash(d, inst):
     check(r in ("resp 0", resp("VERB_DROPPED")), "param_set that crashes the plugin -> %r" % r)
 
 
-PRETTY_NAME = "http://jackaudio.org/metadata/pretty-name"
-INSTANCE_KEY = "http://openmixer.org/ns/plugin-hostd#instance"
+# the JACK metadata a worker sets on an instance's client, as plugin-hostd-protocol's table declares it
+with open(variable("table")) as f:
+    NODE_METADATA = {r["name"]: r for r in json.load(f)["node_metadata"]}
+PRETTY_NAME = NODE_METADATA["pretty_name"]["key"]
+INSTANCE_KEY = NODE_METADATA["instance"]["key"]
+
+
+def node_value(name, *args):
+    """a node metadata row's value for these arguments, by the table's printf format"""
+    return NODE_METADATA[name]["value"] % args
 
 
 def metadata(client):
@@ -580,16 +589,17 @@ def a_hosted_node_carries_its_plugin_name_and_instance_for_every_client():
         for inst in (0, 7):
             wait_for(lambda: PRETTY_NAME in metadata("effect_%d" % inst), "effect_%d's pretty-name" % inst, 10)
             m = metadata("effect_%d" % inst)
-            check(m.get(PRETTY_NAME) == "stress (%d)" % inst, "effect_%d is named stress (%d): %r" % (inst, inst, m))
-            check(m.get(INSTANCE_KEY) == str(inst), "effect_%d carries the instance marker %d: %r" % (inst, inst, m))
+            check(m.get(PRETTY_NAME) == node_value("pretty_name", "stress", inst), "effect_%d is named for stress: %r" % (inst, m))
+            check(m.get(INSTANCE_KEY) == node_value("instance", inst), "effect_%d carries the instance key: %r" % (inst, m))
         _, w = d.holder(7)
         mark = d.mark()
         os.kill(w["pid"], signal.SIGKILL)
         wait_for(lambda: not has_ports(7), "effect_7's ports to leave the graph (the kill landed)")
         d.wait_event("instance_restored 7 ", since=mark)
         wait_for(lambda: has_ports(7), "effect_7's ports to come back")
-        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == "stress (7)", "the respawned effect_7's pretty-name", 10)
-        check(metadata("effect_7").get(INSTANCE_KEY) == "7", "the respawned effect_7 carries its marker")
+        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == node_value("pretty_name", "stress", 7),
+                 "the respawned effect_7's pretty-name", 10)
+        check(metadata("effect_7").get(INSTANCE_KEY) == node_value("instance", 7), "the respawned effect_7 carries its key")
     finally:
         d.close()
 
