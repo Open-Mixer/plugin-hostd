@@ -13,10 +13,15 @@
 #define _GNU_SOURCE
 #endif
 #include <ctype.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <plugin-db/pin.h>
 
 #include "describe.h"
 #include "transforms.h"
@@ -57,7 +62,10 @@ static const struct
     { "controls[].travel.min", W_NUM }, { "controls[].travel.max", W_NUM }, { "controls[].travel.default", W_NUM },
     { "controls[].travel.unit", W_STR }, { "controls[].travel.scale", W_STR }, { "controls[].group", W_GROUP },
     { "controls[].labels", W_POINTS }, { "controls[].meaning", W_STR }, { "controls[].hidden", W_BOOL },
-    { "controls[].readonly", W_BOOL }, { "controls[].automatable", W_BOOL },
+    { "controls[].readonly", W_BOOL }, { "controls[].automatable", W_BOOL }, { "controls[].symbol", W_STR },
+    { "controls[].travel.step", W_NUM },
+    { "meters[].id", W_HANDLE }, { "meters[].symbol", W_STR }, { "meters[].kind", W_STR }, { "meters[].channels", W_NUM },
+    { "meters[].min", W_NUM }, { "meters[].max", W_NUM },
     { "ports[].id", W_HANDLE }, { "ports[].name", W_STR }, { "ports[].kind", W_STR }, { "ports[].direction", W_STR },
     { "ports[].role", W_STR }, { "ports[].channels", W_NUM }, { "ports[].layout", W_STR }, { "ports[].dialects", W_LIST },
     { "needs.transport", W_BOOL }, { "needs.tempo", W_BOOL }, { "needs.extensions.required", W_LIST },
@@ -88,11 +96,19 @@ typedef struct
     transforms_data_t d;
 } row_t;
 
+/* the role tables of the contract directory: each role, the meaning it plays (a JSON literal) and its package */
+typedef struct
+{
+    const char **role, **meaning, **package;
+    size_t n;
+} roles_t;
+
 typedef struct
 {
     const char *format;
     row_t *rows;
     size_t n;
+    roles_t roles;
 } table_t;
 
 /* a JSON value as the literal a transform reads and writes */
@@ -120,6 +136,105 @@ static char *literal(const cJSON *v)
     else
         return NULL;
     return b.s;
+}
+
+/* ---------------------------------------------------------------- the role tables (omx-contract docs/contract-dir.md) */
+
+static int read_all(const char *path, sb_t *b)
+{
+    char buf[65536];
+    ssize_t n;
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+
+    if (fd < 0)
+        return -1;
+    while ((n = read(fd, buf, sizeof(buf))) > 0)
+        sb_put(b, buf, (size_t)n);
+    close(fd);
+    if (b->s == NULL)
+        sb_put(b, "", 0);
+    return n < 0 ? -1 : 0;
+}
+
+/* one package's files, as its MANIFEST.json lists them, each checked against its hash: every roleMeanings item's roles
+ * join r. A role a second time, in this package or another, is refused (contract.role.duplicate) */
+static int load_package_roles(const char *dir, const char *package, roles_t *r)
+{
+    char path[4096], hex[PHD_SHA256_HEX_LEN + 1];
+    sb_t text = { 0 };
+    cJSON *manifest, *files;
+    size_t i, j, k, q;
+
+    snprintf(path, sizeof(path), "%s/%s/MANIFEST.json", dir, package);
+    if (read_all(path, &text) != 0)
+        return 0; /* no manifest: no package of the directory */
+    if ((manifest = jparse(text.s)) == NULL || (files = jget(manifest, "files")) == NULL || !cJSON_IsObject(files))
+        return refuse("the contract directory's %s/MANIFEST.json lists no files", package);
+    for (i = 0; i < jcount(files); i++)
+    {
+        const char *file = jkey(files, i), *want = cJSON_IsString(jkid(files, i)) ? jkid(files, i)->valuestring : "";
+        sb_t body = { 0 };
+        cJSON *doc;
+        int fd;
+
+        if (strlen(file) < 5 || strcmp(file + strlen(file) - 5, ".json"))
+            continue;
+        snprintf(path, sizeof(path), "%s/%s/%s", dir, package, file);
+        if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0)
+            return refuse("the contract directory's %s/%s, which its manifest lists, cannot be read", package, file);
+        k = phd_pin_fd_digest(fd, hex) == 0 && !strcmp(hex, want);
+        close(fd);
+        if (!k)
+            return refuse("the contract directory's %s/%s does not match its manifest's hash", package, file);
+        if (read_all(path, &body) != 0 || (doc = jparse(body.s)) == NULL || !cJSON_IsObject(doc))
+            return refuse("the contract directory's %s/%s is no JSON object", package, file);
+        for (j = 0; j < jcount(doc); j++)
+        {
+            const cJSON *item = jkid(doc, j), *roles;
+
+            if (!cJSON_IsObject(item) || !jstr(item, "kind") || strcmp(jstr(item, "kind"), "roleMeanings"))
+                continue;
+            if ((roles = jget(item, "roles")) == NULL || !cJSON_IsObject(roles))
+                return refuse("%s/%s: the roleMeanings item %s holds no roles", package, file, jkey(doc, j));
+            for (k = 0; k < jcount(roles); k++)
+            {
+                const char *role = jstr(jkid(roles, k), "role"), *meaning = jstr(jkid(roles, k), "meaning");
+                sb_t lit = { 0 };
+
+                if (role == NULL || meaning == NULL)
+                    return refuse("%s/%s: the role %s states no role or no meaning", package, file, jkey(roles, k));
+                for (q = 0; q < r->n; q++)
+                    if (!strcmp(r->role[q], role))
+                        return refuse("contract.role.duplicate: the role %s is declared by %s and by %s", role,
+                                      r->package[q], package);
+                sb_str(&lit, meaning);
+                r->role = realloc(r->role, (r->n + 1) * sizeof(char *));
+                r->meaning = realloc(r->meaning, (r->n + 1) * sizeof(char *));
+                r->package = realloc(r->package, (r->n + 1) * sizeof(char *));
+                r->role[r->n] = strdup(role), r->meaning[r->n] = lit.s, r->package[r->n++] = strdup(package);
+            }
+        }
+    }
+    return 0;
+}
+
+/* every package of the contract directory's major (<contract dir>/<major>): no directory, or one with no role table,
+ * gives no role */
+static int load_roles(const char *dir, roles_t *r)
+{
+    struct dirent *de;
+    DIR *d;
+    int rc = 0;
+
+    if (dir == NULL)
+        return 0;
+    if ((d = opendir(dir)) == NULL)
+        return 0;
+    while (rc == 0 && (de = readdir(d)) != NULL)
+        if (de->d_name[0] != '.')
+            rc = load_package_roles(dir, de->d_name, r);
+    closedir(d);
+    return rc;
 }
 
 static int load_table(const char *text, table_t *t)
@@ -157,6 +272,14 @@ static int load_table(const char *text, table_t *t)
             if (tr == NULL || (r->t = transforms_find(tr)) == NULL)
                 return refuse("row %s: transform %s is not in TRANSFORMS(X)", r->key, tr ? tr : "(none)");
             r->d.key = r->key;
+            if (!strcmp(tr, "role-to-meaning"))
+            {
+                /* its data is the contract directory's role tables, never the table's own */
+                if (strcmp(word, "controls[].meaning") || jget(w, "values") != NULL)
+                    return refuse("row %s: role-to-meaning writes controls[].meaning from the contract directory's "
+                                  "role tables, with no values of its own", r->key);
+                r->d.from = t->roles.role, r->d.to = t->roles.meaning, r->d.n = t->roles.n;
+            }
             if (jnum(w, "factor", &factor))
                 r->d.factor = factor;
             if (values != NULL && cJSON_IsObject(values))
@@ -207,7 +330,8 @@ typedef struct
 typedef struct
 {
     char scope[48];
-    char kind; /* 'g' the descriptor, 'p' a CLAP param, 'i' 'o' CLAP audio in/out, 'n' 'N' note in/out, 'l' an LV2 port */
+    char kind; /* 'g' the descriptor, 'p' a CLAP param, 'i' 'o' CLAP audio in/out, 'n' 'N' note in/out, 'l' an LV2 port,
+                * 'm' a CLAP meter */
     long index;
     assign_t *a;
     size_t n, cap;
@@ -221,13 +345,36 @@ typedef struct
     size_t n;
 } bag_t;
 
+/* a declared panel's role:<index> scope: the meaning its role plays (a JSON literal, NULL for none) and the param id
+ * it names, the control whose meaning it is */
+typedef struct
+{
+    char scope[48];
+    char *meaning, *param_id;
+} role_t;
+
 typedef struct
 {
     entry_t *e;
     size_t n;
     bag_t *bag;
     size_t nbag;
+    role_t *roles;
+    size_t nroles;
 } scan_t;
+
+static role_t *role_of(scan_t *s, const char *scope)
+{
+    size_t i;
+
+    for (i = 0; i < s->nroles; i++)
+        if (!strcmp(s->roles[i].scope, scope))
+            return &s->roles[i];
+    s->roles = realloc(s->roles, (s->nroles + 1) * sizeof(role_t));
+    memset(&s->roles[s->nroles], 0, sizeof(role_t));
+    snprintf(s->roles[s->nroles].scope, sizeof(s->roles[s->nroles].scope), "%s", scope);
+    return &s->roles[s->nroles++];
+}
 
 static entry_t *entry(scan_t *s, const char *scope, char kind, long index)
 {
@@ -371,7 +518,8 @@ static int apply(scan_t *s, entry_t *e, const row_t *r, const char *field, const
     if ((v = typed(r->word, out)) == NULL)
         return refuse("%s %s %s: %s gives %s, which %s does not take", e->scope, field, value, r->t->name, out,
                       WORDS[r->word].word);
-    if (strncmp(WORDS[r->word].word, "controls[]", 10) && strncmp(WORDS[r->word].word, "ports[]", 7))
+    if (strncmp(WORDS[r->word].word, "controls[]", 10) && strncmp(WORDS[r->word].word, "ports[]", 7)
+        && strncmp(WORDS[r->word].word, "meters[]", 8))
     {
         to = &s->e[0];
         if (!strcmp(WORDS[r->word].word, "latency.reports"))
@@ -429,8 +577,9 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
         const char *format;
     } SCOPES[] = { { "param", 'p', "clap" },    { "audio_in", 'i', "clap" }, { "audio_out", 'o', "clap" },
                    { "note_in", 'n', "clap" },  { "note_out", 'N', "clap" }, { "port", 'l', "lv2" },
+                   { "meter", 'm', "clap" },
                    { "section", 'd', "clap" },  { "control", 'd', "clap" },  { "role", 'd', "clap" },
-                   { "display", 'd', "clap" },  { "placement_default", 'd', "clap" }, { "meter", 'm', "clap" } };
+                   { "display", 'd', "clap" },  { "placement_default", 'd', "clap" } };
     const char *colon = strchr(scope, ':');
     size_t i;
     char *end;
@@ -458,6 +607,42 @@ static int parse_scope(const char *format, const char *scope, char *kind, long *
             return 0;
         }
     return -1;
+}
+
+/* each role that plays a meaning gives it to the CLAP parameter whose id its param_id names: a role naming no
+ * parameter, and two roles giving one parameter two meanings, are refused */
+static int resolve_roles(scan_t *s)
+{
+    size_t i, j;
+
+    for (i = 0; i < s->nroles; i++)
+    {
+        const role_t *ro = &s->roles[i];
+        entry_t *to = NULL;
+        const char *had;
+        char *end;
+        double want;
+
+        if (ro->meaning == NULL)
+            continue;
+        if (ro->param_id == NULL)
+            return refuse("%s names no param_id", ro->scope);
+        want = strtod(ro->param_id, &end);
+        for (j = 0; j < s->n && to == NULL; j++)
+        {
+            const char *id = s->e[j].kind == 'p' ? get(&s->e[j], "controls[].id") : NULL;
+
+            if (id && *end == '\0' && id[0] != '"' && strtod(id, NULL) == want)
+                to = &s->e[j];
+        }
+        if (to == NULL)
+            return refuse("%s names param id %s, which no parameter has", ro->scope, ro->param_id);
+        if ((had = get(to, "controls[].meaning")) != NULL && strcmp(had, ro->meaning))
+            return refuse("%s gives %s the meaning %s, and another role gave it %s", ro->scope, to->scope, ro->meaning,
+                          had);
+        assign(to, word_index("controls[].meaning"), ro->meaning);
+    }
+    return 0;
 }
 
 static int read_dump(const table_t *t, const char *text, scan_t *s)
@@ -488,28 +673,36 @@ static int read_dump(const table_t *t, const char *text, scan_t *s)
         *value++ = '\0';
         if (parse_scope(t->format, scope, &kind, &index) != 0)
             return refuse("dump line %d: %s is no %s scope", n, scope, t->format);
-        /* the panel description: a scope of no entry, each field's row a drop (docs/formats.md#what-a-table-drops) */
+        /* the panel description: a scope of no entry, each field's row a drop (docs/formats.md#what-a-table-drops),
+         * but for a role's: a word through role-to-meaning, the meaning of the control its param_id names */
         if (kind == 'd')
         {
             const row_t *r = find_row(t, field);
+            int role_scope = !strncmp(scope, "role:", 5);
 
             if (r == NULL)
                 return refuse("%s %s: the field has no row in the %s table", scope, field, t->format);
-            if (r->cls != C_DROPPED)
-                return refuse("%s %s: a field of the panel description is dropped, never a word or the bag", scope, field);
-            continue;
-        }
-        /* a meter (omx-clap-scan 0.31.2): a scope of no entry, each field's row the bag (docs/formats.md#the-field-dump) */
-        if (kind == 'm')
-        {
-            const row_t *r = find_row(t, field);
+            if (role_scope && r->cls == C_WORD && !strcmp(r->t->name, "role-to-meaning"))
+            {
+                char out[256];
+                role_t *ro = role_of(s, scope);
+                int rc = r->t->inbound(&r->d, value, out, sizeof(out));
 
-            if (r == NULL)
-                return refuse("%s %s: the field has no row in the %s table", scope, field, t->format);
-            if (r->cls == C_WORD)
-                return refuse("%s %s: a field of a meter is carried in the bag or dropped, never a word", scope, field);
-            if (r->cls == C_EXTENSION)
-                carry(s, scope, field, value);
+                if (rc == TRANSFORMS_REFUSED)
+                    return refuse("%s %s %s: role-to-meaning refuses the value", scope, field, value);
+                free(ro->meaning);
+                ro->meaning = rc == TRANSFORMS_OK ? strdup(out) : NULL;
+            }
+            else if (r->cls != C_DROPPED)
+                return refuse("%s %s: a field of the panel description is dropped, never a word or the bag, but for a "
+                              "role through role-to-meaning", scope, field);
+            if (role_scope && !strcmp(field, "omx_clap_panel_role.param_id"))
+            {
+                role_t *ro = role_of(s, scope);
+
+                free(ro->param_id);
+                ro->param_id = strdup(value);
+            }
             continue;
         }
         if (record(s, t, kind == 'g' ? entry(s, "plugin", 'g', -1) : entry(s, scope, kind, index), field, value))
@@ -517,7 +710,7 @@ static int read_dump(const table_t *t, const char *text, scan_t *s)
     }
     if (n == 0)
         return refuse("the dump is empty");
-    return 0;
+    return resolve_roles(s);
 }
 
 /* ---------------------------------------------------------------- the descriptor */
@@ -640,6 +833,8 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, "%s", id);
     else
         sb_printf(b, "\"%s\"", id);
+    if ((v = get(e, "controls[].symbol")) != NULL)
+        sb_printf(b, ", \"symbol\": %s", v);
     sb_printf(b, ", \"kind\": %s", kind);
     if (!strcmp(kind, "\"choice\""))
     {
@@ -693,7 +888,10 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, ", \"travel\": {\"min\": %s, \"max\": %s, \"unit\": %s", min, max, unit ? unit : "\"unknown\"");
         if (def)
             sb_printf(b, ", \"default\": %s", def);
-        sb_printf(b, ", \"scale\": %s}", scale ? scale : !strcmp(format, "lv2") ? "\"linear\"" : "\"unknown\"");
+        /* a step of 0 is a continuous travel: no step */
+        if ((v = get(e, "controls[].travel.step")) != NULL && strtod(v, NULL) != 0)
+            sb_printf(b, ", \"step\": %s", v);
+        sb_printf(b, ", \"scale\": %s}",scale ? scale : !strcmp(format, "lv2") ? "\"linear\"" : "\"unknown\"");
     }
     if ((v = get(e, "controls[].group")) != NULL)
         sb_printf(b, ", \"group\": %s", v);
@@ -789,10 +987,89 @@ static int same_run(const entry_t *a, const entry_t *b)
     return 1;
 }
 
+/* ---------------------------------------------------------------- meters */
+
+/* a meter's kind as the descriptor words it, or NULL for a kind it has no word for (CLAP_METER_KIND_OTHER) */
+static const char *meter_kind(const entry_t *e)
+{
+    return get(e, "meters[].kind");
+}
+
+/* the k-th output symbol of a meter, unquoted: its symbol, or <symbol>_<k> for a meter of more than one channel */
+static void meter_output(const entry_t *e, long k, char *out, size_t size)
+{
+    const char *sym = get(e, "meters[].symbol"), *ch = get(e, "meters[].channels");
+    int n = (int)strlen(sym) - 2;
+
+    if (ch && strtol(ch, NULL, 10) > 1)
+        snprintf(out, size, "%.*s_%ld", n, sym + 1, k);
+    else
+        snprintf(out, size, "%.*s", n, sym + 1);
+}
+
+static long meter_channels(const entry_t *e)
+{
+    const char *ch = get(e, "meters[].channels");
+
+    return ch ? strtol(ch, NULL, 10) : 0;
+}
+
+/* omx-clap-core's rule (doc/reference.md): no two meters derive one output symbol, and no meter's answers to a
+ * parameter's symbol; such a plugin is refused, naming the symbol and both */
+static int check_meters(entry_t *const *meters, size_t nm, entry_t *const *controls, size_t nc)
+{
+    size_t i, j, c;
+    long k, l;
+    char a[96], o[96];
+
+    for (i = 0; i < nm; i++)
+        for (k = 0; k < meter_channels(meters[i]); k++)
+        {
+            meter_output(meters[i], k, a, sizeof(a));
+            for (c = 0; c < nc; c++)
+            {
+                const char *sym = get(controls[c], "controls[].symbol");
+
+                if (sym && (int)strlen(sym) - 2 == (int)strlen(a) && !strncmp(sym + 1, a, strlen(a)))
+                    return refuse("%s: the output symbol %s answers to %s's symbol too", meters[i]->scope, a,
+                                  controls[c]->scope);
+            }
+            for (j = 0; j < i; j++)
+                for (l = 0; l < meter_channels(meters[j]); l++)
+                {
+                    meter_output(meters[j], l, o, sizeof(o));
+                    if (!strcmp(a, o))
+                        return refuse("%s: the output symbol %s is %s's too", meters[i]->scope, a, meters[j]->scope);
+                }
+        }
+    return 0;
+}
+
+/* one item of meters[] (omx-contract docs/descriptors.md): a gain reduction in dB, a level in dBFS (clap.meters/1's
+ * kinds); clap.meters/1 states no scale, so the scale is unknown as an unstated CLAP scale is */
+static int put_meter(sb_t *b, const entry_t *e, int first)
+{
+    const char *id = get(e, "meters[].id"), *sym = get(e, "meters[].symbol"), *kind = meter_kind(e);
+    const char *min = get(e, "meters[].min"), *max = get(e, "meters[].max");
+
+    if (id == NULL || sym == NULL)
+        return refuse("%s states no %s", e->scope, id ? "name" : "id");
+    if (meter_channels(e) < 1)
+        return refuse("%s states no channel", e->scope);
+    if (min == NULL || max == NULL)
+        return refuse("%s states no display %s", e->scope, min ? "maximum" : "minimum");
+    sb_printf(b, "%s\n    {\"id\": %s, \"symbol\": %s, \"kind\": %s, \"channels\": %ld, \"unit\": \"%s\", \"min\": %s, "
+                 "\"max\": %s, \"scale\": \"unknown\"}",
+              first ? "" : ",", id, sym, kind, meter_channels(e), !strcmp(kind, "\"gain-reduction\"") ? "dB" : "dBFS",
+              min, max);
+    return 0;
+}
+
 static int write_descriptor(const table_t *t, scan_t *s, const char *target, sb_t *b)
 {
     entry_t *g = &s->e[0], *plugin = NULL, **controls = calloc(s->n, sizeof(entry_t *)), **ports = calloc(s->n, sizeof(entry_t *));
-    size_t i, nc = 0, np = 0;
+    entry_t **meters = calloc(s->n, sizeof(entry_t *));
+    size_t i, nc = 0, np = 0, nm = 0;
     const char *v, *from, *uri = !strcmp(t->format, "lv2") ? target + 4 : NULL;
     int first;
 
@@ -804,6 +1081,12 @@ static int write_descriptor(const table_t *t, scan_t *s, const char *target, sb_
             plugin = e;
         else if (e->kind == 'p')
             controls[nc++] = e;
+        else if (e->kind == 'm')
+        {
+            /* a meter of a kind the descriptor has no word for is no item: its kind record is in the bag */
+            if (meter_kind(e) != NULL)
+                meters[nm++] = e;
+        }
         else if (e->kind != 'l')
             ports[np++] = e;
         else if (get(e, "controls[].kind") && !e->latency)
@@ -885,6 +1168,17 @@ static int write_descriptor(const table_t *t, scan_t *s, const char *target, sb_
         }
     }
     sb_printf(b, "%s", np ? "\n  ]" : "]");
+    if (nm)
+    {
+        qsort(meters, nm, sizeof(entry_t *), by_index);
+        SBL(b, ",\n  \"meters\": [");
+        for (i = 0; i < nm; i++)
+            if (put_meter(b, meters[i], i == 0))
+                return -1;
+        if (check_meters(meters, nm, controls, nc))
+            return -1;
+        SBL(b, "\n  ]");
+    }
     if (list_has(g, "plugin.features", "\"instrument\""))
     {
         v = get(g, "instrument.voices");
@@ -980,8 +1274,8 @@ const char *describe_id(const char *target)
     return !strcmp(format, "clap") ? strrchr(target, '#') + 1 : target + 4;
 }
 
-int describe_dump(const char *table_text, const char *dump_text, const char *target, sb_t *out, char *why,
-                  size_t why_size)
+int describe_dump(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out,
+                  char *why, size_t why_size)
 {
     table_t t = { 0 };
     scan_t s = { 0 };
@@ -990,6 +1284,8 @@ int describe_dump(const char *table_text, const char *dump_text, const char *tar
     g_why = why, g_why_size = why_size;
     if (format == NULL)
         return refuse("%s is neither clap:<path>#<id> nor lv2:<uri>", target);
+    if (load_roles(roles_dir, &t.roles))
+        return -1;
     if (load_table(table_text, &t))
         return -1;
     if (strcmp(t.format, format))

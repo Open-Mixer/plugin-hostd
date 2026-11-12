@@ -5,8 +5,9 @@
 # object omx-clap-scan --json prints for it, its bytes as the scan wrote them; for one that publishes none (NO_PANEL_CLAP,
 # default omx-clap-host-tests' fake compressor) the panel is null. descriptor_get answers beside it for both. The
 # probe reads this tree's clap table (a wrapper adds --table), since the installed one may predate the panel rows.
-# The descriptors carry in their bag what omx-clap-scan 0.31.2 added to the dump (docs/formats.md#the-field-dump): the
-# delay's parameter contract and the compressor's meters, each as omx-clap-scan --json prints it for the installed file.
+# The descriptors carry what omx-clap-scan 0.31.2 added to the dump (docs/formats.md#the-field-dump): the delay's
+# parameter contract in its controls and the compressor's meters in meters[], each as omx-clap-scan --json prints it
+# for the installed file.
 #
 #   panel_wire.py   PLUGIN_HOSTD, FAKE_HOST, PROBE (default ./plugin-hostd, ./tests/fake-host, ./plugin-hostd-probe);
 #                   OMX_CLAP_SCAN (default omx-clap-scan on PATH); PANEL_CLAP and NO_PANEL_CLAP as <file>#<id>
@@ -62,9 +63,10 @@ def dumped(v):
     return v if isinstance(v, str) else "%.17g" % v
 
 
-def bag_of(path):
-    """the CLAP extension bag of the descriptor at path"""
-    return json.load(open(path)).get("extensions", {}).get("clap", {})
+def described(path):
+    """the descriptor at path and its CLAP extension bag"""
+    doc = json.load(open(path))
+    return doc, doc.get("extensions", {}).get("clap", {})
 
 
 def answered_path(d, verb, uri):
@@ -100,18 +102,27 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         check(descriptor is not None and os.path.basename(path) == os.path.basename(descriptor)
               and os.path.dirname(path) == os.path.join(os.path.dirname(descriptor), "panels"),
               "the panel is filed under the descriptor's name in panels/: %s, %s" % (path, descriptor))
-        # the parameter contract the installed omx-delay offers, in the bag of its descriptor as the scan prints it
-        bag, contract = bag_of(descriptor), plugin.get("param_contract")
+        # the parameter contract the installed omx-delay offers, in its descriptor as the scan prints it: the version
+        # and the fingerprint in the bag, each entry's symbol, scale and step in a control
+        (desc, bag), contract = described(descriptor), plugin.get("param_contract")
         check(isinstance(contract, dict), "the scan prints the parameter contract of %s" % PANEL_CLAP)
         check(bag.get("omx_clap_plugin_param_contract_ext.version") == dumped(contract["version"])
               and bag.get("omx_clap_plugin_param_contract_ext.fingerprint") == contract["fingerprint"],
               "the descriptor carries the contract's version and fingerprint: %s" % contract)
         check(plugin["params"] and all("contract" in p for p in plugin["params"]),
               "the scan prints a contract entry for each parameter of %s" % PANEL_CLAP)
-        for i, p in enumerate(plugin["params"]):
-            for k in ("symbol", "unit", "scale", "step"):
-                key = "param:%d/omx_clap_param_contract_entry.%s" % (i, k)
-                check(bag.get(key) == dumped(p["contract"][k]), "%s is %r: %r" % (key, p["contract"][k], bag.get(key)))
+        by_symbol = {c.get("symbol"): c for c in desc.get("controls", [])}
+        for p in plugin["params"]:
+            e = p["contract"]
+            c = by_symbol.get(e["symbol"])
+            check(c is not None, "a control answers to the contract's symbol %s" % e["symbol"])
+            travel = (c or {}).get("travel")
+            if travel is None:
+                continue
+            check(travel.get("scale") == e["scale"], "%s: the contract's scale %s: %r"
+                  % (e["symbol"], e["scale"], travel.get("scale")))
+            check(travel.get("step") == (e["step"] if e["step"] else None), "%s: the contract's step %s: %r"
+                  % (e["symbol"], e["step"], travel.get("step")))
 
         raw = open(path).read()
         doc = json.loads(raw)
@@ -147,14 +158,18 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
               "a plugin that publishes no panel answers a null panel: %s" % doc)
         descriptor = answered_path(d, "descriptor_get", without)
         check(descriptor is not None, "and its descriptor beside it")
-        # the meters the fake compressor offers, in the bag of its descriptor as the scan prints them
-        bag = bag_of(descriptor)
+        # the meters the fake compressor offers, in meters[] of its descriptor as the scan prints them; one of a kind
+        # the descriptor has no word for is no item, its kind in the bag
+        desc, bag = described(descriptor)
+        by_id = {m.get("id"): m for m in desc.get("meters", [])}
         check(bare.get("meters"), "the scan prints the meters of %s" % NO_PANEL_CLAP)
         for i, m in enumerate(bare["meters"]):
-            for k, field in (("id", "id"), ("name", "name"), ("channels", "channel_count"), ("min", "min_value"),
-                             ("max", "max_value")):
-                key = "meter:%d/clap_meter_info.%s" % (i, field)
-                check(bag.get(key) == dumped(m[k]), "%s is %r: %r" % (key, m[k], bag.get(key)))
+            got = by_id.get(m["id"])
+            if got is None:
+                check("meter:%d/clap_meter_info.kind" % i in bag, "meter %d is in meters[] or its kind in the bag" % i)
+                continue
+            for k in ("channels", "min", "max"):
+                check(got.get(k) == m[k], "meter %d: %s is %r: %r" % (m["id"], k, m[k], got.get(k)))
         d.expect("panel_get", "resp -902")
     finally:
         d.close()

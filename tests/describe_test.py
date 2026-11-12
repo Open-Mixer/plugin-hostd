@@ -18,6 +18,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
 TABLES = os.path.join(ROOT, "data", "formats")
+# the contract directory describe reads role tables from: the fixture, never what the machine has installed
+CONTRACT_DIR = os.path.join(ROOT, "tests", "fixtures", "contract-dir")
 CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixture.controls",
          "lv2-compressor": "lv2:urn:example:compressor", "lv2-eq": "lv2:urn:example:eq"}
 # omx-contract's reader and a data tree it reads (an omx-contract checkout's data/), when OMX_CONTRACT_CLI and
@@ -44,9 +46,10 @@ def schema_path():
     return os.path.join(datadir, "omx-contract.schema.json")
 
 
-def describe(target, dump=None, table=None, extra=()):
+def describe(target, dump=None, table=None, extra=(), contract_dir=CONTRACT_DIR):
     fmt = target.split(":", 1)[0]
-    cmd = [PROBE, "describe", "--table", table or os.path.join(TABLES, fmt + ".json")] + list(extra)
+    cmd = [PROBE, "describe", "--table", table or os.path.join(TABLES, fmt + ".json"),
+           "--contract-dir", contract_dir] + list(extra)
     if dump is not None:
         cmd += ["--fields-from", dump]
     return subprocess.run(cmd + [target], capture_output=True, text=True, timeout=60)
@@ -61,6 +64,22 @@ def scratch(tmp, name, text):
     with open(path, "w") as f:
         f.write(text)
     return path
+
+
+def contract_dir(tmp, name, packages, bad_hash=False):
+    """a contract directory <tmp>/<name>/3/<package>/ per package, each a MANIFEST.json and one role table of
+    {role: meaning}; bad_hash writes a manifest hash the file does not have. The directory, as --contract-dir takes it"""
+    import hashlib
+    for package, roles in packages.items():
+        d = os.path.join(tmp, name, "3", package)
+        os.makedirs(d, exist_ok=True)
+        body = json.dumps({"requires": {"omx-contract-schema": ">= 3.13.0"},
+                           "ROLES": {"kind": "roleMeanings", "since": "0.1.0", "doc": "roles",
+                                     "roles": {r: {"role": r, "meaning": m} for r, m in roles.items()}}}) + "\n"
+        scratch(d, "roles.json", body)
+        digest = hashlib.sha256((body + ("x" if bad_hash else "")).encode()).hexdigest()
+        scratch(d, "MANIFEST.json", json.dumps({"package": package, "files": {"roles.json": digest}}))
+    return os.path.join(tmp, name)
 
 
 def main():
@@ -167,11 +186,52 @@ def main():
             check(r.returncode == 2 and "the table is not one JSON object" in r.stderr and not r.stdout,
                   "%s in the table: refused, exit 2, as no JSON object (%d: %s)" % (what, r.returncode, r.stderr.strip()))
 
-        # the panel description of omx-clap-scan 0.20.0's dump: every field dropped, the descriptor as without it
+        # the panel description of omx-clap-scan 0.20.0's dump: every field dropped but a role's, which gives the
+        # control its param_id names the meaning the contract directory's role tables say the role plays
         panel_dump = open(os.path.join(FIELDS, "clap-panel.tsv")).read()
-        r = describe(CASES["clap-controls"], scratch(tmp, "panel.tsv", clap + panel_dump))
-        check(r.returncode == 0 and json.loads(r.stdout or "null") == json.load(open(os.path.join(FIELDS, "clap-controls.json"))),
-              "a dump with a panel gives the descriptor without one (%d: %s)" % (r.returncode, r.stderr.strip()))
+        panel_tsv = scratch(tmp, "panel.tsv", clap + panel_dump)
+        plain = json.load(open(os.path.join(FIELDS, "clap-controls.json")))
+        r = describe(CASES["clap-controls"], panel_tsv, contract_dir=contract_dir(tmp, "none", {}))
+        check(r.returncode == 0 and json.loads(r.stdout or "null") == plain,
+              "a dump with a panel and no role table installed gives the descriptor without one (%d: %s)"
+              % (r.returncode, r.stderr.strip()))
+        r = describe(CASES["clap-controls"], panel_tsv)
+        got = json.loads(r.stdout or "null") or {}
+        want = json.loads(json.dumps(plain))
+        for c in want["controls"]:
+            if c["id"] == 3:
+                c["meaning"] = "wetDryRatio"  # role:4 mix names param 3; the fixture's mix plays wetDryRatio
+        check(r.returncode == 0 and got == want,
+              "a dump with a panel gives each role's control its meaning from the fixture table, and nothing else "
+              "(%d: %s)" % (r.returncode, r.stderr.strip()))
+        bad = json.loads(json.dumps(table))
+        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_role.role"]["word"]["transform"] = "identity"
+        refused("a role row made a word by another transform", CASES["clap-controls"], clap + panel_dump,
+                "dropped, never a word or the bag", bad)
+        bad = json.loads(json.dumps(table))
+        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_control.widget"] = {
+            "from": "omx_clap_ext.h#omx_clap_panel_control.widget",
+            "word": {"word": "controls[].meaning", "transform": "role-to-meaning"}}
+        refused("another panel row made a word, even by role-to-meaning", CASES["clap-controls"], clap + panel_dump,
+                "omx_clap_panel_control.widget", bad)
+        for what, dirs, want_err in (
+                ("a role declared by two packages", {"a": {"mix": "wetDryRatio"}, "b": {"mix": "gain"}},
+                 "contract.role.duplicate"),
+                ("a role naming a parameter the plugin lacks", {"a": {"time": "delay"}}, "param id 0")):
+            d = contract_dir(tmp, "roles-" + what.replace(" ", "-"), dirs)
+            r = describe(CASES["clap-controls"], panel_tsv, contract_dir=d)
+            check(r.returncode == 2 and want_err in r.stderr and not r.stdout, "%s: refused, naming %s (%d: %s)"
+                  % (what, want_err, r.returncode, r.stderr.strip()))
+        twice = scratch(tmp, "twice.tsv", clap + panel_dump + "role:9\tomx_clap_panel_role.role\tthreshold\n"
+                        "role:9\tomx_clap_panel_role.index\t0\nrole:9\tomx_clap_panel_role.param_id\t3\n")
+        r = describe(CASES["clap-controls"], twice,
+                     contract_dir=contract_dir(tmp, "twice", {"a": {"mix": "wetDryRatio", "threshold": "threshold"}}))
+        check(r.returncode == 2 and "another role gave it" in r.stderr and not r.stdout,
+              "two roles giving one parameter two meanings: refused (%d: %s)" % (r.returncode, r.stderr.strip()))
+        r = describe(CASES["clap-controls"], panel_tsv,
+                     contract_dir=contract_dir(tmp, "hash", {"a": {"mix": "wetDryRatio"}}, bad_hash=True))
+        check(r.returncode == 2 and "does not match its manifest's hash" in r.stderr,
+              "a role table that does not match its manifest is refused (%d: %s)" % (r.returncode, r.stderr.strip()))
         refused("a panel field with no row", CASES["clap-controls"], clap + "control:0\tomx_clap_panel_control.colour\tred\n",
                 "omx_clap_panel_control.colour")
         refused("a panel scope of the other format", CASES["lv2-compressor"], lv2 + "section:0\tlv2:name\tx\n", "section:0")

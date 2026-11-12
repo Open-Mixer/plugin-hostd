@@ -2235,7 +2235,8 @@
           "transform": "lookup",
           "values": {
             "urn:openmixer:unit#dBFS": "dBFS",
-            "urn:openmixer:unit#LUFS": "LUFS"
+            "urn:openmixer:unit#LUFS": "LUFS",
+            "urn:openmixer:unit#ratio": "ratio"
           }
         }
       },
