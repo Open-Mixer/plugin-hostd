@@ -357,12 +357,17 @@ def wav_level(path):
     """{rms_db, peak_db, seconds} of a 16-bit wav; the levels are dB full scale, -200 for digital silence"""
     import array
     import math
-    with wave.open(path, "rb") as w:
-        if w.getsampwidth() != 2:
-            raise Failed("the capture is %d-bit, 16-bit was asked" % (8 * w.getsampwidth()))
-        data = array.array("h")
-        data.frombytes(w.readframes(w.getnframes()))
-        seconds = w.getnframes() / float(w.getframerate())
+    try:
+        with wave.open(path, "rb") as w:
+            if w.getsampwidth() != 2:
+                raise Failed("the capture is %d-bit, 16-bit was asked" % (8 * w.getsampwidth()))
+            data = array.array("h")
+            data.frombytes(w.readframes(w.getnframes()))
+            seconds = w.getnframes() / float(w.getframerate())
+    except (EOFError, wave.Error) as e:
+        # jack_rec lost its JACK client mid-capture and left a header-less file: that row failed, the pass goes on
+        # (2026-11-08: one such file aborted a 3 h Pi pass with an EOFError)
+        raise Failed("the capture is not a readable wav (%s): %s" % (type(e).__name__, e))
     if not data:
         raise Failed("the capture holds no sample")
     peak = max(abs(x) for x in data) / 32768.0
@@ -1883,8 +1888,11 @@ class Runner:
         reap()
         time.sleep(0.2)
         left = marked()
-        if not self.args.logs:
-            shutil.rmtree(self.work, ignore_errors=True)
+        # the run's own temporary directory goes whatever happened; --logs keeps the logs outside it
+        shutil.rmtree(self.work, ignore_errors=True)
+        if os.path.exists(self.work):
+            log("teardown could not remove the work dir %s" % self.work)
+            return False
         if left:
             stop_strays(left)
             log("teardown left %d process(es) of this run: %s" % (len(left), ", ".join("%d %s" % x for x in left)))

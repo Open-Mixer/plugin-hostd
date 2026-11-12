@@ -19,21 +19,43 @@
 # the comment lines directly above the abort() hold what breaks the check, as the OSS
 # Verify enrolment reads them (docs/build-contract.md there, "The checks of a fuzz target"):
 #
+#   record: <key>
+#
+# naming one block of src/fuzz_records.h, the one place every record lives, introduced by its own
+# `record: <key>` line there and holding what the key names:
+#
 #   mutant: <path>:<line> `<old>` -> `<new>`
 #   input: <a seed of the harness's corpus>
 #
 # one pair or more, or one line `not a property: <reason>` for a stop that is no property,
-# such as the harness's own allocation failing. With -v records=1 this prints, in place
+# such as the harness's own allocation failing (this one stays at the check, since it names
+# no file to point src/fuzz_records.h's block at). With -v records=1 this prints, in place
 # of the lines above, one line for each record, its fields separated by the unit
 # separator (octal 037), since <new> can be empty:
 #
 #   <file> <abort line> <path> <line> <old> <new> <input>
 #
-# THE RATCHET. A check with no record and no `not a property:` line, a `mutant:` line not
-# of that form or with no `input:` after it, an `input:` with no `mutant:` before it, or a
-# check with both a record and `not a property:` is named on standard error, and the exit
-# status is 1.
-BEGIN { FS = "|" }
+# THE RATCHET. A check with no record and no `not a property:` line, a `record:` line naming
+# no block of src/fuzz_records.h, a `mutant:` line not of that form or with no `input:` after
+# it, an `input:` with no `mutant:` before it, or a check with both a record and
+# `not a property:` is named on standard error, and the exit status is 1.
+BEGIN {
+	FS = "|"
+	RECORDS_FILE = "src/fuzz_records.h"
+	rkey = ""
+	while ((getline rline < RECORDS_FILE) > 0) {
+		rc = clean(rline)
+		if (rc ~ /^record:[ \t]*[^ \t]+$/) {
+			rkey = rc
+			sub(/^record:[ \t]*/, "", rkey)
+			RKEYN[rkey] = 0
+			continue
+		}
+		if (rkey != "" && rc != "")
+			RKEY[rkey, ++RKEYN[rkey]] = rc
+	}
+	close(RECORDS_FILE)
+}
 {
 	ln = $1 + 0
 	cnt = $2
@@ -91,14 +113,15 @@ function problem(l, why) {
 }
 
 # Read the records of the check whose statement is lines s to l (the abort); 1 for a stop that is not a property.
-function records_of(s, l,    n, k, i, t, seen, nrec, nap, pending, p, m, path, line) {
+# A `record: <key>` line stands for the block src/fuzz_records.h names with that key, read in BEGIN into RKEY/RKEYN;
+# its lines are scanned exactly as if they sat where the `record:` line was.
+function records_of(s, l,    n, k, i, j, t, seen, nrec, nap, pending, p, m, path, line, txt, tn, key) {
 	n = above(s, 0)
 	for (k = s; k <= l; k++)
 		L[++n] = k
 	if (l > s)
 		n = above(l, n)
-	nrec = nap = 0
-	pending = ""
+	tn = 0
 	for (i = 1; i <= n; i++) {
 		if (L[i] in seen)
 			continue
@@ -111,6 +134,22 @@ function records_of(s, l,    n, k, i, t, seen, nrec, nap, pending, p, m, path, l
 			t = substr(t, RSTART)
 		}
 		t = clean(t)
+		if (t ~ /^record:[ \t]*[^ \t]+$/) {
+			key = t
+			sub(/^record:[ \t]*/, "", key)
+			if (!(key in RKEYN)) {
+				problem(l, "record: " key " names no block of " RECORDS_FILE)
+				continue
+			}
+			for (j = 1; j <= RKEYN[key]; j++)
+				txt[++tn] = RKEY[key, j]
+		} else
+			txt[++tn] = t
+	}
+	nrec = nap = 0
+	pending = ""
+	for (i = 1; i <= tn; i++) {
+		t = txt[i]
 		if (pending != "") {
 			if (t ~ /^input:[ \t]*[^ \t]/) {
 				sub(/^input:[ \t]*/, "", t)

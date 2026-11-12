@@ -75,7 +75,9 @@
  *   param_set <n> moves <v>     v other than 0 writes "param_set <n> 0 <v>" (v as sent) and "param_set <n> 0 0.25" on the
  *                               feedback port, with no gesture, as a worker reports a value its plugin moved by itself
  *                               (an LFO, a preset load); no other param_set writes any feedback
- *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index
+ *   preset_list <n>             "resp 2", and preset_get <n> <0|1> one preset each, -902 for any other index; with
+ *                               FAKE_PRESET_NEEDS_CLAP_PATH=<dir> set, -104 (ERR_HOST_INVALID_PRESET_URI) unless the
+ *                               fake's own CLAP_PATH holds <dir>, as a worker whose preset browsing depends on it does
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
  *                               as omx-clap-host answers for a plugin with no window it can show; hide_external_ui <n>
@@ -101,7 +103,10 @@
  *                               not hold), as a worker that builds them answers; with FAKE_PRESETS_LEARN=refuse
  *                               "resp -902", as the released omx-clap-host answers them; the fake keeps nothing of
  *                               them (FAKE_LOG shows what it was sent). Without it preset_load is the state verb below
- *                               and the others are unknown, -902. With FAKE_PRESETS_LEARN=state, preset_show <uri>
+ *                               and the others are unknown, -902. preset_save of mod-host's own five-word grammar
+ *                               (<n> <dir> <file name> <label>) writes a standard LV2 pset bundle, <dir>/<file
+ *                               name>.lv2/manifest.ttl, labelled as asked (plugin-hostd#3): a standard LV2 preset
+ *                               loader reads it back, as it would mod-host's own. With FAKE_PRESETS_LEARN=state, preset_show <uri>
  *                               answers as mod-host does, the preset's state as Turtle and no resp, here a line that
  *                               names the fake's pid; preset_show <instance> <key> answers as with answer
  *   remote_pages <n>            "resp 2", and remote_page_get <n> <0|1> one page each, -902 for any other page
@@ -664,6 +669,33 @@ static void receive(msg_t *msg)
     else if (presets_learn && (verb_is(verb, EFFECT_PRESET_SHOW) || verb_is(verb, BUNDLE_ADD) ||
                                verb_is(verb, BUNDLE_REMOVE)))
         answer(fd, strcmp(presets_learn, "answer") ? "resp -902" : "resp 0");
+    else if (presets_learn && !strcmp(presets_learn, "answer") && verb_is(verb, EFFECT_PRESET_SAVE) && ntok == 5 &&
+             n >= 0 && n < MAX_INST && g_inst[n].exists)
+    {
+        /* plugin-hostd#3: preset_save <n> <dir> <file name> <label>, mod-host's own grammar: an LV2 worker writes a
+         * standard pset bundle, never org.openmixer.preset (docs/presets.md); the fake writes the minimal shape a
+         * standard LV2 preset loader reads back, so a daemon test can check the bundle the daemon's relay produced
+         * with lilv, not by string matching */
+        char bundle[512], manifest[560];
+        FILE *f;
+
+        mkdir(tok[2], 0755);
+        snprintf(bundle, sizeof(bundle), "%s/%s.lv2", tok[2], tok[3]);
+        mkdir(bundle, 0755);
+        snprintf(manifest, sizeof(manifest), "%s/manifest.ttl", bundle);
+        if ((f = fopen(manifest, "w")))
+        {
+            fprintf(f,
+                    "@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n"
+                    "@prefix pset: <http://lv2plug.in/ns/ext/presets#> .\n"
+                    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+                    "<> a pset:Preset ;\n"
+                    "    rdfs:label \"%s\" .\n",
+                    tok[4]);
+            fclose(f);
+        }
+        answer(fd, "resp 0");
+    }
     else if (presets_learn &&
              (verb_is(verb, EFFECT_PRESET_LOAD) || verb_is(verb, EFFECT_PRESET_SAVE) || verb_is(verb, MIDI_LEARN) ||
               verb_is(verb, MIDI_MAP) || verb_is(verb, MIDI_UNMAP) || verb_is(verb, CV_MAP) || verb_is(verb, CV_UNMAP)))
@@ -899,7 +931,14 @@ static void receive(msg_t *msg)
     else if (!strcmp(verb, OMX_VERB_REMOTE_PAGE_GET) && ntok == 3)
         answer(fd, "resp -902");
     else if (!strcmp(verb, OMX_VERB_PRESET_LIST) && ntok == 2)
-        answer(fd, "resp 2");
+    {
+        /* plugin-hostd#3: a plugin pinned outside the worker's own preset search (Zynthian's Surge XT, at
+         * /usr/local/lib/clap) browses nothing until CLAP_PATH holds that directory; FAKE_PRESET_NEEDS_CLAP_PATH
+         * stands for that directory, and the fake answers as a worker whose CLAP_PATH does not hold it does */
+        const char *need = getenv("FAKE_PRESET_NEEDS_CLAP_PATH"), *have = getenv("CLAP_PATH");
+
+        answer(fd, need && (!have || !strstr(have, need)) ? "resp %d" : "resp 2", ERR_HOST_INVALID_PRESET_URI);
+    }
     else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "0"))
         answer(fd, "resp 0 \"file:///presets/warm.clap-preset\" \"Warm\"");
     else if (!strcmp(verb, OMX_VERB_PRESET_GET) && ntok == 3 && !strcmp(tok[2], "1"))

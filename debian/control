@@ -3,14 +3,14 @@ Section: sound
 Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
-               libplugin-hostd-protocol-dev (>= 0.5.0~), libplugin-hostd-protocol-dev (<< 0.6~),
-               libomx-contract-dev (>= 3.11.0~), libomx-contract-dev (<< 4~),
-               omx-clap-core-contract (>= 0.31.0~) <!nocheck>, omx-clap-core-contract (<< 0.32~) <!nocheck>,
-               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,
+               libplugin-hostd-protocol-dev (>= 0.5.2~), libplugin-hostd-protocol-dev (<< 0.6~),
+               libomx-contract-dev (>= 3.12.0~), libomx-contract-dev (<< 4~),
+               omx-clap-core-contract (>= 0.31.1~) <!nocheck>, omx-clap-core-contract (<< 0.32~) <!nocheck>,
+               omx-clap-host-tests (>= 0.31.1~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,
                libomxdsp-dev (>= 0.32.0~) <!nocheck>, libomxdsp-dev (<< 0.33~) <!nocheck>,
-               omx-contract (>= 3.11.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
-               plugin-hostd-protocol-contract (>= 0.5.0~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
-               plugin-db-dev (>= 0.3.0~), plugin-db-dev (<< 0.4~),
+               omx-contract (>= 3.12.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
+               plugin-hostd-protocol-contract (>= 0.5.2~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
+               plugin-db-dev (>= 0.3.1~), plugin-db-dev (<< 0.4~),
                libcjson-dev,
                pkgconf,
                python3
@@ -20,9 +20,9 @@ Rules-Requires-Root: no
 
 Package: plugin-hostd
 Architecture: any
-Depends: libplugin-hostd-protocol0 (>= 0.5.0~), libplugin-hostd-protocol0 (<< 0.6~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
+Depends: libplugin-hostd-protocol0 (>= 0.5.2~), libplugin-hostd-protocol0 (<< 0.6~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.31.0~), omx-clap-host (<< 0.32~)
+Recommends: omx-clap-host (>= 0.31.1~), omx-clap-host (<< 0.32~)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -37,6 +37,35 @@ Description: run LV2 and CLAP plugins so that one crash cannot stop the show
  .
  A format whose worker is not installed refuses its adds; the other formats
  are unaffected. mod-host runs LV2 plugins only when you ask for it.
+ .
+ Its documentation is on openmixer.org.
+
+# The whole plugin host stack in one install, on any Debian, Zynthian or not (docs/install.md): the daemon at its own
+# version, its CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records
+# (plugin-qualification-records, one package built per architecture: the desk sets on amd64, the Raspberry Pi 5 set on
+# arm64). Each a floor at the release this one is tested with and a ceiling below the next minor; the records' dated
+# version (YYYYMMDDXX) below the next year's first (tests/full_ranges.py). The records are recommended until the
+# package is in the channel; a hard dependency on it now would leave plugin-hostd-full uninstallable. The panel is
+# recommended: `apt install --no-install-recommends plugin-hostd-full` is the headless install, with no panel.
+Package: plugin-hostd-full
+Section: metapackages
+Architecture: all
+Depends: plugin-hostd (= ${source:Version}),
+         omx-clap-host (>= 0.31.1~), omx-clap-host (<< 0.32~),
+         omx-plugins (>= 0.19.2~), omx-plugins (<< 0.20~),
+         plugin-qualify (>= 0.20.1~), plugin-qualify (<< 0.21~),
+         ${misc:Depends}
+Recommends: omx-panel (>= 0.13.0~), omx-panel (<< 0.14~),
+            plugin-qualification-records (>= 2026110902~), plugin-qualification-records (<< 2027000000~)
+Description: whole plugin host stack: daemon, workers, plugins, qualifier
+ Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
+ the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
+ plugins, plugin-qualify, which measures each installed plugin before it is
+ trusted live, and the qualification records of this machine's class, so the
+ plugins measured on a machine like this one are taken from the records.
+ .
+ omx-panel, the plugin panels in a browser, is recommended. Install with
+ --no-install-recommends for a machine with no screen.
  .
  Its documentation is on openmixer.org.
 
@@ -56,7 +85,7 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
-Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.5.0~), libplugin-hostd-protocol-dev (<< 0.6~), plugin-db-dev (>= 0.3.0~), plugin-db-dev (<< 0.4~), ${misc:Depends}
+Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.5.2~), libplugin-hostd-protocol-dev (<< 0.6~), plugin-db-dev (>= 0.3.1~), plugin-db-dev (<< 0.4~), ${misc:Depends}
 Description: C headers to drive plugin-hostd from your own controller
  The words of the grouping planner and the running history,
  and the schemas of the probe output and of a preset file. The protocol a
@@ -68,7 +97,7 @@ Description: C headers to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.31.0~), omx-clap-core-contract (<< 0.32~), omx-contract (>= 3.11.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.0~), plugin-hostd-protocol-contract (<< 0.6~),
+Depends: omx-clap-core-contract (>= 0.31.1~), omx-clap-core-contract (<< 0.32~), omx-contract (>= 3.12.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.2~), plugin-hostd-protocol-contract (<< 0.6~),
          ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})

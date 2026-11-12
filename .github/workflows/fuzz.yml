@@ -1,15 +1,15 @@
 name: fuzz
 
-# The libFuzzer harnesses of fuzz/ (fuzz/README.md), on every push and pull request: each built with clang under
+# The libFuzzer harnesses of fuzz/ (fuzz/README.md), on a v* tag and on workflow_dispatch: each built with clang under
 # AddressSanitizer and UndefinedBehaviorSanitizer and fuzzed for 60 s from its seed corpus, every mutant of
 # fuzz/sabotage/ found by its own property, every check's record met, the coverage witness held to its floor, and the
 # corpus current. An input
 # that crashes a harness is uploaded as the fuzz-findings artifact. The command socket's chunking test stays in ci.yml.
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -72,15 +72,15 @@ jobs:
       # the harnesses read the protocol library's headers: the OpenMixer channel's plugin-hostd-protocol-devel, at or
       # above the floor the spec declares for the build
       - name: Add the OpenMixer channel
-        uses: FreeMixer/.github/.github/actions/add-openmixer@v1
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
 
-      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it
-      - uses: FreeMixer/.github/.github/actions/wave-deps@main
+      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
       - name: Install the protocol headers from the OpenMixer channel
         run: |
           set -euo pipefail
-          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" plugin-db-devel
+          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" 'plugin-db-devel >= 0.3.1' 'plugin-db-devel < 0.4'
 
       # fuzz-sabotage applies each mutant with git and restores it with git checkout
       - name: Let git work in the checkout

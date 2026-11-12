@@ -1,3 +1,26 @@
+plugin-hostd (0.20.2) unstable; urgency=medium
+
+  * Built and run against the inner layers' latest releases: plugin-hostd-protocol
+    >= 0.5.2, plugin-db >= 0.3.1, omx-clap-core and omx-clap-host >= 0.31.1,
+    omx-contract >= 3.12.0, each below the next minor (omx-contract below 4)
+  * plugin-hostd-full: omx-plugins >= 0.19.2, plugin-qualify >= 0.20.1 and the
+    recommended omx-panel >= 0.13.0 and < 0.14
+  * tools/zynthian/pi-packages.sh lists plugin-qualification-records, the one
+    records package, in place of a source name with no binary package
+  * The full install check counts a recommended records package as in the
+    channel only when it is published for the architecture under test
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Mon, 09 Nov 2026 18:39:11 +0100
+
+plugin-hostd (0.20.1) unstable; urgency=medium
+
+  * plugin-hostd-full: the whole plugin host stack in one install, with
+    plugin-hostd at this version, omx-clap-host 0.31, omx-plugins 0.19 and
+    plugin-qualify 0.20; omx-panel and plugin-qualification-records are
+    recommended (--no-install-recommends leaves them out).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Mon, 09 Nov 2026 16:00:00 +0100
+
 plugin-hostd (0.20.0) unstable; urgency=medium
 
   * curve_bind and curve_points reach the worker that holds the instance, and

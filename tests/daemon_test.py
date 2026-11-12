@@ -531,6 +531,33 @@ def preset_show_of_a_uri_is_answered_as_mod_host_answers_it_by_the_lv2_worker():
 
 
 @test
+def preset_show_of_a_uri_the_adapter_holds_is_not_hidden_by_mod_hosts_refusal_of_a_different_world():
+    """plugin-hostd#3: preset_show <uri> (mod-host's own form) used to be the lv2 row's alone to answer: an LV2
+    plugin on omx-clap-host's adapter (lv2-clap) was never preferred over mod-host (lv2), even when mod-host's world
+    does not hold the uri and the adapter's does. Both rows read lv2_path, so they are one world: mod-host's refusal
+    of a uri it does not have must not hide the adapter's answer for the uri it does"""
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-adapter-world.")
+    try:
+        clap_host = os.path.join(tmp, "omx-clap-host")
+        write(clap_host, ("#!/bin/sh\nexport FAKE_PRESETS_LEARN=answer\nexec %s \"$@\"\n" % FAKE).encode())
+        os.chmod(clap_host, 0o755)
+        log = os.path.join(tmp, "commands.log")
+        d = daemon(conf={"lv2_worker": "omx-clap-host", "clap_host": clap_host}, env={"FAKE_LOG": log})
+        try:
+            d.expect("lv2_worker_set urn:test:mh mod-host", "resp 0")
+            d.expect("add lv2:urn:test:mh 0", "resp 0")
+            d.expect("add lv2:urn:test:ch 1", "resp 1")
+            w0, w1 = d.holder(0)[1], d.holder(1)[1]
+            check(w0["fmt"] == "lv2" and w1["fmt"] == "lv2-clap", "one instance of each lv2 row: %s %s" % (w0, w1))
+            got = d.send("preset_show urn:test:ch#warm")
+            check(got == "resp 0", "the adapter's answer, not mod-host's refusal of a different world: %r" % got)
+        finally:
+            d.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
 def preset_show_counts_a_quoted_key_as_one_word_and_asks_the_holder_alone():
     """a key that holds a space is quoted, and is one word as the worker reads it: preset_show <instance> "<key>" is
     the instance form, the holder's to answer, not a line of four words every worker is sent"""
@@ -1975,6 +2002,59 @@ def presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_
 
 
 @test
+def a_clap_worker_is_started_with_clap_path_so_browsing_a_plugin_outside_the_default_does_not_answer_104():
+    """plugin-hostd#3: Surge XT CLAP on Zynthian, pinned at /usr/local/lib/clap, answered preset_list -104
+    (ERR_HOST_INVALID_PRESET_URI): an add never searches clap_path (the plugin's own path is given directly), so the
+    daemon never set CLAP_PATH for the worker, and the worker's own preset browsing, which does search it, found
+    nothing there. clap_path is this fixture's own directory, as it would hold the Pi's /usr/local/lib/clap once
+    configured; the fake answers -104 in its place unless CLAP_PATH holds it"""
+    p = Plugins()
+    try:
+        d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_PRESET_NEEDS_CLAP_PATH": p.dir})
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("preset_list 0", "resp 2")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def preset_save_of_an_lv2_instance_writes_a_pset_bundle_a_standard_lv2_loader_reads_back():
+    """plugin-hostd#3: preset_save of an LV2 instance is mod-host's own five-word grammar, `<instance> <dir> <file
+    name> <label>`; what the worker writes there is a standard LV2 pset bundle (docs/presets.md), never this tree's
+    own org.openmixer.preset. A standard LV2 host's preset loader (lilv) reads the bundle back by its own rdf:type
+    and label, not by a format of ours"""
+    try:
+        import lilv
+    except ImportError:
+        print("     skip: python3-lilv is not installed")
+        return
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-lv2-preset.")
+    try:
+        d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
+        try:
+            d.expect("add fake:a 0", "resp 0")
+            d.expect('preset_save 0 %s warm "Warm Pad"' % tmp, "resp 0")
+        finally:
+            d.close()
+        bundle = os.path.join(tmp, "warm.lv2")
+        check(os.path.exists(os.path.join(bundle, "manifest.ttl")),
+              "the worker's bundle, dir/<file name>.lv2: %s" % (os.listdir(tmp) if os.path.isdir(tmp) else tmp))
+        world = lilv.World()
+        world.load_bundle(world.new_file_uri(None, bundle + "/"))
+        rdf_type = world.new_uri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        preset_class = world.new_uri("http://lv2plug.in/ns/ext/presets#Preset")
+        presets = list(world.find_nodes(None, rdf_type, preset_class))
+        check(len(presets) == 1, "one standard LV2 preset in the bundle, not our own file format: %s" % presets)
+        label = world.get(presets[0], world.new_uri("http://www.w3.org/2000/01/rdf-schema#label"), None)
+        check(str(label) == "Warm Pad", "labelled as preset_save's own word asked: %r" % label)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
 def a_gesture_the_value_it_moved_and_a_suggested_page_reach_the_controller_unchanged_and_in_order():
     d = daemon()
     try:
@@ -2362,6 +2442,40 @@ def a_clap_directory_bundle_pins_and_loads_by_its_one_object():
         write(obj, b"bundle object")
         d.expect("pin_set %s Bundled.clap=%s %s" % (uri, "0" * 64, fake_layout()), "resp 0")
         d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_manifest_with_a_leading_bom_still_pins_its_binary():
+    # TAL-NoiseMaker and Vitalium both ship a manifest.ttl with a leading UTF-8 BOM. Unskipped, it glues onto the
+    # first @prefix, which is then read as a plain name rather than a directive, so the prefix it would declare is
+    # never registered; when lv2:binary depends on that prefix, first use learns a pin missing the plugin's own
+    # binary, and a binary swapped in afterwards goes uncaught (no file is there for pins_loaded to compare against)
+    p = Plugins()
+    bundle = os.path.join(p.lv2_dir, "bom.lv2")
+    os.makedirs(bundle)
+    uri = "urn:test:bom-noisy"
+    binary = os.path.join(bundle, "Noisy.so")
+    write(os.path.join(bundle, "manifest.ttl"),
+          b"\xef\xbb\xbf@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n"
+          b"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+          b"<%s> a lv2:Plugin ; lv2:binary <Noisy.so> ; rdfs:seeAlso <Noisy.ttl> .\n" % uri.encode())
+    write(binary, b"noisy binary")
+    write(os.path.join(bundle, "Noisy.ttl"), b"lv2:port [ lv2:index 0 ; lv2:symbol \"gain\" ] .")
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add lv2:%s 0" % uri, "resp 0")
+    finally:
+        d.close()
+    with open(p.store) as f:
+        saved = f.read()
+    check("Noisy.so=%s" % sha(binary) in saved, "the learned pin holds the plugin's own binary, past the BOM: %r" % saved)
+    write(binary, b"SWAPPED")
+    d = p.daemon(conf={"pin_mode": "strict"})
+    try:
+        d.expect("add lv2:%s 1" % uri, resp("PIN_BINARY_MISMATCH"))
     finally:
         d.close()
         p.close()
@@ -3172,20 +3286,20 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
 
 @test
 def first_use_learns_no_pin_outside_the_declared_search_path():
-    """first use pins what it finds only in a directory clap_path or lv2_path declares: a .clap anywhere else, reached
-    by its own path, by a .. out of a declared directory or by a symbolic link inside one, stays unpinned (PIN_ABSENT),
-    nothing is learned and no worker starts"""
+    """first use pins what it finds only in a directory clap_path or lv2_path declares, judged on the path as listed: a
+    .clap anywhere else, reached by its own path, by a .. out of a declared directory, or by a symbolic link put outside
+    the search path that points into it, stays unpinned (PIN_ABSENT), nothing is learned and no worker starts"""
     p = Plugins()
     outside = tempfile.mkdtemp(prefix="plugin-hostd-outside.")
     try:
         stray = os.path.join(outside, "stray.clap")
         write(stray, b"a build nobody installed")
-        link = os.path.join(p.dir, "clap", "linked.clap")
-        os.symlink(stray, link)
         climb = os.path.join(p.dir, "clap", "..", "..", os.path.basename(outside), "stray.clap")
+        inward = os.path.join(outside, "inward.clap")
+        os.symlink(p.clap, inward)
         d = p.daemon(conf={"pin_mode": "first-use"})
         try:
-            for path in (stray, climb, link):
+            for path in (stray, climb, inward):
                 d.expect("add clap:%s#org.openmixer.fault 0" % path, resp("PIN_ABSENT"))
             check(store_lines(p) == [], "nothing outside the search path is learned: %s" % store_lines(p))
             check(p.received() == [], "no worker saw a refused add: %s" % p.received())
@@ -3194,6 +3308,46 @@ def first_use_learns_no_pin_outside_the_declared_search_path():
             d.expect("add %s 0" % p.clap_uri, "resp 0")
             writes_landed(d)
             check([l[1] for l in store_lines(p)] == [p.clap_uri], "the declared plugin is learned: %s" % store_lines(p))
+        finally:
+            d.close()
+    finally:
+        shutil.rmtree(outside, ignore_errors=True)
+        p.close()
+
+
+@test
+def first_use_learns_a_binary_linked_out_of_a_bundle_in_the_search_path_by_the_file_it_resolves_to():
+    """Debian's calf.lv2/calf.so -> ../../calf/calf.so: the bundle is in lv2_path as listed, so first use learns it; the
+    pin holds the digest of the file the link resolves to, the log names both paths, and a change of that file is
+    refused. A .clap linked out of clap_path is learned the same way."""
+    p = Plugins()
+    outside = tempfile.mkdtemp(prefix="plugin-hostd-outside.")
+    try:
+        real_so = os.path.join(outside, "pinned.so")
+        write(real_so, b"lv2 binary of the package")
+        so = os.path.join(p.bundle, "pinned.so")
+        os.unlink(so)
+        os.symlink(real_so, so)
+        real_clap = os.path.join(outside, "linked.clap")
+        write(real_clap, b"a clap the package installs elsewhere")
+        link = os.path.join(p.dir, "clap", "linked.clap")
+        os.symlink(real_clap, link)
+        linked_uri = "clap:%s#org.openmixer.fault" % link
+        d = p.daemon(conf={"pin_mode": "first-use"})
+        try:
+            d.expect("add %s 0" % LV2_URI, "resp 0")
+            d.expect("add %s 1" % linked_uri, "resp 1")
+            writes_landed(d)
+            log = d.log()
+            for listed, real in ((so, real_so), (link, real_clap)):
+                check("%s resolves to %s" % (os.path.normpath(listed), os.path.realpath(real)) in log,
+                      "the log names the listed and the resolved path of %s: %s" % (listed, log))
+            lines = dict((l[1], l) for l in store_lines(p))
+            check("pinned.so=%s" % sha(real_so) in " ".join(lines[LV2_URI]), "the LV2 pin holds the resolved file's digest: %s" % lines)
+            check("linked.clap=%s" % sha(real_clap) in " ".join(lines[linked_uri]), "the CLAP pin holds the resolved file's digest: %s" % lines)
+            d.expect("remove 0", "resp 0")
+            write(real_so, b"another build")
+            d.expect("add %s 2" % LV2_URI, resp("PIN_BINARY_MISMATCH"))
         finally:
             d.close()
     finally:

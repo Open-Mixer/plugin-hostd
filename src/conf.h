@@ -31,6 +31,14 @@
 #define CONF_SIZE_path PATH_MAX
 #define CONF_SIZE_pathlist (PATH_MAX * 2)
 
+/* the string settings by their place in PHD_CONF_STRINGS */
+enum conf_string_key {
+#define X(key, size, def, env, meaning) CONF_STRING_##key,
+    PHD_CONF_STRINGS(X)
+#undef X
+    CONF_STRINGS_N
+};
+
 typedef struct CONF_T {
 #define X(key, size, def, env, meaning) char key[CONF_SIZE_##size];
     PHD_CONF_STRINGS(X)
@@ -38,7 +46,12 @@ typedef struct CONF_T {
 #define X(key, def, unit, meaning) int key;
     PHD_CONF_INTS(X)
 #undef X
+    unsigned char from_file[CONF_STRINGS_N];  /* the file set this string setting */
 } conf_t;
+
+/* where a string setting's value came from: "file" when the settings file set it, else "env" when its variable (or, for
+ * clap_path, CLAP_PATH) is set and not empty, else "default" */
+const char *conf_source(const conf_t *conf, enum conf_string_key key);
 
 /* Defaults, then the file: one "key value" per line, '#' starts a comment.
  * A missing file is an error only when the path was asked for. */

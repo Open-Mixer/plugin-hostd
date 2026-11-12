@@ -3,7 +3,11 @@ name: release
 # A version tag builds the RPMs and the DEBs, for x86_64/amd64 and aarch64/arm64, signs them, publishes them
 # into the rpm/ and deb/ trees of the FreeMixer Pages repository and attaches the RPMs to the GitHub release.
 # Anything else, a manual run from a branch or the dry run of ci.yml, builds and assembles unsigned trees and
-# publishes nothing. Everything is in FreeMixer/.github; the secrets are the organisation's.
+# publishes nothing. Everything is in Open-Mixer/.github; the secrets are the organisation's.
+
+# A manual run with staged on (never a tag) builds fc44 x86_64 and trixie amd64 only and leaves them on the prerelease
+# staged-v<version> for the next layer of the release chain, which names them in its own staged-deps; nothing reaches
+# the channel, and the real release still publishes once from the v<version> tag (Open-Mixer/.github build-rpm.yml).
 
 on:
   push:
@@ -18,6 +22,14 @@ on:
         description: 'Build the aarch64/arm64 packages too; a pull request dry run passes false'
         type: boolean
         default: true
+      staged:
+        description: 'Build fc44 x86_64 and trixie amd64 only and put them on the prerelease staged-v<version> for the next layer; publishes nothing to the channel'
+        type: boolean
+        default: false
+      staged-deps:
+        description: 'Staged packages of inner layers to build against, [owner/]repo@version[:package,package], space separated'
+        type: string
+        default: ''
   workflow_call:
     inputs:
       publish:
@@ -27,6 +39,12 @@ on:
         type: boolean
         default: true
         description: 'Build the aarch64/arm64 packages too; the pull-request dry run passes false (arm builds run at release only)'
+      staged:
+        type: boolean
+        default: false
+      staged-deps:
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -35,20 +53,70 @@ permissions:
 
 jobs:
   rpm:
-    uses: FreeMixer/.github/.github/workflows/build-rpm.yml@v1
+    uses: Open-Mixer/.github/.github/workflows/build-rpm.yml@openmixer-v1
     with:
+      staged: ${{ inputs.staged == true }}
+      staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
       arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["x86_64"]' || '["x86_64", "aarch64"]' }}
     secrets: inherit
 
-  # after the RPMs: both publish into one tree, and a push that loses a race is refused. A release is one wave: a red
   # or skipped RPM job skips this one, so no DEB is published after a failed RPM.
+  # beside the RPMs: the two publish jobs share one concurrency group, so their pushes never race
   deb:
-    needs: rpm
-    uses: FreeMixer/.github/.github/workflows/build-deb.yml@v1
+    uses: Open-Mixer/.github/.github/workflows/build-deb.yml@openmixer-v1
     with:
+      staged: ${{ inputs.staged == true }}
+      staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
       arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["amd64"]' || '["amd64", "arm64"]' }}
     secrets: inherit
+
+  # plugin-hostd-full from the channel, the way the install pages say, in a clean container of every Debian release and
+  # Fedora the stack ships for, on both architectures: the default install pulls every package of the stack, omx-panel
+  # with it, and the records of the machine's class; the headless one (--no-install-recommends,
+  # install_weak_deps=False) leaves out omx-panel and every X server, Xlib, Wayland and GTK package
+  # (tools/full-install-check.sh, which also names the only packages allowed to pull libxcb and nodejs). After the
+  # publish of a tag only: the channel is where it installs from.
+  full-deb:
+    name: plugin-hostd-full (${{ matrix.suite }}, ${{ matrix.arch }}, ${{ matrix.mode }})
+    needs: deb
+    if: ${{ !cancelled() && needs.deb.result == 'success' && github.ref_type == 'tag' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    container:
+      image: debian:${{ matrix.suite }}
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [bookworm, trixie]
+        arch: [amd64, arm64]
+        mode: [default, headless]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
+      - run: bash tools/full-install-check.sh deb "$GITHUB_REF_NAME" ${{ matrix.mode }}
+
+  full-rpm:
+    name: plugin-hostd-full (Fedora 44, ${{ matrix.arch }}, ${{ matrix.mode }})
+    needs: rpm
+    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    container:
+      image: fedora:44
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        mode: [default, headless]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
+      - run: bash tools/full-install-check.sh rpm "$GITHUB_REF_NAME" ${{ matrix.mode }}

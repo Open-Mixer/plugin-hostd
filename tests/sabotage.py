@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Break the daemon on purpose, one guard at a time, and require the named test to go red; the unbroken daemon must
 # pass the same test first, or a red proves nothing. A guard whose sabotage leaves its test green is decoration.
-import os, shutil, subprocess, sys, tempfile
+import os, re, shutil, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import declared
 import sabotage_pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# the organisation the workflows name (Open-Mixer while FreeMixer is restricted): the runner's, never a default
+ORG = os.environ.get("GITHUB_REPOSITORY_OWNER") or sys.exit("sabotage.py: GITHUB_REPOSITORY_OWNER is unset; it names the organisation the workflows use")
 PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
@@ -315,6 +317,21 @@ SABOTAGE = [
      "        if (!declared || full_path(root, files.name[n], full, sizeof(full)) != 0 || !inside_declared(full, declared))",
      "        if (!declared || full_path(root, files.name[n], full, sizeof(full)) != 0)",
      "first_use_learns_no_pin_outside_the_declared_search_path"),
+    ("first use follows the listed file's own links (the old rule: a binary linked out of its bundle is refused)", "src/pins.c",
+     "    if (lexical_path(file, listed, sizeof(listed)) != 0)\n        return 0;",
+     "    if (!realpath(file, listed))\n        return 0;",
+     "first_use_learns_a_binary_linked_out_of_a_bundle_in_the_search_path_by_the_file_it_resolves_to"),
+    ("first use trusts a link put outside the search path that points into it", "src/pins.c",
+     "    if (lexical_path(file, listed, sizeof(listed)) != 0)\n        return 0;",
+     "    if (!realpath(file, listed) && lexical_path(file, listed, sizeof(listed)) != 0)\n        return 0;",
+     "first_use_learns_no_pin_outside_the_declared_search_path"),
+    ("first use takes .. by following it on disk", "src/pins.c",
+     "        else if (n == 2 && c[0] == '.' && c[1] == '.')",
+     "        else if (0)",
+     "first_use_learns_no_pin_outside_the_declared_search_path"),
+    ("a link learned by its listed path does not name the file it resolves to", "src/pins.c",
+     "        else\n            say_resolved(uri, full);", "        else\n            ;",
+     "first_use_learns_a_binary_linked_out_of_a_bundle_in_the_search_path_by_the_file_it_resolves_to"),
     ("pin_accept takes nothing new", "src/pins.c", "    rc = record(format, uri, search, NULL, 0);\n    if (chosen && rc != SUCCESS)",
      "    rc = SUCCESS;\n    if (chosen && rc != SUCCESS)", "a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted"),
     ("the store is not written", "src/pins.c", "        return ERR_MEMORY_ALLOCATION;\n    }\n    store_save();\n",
@@ -564,39 +581,39 @@ SABOTAGE = [
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "", "no pin anywhere", "nopins"),
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "", "no pin anywhere", "nopins"),
     ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.8)\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\n", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 0.32)\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n", "               omx-clap-host-tests (>= 0.31.0~) <!nocheck>, omx-clap-host-tests (<< 0.32~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
+     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
      "no pin anywhere", "nopins"),
     ("a workflow checks omx-clap-core out again", ".github/workflows/ci.yml",
-     "      - uses: actions/checkout@v4\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the OpenMixer channel\n        uses: FreeMixer/.github/.github/actions/add-openmixer@v1\n\n      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it\n      - uses: FreeMixer/.github/.github/actions/wave-deps@main\n\n      # the worker and the fixtures",
-     "      - uses: actions/checkout@v4\n        with:\n          repository: FreeMixer/omx-clap-core\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n      - name: Add the OpenMixer channel\n        uses: FreeMixer/.github/.github/actions/add-openmixer@v1\n\n      # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until FreeMixer/.github moves v1 past it\n      - uses: FreeMixer/.github/.github/actions/wave-deps@main\n\n      # the worker and the fixtures",
+     "      - uses: actions/checkout@v4\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n",
+     "      - uses: actions/checkout@v4\n        with:\n          repository: %s/omx-clap-core\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n" % ORG,
      "no pin anywhere", "nopins"),
     ("the tempo is not handed to a new or a respawned worker", "src/supervisor.c", "    if (host_settings_replay(w) != 0)\n",
      "    if (0)\n", "tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add"),
@@ -1490,6 +1507,16 @@ SABOTAGE = [
      "phd_pin_path_decode(iri, decoded, sizeof(decoded)) == 0 &&",
      "snprintf(decoded, sizeof(decoded), \"%s\", iri) >= 0 &&",
      "a bundle directory with a space: its own file:// IRI names a file of the bundle", "pinfiles"),
+    ("--search-path does not know the file set a key: a file value is named env or default", "src/conf.c",
+     "        conf->from_file[CONF_STRING_##name] = 1; \\\n", "        ; \\\n",
+     "the file is over LV2_PATH, named file", "searchpath"),
+    ("--search-path prints lv2_path as the LV2 list searched, without lv2_extra", "src/main.c",
+     "    print_list(lv2->declared(conf));", "    print_list(lv2_path);",
+     "the LV2 list searched is lv2_path then lv2_extra", "searchpath"),
+    ("--search-path leaves ~ as written", "src/main.c",
+     "            if (c[0] == '~' && (n == 1 || c[1] == '/') && home && *home)",
+     "            if (0)",
+     "the default CLAP list has ~ expanded", "searchpath"),
     ("a record's id is matched in its own spelling only", "src/qualcost.c",
      "    if (phd_pin_path_decode(id, out, size) != 0)\n", "    if (1)\n",
      "a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling", "qualcost"),
@@ -1638,6 +1665,14 @@ SABOTAGE = [
     ("the handler of a declared verb is deleted: plan", "src/verbs.c",
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
+
+# the omx-clap-host-tests pin cases name the floor and the ceiling the spec declares today, so raising the pin
+# never leaves them breaking a line that is no longer there
+_PIN = re.search(r"^BuildRequires: \(omx-clap-host-tests >= ([0-9.]+) with omx-clap-host-tests < ([0-9.]+)\)$",
+                 open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M) \
+    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor and ceiling")
+SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)).replace("@CEIL", _PIN.group(2)) if isinstance(x, str) else x
+                  for x in case) for case in SABOTAGE]
 
 
 def rebuild(tree, jack):
@@ -1798,6 +1833,10 @@ def run_test(tree, name, jack=False):
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
         p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, "plugin-hostd")],
+                           capture_output=True, text=True, timeout=120)
+        return p.returncode, p.stdout + p.stderr
+    if jack == "searchpath":
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, "plugin-hostd")],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "placement":

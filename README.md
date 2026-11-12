@@ -16,12 +16,20 @@ Install
 Fedora:
 
     sudo dnf install https://www.openmixer.org/rpm/openmixer-release.noarch.rpm
-    sudo dnf install plugin-hostd omx-clap-host
+    sudo dnf install plugin-hostd-full
 
 Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
 
-    curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb && sudo apt install ./openmixer-release.deb
-    sudo apt update && sudo apt install plugin-hostd omx-clap-host
+    curl -fsSL -o /tmp/openmixer-release.deb https://www.openmixer.org/deb/openmixer-release.deb
+    sudo apt install /tmp/openmixer-release.deb
+    sudo apt update
+    sudo apt install plugin-hostd-full
+
+plugin-hostd-full is the whole plugin host stack: the daemon, omx-clap-host, the OpenMixer plugins, plugin-qualify and
+the qualification records of your machine's class, with omx-panel. On a machine with no screen, leave the panel out:
+`sudo apt install --no-install-recommends plugin-hostd-full`, or
+`sudo dnf install --setopt=install_weak_deps=False plugin-hostd-full`. `plugin-hostd omx-clap-host` alone is the
+smallest install.
 
 omx-clap-host runs both CLAP and LV2 plugins. A plugin it cannot run is refused with a code that says why, and is
 never handed to another host. mod-host runs LV2 plugins only when you choose it (`lv2_worker mod-host`).
