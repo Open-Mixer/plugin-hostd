@@ -30,13 +30,15 @@ What a client does
 Both clients are the same codec over that table, with the same names (snake_case in Python, camelCase in
 TypeScript):
 
-- **encode**(verb, args): the line of a command the table declares. The form is the first whose arguments
+- **encode**(verb, args[, tag]): the line of a command the table declares, after `@<tag>` when a request tag is
+  given (the tags extension). The form is the first whose arguments
   fit; an `int` is an integer, a `float` a finite number written in its shortest form that reads back to
   the same double (an integral one without a fraction, an exponent without leading zeros), a `word` one
   word of the grammar (bare when it can be, else in quotation marks with `\"` for a quote), a `tail` the
   rest of the line. A verb the table does not declare, or arguments no form takes, is an error, never a
   line.
-- **decode**(line): a command line back into its verb and arguments, by the same table.
+- **decode**(line): a command line back into its verb, its arguments and its request tag, by the same table;
+  **reencode**(line), the same line decoded and encoded again.
 - **parse**(line): what the host or the daemon answered, a request tag (`@<tag>`) and a sequence number
   first when the line carries them: `resp <code> [data]` with the code's name and its sentence, a
   feedback line by its declared arguments, or a protocol error.
