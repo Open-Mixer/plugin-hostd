@@ -18,6 +18,12 @@ def answer(protocol, op, arg):
         return protocol.reencode(arg)
     if op == "parse":
         return protocol.parse(arg)
+    if op == "read_plan":
+        return protocol.read_plan(arg)
+    if op == "read_plan_get":
+        return protocol.read_plan_get(arg)
+    if op == "read_estimate":
+        return protocol.read_estimate(arg)
     if op == "code":
         return protocol.code(arg)
     if op == "name":
