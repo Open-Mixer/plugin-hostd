@@ -13,6 +13,11 @@ import os
 import re
 import subprocess
 
+try:  # the paths pkg-config gave when the package was installed (make install-python): no -devel package at run time
+    from . import _installed
+except ImportError:
+    _installed = None
+
 __all__ = ["Protocol", "ProtocolError", "words", "quote", "encode_path", "decode_path", "uri_word", "pin_key",
            "format_number"]
 
@@ -195,12 +200,14 @@ def _texts(node, out):
 class Protocol:
     """plugin-hostd's protocol as its installed files declare it.
 
-    table: the protocol table (PLUGIN_HOSTD_PROTOCOL_TABLE, else pkg-config's table variable of plugin-hostd-protocol);
+    table: the protocol table (PLUGIN_HOSTD_PROTOCOL_TABLE, else where the installed package was told it is, else
+    pkg-config's table variable of plugin-hostd-protocol);
     contract_dirs: omx-contract's contract directories (OMX_CONTRACT_PATH, else its contractdir variable), read for the
     sentences; datadir: where each package's catalogs/<lang>.json is (pkg-config's datadir of plugin-hostd-protocol)."""
 
     def __init__(self, table=None, contract_dirs=None, datadir=None):
-        table = table or os.environ.get("PLUGIN_HOSTD_PROTOCOL_TABLE") or _pkg_config("--variable=table", "plugin-hostd-protocol")
+        table = table or os.environ.get("PLUGIN_HOSTD_PROTOCOL_TABLE") or getattr(_installed, "TABLE", None) or \
+            _pkg_config("--variable=table", "plugin-hostd-protocol")
         if not table:
             raise ProtocolError("no protocol table: plugin-hostd-protocol-devel is not installed and "
                                 "PLUGIN_HOSTD_PROTOCOL_TABLE is not set")
@@ -213,9 +220,10 @@ class Protocol:
         self.codes = {v: k for k, v in self.names.items()}
         if contract_dirs is None:
             env = os.environ.get("OMX_CONTRACT_PATH")
-            contract_dirs = [d for d in env.split(":") if d] if env else \
+            contract_dirs = [d for d in env.split(":") if d] if env else list(getattr(_installed, "CONTRACT_DIRS", ())) or \
                 [d for d in [_pkg_config("--variable=contractdir", "omx-contract")] if d]
-        self.datadir = datadir or _pkg_config("--variable=datadir", "plugin-hostd-protocol") or \
+        self.datadir = datadir or getattr(_installed, "DATADIR", None) or \
+            _pkg_config("--variable=datadir", "plugin-hostd-protocol") or \
             os.path.dirname(os.path.dirname(os.path.abspath(table)))
         self.sentences, self.owners = {}, {}
         for d in contract_dirs:
