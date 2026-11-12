@@ -1,6 +1,6 @@
 {
   "name": "@openmixer/plugin-hostd-client",
-  "version": "0.20.3",
+  "version": "0.20.4",
   "description": "The TypeScript client of plugin-hostd's protocol: one codec over the protocol table plugin-hostd-protocol installs",
   "license": "GPL-3.0-or-later",
   "author": "Pau Aliagas <linuxnow@gmail.com>",

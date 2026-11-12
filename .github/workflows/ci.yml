@@ -74,7 +74,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -84,6 +84,12 @@ jobs:
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+
+      # the clients' tests read a sentence in Catalan from the installed catalog: from plugin-hostd-protocol 0.5.6 on it
+      # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
+      # none, and its base package carries the catalog
+      - name: The protocol's Catalan catalog, where a language pack carries it
+        run: dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
 
       - name: Build
         run: make
@@ -192,7 +198,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -243,7 +249,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -309,7 +315,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -484,7 +490,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -725,7 +731,7 @@ jobs:
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.0,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -741,7 +747,7 @@ jobs:
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
             ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \
-            'omx-clap-host >= 0.32.0' 'omx-clap-host < 0.33' \
+            'omx-clap-host >= 0.32.1' 'omx-clap-host < 0.33' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the daemon installed is the one built above, not a served one
