@@ -70,6 +70,10 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.31.3,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -162,6 +166,10 @@ jobs:
 
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.31.3,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -209,6 +217,10 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.31.3,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -271,6 +283,10 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.31.3,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -442,6 +458,10 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.31.3,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -675,12 +695,16 @@ jobs:
 
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.5 (node_metadata) and omx-clap-host 0.31.3,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
         run: |
           set -euo pipefail
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
-          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.31.2' 'omx-clap-host < 0.32' \
+          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.31.3' 'omx-clap-host < 0.32' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
