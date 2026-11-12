@@ -1655,9 +1655,11 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
-        check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                             "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"},
-              "declared: %s" % VERBS)
+        # the verbs this test drives by name must be declared; a protocol release may declare more (a minor adds rows),
+        # and each of those is answered for an LV2 instance by the daemon, never by mod-host, below
+        known = {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
+                 "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"}
+        check(known <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -1673,6 +1675,10 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         d.expect("param_info 0 :bypass", "resp -103")
         d.expect("remote_pages 9", "resp -3")
         d.expect("param_info 9 gain", "resp -3")
+        # a verb the protocol declares past those: mod-host has no answer of its own, so the daemon refuses it for an
+        # LV2 instance as an invalid operation, and the worker never hears it (checked with the rest below)
+        for verb in sorted(set(VERBS) - known):
+            d.expect("%s 0" % verb, "resp -902")
         _, w = d.holder(0)
         mark = d.mark()
         os.kill(w["pid"], signal.SIGKILL)
