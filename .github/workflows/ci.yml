@@ -25,6 +25,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick). A pull request runs the plain test
+# tier and one package arm (fc44 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
+# main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
   # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
   # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
@@ -129,7 +132,7 @@ jobs:
       # says ready, and a pool worker must still start under that (#105). It needs a private user namespace with its own /proc; a
       # runner that refuses one cannot run it, and the step fails (tests/ci_guards.py holds both branches to that). The
       # LV2 steps are required to have run: a run that skipped them fails here.
-      - name: Test the daemon with real workers over jack, CLAP and LV2, then break every guard on purpose
+      - name: Test the daemon with real workers over jack, CLAP and LV2
         run: |
           set -euo pipefail
           export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
@@ -143,10 +146,27 @@ jobs:
             for t in mod_host_scenarios_pass_unchanged_with_an_lv2_worker lv2_own_worker_sees_one_bundle_and_replays_after_a_kill; do
               grep -qx "ok   $t" test-jack.log || { echo "the LV2 step $t did not run"; exit 1; }
             done
+          else
+            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"
+            exit 1
+          fi
+
+      # every guard broken on purpose (36 of the 45 minutes of the last green run): push to main, tags and dispatch, never a
+      # pull request (owner ruling 2026-11-09; tests/ci_guards.py holds it there)
+      - name: Break every guard on purpose
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
+          export JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source
+          export FAKE_CLAP=/usr/libexec/omx-clap-host/tests/fake.clap
+          export MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/tests LV2_URI=urn:plugin-hostd:test:stereo
+          export LV2_BUNDLE=plugin-hostd-fixture.lv2 LV2_PARAM=gain
+          if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             OMX_CLAP_HOST=/usr/bin/omx-clap-host make sabotage 2>&1 | tee sabotage.log
             if grep -q 'skip sabotage (no LV2 bundle' sabotage.log; then echo 'an LV2 sabotage was skipped'; exit 1; fi
           else
-            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"
+            echo "::error::make sabotage did not run: this runner refuses a private user and pid namespace with its own /proc"
             exit 1
           fi
 
@@ -443,7 +463,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -520,7 +540,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     # nothing but the distribution: a dependency the package forgot to declare is missing here
     defaults:
@@ -618,7 +638,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -765,7 +785,7 @@ jobs:
   release-dry-run:
     name: release workflow, dry run
     needs: changes
-    if: needs.changes.outputs.packages == 'true'
+    if: needs.changes.outputs.packages == 'true' && github.event_name != 'pull_request'
     permissions:
       contents: write
       issues: write
