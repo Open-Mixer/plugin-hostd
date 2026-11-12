@@ -16,7 +16,7 @@ BuildRequires: python3
 # %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
 BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: (pkgconfig(plugin-db) >= 0.3.1 with pkgconfig(plugin-db) < 0.4)
+BuildRequires: (pkgconfig(plugin-db) >= 0.4.0 with pkgconfig(plugin-db) < 0.5)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
@@ -75,7 +75,7 @@ Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
 Requires: (plugin-hostd-protocol-devel >= 0.5.5 with plugin-hostd-protocol-devel < 0.6)
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: (plugin-db-devel >= 0.3.1 with plugin-db-devel < 0.4)
+Requires: (plugin-db-devel >= 0.4.0 with plugin-db-devel < 0.5)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
