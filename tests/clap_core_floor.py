@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# omx-clap-core is a dependency with a floor and a ceiling wherever it is declared: its packages omx-clap-core-contract,
+# omx-clap-core is a dependency with a floor and a ceiling wherever it is declared: its packages omx-clap-core-contract
+# (the build, plugin-hostd-contract and python3-plugin-hostd-protocol, whose client reads its codes' sentences),
 # omx-clap-host-tests (the check stage) and omx-clap-host (recommended by plugin-hostd, required by plugin-hostd-full), each at its floor and below 0.32, the minor
 # after omx-clap-core 0.31 (the first omx-clap-host that answers the curve verbs). A floor with no ceiling, a ceiling other than 0.32 and a declaration that is gone are red.
 # Usage: clap_core_floor.py [root]. The check proves it sees each fault before it trusts the tree.
@@ -9,7 +10,7 @@ import os, re, sys
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CEILING = "0.32"
 # package: (floor, declarations in the spec, declarations in debian/control)
-WANT = {"omx-clap-core-contract": ("0.31.1", 2, 2), "omx-clap-host-tests": ("0.31.1", 1, 1), "omx-clap-host": ("0.31.2", 2, 2)}
+WANT = {"omx-clap-core-contract": ("0.31.1", 3, 3), "omx-clap-host-tests": ("0.31.1", 1, 1), "omx-clap-host": ("0.31.2", 2, 2)}
 
 
 def problems(spec, control):

@@ -13,13 +13,15 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
+# %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
+BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
 BuildRequires: (pkgconfig(plugin-db) >= 0.3.1 with pkgconfig(plugin-db) < 0.4)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor
-BuildRequires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-devel < 0.6)
+BuildRequires: (plugin-hostd-protocol-devel >= 0.5.4 with plugin-hostd-protocol-devel < 0.6)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
@@ -27,7 +29,7 @@ BuildRequires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-
 BuildRequires: (omx-contract-devel >= 3.12.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
-Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.2 with plugin-hostd-protocol%{?_isa} < 0.6)
+Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.4 with plugin-hostd-protocol%{?_isa} < 0.6)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -42,7 +44,7 @@ BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
 BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: (plugin-hostd-protocol-contract >= 0.5.2 with plugin-hostd-protocol-contract < 0.6)
+BuildRequires: (plugin-hostd-protocol-contract >= 0.5.4 with plugin-hostd-protocol-contract < 0.6)
 BuildRequires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
 %endif
 # the format tables, which readers read at run time
@@ -71,7 +73,7 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-devel < 0.6)
+Requires: (plugin-hostd-protocol-devel >= 0.5.4 with plugin-hostd-protocol-devel < 0.6)
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
 Requires: (plugin-db-devel >= 0.3.1 with plugin-db-devel < 0.4)
 
@@ -83,12 +85,32 @@ declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
 
+%package -n python3-plugin-hostd-protocol
+Summary: The Python client of plugin-hostd's protocol
+BuildArch: noarch
+Requires: python3
+# what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
+# directory and the catalogs of the codes' owners; 0.5.4 the first that declares PRESET_NOT_APPLIED; a floor and the
+# next minor
+Requires: (plugin-hostd-protocol >= 0.5.4 with plugin-hostd-protocol < 0.6)
+Requires: (plugin-hostd-protocol-contract >= 0.5.4 with plugin-hostd-protocol-contract < 0.6)
+Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
+Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
+
+%description -n python3-plugin-hostd-protocol
+The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec
+over the files plugin-hostd-protocol installs, which encodes and decodes every
+command the protocol declares, parses the replies, feedback lines and protocol
+errors, and gives each reply code its sentence. A controller speaks the
+protocol through it and restates nothing; the npm package
+@openmixer/plugin-hostd-client is the same codec in TypeScript.
+
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: (plugin-hostd-protocol-contract >= 0.5.2 with plugin-hostd-protocol-contract < 0.6)
+Requires: (plugin-hostd-protocol-contract >= 0.5.4 with plugin-hostd-protocol-contract < 0.6)
 Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
@@ -164,6 +186,8 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %make_install PREFIX=%{_prefix}
 # the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
+# the Python client, told where pkg-config finds the files it reads (docs/clients.md)
+%make_build install-python DESTDIR=%{buildroot} PREFIX=%{_prefix} PYTHON3_SITELIB=%{python3_sitelib}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -201,6 +225,11 @@ make test-daemon check-generated check-rendered
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
+
+%files -n python3-plugin-hostd-protocol
+%license COPYING
+%doc docs/clients.md
+%{python3_sitelib}/plugin_hostd_protocol/
 
 %files contract
 %license COPYING

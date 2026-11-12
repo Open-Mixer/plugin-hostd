@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+name: Publish the TypeScript client to npm
+
+# Publishes @openmixer/plugin-hostd-client (clients/ts, docs/clients.md) to npmjs.org by npm trusted publishing
+# (OIDC, no token anywhere), with provenance. npmjs.com trusts the CALLER of the publish by repository and workflow
+# filename, so this workflow runs on its own, never called from release.yml:
+#   Repository: Open-Mixer/plugin-hostd    Workflow filename: publish.yml    Environment: (none)
+# A version tag v<version> publishes <version> under the dist-tag latest. A dispatch with staged on publishes
+# <version>-staged.<run number> under the dist-tag staged, beside the staged packages of release.yml, so a consumer
+# floors the staged release before its tag. Any other dispatch is a dry run. The version is the spec's; the committed
+# package.json must say the same (make test-clients checks it). Only the public repository publishes.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      staged:
+        description: 'Publish <version>-staged.<run> under the dist-tag staged'
+        type: boolean
+        default: false
+      dry-run:
+        description: 'Pack and run npm publish --dry-run only'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: npm publish
+    if: github.repository == 'Open-Mixer/plugin-hostd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # trusted publishing needs npm 11.5.1 or newer, which node 24 carries
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: The version, the dist-tag and whether this run publishes
+        id: what
+        env:
+          STAGED: ${{ inputs.staged }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^Version: *//p' packaging/plugin-hostd.spec)
+          test "$(node -p "require('./clients/ts/package.json').version")" = "$version"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "v$version" = "$GITHUB_REF_NAME"
+            echo "version=$version" >> "$GITHUB_OUTPUT"; echo "tag=latest" >> "$GITHUB_OUTPUT"; echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif [ "$STAGED" = true ]; then
+            echo "version=$version-staged.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"; echo "tag=staged" >> "$GITHUB_OUTPUT"
+            echo "publish=$([ "$DRY_RUN" = true ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$version" >> "$GITHUB_OUTPUT"; echo "tag=latest" >> "$GITHUB_OUTPUT"; echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        working-directory: clients/ts
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc -p tsconfig.json
+          npm version --no-git-tag-version --allow-same-version "${{ steps.what.outputs.version }}"
+
+      - name: Publish
+        working-directory: clients/ts
+        env:
+          PUBLISH: ${{ steps.what.outputs.publish }}
+          DIST_TAG: ${{ steps.what.outputs.tag }}
+        run: |
+          if [ "$PUBLISH" = true ]; then
+            npm publish --provenance --access public --tag "$DIST_TAG"
+          else
+            npm publish --dry-run --provenance --access public --tag "$DIST_TAG"
+          fi

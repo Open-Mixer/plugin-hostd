@@ -1,0 +1,45 @@
+{
+  "name": "@openmixer/plugin-hostd-client",
+  "version": "0.20.3",
+  "description": "The TypeScript client of plugin-hostd's protocol: one codec over the protocol table plugin-hostd-protocol installs",
+  "license": "GPL-3.0-or-later",
+  "author": "Pau Aliagas <linuxnow@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Open-Mixer/plugin-hostd.git",
+    "directory": "clients/ts"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "plugin-hostd-codec": "dist/cli.js"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/index.d.ts",
+    "dist/cli.js",
+    "dist/cli.d.ts"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "~22.15.0",
+    "typescript": "~5.9.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
