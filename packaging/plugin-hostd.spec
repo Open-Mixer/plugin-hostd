@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.2
+Version: 0.20.3
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -50,7 +50,7 @@ Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: (omx-clap-host >= 0.31.1 with omx-clap-host < 0.32)
+Recommends: (omx-clap-host >= 0.31.2 with omx-clap-host < 0.32)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -115,8 +115,8 @@ BuildArch: noarch
 # next year's first (tests/full_ranges.py). The panel is a weak
 # dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
 Requires: %{name} = %{version}-%{release}
-Requires: (omx-clap-host >= 0.31.1 with omx-clap-host < 0.32)
-Requires: (omx-plugins >= 0.19.2 with omx-plugins < 0.20)
+Requires: (omx-clap-host >= 0.31.2 with omx-clap-host < 0.32)
+Requires: (omx-plugins >= 0.19.3 with omx-plugins < 0.20)
 Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)
 Recommends: (omx-panel >= 0.13.0 with omx-panel < 0.14)
 # recommended until the package is in the channel: a hard dependency now would leave plugin-hostd-full uninstallable
@@ -208,6 +208,20 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Tue Nov 10 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.3-1
+- describe writes a CLAP plugin's clap.meters/1 meters as the descriptor's
+  meters[] (id, output symbol, kind, channels, display range; dB for a gain
+  reduction, dBFS for a level) and refuses meters whose output symbols collide
+  with each other or with a parameter's
+- describe gives a CLAP parameter its param-contract symbol, unit, scale and
+  step, and the contract's version and fingerprint in the extensions
+- describe gives a CLAP control the meaning its declared panel's role plays,
+  read from the role tables of the contract directory (--contract-dir, else
+  $OMX_CONTRACT_PATH); a role no table declares leaves the meaning unknown
+- the LV2 table reads the ratio unit omx-plugins' faces write
+- omx-clap-host >= 0.31.2 (its scan writes the meter and contract records);
+  plugin-hostd-full: omx-plugins >= 0.19.3 (it installs the role table)
+
 * Mon Nov 09 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.2-1
 - built and run against the inner layers' latest releases: plugin-hostd-protocol
   >= 0.5.2, plugin-db >= 0.3.1, omx-clap-core and omx-clap-host >= 0.31.1,
