@@ -573,6 +573,8 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios test
 # other on the fixtures and on plugin-hostd-protocol's host scenarios, and that comparison's self-test
 .PHONY: test-clients
 test-clients:
+	@v=$$(sed -n 's/^Version: *//p' packaging/plugin-hostd.spec); p=$$(python3 -c 'import json; print(json.load(open("clients/ts/package.json"))["version"])'); \
+	  test "$$v" = "$$p" || { echo "test-clients: the spec says $$v, clients/ts/package.json $$p (publish.yml publishes the spec's)" >&2; exit 1; }
 	$(MAKE) -C clients/ts build
 	PYTHONPATH=$(abspath clients/python) python3 -m unittest discover -s clients/python/tests -t clients/python
 	$(MAKE) -C clients/ts test
