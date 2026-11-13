@@ -24,6 +24,7 @@
 #include <plugin-db/pin.h>
 
 #include "describe.h"
+#include "pages.h"
 #include "transforms.h"
 
 /* a literal into a string that grows */
@@ -1364,5 +1365,136 @@ int describe_panel(const char *scan_json, const char *target, sb_t *out, char *w
     sb_put(out, raw, len);
     SBL(out, "}\n");
     cJSON_Delete(scan);
+    return 0;
+}
+
+/* ---------------------------------------------------------------- the pages */
+
+/* two controls' group arrays, read as docs/formats.md#the-descriptor-describe-writes writes them: both absent, or
+ * both arrays of the same strings in the same order */
+static int group_eq_json(const cJSON *a, const cJSON *b)
+{
+    size_t i, n;
+
+    if (a == NULL || b == NULL)
+        return a == b;
+    if (!cJSON_IsArray(a) || !cJSON_IsArray(b) || (n = jcount(a)) != jcount(b))
+        return 0;
+    for (i = 0; i < n; i++)
+    {
+        const cJSON *x = jkid(a, i), *y = jkid(b, i);
+
+        if (!cJSON_IsString(x) || !cJSON_IsString(y) || strcmp(x->valuestring, y->valuestring))
+            return 0;
+    }
+    return 1;
+}
+
+typedef struct
+{
+    const cJSON *group;
+    const cJSON **param;
+    size_t n, cap;
+} page_t;
+
+int describe_pages(const char *table_text, const char *dump_text, const char *target, const char *roles_dir,
+                   sb_t *out, char *why, size_t why_size)
+{
+    sb_t desc = { 0 };
+    cJSON *doc;
+    const cJSON *controls;
+    page_t *page = NULL;
+    size_t npage = 0, nc, i, k;
+    int rc;
+
+    g_why = why, g_why_size = why_size;
+    if ((rc = describe_dump(table_text, dump_text, target, roles_dir, &desc, why, why_size)) != 0)
+    {
+        free(desc.s);
+        return rc;
+    }
+    doc = jparse(desc.s);
+    free(desc.s);
+    if (doc == NULL || (controls = jget(doc, "controls")) == NULL || !cJSON_IsArray(controls))
+    {
+        cJSON_Delete(doc);
+        return refuse("%s: the descriptor states no controls", target);
+    }
+    nc = jcount(controls);
+    for (i = 0; i < nc; i++)
+    {
+        const cJSON *group = jget(jkid(controls, i), "group");
+        size_t seen, taken;
+
+        for (seen = 0, k = 0; k < i && !seen; k++)
+            seen = group_eq_json(jget(jkid(controls, k), "group"), group);
+        if (seen)
+            continue;
+        for (taken = 0, k = 0; k < nc; k++)
+        {
+            const cJSON *c = jkid(controls, k);
+
+            if (!group_eq_json(jget(c, "group"), group))
+                continue;
+            if (taken % PAGE_SLOTS == 0)
+            {
+                page_t *grown = realloc(page, (npage + 1) * sizeof(*page));
+
+                if (grown == NULL)
+                {
+                    free(page);
+                    cJSON_Delete(doc);
+                    return refuse("out of memory");
+                }
+                page = grown;
+                memset(&page[npage], 0, sizeof(*page));
+                page[npage].group = group;
+                npage++;
+            }
+            {
+                page_t *p = &page[npage - 1];
+
+                if (p->n == p->cap)
+                {
+                    p->cap = p->cap ? p->cap * 2 : PAGE_SLOTS;
+                    p->param = realloc(p->param, p->cap * sizeof(*p->param));
+                }
+                p->param[p->n++] = jget(c, "id");
+            }
+            taken++;
+        }
+    }
+    SBL(out, "{\"pages\": [");
+    for (i = 0; i < npage; i++)
+    {
+        sb_printf(out, "%s{\"group\": ", i ? ", " : "");
+        if (page[i].group == NULL)
+            SBL(out, "null");
+        else
+        {
+            SBL(out, "[");
+            for (k = 0; k < jcount(page[i].group); k++)
+            {
+                char *lit = literal(jkid(page[i].group, k));
+
+                sb_printf(out, "%s%s", k ? ", " : "", lit ? lit : "null");
+                free(lit);
+            }
+            SBL(out, "]");
+        }
+        SBL(out, ", \"params\": [");
+        for (k = 0; k < page[i].n; k++)
+        {
+            char *lit = literal(page[i].param[k]);
+
+            sb_printf(out, "%s%s", k ? ", " : "", lit ? lit : "null");
+            free(lit);
+        }
+        SBL(out, "]}");
+        free(page[i].param);
+    }
+    free(page);
+    SBL(out, "]}\n");
+    cJSON_Delete(doc);
     return 0;
 }
