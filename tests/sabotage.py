@@ -7,7 +7,7 @@ import declared
 import sabotage_pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# the organisation the workflows name (Open-Mixer while FreeMixer is restricted): the runner's, never a default
+# the organisation the workflows name (Open-Mixer while OpenMixer is restricted): the runner's, never a default
 ORG = os.environ.get("GITHUB_REPOSITORY_OWNER") or sys.exit("sabotage.py: GITHUB_REPOSITORY_OWNER is unset; it names the organisation the workflows use")
 PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))

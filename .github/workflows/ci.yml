@@ -46,7 +46,7 @@ jobs:
         run: |
           if [ "$EVENT" = workflow_dispatch ]; then echo "packages=true"; else echo "packages=false"; fi >> "$GITHUB_OUTPUT"
 
-  # the checks every FreeMixer repository runs on what it publishes: commit messages, private references, and no
+  # the checks every OpenMixer repository runs on what it publishes: commit messages, private references, and no
   # local copy of either (Open-Mixer/.github's public-sources-check)
   public-sources:
     uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@openmixer-v1
@@ -697,7 +697,7 @@ jobs:
   # over the chain verb, and the real omx-clap-host runs it in a PipeWire of its own: each member's gain and delay
   # measured on the chain's output in the declared order, chain_get's read-back, a removal that forms the chain again
   # and a crashed member that leaves the other three playing (tools/zynthian/test-chain-round-trip.py), then each
-  # sabotage red on its own check. Everything comes from the FreeMixer channel, by what it must be able to do, never
+  # sabotage red on its own check. Everything comes from the OpenMixer channel, by what it must be able to do, never
   # built from source (tests/no_pins.py): the daemon plugin-hostd with chain_get (#162), omx-clap-host 0.21.0 or later
   # (the chain host, omx-clap-core#104) and omx-clap-host-tests with fault-14.clap and jack_identity (omx-clap-core#351).
   # A channel that lacks one fails the job by name. It is an x86_64 Fedora container: no Zynthian image, no ARM board,
@@ -726,7 +726,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: The FreeMixer channel
+      - name: The Open-Mixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
           # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
@@ -739,7 +739,7 @@ jobs:
 
       - uses: Open-Mixer/.github/.github/actions/build-rpm@openmixer-v1
 
-      - name: Install this run's daemon, and the worker, its fixtures and the members from the FreeMixer channel
+      - name: Install this run's daemon, and the worker, its fixtures and the members from the Open-Mixer channel
         run: |
           set -euo pipefail
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)

@@ -2,32 +2,32 @@
   "_note": "Fixed facts the report states in words. Each carries a public source: a pull request or issue of a public repository, or a file of this repository. Measured numbers never live here.",
   "prs": [
     {
-      "repo": "FreeMixer/zynthian-sys",
+      "repo": "Open-Mixer/zynthian-sys",
       "number": 1,
       "role": "OpenMixer apt repository and install recipe"
     },
     {
-      "repo": "FreeMixer/zynthian-sys",
+      "repo": "Open-Mixer/zynthian-sys",
       "number": 2,
       "role": "plugin-hostd as the mod-host of MOD-UI, one switch"
     },
     {
-      "repo": "FreeMixer/zynthian-sys",
+      "repo": "Open-Mixer/zynthian-sys",
       "number": 3,
       "role": "MOD GUIs generated from the plugin descriptions"
     },
     {
-      "repo": "FreeMixer/zynthian-sys",
+      "repo": "Open-Mixer/zynthian-sys",
       "number": 4,
       "role": "OpenMixer in the default install and the update path"
     },
     {
-      "repo": "FreeMixer/zynthian-ui",
+      "repo": "Open-Mixer/zynthian-ui",
       "number": 1,
       "role": "PH engine for LV2 and CLAP plugins"
     },
     {
-      "repo": "FreeMixer/zynthian-ui",
+      "repo": "Open-Mixer/zynthian-ui",
       "number": 2,
       "role": "PH as default engine, snapshot converter, menus from qualification"
     }

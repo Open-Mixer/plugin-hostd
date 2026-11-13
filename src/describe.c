@@ -31,7 +31,7 @@
 #define SBL(b, lit) sb_put(b, lit, sizeof(lit) - 1)
 
 #define DUMP_VERSION_LINE "# omx-clap-scan --fields 1"
-#define SCHEMA_URL "https://github.com/FreeMixer/omx-contract/raw/v3/schema/omx-contract.schema.json"
+#define SCHEMA_URL "https://github.com/Open-Mixer/omx-contract/raw/v3/schema/omx-contract.schema.json"
 #define SCHEMA_FLOOR ">= 3.0.0"
 
 static char *g_why;

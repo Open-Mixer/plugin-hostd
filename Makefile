@@ -262,7 +262,7 @@ check-no-json-escape-loop:
 	python3 tests/no_json_escape_loop.py
 	python3 tests/no_json_escape_loop.py --self-test
 
-# No tracked file points into a private repository, issue, branch or path: FreeMixer/.github's private-refs check, from a
+# No tracked file points into a private repository, issue, branch or path: Open-Mixer/.github's private-refs check, from a
 # checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
 FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
 .PHONY: private-refs check-no-protocol-copy check-no-json-escape-loop

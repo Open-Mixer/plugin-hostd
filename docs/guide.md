@@ -90,15 +90,15 @@ Under Zynthian on a Raspberry Pi 5: <https://openmixer.org/docs/zynthian> says w
 it and where it stands; the measurements are at <https://openmixer.org/benchmarks>, and how they were taken, with the
 design of pins, chains and grouping, in the technical notes at <https://openmixer.org/notes>.
 
-Building from source: see [BUILDING.md](../BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
+Building from source: see [BUILDING.md](../BUILDING.md). More about OpenMixer at <https://www.openmixer.org>.
 
 Protocol
 --------
 
 The protocol is the plugin-hostd protocol, a superset of mod-host's text protocol: any mod-host client works unchanged.
-It is declared once, in [plugin-hostd-protocol](https://github.com/FreeMixer/plugin-hostd-protocol), the library the daemon answers its controllers with; the wire
+It is declared once, in [plugin-hostd-protocol](https://github.com/Open-Mixer/plugin-hostd-protocol), the library the daemon answers its controllers with; the wire
 protocol for a reader of another host, mod-host's verbs on plugin-hostd and the verbs mod-host does not have, is its
-[doc/protocol.md](https://github.com/FreeMixer/plugin-hostd-protocol/blob/main/doc/protocol.md).
+[doc/protocol.md](https://github.com/Open-Mixer/plugin-hostd-protocol/blob/main/doc/protocol.md).
 
 What it declares is installed with that library's development package (`plugin-hostd-protocol-devel`,
 `libplugin-hostd-protocol-dev`): the header `<plugin-hostd/protocol.h>` with the placement syntax, the error codes, the
