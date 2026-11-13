@@ -4,7 +4,9 @@ plugin-hostd (0.20.5) unstable; urgency=medium
     layout of their own: a word as its declared type (read_word in Python,
     readWord in TypeScript) (#50).
   * Floors: plugin-hostd-protocol >= 0.5.7 (< 0.6), the first whose table the
-    clients read this way, and plugin-db >= 0.4.1 (< 0.5) (#50, #54).
+    clients read this way, plugin-db >= 0.4.1 (< 0.5) (#50, #54), and
+    omx-clap-core >= 0.32.3 (< 0.33) for its contract, its host and the host's
+    tests.
   * pins.h takes the length of a digest from plugin-db's plugin_db_constants.h,
     which includes nothing, so the fuzz harnesses and their sources build with
     no OpenSSL header; make test-fuzz-no-openssl holds it (#54).

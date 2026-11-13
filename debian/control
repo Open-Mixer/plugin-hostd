@@ -5,8 +5,8 @@ Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                libplugin-hostd-protocol-dev (>= 0.5.7~), libplugin-hostd-protocol-dev (<< 0.6~),
                libomx-contract-dev (>= 3.12.0~), libomx-contract-dev (<< 4~),
-               omx-clap-core-contract (>= 0.31.1~) <!nocheck>, omx-clap-core-contract (<< 0.33~) <!nocheck>,
-               omx-clap-host-tests (>= 0.31.1~) <!nocheck>, omx-clap-host-tests (<< 0.33~) <!nocheck>,
+               omx-clap-core-contract (>= 0.32.3~) <!nocheck>, omx-clap-core-contract (<< 0.33~) <!nocheck>,
+               omx-clap-host-tests (>= 0.32.3~) <!nocheck>, omx-clap-host-tests (<< 0.33~) <!nocheck>,
                libomxdsp-dev (>= 0.32.0~) <!nocheck>, libomxdsp-dev (<< 0.33~) <!nocheck>,
                omx-contract (>= 3.12.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.5.7~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
@@ -22,7 +22,7 @@ Package: plugin-hostd
 Architecture: any
 Depends: libplugin-hostd-protocol0 (>= 0.5.7~), libplugin-hostd-protocol0 (<< 0.6~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
-Recommends: omx-clap-host (>= 0.32.1~), omx-clap-host (<< 0.33~)
+Recommends: omx-clap-host (>= 0.32.3~), omx-clap-host (<< 0.33~)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -51,7 +51,7 @@ Package: plugin-hostd-full
 Section: metapackages
 Architecture: all
 Depends: plugin-hostd (= ${source:Version}),
-         omx-clap-host (>= 0.32.1~), omx-clap-host (<< 0.33~),
+         omx-clap-host (>= 0.32.3~), omx-clap-host (<< 0.33~),
          omx-plugins (>= 0.19.3~), omx-plugins (<< 0.20~),
          plugin-qualify (>= 0.20.1~), plugin-qualify (<< 0.21~),
          ${misc:Depends}
@@ -97,7 +97,7 @@ Description: C headers to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.31.1~), omx-clap-core-contract (<< 0.33~), omx-contract (>= 3.12.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.7~), plugin-hostd-protocol-contract (<< 0.6~),
+Depends: omx-clap-core-contract (>= 0.32.3~), omx-clap-core-contract (<< 0.33~), omx-contract (>= 3.12.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.7~), plugin-hostd-protocol-contract (<< 0.6~),
          ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})
@@ -115,7 +115,7 @@ Package: python3-plugin-hostd-protocol
 Architecture: all
 Depends: python3, libplugin-hostd-protocol0 (>= 0.5.7~), libplugin-hostd-protocol0 (<< 0.6~),
          plugin-hostd-protocol-contract (>= 0.5.7~), plugin-hostd-protocol-contract (<< 0.6~),
-         omx-clap-core-contract (>= 0.31.1~), omx-clap-core-contract (<< 0.33~),
+         omx-clap-core-contract (>= 0.32.3~), omx-clap-core-contract (<< 0.33~),
          omx-contract (>= 3.12.0~), omx-contract (<< 4~), ${misc:Depends}
 Description: Python client of plugin-hostd's protocol
  plugin_hostd_protocol: one codec over the files plugin-hostd-protocol
