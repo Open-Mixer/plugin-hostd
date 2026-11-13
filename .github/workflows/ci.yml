@@ -246,12 +246,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      # the released channel alone: it carries every Build-Depends, and the staging channel is pinned above it,
+      # so an older staged omx-clap-core there would be taken in place of the released one
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
