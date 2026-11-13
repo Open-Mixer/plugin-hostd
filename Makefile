@@ -629,9 +629,15 @@ gen: $(GEN)
 	for f in docs/guide.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
 # fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
-# knows must be in a file
+# knows must be in a file. They are written against the protocol floor (tools/protocol-floor.sh): against a newer
+# installed minor, which may add rows, they are not compared and the check says so; GENERATED_COMPARE=always compares
+# them against whatever is installed (tests/perturbation.py, after make gen)
+GENERATED_COMPARE ?= floor
 check-generated: $(GEN)
-	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	@floor=$$(sh tools/protocol-floor.sh); installed=$$($(PKG_CONFIG) --modversion plugin-hostd-protocol 2>/dev/null); \
+	if [ "$(GENERATED_COMPARE)" != always ] && [ "$$installed" != "$$floor" ]; then \
+	  echo "generated files are written against plugin-hostd-protocol $$floor; $$installed is installed: not compared"; exit 0; fi; \
+	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(GEN) probe-schema protocol/probe-output.schema.in > $$tmp/probe; cmp $$tmp/probe protocol/probe-output.schema.json; \
 	for f in docs/guide.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
