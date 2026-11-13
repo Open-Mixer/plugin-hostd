@@ -115,11 +115,11 @@ def main():
               "%s in %.1f s" % (rc, took))
         check("curl -s %s" % url in out and "3 attempts" in out and "printed nothing for 2 s" in out,
               "the red names the command, its attempts and the idle bound: %r" % out[-300:])
+        check(out.count(url) >= 2 and "::error::" in out, "the red names the mirror the sources name, as an error line")
         slow = ["sh", "-c", "for i in 1 2 3 4 5; do echo unpacking $i; sleep 1; done"]
         rc, out, took = run(WRAPPER, slow, sources, 60)
         check(rc == 0 and out.count("unpacking") == 5, "a slow command that keeps printing passes, past several idle bounds "
               "(5 s against 2 s): rc %s in %.1f s" % (rc, took))
-        check(out.count(url) >= 2 and "::error::" in out, "the red names the mirror the sources name, as an error line")
         rc, out, took = run(WRAPPER, ["sh", "-c", "echo nothing provides x >&2; exit 100"], sources, 60)
         check(rc == 1 and took < 5 and "attempt 2" not in out, "a command that fails fast is red at once, not retried: rc %s, "
               "%.1f s" % (rc, took))
