@@ -1,3 +1,15 @@
+plugin-hostd (0.20.6) unstable; urgency=medium
+
+  * An LV2 uri that several bundles of the search path name is the bundle
+    plugin-db's declared rule gives, newest-version: of the bundles that
+    realise the plugin, the highest lv2:minorVersion, then the highest
+    lv2:microVersion; of equal versions the first in the search path, the
+    bundles of one directory in byte order of their names, never in the order
+    the directory lists them. The add, --pin-files and plugin-qualify's sync
+    read the same bundle; make test-bundle-rule holds it (#57, #58).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 08:35:00 +0000
+
 plugin-hostd (0.20.5) unstable; urgency=medium
 
   * The clients read replies and feedback lines by the protocol table, with no
