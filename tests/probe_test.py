@@ -594,6 +594,25 @@ def a_clap_child_runs_under_the_interposer_beside_it():
 
 
 @test
+def the_rt_safety_arm_carries_the_plugins_own_threads_and_what_other_threads_did():
+    """D20: the arm counts the audio thread and the other threads apart, and the threads the plugin started; the
+    document carries both figures and validates, for a CLAP child and an LV2 one (plugin-hostd#63)"""
+    code, doc, _, _, err = run(env={"PROBE_CHILD_ALLOCATIONS": "0", "PROBE_CHILD_OWN_THREADS": "2", "PROBE_CHILD_OTHER_ALLOCATIONS": "5"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    rt = doc["grid"][0]["rtSafety"]
+    check(rt.get("allocations") == 0 and rt.get("ownThreads") == 2
+          and rt.get("otherThreads") == {"allocations": 5, "locks": 1, "syscalls": 2},
+          "the CLAP child's own threads and other-thread figures reach the document: %s" % rt)
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_OWN_THREADS": "1"})
+    check(doc is not None, "no LV2 document: exit %d %s" % (code, err))
+    valid(doc)
+    rt = doc["grid"][0]["rtSafety"]
+    check(rt.get("ownThreads") == 3 and rt.get("otherThreads") == {"allocations": 7, "locks": 1, "syscalls": 2},
+          "the LV2 child's own threads and other-thread figures reach the document: %s" % rt)
+
+
+@test
 def a_bare_clap_child_is_found_on_path_and_runs_under_the_interposer_beside_it():
     code, doc, _, _, err = run(child=os.path.basename(CHILD), env={"PATH": os.path.dirname(CHILD) + ":" + os.environ.get("PATH", ""),
                                                                    "PROBE_CHILD_ALLOCATIONS": "2"})

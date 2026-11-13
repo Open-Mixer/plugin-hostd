@@ -260,9 +260,11 @@ int main(int argc, char **argv)
            "\"threads\":{\"before\":%d,\"afterFirstInstantiate\":%d,\"afterAllFreed\":%d,\"leaked\":0},"
            "\"rtSafety\":{\"interposer\":%s,\"blocks\":64,\"repeats\":%d,\"swept\":false,\"sweepApplicable\":true,"
            "\"allocationsInRun\":0,\"allocationsMin\":0,\"variable\":false,\"locksInRun\":0,\"locksMin\":0,"
-           "\"syscallsInRun\":0,\"syscallsMin\":0,\"events\":[]",
+           "\"syscallsInRun\":0,\"syscallsMin\":0,\"events\":[]%s",
            uri, rate, block, cycles, instantiated, cycles - instantiated, before, after_first, threads(),
-           getenv("LD_PRELOAD") && strstr(getenv("LD_PRELOAD"), "rt_interpose.so") ? "true" : "false", repeats);
+           getenv("LD_PRELOAD") && strstr(getenv("LD_PRELOAD"), "rt_interpose.so") ? "true" : "false", repeats,
+           /* the threads the plugin started and what other threads did while the audio thread was armed (D20) */
+           getenv("PROBE_CHILD_OWN_THREADS") ? ",\"ownThreads\":3,\"otherThreads\":{\"allocationsInRun\":7,\"locksInRun\":1,\"syscallsInRun\":2}" : "");
     if (getenv("PROBE_CHILD_NOTE_ALLOCATIONS"))
         printf(",\"noteSweep\":{\"applicable\":true,\"dialect\":\"midi\",\"blocks\":64,\"blockFrames\":%u,\"noteEvents\":768,"
                "\"processErrors\":0,\"nonFinite\":false,\"interposer\":true,\"allocationsInRun\":%ld,\"locksInRun\":0,"
