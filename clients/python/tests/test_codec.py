@@ -87,6 +87,50 @@ class Replies(unittest.TestCase):
             self.assertIn(word, words)
 
 
+class Constants(unittest.TestCase):
+    """plugin-hostd-protocol#24 and #23 (D22, D23): a client compares what it decoded against the owner's names, never a
+    literal it writes, and asks a refusal's transient of the code, never a list of names it keeps."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = Protocol()
+        with open(cls.protocol.table_path) as f:
+            cls.table = json.load(f)
+
+    def test_every_declared_verb_has_its_constant_and_every_constant_is_a_declared_verb(self):
+        declared = {c["verb"] for c in self.table["commands"]} | {f["line"] for f in self.table["feedback"]}
+        self.assertIn("output_set", declared)
+        for verb in declared:
+            self.assertEqual(getattr(self.protocol.verb, verb), verb)
+        self.assertEqual(set(self.protocol.verb), declared)
+        with self.assertRaises(AttributeError):
+            self.protocol.verb.no_such_verb
+
+    def test_every_reply_code_has_its_constant_and_every_constant_names_a_declared_code(self):
+        declared = {r["code"] for r in self.table["reply_codes"]}
+        for code in declared:
+            self.assertEqual(getattr(self.protocol.code, code.rsplit(".", 1)[1].replace("-", "_")), code)
+        self.assertEqual({getattr(self.protocol.code, n) for n in self.protocol.code}, declared)
+        self.assertEqual(self.protocol.code.worker_spawn, "reply.plugin-hostd.worker-spawn")
+        with self.assertRaises(AttributeError):
+            self.protocol.code.no_such_code
+        # the code's number by its name, as before
+        self.assertEqual(self.protocol.code("reply.plugin-hostd.worker-spawn"), -503)
+
+    def test_a_code_declared_transient_reads_transient_and_one_not_declared_so_does_not(self):
+        rows = self.table["reply_codes"]
+        self.assertTrue(any(r.get("transient") is True for r in rows), "the table declares a transient code")
+        for r in rows:
+            want = r.get("transient") is True
+            self.assertIs(self.protocol.transient(r["resp"]), want, r["code"])
+            self.assertIs(self.protocol.transient(r["code"]), want, r["code"])
+        self.assertTrue(self.protocol.transient(self.protocol.code.worker_spawn))
+        self.assertFalse(self.protocol.transient(self.protocol.code.pin_refused))
+        self.assertFalse(self.protocol.transient(self.protocol.code.descriptor_absent))
+        with self.assertRaises(ProtocolError):
+            self.protocol.transient(-99999)
+
+
 class Numbers(unittest.TestCase):
     def test_a_number_that_is_not_finite_or_a_boolean_is_refused(self):
         p = Protocol()
