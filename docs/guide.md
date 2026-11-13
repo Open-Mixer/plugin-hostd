@@ -218,6 +218,7 @@ without the file.
 <!-- BEGIN GENERATED protocol:constants -->
 | name | value | meaning |
 |---|---|---|
+| `protocol_version` | 1 version | the protocol version hello sends and answers on the socket; the table's version key is the same number |
 | `default_command_port` | 5555 port | the command port without -p; the feedback port is the next one, unless -n is given |
 | `connect_retry_ms` | 5000 ms | how long the idle tick asks again for a connect a respawned worker could not make yet |
 | `line_max` | 4096 bytes | the protocol socket's buffer: the longest pin_set line the daemon takes |
@@ -360,6 +361,7 @@ stays held at the controller. omx-clap-host writes these lines from FreeMixer/om
 | verb | arguments | reply | meaning |
 |---|---|---|---|
 | `track_info` | `<instance> <name> <#RRGGBB \| -> [bus \| return \| master]` | `resp 0` | the strip's name ("" for none), colour and kind, absent for an input channel; a worker whose plugin format has a track-info extension passes them on; any other word is -902, and so is a name of 256 bytes or more, one that is not UTF-8 as RFC 3629 spells it (an overlong form, a surrogate, a code point past U+10FFFF, a lead byte without its tails) or one that holds a control character of Unicode's class Cc: U+0000 to U+001F, U+007F or U+0080 to U+009F |
+| `node_label` | `<instance> [<label word> ...]` | `resp 0` | label the node for graph clients: the worker that holds the instance sets its pretty-name to the labelled form of PHD_NODE_METADATA, the label the words joined by one space; no words clears it, back to the plain form. -545 for a label over PHD_NODE_LABEL_MAX bytes or not UTF-8; the ledger keeps the latest, so a respawned worker is labelled again (plugin-hostd#35) |
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
 | `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
@@ -372,7 +374,7 @@ stays held at the controller. omx-clap-host writes these lines from FreeMixer/om
 | `show_external_ui` | `<instance>` | `resp 0` | put the plugin's own window on the display, as jalv and mod-host show one: the worker that holds the instance answers, and its resp comes back as it wrote it (omx-clap-host: -404 and a hosting.window code when no window shows); -902 for an instance whose worker has no window (mod-host's), and -902 hosting.window.no-display from a daemon with no display session. The ledger keeps the latest of this verb and hide_external_ui as one setting: a window shown is shown again after a respawn, after the state |
 | `hide_external_ui` | `<instance>` | `resp 0` | take the plugin's own window off the display, kept for the next show_external_ui; answered as show_external_ui is, resp 0 also when no window is shown; in the ledger it takes back the show, so a respawn shows nothing |
 
-The ledger keeps the latest `track_info`, `show_external_ui`, `hide_external_ui` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
+The ledger keeps the latest `track_info`, `node_label`, `show_external_ui`, `hide_external_ui` of an instance and replays it after the add; the others are never replayed. A `<scale>` is `linear` (the value is linear in position), `log` (the value is geometric in position; both bounds are positive), `stepped` (the whole numbers from min to max, step 1). A string word is at most 255 bytes of UTF-8 with no control character.
 <!-- END GENERATED protocol:instance-verbs -->
 
 What each host profile owes every verb a controller sends: mod-host's commands, the two that Zynthian's mod-ui still
@@ -466,6 +468,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `history_get` | daemon | required | required | required | required |
 | `history_clear` | daemon | required | required | required | required |
 | `estimate` | daemon | required | required | required | required |
+| `node_label` | daemon | absent | optional | optional | optional |
 
 The profiles: `lv2-worker`, an LV2 plugin's worker: mod-host, or omx-clap-host's LV2 adapter; `clap-worker`, a CLAP plugin's worker, omx-clap-host; `console`, the openmixer console as a controller of the daemon; `zynthian`, Zynthian's mod-ui and its plugind engine as a controller of the daemon. `required` is answered as its grammar says; `optional` is answered, or refused with -902, and never misread; `absent` is refused on purpose, and no client of the profile may need it.
 <!-- END GENERATED protocol:host-verbs -->
@@ -519,6 +522,7 @@ Error codes the daemon adds to mod-host's:
 | `-541` | `OMX_REPLY_PLUGIN_HOSTD_WRITER_QUEUE_FULL_RESP` | the daemon's writer queue holds its most writes or bytes: the write the verb needs is refused and nothing of the verb changed; the controller may send it again |
 | `-542` | `OMX_REPLY_PLUGIN_HOSTD_CURVE_VALUE_NOT_FINITE_RESP` | curve_points of a binding whose value, as the instance holds it, is not finite, or of an instance that runs at no rate: no curve is drawn |
 | `-543` | `OMX_REPLY_PLUGIN_HOSTD_OUTPUT_NOT_MONITORED_RESP` | monitor_output_off of an output this connection did not monitor: a monitor ends with the connection that set it, and only that connection ends it earlier |
+| `-545` | `OMX_REPLY_PLUGIN_HOSTD_LABEL_INVALID_RESP` | node_label of a label longer than PHD_NODE_LABEL_MAX bytes or not UTF-8: the node keeps the label it had |
 <!-- END GENERATED protocol:errors -->
 
 A worker's own refusal is returned as it said it. An `add` that killed its worker answers mod-host's `-102`.

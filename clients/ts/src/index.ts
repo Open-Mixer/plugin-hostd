@@ -27,10 +27,20 @@ export interface Decoded {
   readonly args: Arg[];
 }
 
+/**
+ * A word read as its declared type (plugin-hostd-protocol's arg_types): a number for the numeric leaf types, null for
+ * a figure the daemon has none for, a list, a record of named fields, or the word itself.
+ */
+export type Value = string | number | null | Value[] | { [name: string]: Value };
+
 export type Reply =
   | { readonly kind: 'resp'; readonly tag?: string; readonly seq?: number; readonly code: number; readonly name?: string; readonly data: string[] }
   | { readonly kind: 'protocol_error'; readonly tag?: string; readonly seq?: number; readonly code: number; readonly name: string }
-  | { readonly kind: 'feedback'; readonly tag?: string; readonly seq?: number; readonly line: string; readonly args: Arg[] };
+  | {
+      readonly kind: 'feedback'; readonly tag?: string; readonly seq?: number; readonly line: string; readonly args: (Arg | Value)[];
+      /** A plugin-hostd line's arguments by the names its declared form gives them. */
+      readonly fields?: { [name: string]: Value };
+    };
 
 /** What plan answers: the segments in signal order, and the audio core of each member's worker (null: not pinned). */
 export interface Plan {
@@ -236,9 +246,26 @@ interface Form {
   readonly tail?: boolean;
 }
 
+interface ArgType {
+  readonly pattern: string;
+  readonly rest: boolean;
+  readonly items?: { readonly type: string; readonly separator: string; readonly none: string };
+  readonly fields?: { readonly separator: string; readonly args: readonly string[]; readonly names: readonly string[] };
+}
+
+interface NamedForm {
+  readonly args: readonly string[];
+  readonly names: readonly string[];
+  readonly repeat?: boolean;
+  readonly resp?: '0' | 'count';
+}
+
 interface Table {
-  readonly commands: readonly { readonly verb: string; readonly forms: readonly Form[] }[];
-  readonly feedback: readonly { readonly line: string; readonly args: readonly string[] | null; readonly tail?: boolean }[];
+  readonly commands: readonly { readonly verb: string; readonly forms: readonly Form[]; readonly reply_forms?: readonly NamedForm[] }[];
+  readonly feedback: readonly {
+    readonly line: string; readonly args: readonly string[] | null; readonly tail?: boolean; readonly forms?: readonly NamedForm[];
+  }[];
+  readonly arg_types?: { readonly [name: string]: ArgType };
   readonly protocol_errors: readonly { readonly name: string; readonly code: number; readonly message: string }[];
   readonly reply_codes: readonly { readonly resp: number; readonly code: string }[];
 }
@@ -252,6 +279,10 @@ export interface ProtocolOptions {
   readonly datadir?: string;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+}
+
 /** A figure or a list the daemon has none for. */
 const NONE = '-';
 /**
@@ -260,29 +291,17 @@ const NONE = '-';
  */
 export const RETRY_REASONS: readonly string[] = ['no-verdict', 'plan-refused'];
 
-function count(word: string): number {
-  if (!INT.test(word) || word.startsWith('-') || Number(word) > Number.MAX_SAFE_INTEGER) {
-    throw new ProtocolError(`${word} is not a count`);
+/**
+ * A plan's cores in its segments' shape: each member's core, null for one that is not pinned, and for every member
+ * when the daemon answers no cores; ProtocolError when the shapes differ.
+ */
+function coresOf(cores: Value | undefined, segments: number[][]): (number | null)[][] {
+  if (cores === undefined) return segments.map((s) => s.map(() => null));
+  const c = cores as (number | null)[][];
+  if (c.length !== segments.length || c.some((x, i) => x.length !== segments[i]!.length)) {
+    throw new ProtocolError(`the cores ${JSON.stringify(cores)} are not the shape of the segments`);
   }
-  return Number(word);
-}
-
-function countOrNone(word: string): number | null {
-  return word === NONE ? null : count(word);
-}
-
-/** '1,2;3' as [[1, 2], [3]]. */
-function segmentsOf(word: string): number[][] {
-  return word.split(';').map((segment) => segment.split(',').map(count));
-}
-
-function coresOf(word: string | undefined, segments: number[][]): (number | null)[][] {
-  if (word === undefined) return segments.map((s) => s.map(() => null));
-  const cores = word.split(';').map((segment) => segment.split(',').map(countOrNone));
-  if (cores.length !== segments.length || cores.some((c, i) => c.length !== segments[i]!.length)) {
-    throw new ProtocolError(`the cores ${word} are not the shape of the segments`);
-  }
-  return cores;
+  return c;
 }
 
 /** The two halves of a word at its first colon. */
@@ -294,7 +313,8 @@ function atColon(item: string): [string, string] {
 /** plugin-hostd's protocol as its installed files declare it. */
 export class Protocol {
   readonly tablePath: string;
-  private readonly commands: Map<string, { readonly forms: readonly Form[] }>;
+  private readonly commands: Map<string, { readonly forms: readonly Form[]; readonly reply_forms?: readonly NamedForm[] }>;
+  private readonly types: { readonly [name: string]: ArgType };
   private readonly feedback: Map<string, Table['feedback'][number]>;
   private readonly protocolErrors: Map<string, Table['protocol_errors'][number]>;
   private readonly names: Map<number, string>;
@@ -314,6 +334,9 @@ export class Protocol {
     this.commands = new Map(t.commands.map((c) => [c.verb, c]));
     this.feedback = new Map(t.feedback.map((f) => [f.line, f]));
     this.protocolErrors = new Map(t.protocol_errors.map((e) => [e.message, e]));
+    // the types of the named arguments of feedback lines and replies (plugin-hostd-protocol 0.5.6 and 0.5.7): a leaf a
+    // pattern, a list its items and separator, a record its fields; a table before 0.5.6 has none
+    this.types = t.arg_types ?? {};
     this.names = new Map(t.reply_codes.map((r) => [r.resp, r.code]));
     this.codes = new Map(t.reply_codes.map((r) => [r.code, r.resp]));
     const env = process.env['OMX_CONTRACT_PATH'];
@@ -445,6 +468,21 @@ export class Protocol {
     const error = this.protocolErrors.get(w.join(' '));
     if (error) return { kind: 'protocol_error', ...head, code: error.code, name: error.name };
     const fb = this.feedback.get(w[0]!);
+    if (fb && fb.forms && fb.forms.length && fb.forms.every((f) => f.names)) {
+      // a line of plugin-hostd's own: of its declared forms, the one with the most arguments its words fit first
+      // (instance_verb_dropped's suspect form before the one whose command takes the rest), each word its type
+      let why: unknown;
+      for (const form of [...fb.forms].sort((a, b) => b.args.length - a.args.length)) {
+        try {
+          const fields = this.readForm(form, w.slice(1));
+          return { kind: 'feedback', ...head, line: w[0]!, args: Object.values(fields), fields };
+        } catch (e) {
+          if (!(e instanceof ProtocolError)) throw e;
+          why = e;
+        }
+      }
+      throw new ProtocolError(`no form of ${w[0]} reads ${line}: ${(why as Error).message}`);
+    }
     if (fb) {
       const rest = w.slice(1);
       let args: Arg[] = rest;
@@ -459,76 +497,163 @@ export class Protocol {
     throw new ProtocolError(`no reply the protocol declares: ${line}`);
   }
 
-  // ---- the replies with a shape of their own
+  // ---- words of a declared type (plugin-hostd-protocol's arg_types)
 
-  /**
-   * What plan answers after resp 0, as words: the segments in signal order, each the instances that share a worker,
-   * and the cores, the same shape with the audio core of each member's worker (null for one that is not pinned, and
-   * for every member when the daemon answers no cores).
-   */
-  readPlan(data: readonly string[]): Plan {
-    if (data.length !== 1 && data.length !== 2) {
-      throw new ProtocolError(`a plan is its segments and its cores: ${data.join(' ')}`);
+  private patternOf(kind: string): string {
+    const t = this.types[kind];
+    return t ? t.pattern : kind.split('|').map(escapeRegExp).join('|');
+  }
+
+  private leaf(kind: string, word: string): Value {
+    if ((kind === 'core' || kind === 'amount') && word === NONE) return null;
+    if (kind === 'int' || kind === 'uint' || kind === 'core' || kind === 'amount') {
+      const n = Number(word);
+      if (!Number.isSafeInteger(n)) throw new ProtocolError(`${word} is past the counts both clients read alike`);
+      return n;
     }
-    const segments = segmentsOf(data[0]!);
-    return { segments, cores: coresOf(data[1], segments) };
+    if (kind === 'hex') return parseInt(word, 16);
+    if (kind === 'number' || kind === 'float') {
+      const v = Number(word);
+      if (!Number.isFinite(v)) throw new ProtocolError(`${word} is not a finite number`);
+      return v;
+    }
+    return word;
   }
 
   /**
-   * What plan_get answers after resp 0, as words: the plan as readPlan gives it and, between the segments and the
-   * cores, the members that have a reason, in the daemon's order.
+   * One word as its declared type: a leaf by its pattern, a list as a list (one of its none words an empty one), a
+   * record as {field: value}, its fields found by the record's own pattern, so a field may hold the separator; literal
+   * words a|b as the word. ProtocolError when the word is not of the type.
+   */
+  readWord(kind: string, word: string): Value {
+    const t = this.types[kind];
+    if (!t) {
+      if (kind === 'int' || kind === 'float' || kind === 'word') return this.value(kind, word);
+      if (kind.split('|').includes(word)) return word;
+      throw new ProtocolError(`${word} is not one of ${kind}`);
+    }
+    if (t.items) {
+      const items = t.items;
+      if (items.none && items.none.split('|').includes(word)) return [];
+      return word.split(items.separator).map((w) => this.readWord(items.type, w));
+    }
+    if (t.fields) {
+      const f = t.fields;
+      const whole = new RegExp(`^${f.args.map((k) => `(${this.patternOf(k)})`).join(escapeRegExp(f.separator))}$`, 's');
+      const m = whole.exec(word);
+      if (!m) throw new ProtocolError(`${word} is not a ${kind}`);
+      const out: { [name: string]: Value } = {};
+      f.names.forEach((n, i) => { out[n] = this.readWord(f.args[i]!, m[i + 1]!); });
+      return out;
+    }
+    if (!new RegExp(`^(?:${t.pattern})$`, 's').test(word)) throw new ProtocolError(`${word} is not a ${kind}`);
+    return this.leaf(kind, word);
+  }
+
+  private readForm(form: NamedForm, given: readonly string[], code?: number): { [name: string]: Value } {
+    const { args, names } = form;
+    let ws = [...given];
+    if (args.length && this.types[args[args.length - 1]!]?.rest) {
+      if (ws.length < args.length - 1) throw new ProtocolError(`${ws.length} words, ${args.length} wanted`);
+      ws = [...ws.slice(0, args.length - 1), ws.slice(args.length - 1).join(' ')];
+    }
+    let head: string[];
+    let rest: string[] = [];
+    if (form.repeat) {
+      head = ws.slice(0, args.length - 1);
+      rest = ws.slice(args.length - 1);
+      if (head.length !== args.length - 1) throw new ProtocolError(`${ws.length} words, at least ${args.length - 1} wanted`);
+      if (form.resp === 'count' && code !== undefined && code !== rest.length) {
+        throw new ProtocolError(`resp ${code} counts ${code} words, and ${rest.length} follow`);
+      }
+    } else {
+      if (ws.length !== args.length) throw new ProtocolError(`${ws.length} words, ${args.length} wanted`);
+      head = ws;
+    }
+    const out: { [name: string]: Value } = {};
+    head.forEach((w, i) => { out[names[i]!] = this.readWord(args[i]!, w); });
+    if (form.repeat) out[names[names.length - 1]!] = rest.map((w) => this.readWord(args[args.length - 1]!, w));
+    return out;
+  }
+
+  /**
+   * A reply's words after resp <code>, by the reply_form with the most arguments they fit: {name: value}, each word as
+   * its declared type (readWord). code: resp's number, which a count reply is held to. ProtocolError for a verb with no
+   * typed reply, or words no form takes.
+   */
+  readReply(verb: string, data: readonly string[], code?: number): { [name: string]: Value } {
+    const forms = this.commands.get(verb)?.reply_forms;
+    if (!forms || !forms.length) throw new ProtocolError(`the protocol types no reply of ${verb}`);
+    let why: unknown;
+    for (const form of [...forms].sort((a, b) => b.args.length - a.args.length)) {
+      try {
+        return this.readForm(form, data, code);
+      } catch (e) {
+        if (!(e instanceof ProtocolError)) throw e;
+        why = e;
+      }
+    }
+    throw new ProtocolError(`no reply form of ${verb} reads ${data.join(' ')}: ${(why as Error).message}`);
+  }
+
+  // ---- the replies with a shape of their own
+
+  /**
+   * What plan answers after resp 0, as words, read by the table's reply_forms: the segments in signal order, each the
+   * instances that share a worker, and the cores, the same shape with the audio core of each member's worker (null for
+   * one that is not pinned, and for every member when the daemon answers no cores).
+   */
+  readPlan(data: readonly string[]): Plan {
+    const r = this.readReply('plan', data);
+    const segments = r['segments'] as number[][];
+    return { segments, cores: coresOf(r['cores'], segments) };
+  }
+
+  /**
+   * What plan_get answers after resp 0, as words, read by the table's reply_forms: the plan as readPlan gives it and,
+   * between the segments and the cores, the members that have a reason, in the daemon's order.
    */
   readPlanGet(data: readonly string[]): PlanRead {
-    if (data.length !== 2 && data.length !== 3) {
-      throw new ProtocolError(`a plan read back is its segments, its reasons and its cores: ${data.join(' ')}`);
-    }
-    const segments = segmentsOf(data[0]!);
-    const reasons = (data[1] === NONE ? [] : data[1]!.split(',')).map((item): PlanReason => {
-      const [instance, reason] = atColon(item);
-      if (!reason) throw new ProtocolError(`${item} is not <instance>:<reason>`);
-      const [word, detail] = atColon(reason);
+    const r = this.readReply('plan_get', data);
+    const segments = r['segments'] as number[][];
+    const reasons = (r['reasons'] as { instance: number; reason: string }[]).map((item): PlanReason => {
+      const [word, detail] = atColon(item.reason);
       const code = INT.test(detail) ? Number(detail) : null;
       return {
-        instance: count(instance),
-        reason,
+        instance: item.instance,
+        reason: item.reason,
         word,
         code,
         name: code === null ? null : (this.names.get(code) ?? null),
         retry: RETRY_REASONS.includes(word),
       };
     });
-    return { segments, reasons, cores: coresOf(data[2], segments) };
+    return { segments, reasons, cores: coresOf(r['cores'], segments) };
   }
 
   /**
-   * What estimate answers after resp 0, as words; null for a figure the daemon does not have (-), and for the four
-   * memory figures a daemon that answers six words leaves out. members: the members no figure could be read for,
-   * counted from 0 in the order they were asked, each with the reply code that says why and its name.
+   * What estimate answers after resp 0, as words, read by the table's reply_forms; null for a figure the daemon does
+   * not have (-), and for the four memory figures a daemon that answers six words leaves out. members: the members no
+   * figure could be read for, counted from 0 in the order they were asked, each with the reply code that says why and
+   * its name.
    */
   readEstimate(data: readonly string[]): Estimate {
-    if (data.length !== 6 && data.length !== 10) {
-      throw new ProtocolError(`an estimate is six figures, or ten: ${data.join(' ')}`);
-    }
-    const members = (data[5] === NONE ? [] : data[5]!.split(',')).map((item) => {
-      const [member, code] = atColon(item);
-      if (!INT.test(code)) throw new ProtocolError(`${item} is not <member>:<code>`);
-      return { member: count(member), code: Number(code), name: this.names.get(Number(code)) ?? null };
-    });
-    if (!FLOAT.test(data[1]!) || !Number.isFinite(Number(data[1]))) {
-      throw new ProtocolError(`${data[1]} is not a finite number`);
-    }
-    const more = (k: number): number | null => (data.length === 10 ? countOrNone(data[6 + k]!) : null);
+    const r = this.readReply('estimate', data);
+    const n = (k: string): number | null => (r[k] === undefined ? null : (r[k] as number | null));
+    const members = (r['unknown'] as { position: number; code: number }[]).map((u) => ({
+      member: u.position, code: u.code, name: this.names.get(u.code) ?? null,
+    }));
     return {
-      latency_frames: count(data[0]!),
-      cpu_percent: Number(data[1]),
-      ram_bytes: countOrNone(data[2]!),
-      workers: count(data[3]!),
-      unknown_count: count(data[4]!),
+      latency_frames: r['latency_frames'] as number,
+      cpu_percent: r['cpu_percent'] as number,
+      ram_bytes: n('ram_bytes'),
+      workers: r['workers'] as number,
+      unknown_count: r['unknown_count'] as number,
       members,
-      ram_used_bytes: more(0),
-      ram_added_bytes: more(1),
-      ram_budget_bytes: more(2),
-      ram_unknown_count: more(3),
+      ram_used_bytes: n('ram_used_bytes'),
+      ram_added_bytes: n('ram_added_bytes'),
+      ram_budget_bytes: n('ram_budget_bytes'),
+      ram_unknown_count: n('ram_unknown_count'),
     };
   }
 

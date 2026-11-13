@@ -109,6 +109,26 @@
     {"op": "read_estimate", "in": ["192", "24.00", "-", "2", "1", "1:x"], "error": true},
     {"op": "read_estimate", "in": ["192", "24.00", "-", "2", "1", "-1:-544"], "error": true},
     {"op": "read_estimate", "in": ["192", "24.00", "-", "2", "1", "1"], "error": true},
-    {"op": "read_estimate", "in": ["192", "24.00", "1.5", "2", "1", "-"], "error": true}
+    {"op": "read_estimate", "in": ["192", "24.00", "1.5", "2", "1", "-"], "error": true},
+    {"op": "read_reply", "in": ["worker_list", ["w1:4242:clap:up:-:qualified:pool:fx#2:7,8!", "w2:4243:lv2:backoff:-:on:chain:4.1:-"], 2], "expect": {"workers": [{"worker": "w1", "pid": 4242, "format": "clap", "state": "up", "core": "-", "pool": "qualified", "place": "pool:fx#2", "instances": ["7", "8!"]}, {"worker": "w2", "pid": 4243, "format": "lv2", "state": "backoff", "core": "-", "pool": "on", "place": "chain:4.1", "instances": []}]}},
+    {"op": "read_reply", "in": ["worker_list", [], 0], "expect": {"workers": []}},
+    {"op": "read_reply", "in": ["instance_info", ["w3", "4242", "given-up", "2", "1"], 0], "expect": {"worker": "w3", "pid": 4242, "state": "given-up", "crashes": 2, "quarantined": 1}},
+    {"op": "read_reply", "in": ["plan_get", ["7,8;9", "7:budget,9:plan-refused:-501", "-,-;-"], 0], "expect": {"segments": [[7, 8], [9]], "reasons": [{"instance": 7, "reason": "budget"}, {"instance": 9, "reason": "plan-refused:-501"}], "cores": [[null, null], [null]]}},
+    {"op": "read_reply", "in": ["plan", ["7,8;9", "2,-;3"], 0], "expect": {"segments": [[7, 8], [9]], "cores": [[2, null], [3]]}},
+    {"op": "read_reply", "in": ["chain_get", ["-", "7,8", "-"], 0], "expect": {"worker": "-", "members": [7, 8], "running": []}},
+    {"op": "read_reply", "in": ["estimate", ["128", "12.5", "-", "2", "1", "0:-701"], 0], "expect": {"latency_frames": 128, "cpu_percent": 12.5, "workers": 2, "unknown_count": 1, "unknown": [{"position": 0, "code": -701}]}},
+    {"op": "read_reply", "in": ["estimate", ["128", "12.5", "4096", "2", "0", "-", "8192", "1024", "-", "1"], 0], "expect": {"latency_frames": 128, "cpu_percent": 12.5, "ram_bytes": 4096, "workers": 2, "unknown_count": 0, "unknown": [], "ram_used_bytes": 8192, "ram_added_bytes": 1024, "ram_unknown_count": 1}},
+    {"op": "read_reply", "in": ["curve_points", ["2", "20,-0.5", "1000,0"], 0], "expect": {"count": 2, "points": [{"x": 20, "y": -0.5}, {"x": 1000, "y": 0}]}},
+    {"op": "read_reply", "in": ["hello", ["1", "tags", "errors"], 0], "expect": {"version": 1, "extensions": ["tags", "errors"]}},
+    {"op": "read_reply", "in": ["pin_layout", ["sha256:abababababababababababababababababababababababababababababababab"], 0], "expect": {"layout": {"scheme": "sha256", "sha256": "abababababababababababababababababababababababababababababababab"}}},
+    {"op": "read_reply", "in": ["worker_list", ["w1:4242:clap:up:-:qualified:own"], 1], "error": true},
+    {"op": "read_reply", "in": ["worker_list", ["w1:4242:clap:up:-:qualified:own:7"], 3], "error": true},
+    {"op": "read_reply", "in": ["instance_info", ["w3", "4242", "sleeping", "2", "1"], 0], "error": true},
+    {"op": "read_reply", "in": ["plan_get", ["7,x;9", "-", "-"], 0], "error": true},
+    {"op": "read_reply", "in": ["no_such_verb", ["1"], 0], "error": true},
+    {"op": "parse", "in": "worker_died w3 4242 signal:11 3,4", "expect": {"kind": "feedback", "line": "worker_died", "args": ["w3", 4242, "signal:11", "3,4"], "fields": {"worker": "w3", "pid": 4242, "status": "signal:11", "instances": "3,4"}}},
+    {"op": "parse", "in": "instance_verb_dropped 3 suspect:12 preset_load 3 warm", "expect": {"kind": "feedback", "line": "instance_verb_dropped", "args": [3, "suspect:12", "preset_load 3 warm"], "fields": {"instance": 3, "suspect": "suspect:12", "command": "preset_load 3 warm"}}},
+    {"op": "parse", "in": "param_gesture 7 gain begin", "expect": {"kind": "feedback", "line": "param_gesture", "args": [7, "gain", "begin"], "fields": {"instance": 7, "symbol": "gain", "gesture": "begin"}}},
+    {"op": "parse", "in": "worker_died 3 4242 signal:11 3,4", "error": true}
   ]
 }

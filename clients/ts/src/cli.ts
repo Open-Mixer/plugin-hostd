@@ -20,6 +20,10 @@ export function answer(protocol: Protocol, op: string, arg: unknown): unknown {
       return protocol.reencode(arg as string);
     case 'parse':
       return protocol.parse(arg as string);
+    case 'read_reply': {
+      const [verb, data, code] = arg as [string, string[], number?];
+      return protocol.readReply(verb, data, code);
+    }
     case 'read_plan':
       return protocol.readPlan(arg as string[]);
     case 'read_plan_get':

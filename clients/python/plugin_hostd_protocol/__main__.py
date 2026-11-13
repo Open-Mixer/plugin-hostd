@@ -24,6 +24,8 @@ def answer(protocol, op, arg):
         return protocol.read_plan_get(arg)
     if op == "read_estimate":
         return protocol.read_estimate(arg)
+    if op == "read_reply":
+        return protocol.read_reply(*arg)
     if op == "code":
         return protocol.code(arg)
     if op == "name":
