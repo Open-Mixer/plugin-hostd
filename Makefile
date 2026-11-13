@@ -579,6 +579,25 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios test
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 
+# a preset an instance saved loads back after a factory patch of Surge XT (#27), through the daemon and a real
+# omx-clap-host (OMX_CLAP_HOST, default the installed one) over jack in a PipeWire of its own. Surge XT is the
+# distribution's (clap-surge-xt and surge-xt on Fedora): a Surge XT that is not installed stops the run, never a skip.
+# The patch names its macros ("Sync"), so loading it renames the plugin's parameters: a patch whose macros are all
+# unnamed (Attacky's) renames nothing and the test could not see #27. SURGE_CLAP and SURGE_FACTORY_PATCH name another
+# install's files.
+SURGE_CLAP ?= /usr/lib64/clap/Surge_XT.clap
+SURGE_FACTORY_PATCH ?= /usr/share/surge-xt/patches_factory/Basses/Squared.fxp
+OMX_CLAP_HOST ?= $(shell command -v omx-clap-host)
+
+.PHONY: test-preset-identity
+test-preset-identity: $(PROG) plugin-hostd-probe tests/stress.clap tests/jack_levels
+	@for f in "$(SURGE_CLAP)" "$(SURGE_FACTORY_PATCH)" "$(OMX_CLAP_HOST)"; do \
+	    [ -e "$$f" ] || { echo "test-preset-identity: missing '$$f' (Surge XT: clap-surge-xt and surge-xt; omx-clap-host)" >&2; exit 2; }; \
+	done
+	JACK_E2E_PY=preset_identity_e2e.py JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=$(abspath $(PROG)) OMX_CLAP_HOST=$(OMX_CLAP_HOST) \
+	SURGE_CLAP=$(SURGE_CLAP) SURGE_FACTORY_PATCH=$(SURGE_FACTORY_PATCH) PATH=$(abspath .):$$PATH \
+	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
+
 # the protocol clients (docs/clients.md): each client's own tests on clients/fixtures/codec.json, then both held to each
 # other on the fixtures and on plugin-hostd-protocol's host scenarios, and that comparison's self-test
 .PHONY: test-clients
