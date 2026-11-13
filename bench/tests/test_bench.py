@@ -1729,6 +1729,14 @@ class PartialResults(unittest.TestCase):
         self.assertEqual([(r["id"], r["rate"]) for r in doc["scenarios"]], [("idle", 48000)])
         self.assertEqual(fake.seen[1], partial, "written before the next cell began, not when the run ended")
 
+    def test_the_next_run_never_takes_the_id_of_a_broken_one(self):
+        out = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", out]))
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(cls="ci", out=out))
+        first = bench.Runner.doc_id(fake)
+        open(os.path.join(out, first + ".json.partial"), "w").close()
+        self.assertNotEqual(bench.Runner.doc_id(fake), first, "a second run would write over the cells the first kept")
+
     def test_a_whole_run_leaves_its_document_and_no_partial(self):
         out = tempfile.mkdtemp()
         self.addCleanup(lambda: subprocess.run(["rm", "-rf", out]))
