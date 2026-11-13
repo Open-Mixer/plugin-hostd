@@ -80,7 +80,7 @@ jobs:
       - name: Install the protocol headers from the OpenMixer channel
         run: |
           set -euo pipefail
-          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" 'plugin-db-devel >= 0.4.0' 'plugin-db-devel < 0.5'
+          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" 'plugin-db-devel >= 0.4.1' 'plugin-db-devel < 0.5'
 
       # fuzz-sabotage applies each mutant with git and restores it with git checkout
       - name: Let git work in the checkout
