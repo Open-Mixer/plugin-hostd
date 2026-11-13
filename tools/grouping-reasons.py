@@ -115,6 +115,12 @@ def self_test():
                                                                          '    GROUPING_OFF = "grouping-off"\n    STRAY = "stray"\n', 1)),
         "a stray constant in the TypeScript client": (TS, lambda t: t.replace("  groupingOff: 'grouping-off',\n",
                                                                               "  groupingOff: 'grouping-off',\n  stray: 'stray',\n", 1)),
+        "a reason without its retry property": (JSON, lambda t: t.replace('"group": "retry",\n        ', "", 1)),
+        "a reason whose retry property the file flips": (JSON, lambda t: t.replace('"group": "final"', '"group": "retry"', 1)),
+        "a hand-edited RETRY_REASONS in the Python client": (PY, lambda t: t.replace(
+            "RETRY_REASONS = (", "RETRY_REASONS = (GroupingReason.REFUSED, ", 1)),
+        "a hand-edited RETRY_REASONS in the TypeScript client": (TS, lambda t: t.replace(
+            "RETRY_REASONS: readonly string[] = [", "RETRY_REASONS: readonly string[] = [GroupingReason.refused, ", 1)),
         "a hand edit of a value": (TS, lambda t: t.replace("'grouping-off'", "'grouping-of'", 1)),
     }
     for what, (path, edit) in plants.items():

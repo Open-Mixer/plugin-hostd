@@ -79,16 +79,17 @@ describe('the replies with a shape of their own', () => {
     });
   });
 
-  it('asks again only for words the daemon declares', () => {
-    const declared = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string }> } };
-    const words = Object.values(declared.PLUGIN_HOSTD_GROUPING_REASONS.words).map((w) => w.word);
-    assert.deepEqual([...RETRY_REASONS], ['no-verdict', 'plan-refused']);
-    for (const word of RETRY_REASONS) assert.ok(words.includes(word), word);
+  it('asks again for exactly the reasons the file declares retry', () => {
+    // RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
+    const declared = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string; group?: string }> } };
+    const retry = Object.values(declared.PLUGIN_HOSTD_GROUPING_REASONS.words).filter((w) => w.group === 'retry').map((w) => w.word);
+    assert.ok(retry.length > 0);
+    assert.deepEqual([...RETRY_REASONS], retry);
   });
 });
 
 describe('the grouping reasons are constants of the reader, written from data/grouping.json (#67)', () => {
-  const file = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string }> } };
+  const file = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string; group?: string }> } };
   const declared = Object.entries(file.PLUGIN_HOSTD_GROUPING_REASONS.words);
 
   it('has a constant for every declared reason, named as the file keys it, with the file\'s value', () => {
@@ -98,6 +99,14 @@ describe('the grouping reasons are constants of the reader, written from data/gr
   it('has no constant that names a reason the file does not declare', () => {
     assert.deepEqual(Object.keys(GroupingReason).sort(), declared.map(([key]) => key).sort());
     assert.deepEqual(Object.values(GroupingReason).sort(), declared.map(([, { word }]) => word).sort());
+  });
+
+  it('has every reason declare its retry property', () => {
+    const all = JSON.parse(readFileSync(GROUPING, 'utf8')) as Record<string, { groups?: string; words: Record<string, { word: string; group?: string }> }>;
+    const groups = Object.values(all.PLUGIN_HOSTD_GROUPING_REASON_GROUPS?.words ?? {}).map((w) => w.word).sort();
+    assert.deepEqual(groups, ['final', 'retry']);
+    assert.equal(all.PLUGIN_HOSTD_GROUPING_REASONS.groups, 'PLUGIN_HOSTD_GROUPING_REASON_GROUPS');
+    for (const [key, row] of declared) assert.ok(row.group !== undefined && groups.includes(row.group), key);
   });
 
   it('spells the two a controller branches on', () => {
