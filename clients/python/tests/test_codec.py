@@ -7,7 +7,7 @@ import math
 import os
 import unittest
 
-from plugin_hostd_protocol import RETRY_REASONS, Protocol, ProtocolError, format_number
+from plugin_hostd_protocol import RETRY_REASONS, GroupingReason, Protocol, ProtocolError, format_number
 from plugin_hostd_protocol.__main__ import answer
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "codec.json")
@@ -85,6 +85,34 @@ class Replies(unittest.TestCase):
         self.assertEqual(RETRY_REASONS, ("no-verdict", "plan-refused"))
         for word in RETRY_REASONS:
             self.assertIn(word, words)
+
+
+class GroupingReasons(unittest.TestCase):
+    """The reasons a plan gives are constants of the reader, written from data/grouping.json (#67)."""
+
+    @staticmethod
+    def declared():
+        with open(GROUPING) as f:
+            return {w["word"] for w in json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].values()}
+
+    @staticmethod
+    def constants():
+        return {k: v for k, v in vars(GroupingReason).items() if not k.startswith("_")}
+
+    def test_every_declared_reason_has_its_constant_with_the_files_value(self):
+        by_value = {v: k for k, v in self.constants().items()}
+        for word in sorted(self.declared()):
+            with self.subTest(word=word):
+                self.assertIn(word, by_value)
+                self.assertEqual(by_value[word], word.upper().replace("-", "_"))
+
+    def test_no_constant_names_a_reason_the_file_does_not_declare(self):
+        self.assertEqual(sorted(set(self.constants().values()) - self.declared()), [])
+        self.assertEqual(len(self.constants()), len(self.declared()))
+
+    def test_the_known_reasons_are_the_files(self):
+        self.assertEqual(GroupingReason.GROUPING_OFF, "grouping-off")
+        self.assertEqual(GroupingReason.PLAN_REFUSED, "plan-refused")
 
 
 class Numbers(unittest.TestCase):
