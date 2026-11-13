@@ -26,7 +26,7 @@ BuildRequires: (plugin-hostd-protocol-devel >= 0.5.7 with plugin-hostd-protocol-
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: (omx-contract-devel >= 3.12.0 with omx-contract-devel < 4)
+BuildRequires: (omx-contract-devel >= 3.18.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.7 with plugin-hostd-protocol%{?_isa} < 0.6)
@@ -41,7 +41,7 @@ BuildRequires: (omx-clap-host-tests >= 0.32.3 with omx-clap-host-tests < 0.33)
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
+BuildRequires: (omx-contract >= 3.18.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: (plugin-hostd-protocol-contract >= 0.5.7 with plugin-hostd-protocol-contract < 0.6)

@@ -467,7 +467,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
+        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
+        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -544,7 +545,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
+        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
+        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     # nothing but the distribution: a dependency the package forgot to declare is missing here
     defaults:
@@ -642,7 +644,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
+        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
+        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
