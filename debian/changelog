@@ -1,5 +1,9 @@
 plugin-hostd (0.20.7) unstable; urgency=medium
 
+  * Built and run against the 3.18.0 pass's releases, every floor at the
+    chain line's needs with its ceiling: omx-contract >= 3.18.0 and below 4,
+    plugin-hostd-protocol >= 0.5.9 and below 0.6, omx-clap-host and
+    omx-clap-core >= 0.32.5 and below 0.33, plugin-db >= 0.4.4 and below 0.5.
   * Every child the daemon starts that runs plugin code runs confined: a
     daemon worker, the descriptor scan and the probe runner's child, by one
     proc_confine (src/confine.c): no_new_privs, no descriptor of its parent's
