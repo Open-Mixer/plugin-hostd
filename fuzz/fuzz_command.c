@@ -242,9 +242,10 @@ __attribute__((noinline)) static void check_reply_answer(const struct words *w)
         return;
     }
     /* no call answered: the reply is one the daemon makes itself, a refusal or the reply of quit, which check_reply
-     * holds to "resp <code>" of a declared code and to "resp 0"
+     * holds to "resp <code>" of a declared code and to "resp 0". Whether the message is quit the harness reads from the
+     * message's own words, never from the daemon's verb_is, which is what it checks
      * record: reply-answer-self-made */
-    if (sup_reply_code(g_rec.reply) >= 0 && !(w->n == 1 && verb_is(w->w[0], QUIT)))
+    if (sup_reply_code(g_rec.reply) >= 0 && !(w->n == 1 && !strcmp(w->w[0], QUIT)))
         abort();
 }
 
@@ -498,6 +499,72 @@ __attribute__((noinline)) static void check_words_pin_set(const struct rec_call 
         abort();
 }
 
+/* the call each verb of the daemon's own makes, as the harness reads the verb, apart from the daemon's choice: the call
+ * the verb names, and a call it may make after it (add's scan of the uri); remove is check_verb_call's own, its call
+ * told by its number */
+static const struct {
+    const char *verb;
+    int fn, also;
+} g_verb_call[] = {
+    { PHD_VERB_ADD, REC_ADD, REC_DESCRIPTORS_ADD },
+    { OMX_VERB_DESCRIPTOR_GET, REC_DESCRIPTORS_GET, -1 },
+    { OMX_VERB_PANEL_GET, REC_DESCRIPTORS_PANEL_GET, -1 },
+    { OMX_VERB_WORKER_LIST, REC_WORKER_LIST, -1 },
+    { OMX_VERB_INSTANCE_INFO, REC_INSTANCE_INFO, -1 },
+    { OMX_VERB_SUPERVISOR_RESET, REC_RESET, -1 },
+    { OMX_VERB_QUARANTINE_CLEAR, REC_QUARANTINE_CLEAR, -1 },
+    { OMX_VERB_POLICY_SET, REC_POLICY_SET, -1 },
+    { OMX_VERB_LV2_WORKER_SET, REC_LV2_WORKER_SET, -1 },
+    { OMX_VERB_POOL_CONFIG, REC_POOL_CONFIG, -1 },
+    { OMX_VERB_WORKER_ENV, REC_WORKER_ENV, -1 },
+    { OMX_VERB_CHAIN, REC_CHAIN, -1 },
+    { OMX_VERB_CHAIN_CLEAR, REC_CHAIN_CLEAR, -1 },
+    { OMX_VERB_CHAIN_GET, REC_CHAIN_GET, -1 },
+    { OMX_VERB_PLAN, REC_PLAN, -1 },
+    { OMX_VERB_PLAN_GET, REC_PLAN_GET, -1 },
+    { OMX_VERB_PLAN_CLEAR, REC_PLAN_CLEAR, -1 },
+    { OMX_VERB_ESTIMATE, REC_ESTIMATE, -1 },
+    { OMX_VERB_PIN_SET, REC_PINS_SET, -1 },
+    { OMX_VERB_PIN_CLEAR, REC_PINS_CLEAR, -1 },
+    { OMX_VERB_PIN_ACCEPT, REC_PIN_ACCEPT, -1 },
+    { OMX_VERB_PIN_RELOAD, REC_PIN_RELOAD, -1 },
+    { OMX_VERB_HISTORY_GET, REC_HISTORY_GET, -1 },
+    { OMX_VERB_HISTORY_CLEAR, REC_HISTORY_CLEAR, -1 },
+};
+
+/* the call property, both ways: every call the daemon made for a verb of g_verb_call is one that verb names, and a verb
+ * the daemon acted on made its own call; remove <n> makes REC_REMOVE, of n, and REC_REMOVE_ALL only when n is -1 */
+__attribute__((noinline)) static void check_verb_call(const struct words *w)
+{
+    size_t v, remove_len = strcspn(EFFECT_REMOVE, " ");
+    int c, own = 0, foreign = 0, fn = -1, also = -1;
+
+    /* which word of a message with a quote is its verb is the protocol library's reader of quotes to say, which the
+     * harness does not model (check_round_trip leaves such a message out for the same reason) */
+    if (w->n == 0 || strchr(w->text, '"'))
+        return;
+    if (strlen(w->w[0]) == remove_len && !strncmp(w->w[0], EFFECT_REMOVE, remove_len))
+        fn = w->n > 1 && atoi(w->w[1]) == -1 ? REC_REMOVE_ALL : REC_REMOVE;
+    for (v = 0; fn < 0 && v < sizeof(g_verb_call) / sizeof(g_verb_call[0]); v++)
+        if (!strcmp(w->w[0], g_verb_call[v].verb))
+        {
+            fn = g_verb_call[v].fn;
+            also = g_verb_call[v].also;
+        }
+    if (fn < 0)
+        return;
+    for (c = 0; c < g_rec.ncalls; c++)
+    {
+        foreign |= g_rec.calls[c].fn != fn && g_rec.calls[c].fn != also;
+        own |= g_rec.calls[c].fn == fn;
+    }
+    /* each call is one the message's verb names, never one of another verb, and a verb the daemon acted on made its
+     * own call
+     * record: call-of-verb */
+    if (foreign || (g_rec.ncalls > 0 && !own))
+        abort();
+}
+
 /* the words property: every call of the message took the words g_call_words places in it, and the words the harness
  * works out for add, chain and pin_set */
 __attribute__((noinline)) static void check_words(const struct words *w)
@@ -644,6 +711,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         check_words(&w);
         check_refusal(state_before);
         check_round_trip(&w, state_before, host_before);
+        /* after the round trip, which reads a message the daemon split otherwise than its words first: the calls the
+         * daemon made for these words, the first send's or the same again's */
+        check_verb_call(&w);
         words_free(&w);
     }
     rec_clear();
