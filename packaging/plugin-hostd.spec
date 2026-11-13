@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.5
+Version: 0.20.6
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -237,6 +237,15 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
+- An LV2 uri that several bundles of the search path name is the bundle
+  plugin-db's declared rule gives, newest-version: of the bundles that realise
+  the plugin, the highest lv2:minorVersion, then the highest lv2:microVersion;
+  of equal versions the first in the search path, the bundles of one directory
+  in byte order of their names, never in the order the directory lists them.
+  The add, --pin-files and plugin-qualify's sync read the same bundle; make
+  test-bundle-rule holds it (#57, #58).
+
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.5-1
 - The clients read replies and feedback lines by the protocol table, with no
   layout of their own: a word as its declared type (read_word in Python,
