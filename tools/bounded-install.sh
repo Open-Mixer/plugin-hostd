@@ -30,6 +30,9 @@ while :; do
     fi
     echo "bounded-install: attempt $n of $tries: $* timed out after ${attempt_s} s" >&2
     [ "$n" -ge "$tries" ] && break
+    # an apt attempt ended mid-unpack leaves dpkg interrupted, which the next attempt would refuse at once: finish
+    # dpkg's work first, bounded too, from what was already fetched
+    case $1 in apt | apt-get) timeout -k 10 "$attempt_s" dpkg --configure -a ;; esac
     n=$((n + 1))
 done
 echo "::error::bounded-install: $* timed out $tries attempts of ${attempt_s} s; the mirrors it reads: $(mirrors)" >&2
