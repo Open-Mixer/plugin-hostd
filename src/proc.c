@@ -42,6 +42,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <plugin-db/plugin_db_vocabulary.h>
+
 #include "proc.h"
 
 #define MANIFEST_MAX (4 * 1024 * 1024)
@@ -559,14 +561,22 @@ static int manifest_names(const char *bundle, const char *uri)
     return found;
 }
 
+static int path_dir_times(const char *lv2_path, struct timespec **out);
+
+/* the rule proc_find_lv2_bundle applies is plugin-db's one declared bundle rule, newest-version: a second rule declared
+ * there is a choice this lookup does not make yet */
+_Static_assert(OMX_PLUGIN_DB_BUNDLE_RULES_COUNT == 1u, "plugin-db declares one bundle rule, newest-version");
+
 /* the bundles found holding a plugin's binary, by search path and uri: a repeat lookup reads that one manifest again
- * instead of walking the path. Only an answer that holds the binary is kept, and only while its manifest still holds it,
- * so a plugin installed, moved or removed while the daemon runs is found as a walk finds it. The daemon's lookups run
- * on its one control thread. */
+ * instead of walking the path. Only an answer that holds the binary is kept, only while its manifest still holds it, and
+ * only while no directory of the path has changed since (no bundle added or removed: a newer version installed beside
+ * it is found as a walk finds it). The daemon's lookups run on its one control thread. */
 #define BUNDLE_MEMO_MAX 4096
 static struct bundle_memo
 {
     char *path, *uri, *bundle;
+    struct timespec *dirs;      // each directory of the path when the bundle was found, as path_dir_times gives them
+    int ndirs;
 } g_bundle_memo[BUNDLE_MEMO_MAX];
 static int g_bundle_memos;
 
@@ -580,24 +590,31 @@ static struct bundle_memo *bundle_memo_find(const char *lv2_path, const char *ur
     return NULL;
 }
 
-/* remembers a bundle that holds the plugin's binary; with no memory for it, nothing is remembered and the next lookup
- * walks the path */
-static void bundle_memo_keep(const char *lv2_path, const char *uri, const char *bundle)
+/* remembers a bundle that holds the plugin's binary, with the path's directory times `dirs` it takes over; with no
+ * memory for it, or no times, nothing is remembered and the next lookup walks the path */
+static void bundle_memo_keep(const char *lv2_path, const char *uri, const char *bundle, struct timespec *dirs, int ndirs)
 {
     struct bundle_memo *m = bundle_memo_find(lv2_path, uri);
-    char *copy = strdup(bundle);
+    char *copy = ndirs < 0 ? NULL : strdup(bundle);
 
     if (!copy)
+    {
+        free(dirs);
         return;
+    }
     if (m)
     {
         free(m->bundle);
+        free(m->dirs);
         m->bundle = copy;
+        m->dirs = dirs;
+        m->ndirs = ndirs;
         return;
     }
     if (g_bundle_memos == BUNDLE_MEMO_MAX)
     {
         free(copy);
+        free(dirs);
         return;
     }
     m = &g_bundle_memo[g_bundle_memos];
@@ -608,59 +625,134 @@ static void bundle_memo_keep(const char *lv2_path, const char *uri, const char *
         free(m->path);
         free(m->uri);
         free(copy);
+        free(dirs);
         return;
     }
     m->bundle = copy;
+    m->dirs = dirs;
+    m->ndirs = ndirs;
     g_bundle_memos++;
 }
 
-char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
+/* whether the path's directories have the times the memo was kept with */
+static int bundle_memo_current(const struct bundle_memo *m, const struct timespec *now, int ndirs)
+{
+    int k;
+
+    if (!m->dirs || ndirs < 0 || ndirs != m->ndirs)
+        return 0;
+    for (k = 0; k < ndirs; k++)
+        if (now[k].tv_sec != m->dirs[k].tv_sec || now[k].tv_nsec != m->dirs[k].tv_nsec)
+            return 0;
+    return 1;
+}
+
+/* the bundles of one directory, in byte order of their names: the order the rule takes them in, not readdir's */
+static int bundle_name(const struct dirent *entry)
+{
+    size_t n = strlen(entry->d_name);
+
+    return n >= 5 && strcmp(entry->d_name + n - 4, ".lv2") == 0;
+}
+
+static int byte_order(const struct dirent **a, const struct dirent **b)
+{
+    return strcmp((*a)->d_name, (*b)->d_name);
+}
+
+/* the best candidate so far, and its version once a second candidate made it needed */
+struct candidate
+{
+    char *bundle;
+    long minor, micro;
+    int versioned;
+};
+
+/* `bundle` against the best so far: it replaces it only with a higher version, so of equal versions the first stays */
+static void candidate_offer(struct candidate *c, const char *bundle, const char *uri, proc_lv2_version_fn version)
+{
+    long minor = 0, micro = 0;
+    char *copy;
+
+    if (!c->bundle)
+    {
+        c->bundle = strdup(bundle);
+        c->versioned = 0;
+        return;
+    }
+    if (!c->versioned)
+    {
+        c->minor = c->micro = 0;
+        if (version)
+            version(c->bundle, uri, &c->minor, &c->micro);
+        c->versioned = 1;
+    }
+    if (version)
+        version(bundle, uri, &minor, &micro);
+    if (minor < c->minor || (minor == c->minor && micro <= c->micro) || !(copy = strdup(bundle)))
+        return;
+    free(c->bundle);
+    c->bundle = copy;
+    c->minor = minor;
+    c->micro = micro;
+}
+
+char *proc_find_lv2_bundle(const char *lv2_path, const char *uri, proc_lv2_version_fn version)
 {
     struct bundle_memo *m = bundle_memo_find(lv2_path, uri);
-    char *copy, *dir, *save = NULL, *result = NULL, *named = NULL;
+    struct candidate real = { NULL, 0, 0, 0 }, named = { NULL, 0, 0, 0 };
+    struct timespec *now = NULL;
+    int ndirs = path_dir_times(lv2_path, &now);
+    char *copy, *dir, *save = NULL;
 
-    if (m && manifest_names(m->bundle, uri) == MANIFEST_REALISES)
+    if (m && bundle_memo_current(m, now, ndirs) && manifest_names(m->bundle, uri) == MANIFEST_REALISES)
+    {
+        free(now);
         return strdup(m->bundle);
+    }
     copy = strdup(lv2_path);
     if (!copy)
-        return NULL;
-    for (dir = strtok_r(copy, ":", &save); dir && !result; dir = strtok_r(NULL, ":", &save))
     {
-        DIR *d = opendir(dir);
-        struct dirent *entry;
+        free(now);
+        return NULL;
+    }
+    /* plugin-db's one rule (OMX_PLUGIN_DB_BUNDLE_RULES_NEWEST_VERSION): of the candidates, the realising bundles or, when
+     * none realises the plugin, the ones that name it, the highest lv2:minorVersion then lv2:microVersion; of equal
+     * versions the first in the path, its directories in order and the bundles of one directory in byte order */
+    for (dir = strtok_r(copy, ":", &save); dir; dir = strtok_r(NULL, ":", &save))
+    {
+        struct dirent **list;
+        int n = scandir(dir, &list, bundle_name, byte_order), k;
 
-        if (!d)
-            continue;
-        while (!result && (entry = readdir(d)))
+        for (k = 0; k < n; k++)
         {
-            size_t n = strlen(entry->d_name);
             char bundle[PATH_MAX];
 
-            if (n < 5 || strcmp(entry->d_name + n - 4, ".lv2") != 0)
-                continue;
-            snprintf(bundle, sizeof(bundle), "%s/%s", dir, entry->d_name);
+            snprintf(bundle, sizeof(bundle), "%s/%s", dir, list[k]->d_name);
+            free(list[k]);
             switch (manifest_names(bundle, uri))
             {
             case MANIFEST_REALISES:
-                result = strdup(bundle);
+                candidate_offer(&real, bundle, uri, version);
                 break;
             case MANIFEST_NAMES:
-                /* a manifest may leave the binary to a file it links: the first that names the plugin, when none holds one */
-                if (!named)
-                    named = strdup(bundle);
+                /* a manifest may leave the binary to a file it links: those that name the plugin, when none holds one */
+                candidate_offer(&named, bundle, uri, version);
                 break;
             }
         }
-        closedir(d);
+        if (n >= 0)
+            free(list);
     }
     free(copy);
-    if (result)
+    if (real.bundle)
     {
-        free(named);
-        bundle_memo_keep(lv2_path, uri, result);
-        return result;
+        free(named.bundle);
+        bundle_memo_keep(lv2_path, uri, real.bundle, now, ndirs);
+        return real.bundle;
     }
-    return named;
+    free(now);
+    return named.bundle;
 }
 
 /* the data bundles of a plugin by search path and uri, as the last walk found them, with the time each directory of the
