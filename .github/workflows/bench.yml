@@ -21,8 +21,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  bench:
-    name: harness check and smoke run
+  # the daemon the smoke run drives is this run's: built here, as ci.yml's deb job builds it, and installed from these
+  # files. The channel serves the rest; by name it serves plugin-hostd only for a version it has published on that cell
+  debs:
+    name: plugin-hostd's DEBs (trixie, amd64) for the smoke run
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     container:
@@ -31,7 +33,51 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Install the hosts, JACK and the plugins from the OpenMixer channel
+      - name: Install the build tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential python3
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # the OpenMixer channel: where the Build-Depends Debian does not carry come from
+      - name: Add the OpenMixer channel
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
+
+      - uses: Open-Mixer/.github/.github/actions/deb-deps@openmixer-v1
+        with:
+          names: clap-headers
+
+      - uses: Open-Mixer/.github/.github/actions/build-deb@openmixer-v1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-hostd-bench-debs
+          path: debs/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
+  bench:
+    name: harness check and smoke run
+    needs: debs
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    container:
+      image: debian:trixie
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-hostd-bench-debs
+          path: debs
+
+      - name: Install this run's plugin-hostd, and the other hosts, JACK and the plugins from the OpenMixer channel
         run: |
           set -euo pipefail
           apt-get update -qq
@@ -40,8 +86,8 @@ jobs:
           apt-get install -y ./openmixer-release.deb
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-jsonschema \
-            shellcheck procps netcat-openbsd pkgconf libplugin-hostd-protocol-dev plugin-hostd omx-clap-host omx-plugins-clap omx-plugins-lv2 \
-            jackd2 jack-example-tools jalv calf-plugins
+            shellcheck procps netcat-openbsd pkgconf libplugin-hostd-protocol-dev omx-clap-host omx-plugins-clap omx-plugins-lv2 \
+            jackd2 jack-example-tools jalv calf-plugins ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb
 
       - uses: actions/checkout@v4
 
