@@ -1,0 +1,142 @@
+{
+  "schema": "omx-bench/1",
+  "id": "desk-r48000-f128",
+  "machine": {
+    "class": "desk",
+    "cores": 24,
+    "os": "Fedora 44, in a container"
+  },
+  "software": {},
+  "jack": {
+    "driver": "dummy",
+    "priority": 70
+  },
+  "scenarios": [
+    {
+      "id": "cvc8",
+      "title": "cvc8",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc16",
+      "title": "cvc16",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc8",
+      "title": "cvc8",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc16",
+      "title": "cvc16",
+      "host": "H2",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc8",
+      "title": "cvc8",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc16",
+      "title": "cvc16",
+      "host": "H3",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc8",
+      "title": "cvc8",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "cvc16",
+      "title": "cvc16",
+      "host": "H4",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "ok",
+      "note": "",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": 0,
+      "dsp_load_avg": 1.0
+    },
+    {
+      "id": "pianoteq",
+      "title": "pianoteq",
+      "host": "H1",
+      "rate": 48000,
+      "frames": 128,
+      "plugins": [],
+      "status": "unsupported",
+      "note": "did not run",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": null,
+      "dsp_load_avg": null
+    }
+  ]
+}
