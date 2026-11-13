@@ -37,11 +37,14 @@
  * runner that copies counts the interposer did not take is seen. PROBE_CHILD_NO_RECORDS writes no step records, as
  * clap-qualify writes none, so the runner makes its steps from the line. PROBE_CHILD_MEMORY puts a footprint at every
  * rate, its figures made from the rate as the cost's are, and PROBE_CHILD_NO_MEMORY_RATE a reason in place of it at that
- * rate. PROBE_CHILD_HOG_MB touches that many MiB before the plugin runs, so the kernel holds them against the limit. */
+ * rate. PROBE_CHILD_HOG_MB touches that many MiB before the plugin runs, so the kernel holds them against the limit.
+ * PROBE_CHILD_CONFINEMENT names a file to write the confinement the process runs under: its NoNewPrivs and Seccomp lines
+ * of /proc/self/status and every descriptor it holds, with what each names. */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <dirent.h>
 #include <dlfcn.h>
 #include <sched.h>
 #include <signal.h>
@@ -53,6 +56,45 @@
 #include <time.h>
 #include <unistd.h>
 #include <clap/clap.h>
+
+/* the confinement this process runs under, as the runner left it: "<NoNewPrivs line>\n<Seccomp line>\n" then one
+ * "fd <n> <what it names>" line a descriptor, read before the report is opened so it is not among them */
+static void report_confinement(const char *file)
+{
+    FILE *f, *st = fopen("/proc/self/status", "r");
+    DIR *d;
+    struct dirent *e;
+    char line[256], text[8192];
+    size_t used = 0;
+
+    text[0] = '\0';
+    while (st && fgets(line, sizeof(line), st))
+        if ((!strncmp(line, "NoNewPrivs:", 11) || !strncmp(line, "Seccomp:", 8)) && used < sizeof(text))
+            used += (size_t)snprintf(text + used, sizeof(text) - used, "%s", line);
+    if (st)
+        fclose(st);
+    if ((d = opendir("/proc/self/fd")))
+    {
+        while ((e = readdir(d)) && used < sizeof(text))
+        {
+            char link[64], target[512];
+            ssize_t n;
+
+            if (e->d_name[0] == '.' || atoi(e->d_name) == dirfd(d))
+                continue;
+            snprintf(link, sizeof(link), "/proc/self/fd/%s", e->d_name);
+            n = readlink(link, target, sizeof(target) - 1);
+            target[n > 0 ? n : 0] = '\0';
+            used += (size_t)snprintf(text + used, sizeof(text) - used, "fd %s %s\n", e->d_name, target);
+        }
+        closedir(d);
+    }
+    if ((f = fopen(file, "w")))
+    {
+        fputs(text, f);
+        fclose(f);
+    }
+}
 
 /* PROBE_CHILD_LIMITS names a file to write what the limits of this process are, as the runner left them */
 static void report_limits(const char *file)
@@ -260,6 +302,8 @@ int main(int argc, char **argv)
         return 2;
     if (getenv("PROBE_CHILD_LIMITS"))
         report_limits(getenv("PROBE_CHILD_LIMITS"));
+    if (getenv("PROBE_CHILD_CONFINEMENT"))
+        report_confinement(getenv("PROBE_CHILD_CONFINEMENT"));
     if (getenv("PROBE_CHILD_HOG_MB"))
     {
         size_t bytes = (size_t)atol(getenv("PROBE_CHILD_HOG_MB")) << 20;

@@ -307,6 +307,23 @@ def the_limits_reach_the_child():
 
 
 @test
+def the_child_runs_confined_as_a_daemon_worker_does():
+    """a qualification verdict describes the plugin as the console hosts it, so the probe's child runs under the
+    confinement a daemon worker runs under (proc_confine): no_new_privs, a seccomp filter, and no descriptor of the
+    runner's past stdin, stdout, stderr and the step records on 3 (the plugin-hostd issue of the probe's sandbox)"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-confine.")
+    report = os.path.join(work, "confinement")
+    code, doc, _, _, _ = run(env={"PROBE_CHILD_CONFINEMENT": report})
+    check(code == 0, "exit status %d" % code)
+    lines = open(report).read().splitlines()
+    status = dict(l.split(":", 1) for l in lines if ":" in l and not l.startswith("fd "))
+    check(status.get("NoNewPrivs", "").strip() == "1", "the child cannot gain a privilege: %s" % status)
+    check(status.get("Seccomp", "").strip() == "2", "the child runs under a seccomp filter: %s" % status)
+    fds = {int(l.split()[1]): (l.split(" ", 2) + [""])[2] for l in lines if l.startswith("fd ")}
+    check(set(fds) <= {0, 1, 2, 3}, "the child holds stdin, stdout, stderr and the step records only: %s" % fds)
+
+
+@test
 def the_notes_an_instrument_holds_reach_the_clap_child():
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-argv.")
     seen = os.path.join(work, "argv")

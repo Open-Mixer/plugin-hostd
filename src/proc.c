@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <linux/sockios.h>
+#include <stddef.h>
 #include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
@@ -44,6 +45,7 @@
 
 #include <plugin-db/plugin_db_vocabulary.h>
 
+#include "confine.h"
 #include "proc.h"
 
 #define MANIFEST_MAX (4 * 1024 * 1024)
@@ -198,11 +200,22 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const
         dup2(log, STDERR_FILENO);
         if (log > STDERR_FILENO)
             close(log);
+        /* a worker reads nothing on stdin: not the daemon's, which may be a pipe of whoever started it */
+        {
+            int null = open("/dev/null", O_RDONLY);
+
+            if (null >= 0 && null != STDIN_FILENO)
+            {
+                dup2(null, STDIN_FILENO);
+                close(null);
+            }
+        }
         signal(SIGPIPE, SIG_DFL);
         if (world_env && world)
             setenv(world_env, world, 1);
         if (env)
             apply_thread(0, env);
+        proc_confine(NULL, 0);
         if (env && env->thread_pool)
             execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, PHD_WORKER_THREAD_POOL_ON, (char *)NULL);
         else
