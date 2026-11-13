@@ -92,6 +92,7 @@
 #include "describe.h"
 #include "json.h"
 #include "machine.h"
+#include "confine.h"
 #include "probe_cgroup.h"
 #include "probe_lock.h"
 
@@ -1225,6 +1226,16 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
         }
         close(status_pipe[0]);
         apply_limits(o, pinned, pin_option, r->measuring, rt_pipe[1]);
+        /* confined as a daemon worker is (#61), keeping the step records, the lock report and the exec-failure pipe */
+        {
+            int keep[3], nkeep = 0;
+
+            keep[nkeep++] = 3;
+            if (r->measuring && g_lock.asked)
+                keep[nkeep++] = PROBE_LOCK_FD;
+            keep[nkeep++] = status_pipe[1];
+            proc_confine(keep, nkeep);
+        }
         execvp(o->child, argv);
         {
             int e = errno;
@@ -1732,6 +1743,18 @@ static void put_count(sb_t *b, const cJSON *o, const char *from, const char *to)
         sb_printf(b, ", \"%s\": %.0f", to, v);
 }
 
+/* the rt-safety arm's thread figures, as a point carries them (D20, #63): the threads the plugin started, and what other
+ * threads did while the audio thread was armed, a figure and never a verdict; each only when the prober printed it whole */
+static void put_thread_figures(sb_t *b, const cJSON *rt)
+{
+    const cJSON *other = jget(rt, "otherThreads");
+    double a, l, s;
+
+    put_count(b, rt, "ownThreads", "ownThreads");
+    if (other && jnum(other, "allocationsInRun", &a) && jnum(other, "locksInRun", &l) && jnum(other, "syscallsInRun", &s))
+        sb_printf(b, ", \"otherThreads\": {\"allocations\": %.0f, \"locks\": %.0f, \"syscalls\": %.0f}", a, l, s);
+}
+
 /* a prober's note sweep, as a point carries it: whether it applied, the dialect it played in, and what process() or run()
  * did while it played when the interposer counted; a sweep the interposer did not count carries no counts */
 static void put_note_sweep(sb_t *b, const cJSON *ns)
@@ -1794,6 +1817,7 @@ static void put_lv2_measure(sb_t *b, const cJSON *m, long rate, unsigned quantum
         put_count(b, rt, "allocationsInRun", "allocations");
         put_count(b, rt, "locksInRun", "locks");
         put_count(b, rt, "syscallsInRun", "syscalls");
+        put_thread_figures(b, rt);
         if (ev && cJSON_IsArray(ev))
         {
             sb_printf(b, ", \"events\": [");
@@ -1987,10 +2011,18 @@ static int describe_main(int argc, char **argv)
     const char *table = NULL, *fields = NULL, *contract_dir = NULL, *target, *format;
     char path[PATH_MAX], roles_dir[PATH_MAX], why[512];
     sb_t table_text = { 0 }, dump = { 0 }, out = { 0 };
-    int a;
+    int a, pages = 0;
 
-    for (a = 2; a + 1 < argc && argv[a][0] == '-'; a += 2)
+    for (a = 2; a < argc && argv[a][0] == '-';)
     {
+        if (!strcmp(argv[a], "--pages"))
+        {
+            pages = 1;
+            a += 1;
+            continue;
+        }
+        if (a + 1 >= argc)
+            break;
         if (!strcmp(argv[a], "--table")) table = argv[a + 1];
         else if (!strcmp(argv[a], "--fields-from")) fields = argv[a + 1];
         else if (!strcmp(argv[a], "--contract-dir")) contract_dir = argv[a + 1];
@@ -1999,6 +2031,7 @@ static int describe_main(int argc, char **argv)
         else if (!strcmp(argv[a], "--wall-s")) o.wall_s = atol(argv[a + 1]);
         else
             break;
+        a += 2;
     }
     if (a + 1 != argc || argv[a][0] == '-' || (format = describe_format(argv[a])) == NULL || o.wall_s <= 0)
     {
@@ -2010,7 +2043,9 @@ static int describe_main(int argc, char **argv)
                         "                       meaning (default $OMX_CONTRACT_PATH, else " PROBE_CONTRACTDIR ")\n"
                         "  --child PROGRAM      the program that writes the dump (default " DESCRIBE_CHILD ")\n"
                         "  --log FILE           the child's stderr (default discarded)\n"
-                        "  --wall-s N           the child's wall clock (default 60)\n");
+                        "  --wall-s N           the child's wall clock (default 60)\n"
+                        "  --pages              the pages of the descriptor's controls, not the descriptor "
+                        "(docs/formats.md#the-pages-describe-pages-writes)\n");
         return 2;
     }
     target = argv[a];
@@ -2059,7 +2094,7 @@ static int describe_main(int argc, char **argv)
     if (contract_dir == NULL && (contract_dir = getenv("OMX_CONTRACT_PATH")) != NULL && *contract_dir == '\0')
         contract_dir = NULL;
     snprintf(roles_dir, sizeof(roles_dir), "%s/" PROBE_CONTRACT_MAJOR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);
-    if (describe_dump(table_text.s, dump.s, target, roles_dir, &out, why, sizeof(why)) != 0)
+    if ((pages ? describe_pages : describe_dump)(table_text.s, dump.s, target, roles_dir, &out, why, sizeof(why)) != 0)
     {
         fprintf(stderr, RUNNER_NAME ": describe: %s: %s\n", target, why);
         return 2;
@@ -2632,6 +2667,7 @@ int main(int argc, char **argv)
                             sb_printf(&doc, ", \"threadViolations\": %.0f", v);
                         if (jnum(clap, "processErrors", &v))
                             sb_printf(&doc, ", \"processErrors\": %.0f", v);
+                        put_thread_figures(&doc, rt);
                         if (ev && cJSON_IsArray(ev))
                         {
                             size_t e;

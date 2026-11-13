@@ -1,3 +1,38 @@
+plugin-hostd (0.20.6) unstable; urgency=medium
+
+  * An LV2 uri that several bundles of the search path name is the bundle
+    plugin-db's declared rule gives, newest-version: of the bundles that
+    realise the plugin, the highest lv2:minorVersion, then the highest
+    lv2:microVersion; of equal versions the first in the search path, the
+    bundles of one directory in byte order of their names, never in the order
+    the directory lists them. The add, --pin-files and plugin-qualify's sync
+    read the same bundle; make test-bundle-rule holds it (#57, #58).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 08:35:00 +0000
+
+plugin-hostd (0.20.5) unstable; urgency=medium
+
+  * The clients read replies and feedback lines by the protocol table, with no
+    layout of their own: a word as its declared type (read_word in Python,
+    readWord in TypeScript) (#50).
+  * Floors: plugin-hostd-protocol >= 0.5.7 (< 0.6), the first whose table the
+    clients read this way, plugin-db >= 0.4.1 (< 0.5) (#50, #54), and
+    omx-clap-core >= 0.32.3 (< 0.33) for its contract, its host and the host's
+    tests.
+  * pins.h takes the length of a digest from plugin-db's plugin_db_constants.h,
+    which includes nothing, so the fuzz harnesses and their sources build with
+    no OpenSSL header; make test-fuzz-no-openssl holds it (#54).
+  * describe --pages gives a plugin with several hundred parameters and no
+    groups of its own a full set of pages in a stable order; Surge XT gets its
+    parameter pages (#52).
+  * bench: a matrix run is read by period length and rate, one table per
+    periods value, with each rate's safe minimum (#49).
+  * fuzz: each daemon verb is held to the call it must make, and quit is
+    compared whole (#53).
+  * CI: make sabotage runs as parallel jobs (#51).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 05:10:00 +0000
+
 plugin-hostd (0.20.4) unstable; urgency=medium
 
   * Each hosted plugin's JACK client carries its name and instance in JACK

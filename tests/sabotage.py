@@ -298,6 +298,12 @@ SABOTAGE = [
     ("a changed plugin is refused and not announced", "src/supervisor.c",
      "    if (code == OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP)\n        event(PHD_EVENT_PIN_CHANGED_FMT, uri, PHD_PIN_CHANGED_FILES);\n",
      "    if (code == OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP)\n        ;\n", "a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted"),
+    ("a worker may gain privileges", "src/confine.c", "    (void)prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);\n", "",
+     "a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscalls"),
+    ("a worker keeps the daemon's descriptors", "src/confine.c", "    close_inherited(keep, nkeep);\n    confine_syscalls();\n",
+     "    confine_syscalls();\n", "a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscalls"),
+    ("a worker gets no seccomp filter", "src/confine.c", "    close_inherited(keep, nkeep);\n    confine_syscalls();\n",
+     "    close_inherited(keep, nkeep);\n", "a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscalls"),
     ("what the worker loaded is not checked against what was hashed", "src/supervisor.c",
      "        int loaded = pins_loaded(fwd, w->pid, have ? binary : NULL);",
      "        int loaded = have ? SUCCESS : SUCCESS;", "a_binary_swapped_between_the_hash_and_the_load_is_refused"),
@@ -649,6 +655,11 @@ SABOTAGE = [
      "    else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))\n        reply = sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_PRESET_LIST_RESP);",
      "    else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))\n        reply = sup_call(id, line);",
      "presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list"),
+    ("the probe's child runs unconfined", "src/probe.c", "            proc_confine(keep, nkeep);\n", "            (void)keep;\n",
+     "the_child_runs_confined_as_a_daemon_worker_does", "probe"),
+    ("the probe drops the rt-safety arm's thread figures", "src/probe.c",
+     "                        put_thread_figures(&doc, rt);\n", "",
+     "the_rt_safety_arm_carries_the_plugins_own_threads_and_what_other_threads_did", "probe"),
     ("the probe document is written only when the child ended well", "src/probe.c", "    if (o.out)\n    {\n        char tmp[PATH_MAX];",
      "    if (o.out && exit_code == 0)\n    {\n        char tmp[PATH_MAX];", "a_crash_keeps_the_steps_before_it", "probe"),
     ("the wall clock never passes", "src/probe.c", "        if (left <= 0)\n        {\n            r->killed_by_deadline = 1;",
@@ -953,9 +964,14 @@ SABOTAGE = [
      "    if (!found)\n        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);\n    /* the memory comes first",
      "    if (0)\n        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);\n    /* the memory comes first",
      "under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles"),
+    ("a value the plugin moved itself leaves its instance clean, so no checkpoint holds it and a respawn loses it",
+     "src/supervisor.c",
+     "                if (!i || i->w != g_workers[n] || i->dirty)\n                    continue;\n                i->dirty = 1;",
+     "                if (!i || i->w != g_workers[n] || i->dirty)\n                    continue;\n                (void)now;",
+     "a_value_the_plugin_moved_itself_survives_a_respawn"),
     ("a chain's LV2 world is narrowed to its first member's bundle, not the union", "src/lv2.c",
-     "    for (k = 0; k < n; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]);",
-     "    for (k = 0; k < 1; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]);",
+     "    for (k = 0; k < n; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k], bundle_version);",
+     "    for (k = 0; k < 1; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k], bundle_version);",
      "under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles"),
     ("a chain's worker gets the whole lv2_path", "src/supervisor.c",
      "        world = f->narrow_world(&g_conf, dir, uris, n);\n        free(uris);\n        return world;",
@@ -1890,9 +1906,27 @@ def run_test(tree, name, jack=False):
 
 
 
-def selected(entry):
+def in_shard(index):
+    """True when SABOTAGE_SHARD is unset, else when index falls in the i-th of the n shards it names (ci.yml's matrix)"""
+    shard = os.environ.get("SABOTAGE_SHARD")
+    if not shard:
+        return True
+    parts = shard.split("/")
+    try:
+        i, n = int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        i, n = 0, 0
+    if len(parts) != 2 or n < 1 or not (1 <= i <= n):
+        raise SystemExit("SABOTAGE_SHARD must be i/n with 1 <= i <= n, not %r" % shard)
+    return index % n == i - 1
+
+
+def selected(entry, index):
     """None when the arm runs, '' when the filters leave it out, else the line that says why it is skipped"""
     what, path, text, repl, name = entry[:5]
+    # SABOTAGE_SHARD=i/n: every n-th arm, by its position in SABOTAGE, so ci.yml's matrix runs the whole table once
+    if not in_shard(index):
+        return ""
     # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
     if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
         return ""
@@ -2059,11 +2093,16 @@ ROOT_WRITES_READ_ONLY = ("a_read_only_directory_stops_the_daemon_with_its_code_a
 work = None
 
 if __name__ == "__main__":
+    if "--count" in sys.argv[1:]:
+        # how many arms this shard (SABOTAGE_ONLY/SABOTAGE_FILE/SABOTAGE_KIND/SABOTAGE_SHARD, same as a real run)
+        # would run, with no tree copied and nothing built: ci.yml's sabotage-gate job sums this across the matrix
+        print(sum(1 for index, entry in enumerate(SABOTAGE) if selected(entry, index) is None))
+        sys.exit(0)
     # every arm in the order of the table; the arms run SABOTAGE_JOBS at a time (default: the cores, at most 8; 1 is one
     # after the other) and print in that order whichever finishes first
     plan = []
     for index, entry in enumerate(SABOTAGE):
-        why = selected(entry)
+        why = selected(entry, index)
         if why is None:
             plan.append((index, entry, None))
         elif why:

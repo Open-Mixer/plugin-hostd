@@ -215,3 +215,28 @@ What the tables leave to `describe`:
   becomes `_`; `instrument` is written when the features hold it, `polyphonic` when it states more than one voice; `latency`
   is always written, `reports` false when no row sets it.
 - a word of a table that `describe` does not write is refused with the table: a new word is code here first.
+
+## The pages `describe --pages` writes
+
+`plugin-hostd-probe describe --pages [--table <file>] [--fields-from <dump.tsv>] clap:<path>#<id> | lv2:<uri>` writes
+the pages a host lists a plugin's controls in, one JSON document on stdout; the same exit codes as `describe`, since
+it runs the same descriptor first and refuses as `describe` refuses.
+
+A page is a run of `controls` (above), in their declared order, of one `group`; the controls that state no group of
+their own are one further group, `null`, not left off. A group's controls are cut into pages of 8, the size
+`remote_pages`/`remote_page_get` already cut an LV2 bundle's own groups into (`panel.md#drawing-a-panel-the-three-
+verbs-together`): a group's first page its first 8 controls in declared order, its second the next 8, and so on.
+Pages are written in the order their group first appears among the controls, a group's own pages consecutive and in
+that order. Every control is on exactly one page, and the pages of one descriptor are the same on every run: this
+holds whether or not a plugin groups its own controls, since the controls that state none are cut into pages the
+same way, by the same declared order.
+
+```json
+{"pages": [
+  {"group": ["Filter"], "params": [5]},
+  {"group": null, "params": [3, 7]}
+]}
+```
+
+- `group`: the page's controls' own `group` array, or `null` for the controls that state none;
+- `params`: the `id` of each control on the page (`controls[].id`), in declared order.

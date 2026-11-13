@@ -90,7 +90,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
+SRC = src/main.c src/conf.c src/proc.c src/confine.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
@@ -113,8 +113,8 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
@@ -137,6 +137,7 @@ $(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
 src/machine.o src/json.o src/transforms.o: INCS += $(CONTRACT_CFLAGS)
 
 src/descriptors.o: src/descriptors.h src/describe.h src/json.h src/formats.h src/supervisor.h
+src/describe.o src/lv2.o: src/pages.h
 
 # meta-rule to generate the object files
 %.o: %.c
@@ -290,6 +291,15 @@ FUZZ_SRC_command := src/verbs.c src/session.c src/words.c src/pin_words.c src/wr
 FUZZ_SRC_reply   :=
 FUZZ_DEPS        := src/pin_words.c fuzz/fuzz.h fuzz/syntax.h fuzz/recorder.h src/relay.c src/verbs.h src/session.h $(REPLY_WORDS) $(PROTOCOL_HEADERS) $(RENDERED)
 
+# the fuzz harnesses and what they are built from need no OpenSSL: they link none, and OSS Verify's builder, which builds
+# them for its enrolment (theorem-labs/oss-verify#183), has no OpenSSL headers. Each source is compiled with an
+# openssl/evp.h that fails put before every other include directory
+test-fuzz-no-openssl: $(REPLY_WORDS)
+	@set -e; for f in $(FUZZ_HARNESSES:%=fuzz/fuzz_%.c) $(FUZZ_SRC_command); do \
+	  $(CC) -std=c11 -D_GNU_SOURCE -Werror -fsyntax-only -Itests/no-openssl $(FUZZ_INCS) $$f; \
+	done
+	@echo "ok   the fuzz harnesses and their sources build with no OpenSSL header"
+
 $(FUZZ_BUILD)/fuzz_%: fuzz/fuzz_%.c $(FUZZ_DEPS) $(FUZZ_SRC_command)
 	@mkdir -p $(dir $@)
 	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_INCS) $< $(FUZZ_SRC_$*) -pthread -o $@ $(PIN_LIBS) $(PROTOCOL_LIBS)
@@ -358,7 +368,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-no-sha256-copy test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
+test: test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -451,8 +461,8 @@ test-voices-cores-diag:
 test-proc: $(PROC_TEST)
 	./$(PROC_TEST)
 
-$(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread $(PIN_LIBS) -lm
+$(PROC_TEST): tests/proc_test.c src/proc.c src/confine.c src/proc.h src/confine.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c src/confine.c -pthread $(PIN_LIBS) -lm
 
 # the search settings (src/conf.c, plugin-hostd-protocol's plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
 test-conf: $(CONF_TEST)
@@ -569,6 +579,25 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios test
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 
+# a preset an instance saved loads back after a factory patch of Surge XT (#27), through the daemon and a real
+# omx-clap-host (OMX_CLAP_HOST, default the installed one) over jack in a PipeWire of its own. Surge XT is the
+# distribution's (clap-surge-xt and surge-xt on Fedora): a Surge XT that is not installed stops the run, never a skip.
+# The patch names its macros ("Sync"), so loading it renames the plugin's parameters: a patch whose macros are all
+# unnamed (Attacky's) renames nothing and the test could not see #27. SURGE_CLAP and SURGE_FACTORY_PATCH name another
+# install's files.
+SURGE_CLAP ?= /usr/lib64/clap/Surge_XT.clap
+SURGE_FACTORY_PATCH ?= /usr/share/surge-xt/patches_factory/Basses/Squared.fxp
+OMX_CLAP_HOST ?= $(shell command -v omx-clap-host)
+
+.PHONY: test-preset-identity
+test-preset-identity: $(PROG) plugin-hostd-probe tests/stress.clap tests/jack_levels
+	@for f in "$(SURGE_CLAP)" "$(SURGE_FACTORY_PATCH)" "$(OMX_CLAP_HOST)"; do \
+	    [ -e "$$f" ] || { echo "test-preset-identity: missing '$$f' (Surge XT: clap-surge-xt and surge-xt; omx-clap-host)" >&2; exit 2; }; \
+	done
+	JACK_E2E_PY=preset_identity_e2e.py JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=$(abspath $(PROG)) OMX_CLAP_HOST=$(OMX_CLAP_HOST) \
+	SURGE_CLAP=$(SURGE_CLAP) SURGE_FACTORY_PATCH=$(SURGE_FACTORY_PATCH) PATH=$(abspath .):$$PATH \
+	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
+
 # the protocol clients (docs/clients.md): each client's own tests on clients/fixtures/codec.json, then both held to each
 # other on the fixtures and on plugin-hostd-protocol's host scenarios, and that comparison's self-test
 .PHONY: test-clients
@@ -681,6 +710,12 @@ check-full-ranges:
 test-records-candidate:
 	bash tests/records_candidate.sh
 
+# SABOTAGE_SHARD=i/n keeps every n-th arm of tests/sabotage.py; this proves the partition for every shard count
+# ci.yml's matrix might use, not a live run (#23)
+test: check-sabotage-shard
+check-sabotage-shard:
+	python3 tests/sabotage_shard_test.py
+
 # the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
 test: check-protocol-floor
@@ -704,6 +739,13 @@ test-install-schemas: all
 
 check-ci-guards:
 	python3 tests/ci_guards.py
+
+# ci.yml's sabotage-gate job sums what each shard of the matrix reports; this proves the gate itself is red when a
+# shard went missing, reported twice, disagreed on the table size, or the shards together ran fewer arms than the
+# table holds (#23)
+test: check-sabotage-gate
+check-sabotage-gate:
+	python3 tests/sabotage_gate_test.py
 
 # the probe output's words shared with omx-contract are the contract's: each enum the template takes from it matches the
 # installed omx-vocabulary.schema.json, and the template types none of the contract's lists by hand
@@ -736,6 +778,11 @@ test-describe: $(PROBE)
 	PROBE=./$(PROBE) python3 tests/describe_clap_meters_test.py
 	PROBE=./$(PROBE) python3 tests/describe_twin_test.py
 
+# describe --pages (docs/formats.md#the-pages-describe-pages-writes): a group's controls one page per 8, in declared
+# order; several hundred ungrouped parameters still get pages, the same on every run
+test-describe-pages: $(PROBE)
+	PROBE=./$(PROBE) python3 tests/describe_pages_test.py
+
 # what is omx-contract's is read from it: the runner's default rates, the protocol's parameter scales and the probe
 # schema's latency methods follow a scratch copy of its headers with other values
 test-contract: $(PROBE)
@@ -762,6 +809,11 @@ test-consumer:
 # --pin-files: the files a pin holds as an add collects them, the list plugin-qualify takes (plugin-qualify#228)
 test-pin-files: $(PROG)
 	sh tests/pin_files_test.sh ./$(PROG)
+
+# which bundle an LV2 uri is when several name it: plugin-db's declared rule, newest version then search path and byte
+# order (#57)
+test-bundle-rule: $(PROG)
+	sh tests/bundle_rule_test.sh ./$(PROG)
 
 # --search-path: the LV2 and CLAP directories the daemon searches and their sources, the lists plugin-qualify scans
 # (plugin-qualify#9)

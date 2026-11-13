@@ -41,10 +41,20 @@ TypeScript):
   **reencode**(line), the same line decoded and encoded again.
 - **parse**(line): what the host or the daemon answered, a request tag (`@<tag>`) and a sequence number
   first when the line carries them: `resp <code> [data]` with the code's name, a
-  feedback line by its declared arguments, or a protocol error.
+  feedback line by its declared arguments, or a protocol error. A line of plugin-hostd's own carries its
+  `fields` too, each argument by the name its declared form gives it (plugin-hostd-protocol 0.5.6): the
+  form with the most arguments the words fit is read first, so `instance_verb_dropped`'s suspect form wins
+  over the one whose command takes the rest of the line.
+- **read_reply**(verb, data[, code]) (`readReply`): the data words of a reply, after `resp <code>`, by
+  the table's `reply_forms` (plugin-hostd-protocol 0.5.7): each word by its name, as its declared type. A
+  leaf is read by its pattern (an `int`, `uint`, `core` or `amount` a number, `-` none for a core or an
+  amount, a `number` a finite number); a list is a list, one of its none words an empty one; a record is
+  its fields by name, found by the record's own pattern, so a field may hold the separator (a worker's
+  `place`, `pool:fx#2`, inside a `worker_list` record). A reply whose number counts (`worker_list`) is held
+  to that count when it is given. The clients keep no layout of their own: every shape is the table's.
 - **read_plan**(data), **read_plan_get**(data), **read_estimate**(data) (`readPlan`, `readPlanGet`,
-  `readEstimate` in TypeScript): the data words of the three replies that have a shape of their own, as
-  the guide writes them. A plan is its `segments` (the instances that share a worker, in signal order) and
+  `readEstimate` in TypeScript): the data words of three replies, read by **read_reply**, with what the
+  table does not say: the cores in the segments' shape, a reason's word, code and retry, a code's name. A plan is its `segments` (the instances that share a worker, in signal order) and
   its `cores` in the same shape, none for a member that is not pinned. A plan read back also gives its
   `reasons`: the instance, the reason as written, its word of `PLUGIN_HOSTD_GROUPING_REASONS`, the reply
   code a `plan-refused` carries with its name, and `retry`, true for the reasons a later plan may not give

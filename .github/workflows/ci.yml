@@ -74,7 +74,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -198,7 +198,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -246,12 +246,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      # the released channel alone: it carries every Build-Depends, and the staging channel is pinned above it,
+      # so an older staged omx-clap-core there would be taken in place of the released one
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -315,7 +313,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -490,7 +488,7 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -731,7 +729,7 @@ jobs:
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.6 (node_label; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
           # which sets it (#33), are staged and not yet served
           staging: 'true'
 
@@ -747,7 +745,7 @@ jobs:
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
             ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \
-            'omx-clap-host >= 0.32.2' 'omx-clap-host < 0.33' \
+            'omx-clap-host >= 0.32.3' 'omx-clap-host < 0.33' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the daemon installed is the one built above, not a served one
