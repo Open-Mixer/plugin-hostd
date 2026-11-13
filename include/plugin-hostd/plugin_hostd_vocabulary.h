@@ -30,6 +30,12 @@
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COUNT 16u
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_INIT { "refused", "no-pin", "no-verdict", "verdict-isolated", "format-world", "history-crashed", "history-xruns", "cost-over", "format-mixed", "group-full", "group-cost", "cost-assumed", "no-neighbour", "grouping-off", "history-unavailable", "plan-refused" }
 
+/* PLUGIN_HOSTD_GROUPING_REASON_GROUPS (data/grouping.json) */
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_RETRY "retry" ///< A later plan may not give this reason again with the chain as it is: a pin may gain a verdict, what refused a segment may pass. A controller may ask again.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_FINAL "final" ///< The reason holds while the chain, the pins, the history and the settings are as they are: asking again gives it again.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_COUNT 2u
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_INIT { "retry", "final" }
+
 /* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST "last" ///< UTC seconds of the last window.
