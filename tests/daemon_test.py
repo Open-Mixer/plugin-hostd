@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import errno, json, os, re, shutil, signal, subprocess, sys, tempfile, time
+import errno, json, os, re, resource, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
@@ -1551,6 +1551,41 @@ def worker_env_reaches_new_and_running_workers():
         d.close()
 
 
+def held_cannot_lower():
+    """whether a process under RLIMIT_NICE 0 is refused a nice below its own: true unless this identity has
+    CAP_SYS_NICE, which no rlimit binds; asked of the kernel in a child under that limit"""
+    r = subprocess.run([sys.executable, "-c", "import os, resource\n"
+                        "resource.setrlimit(resource.RLIMIT_NICE, (0, 0))\n"
+                        "try:\n    os.setpriority(os.PRIO_PROCESS, 0, os.getpriority(os.PRIO_PROCESS, 0) - 1)\n"
+                        "except PermissionError:\n    raise SystemExit(0)\nraise SystemExit(1)"])
+    return r.returncode == 0
+
+
+@test
+def a_nice_the_daemon_cannot_apply_is_logged():
+    """the not-applied branch, made to happen on any host: a daemon started under RLIMIT_NICE 0 cannot give a worker
+    a nice below its own, and says so. worker_env_reaches_new_and_running_workers sees that branch only where the
+    test's identity cannot lower a nice (a container's root); a desk whose audio group may lower one (RLIMIT_NICE 39
+    from limits.d) applies every nice there, and a removed log line went unseen (#68)"""
+    if not held_cannot_lower():
+        print("skip a_nice_the_daemon_cannot_apply_is_logged: this identity has CAP_SYS_NICE, which RLIMIT_NICE does not bind")
+        return
+    own = os.getpriority(os.PRIO_PROCESS, 0)
+    d = daemon(rlimits={resource.RLIMIT_NICE: (0, 0)})
+    try:
+        d.expect("worker_env lv2 - %d" % (own + 3), "resp 0")
+        d.expect("add fake:a 0", "resp 0")
+        pid = d.holder(0)[1]["pid"]
+        nice = lambda: int(open("/proc/%d/stat" % pid).read().rsplit(")", 1)[1].split()[16])
+        wait_for(lambda: nice() == own + 3, "the worker's nice reaching %d" % (own + 3))
+        d.expect("worker_env lv2 - %d" % (own + 1), "resp 0")
+        wait_for(lambda: "keeps nice %d, the nice %d was not applied" % (own + 3, own + 1) in d.log(),
+                 "a nice below the worker's, which the held daemon cannot give, logged: %r" % d.log())
+        check(nice() == own + 3, "the worker keeps its nice: %d" % nice())
+    finally:
+        d.close()
+
+
 @test
 def feedback_off_is_the_same_daemon():
     d = daemon(feedback=False)
@@ -1753,7 +1788,8 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         # the verbs this test drives by name must be declared; a protocol release may declare more (a minor adds rows),
         # and each of those is answered for an LV2 instance by the daemon, never by mod-host, below
         known = {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                 "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"}
+                 "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui",
+                 "node_label"}
         check(known <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
@@ -1762,6 +1798,9 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         for bad in BAD_TRACK:
             d.expect(bad, "resp -902")
         d.expect("track_info 9 a -", "resp -3")
+        # mod-host sets no JACK metadata: an LV2 instance's node takes no label (#35), and the worker never hears it
+        d.expect("node_label 0 Vocal 1", "resp -902")
+        d.expect("node_label 9 x", "resp -3")
         d.expect("remote_pages 0", "resp 0")
         d.expect("remote_page_get 0 0", "resp -902")
         d.expect("param_set 0 gain 0.5000", "resp 0")

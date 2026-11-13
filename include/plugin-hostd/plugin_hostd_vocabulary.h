@@ -4,7 +4,7 @@
 #define PLUGIN_HOSTD_VOCABULARY_H
 /*
  * GENERATED: DO NOT EDIT BY HAND.
- * Produced by `omx-contract render --target c` from FreeMixer/plugin-hostd's data/: the vocabulary
+ * Produced by `omx-contract render --target c` from Open-Mixer/plugin-hostd's data/: the vocabulary
  * (docs/data-layout.md). A code is OMX_ and the code in upper snake case, and a reply code that carries a resp has it as that name and _RESP; a word is OMX_<ITEM>_<NAME>, each words
  * item with its _COUNT and an _INIT of its words in their order. A consumer writes and compares these, never a
  * literal of its own.
@@ -29,6 +29,12 @@
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_PLAN_REFUSED "plan-refused" ///< A segment could not be formed: the plan was not applied and nothing moved. The word is followed by a colon and the number of the refusal, plan-refused:-501.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COUNT 16u
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_INIT { "refused", "no-pin", "no-verdict", "verdict-isolated", "format-world", "history-crashed", "history-xruns", "cost-over", "format-mixed", "group-full", "group-cost", "cost-assumed", "no-neighbour", "grouping-off", "history-unavailable", "plan-refused" }
+
+/* PLUGIN_HOSTD_GROUPING_REASON_GROUPS (data/grouping.json) */
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_RETRY "retry" ///< A later plan may not give this reason again with the chain as it is: a pin may gain a verdict, what refused a segment may pass. A controller may ask again.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_FINAL "final" ///< The reason holds while the chain, the pins, the history and the settings are as they are: asking again gives it again.
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_COUNT 2u
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_INIT { "retry", "final" }
 
 /* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
