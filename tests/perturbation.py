@@ -215,7 +215,10 @@ def main():
                 assert found, "control: the grep for the old value of %s finds nothing where it is declared" % what
         # and the generated files are current before anything is touched: this tree's pages, and the JSON the copy
         # gives is the installed one
-        r = make(tree, "check-generated")
+        # the pages written against the protocol installed here, whatever its minor, then held to it
+        r = make(tree, "gen")
+        assert r.returncode == 0, "make gen in the scratch copy: " + r.stdout + r.stderr
+        r = make(tree, "check-generated", "GENERATED_COMPARE=always")
         assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
         before = protocol_json(tree, os.path.join(work, "before.json"))
         assert open(before).read() == open(declared.variable("protocoljson")).read(), \
@@ -244,12 +247,12 @@ def main():
                         open(path, "w").write(old.replace("OMX_VERB_INSTANCE_INFO", "OMX_VERB_INSTANCE_WHERE"))
 
         # the guard: a header changed and the pages not written again is drift
-        r = make(tree, "check-generated")
+        r = make(tree, "check-generated", "GENERATED_COMPARE=always")
         assert r.returncode != 0, "check-generated passed over a changed declaration"
         print("ok   check-generated fails on a changed declaration whose pages were not written again")
 
         for target in ("gen", "check-generated", "plugin-hostd"):
-            r = make(tree, target)
+            r = make(tree, target, "GENERATED_COMPARE=always")
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
         after = protocol_json(tree, os.path.join(tree, "protocol", "plugin-hostd.json"))
 

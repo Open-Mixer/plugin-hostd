@@ -25,6 +25,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick). A pull request runs the plain test
+# tier and one package arm (fc44 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
+# main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
   # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
   # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
@@ -63,13 +66,17 @@ jobs:
       - name: Install the build tools
         run: |
           dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils iproute util-linux procps-ng diffutils python3-jsonschema
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
 
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -77,6 +84,12 @@ jobs:
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+
+      # the clients' tests read a sentence in Catalan from the installed catalog: from plugin-hostd-protocol 0.5.6 on it
+      # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
+      # none, and its base package carries the catalog
+      - name: The protocol's Catalan catalog, where a language pack carries it
+        run: dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
 
       - name: Build
         run: make
@@ -90,13 +103,18 @@ jobs:
           PROBE_REQUIRE_REALTIME: "1"
         run: make test
 
+      # the protocol clients (docs/clients.md): each one's tests on the shared fixtures, then the two held to each other on
+      # them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
+      - name: The protocol clients agree
+        run: make test-clients
+
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,
       # then the installed omx-contract (the builddep above) validates it with its own tables and omx-clap-core's; red on
       # any table its schema refuses, and red when the command is absent (#165)
       - name: Validate the staged contract directory with the installed omx-contract
         run: make check-contract-dir
 
-      # panel_get on the wire: the installed omx-clap-scan (0.20.0 or later, which the test checks) reads the panel of a
+      # panel_get on the wire: the installed omx-clap-scan (0.31.2 or later, which the test checks) reads the panel of a
       # plugin of omx-plugins-clap that publishes one and of omx-clap-host-tests' fake compressor, which publishes none
       - name: Test panel_get against the installed scanner and real plugins
         run: |
@@ -120,7 +138,7 @@ jobs:
       # says ready, and a pool worker must still start under that (#105). It needs a private user namespace with its own /proc; a
       # runner that refuses one cannot run it, and the step fails (tests/ci_guards.py holds both branches to that). The
       # LV2 steps are required to have run: a run that skipped them fails here.
-      - name: Test the daemon with real workers over jack, CLAP and LV2, then break every guard on purpose
+      - name: Test the daemon with real workers over jack, CLAP and LV2
         run: |
           set -euo pipefail
           export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
@@ -134,10 +152,27 @@ jobs:
             for t in mod_host_scenarios_pass_unchanged_with_an_lv2_worker lv2_own_worker_sees_one_bundle_and_replays_after_a_kill; do
               grep -qx "ok   $t" test-jack.log || { echo "the LV2 step $t did not run"; exit 1; }
             done
+          else
+            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"
+            exit 1
+          fi
+
+      # every guard broken on purpose (36 of the 45 minutes of the last green run): push to main, tags and dispatch, never a
+      # pull request (owner ruling 2026-11-09; tests/ci_guards.py holds it there)
+      - name: Break every guard on purpose
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          export FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap
+          export JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source
+          export FAKE_CLAP=/usr/libexec/omx-clap-host/tests/fake.clap
+          export MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/tests LV2_URI=urn:plugin-hostd:test:stereo
+          export LV2_BUNDLE=plugin-hostd-fixture.lv2 LV2_PARAM=gain
+          if unshare --user --map-root-user --net --pid --fork --mount-proc true; then
             OMX_CLAP_HOST=/usr/bin/omx-clap-host make sabotage 2>&1 | tee sabotage.log
             if grep -q 'skip sabotage (no LV2 bundle' sabotage.log; then echo 'an LV2 sabotage was skipped'; exit 1; fi
           else
-            echo "::error::test-jack did not run: this runner refuses a private user and pid namespace with its own /proc"
+            echo "::error::make sabotage did not run: this runner refuses a private user and pid namespace with its own /proc"
             exit 1
           fi
 
@@ -162,6 +197,10 @@ jobs:
 
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -207,6 +246,8 @@ jobs:
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
+      # the released channel alone: it carries every Build-Depends, and the staging channel is pinned above it,
+      # so an older staged omx-clap-core there would be taken in place of the released one
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
 
@@ -271,6 +312,10 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -422,7 +467,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -442,6 +487,10 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -495,7 +544,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     # nothing but the distribution: a dependency the package forgot to declare is missing here
     defaults:
@@ -593,7 +642,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -666,29 +715,49 @@ jobs:
       # jack_identity load is then PipeWire's, never JACK2's, which looks for a jackd that does not run here. lilv-libs:
       # omx-clap-host opens liblilv-0.so.0 itself at its first LV2 add (dlopen, no rpm requirement), without it every LV2
       # add answers hosting.no-realisation
+      # and the rpm job's build tools: the daemon under test is built here, from this checkout
       - name: Install the tools
         run: |
           dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils \
-            pipewire-jack-audio-connection-kit lilv-libs iproute util-linux procps-ng
+            pipewire-jack-audio-connection-kit lilv-libs iproute util-linux procps-ng \
+            rpm-build gcc make openssl-devel cjson-devel tar gzip pipewire-jack-audio-connection-kit-devel
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
+          # which sets it (#33), are staged and not yet served
+          staging: 'true'
 
-      - name: Install the daemon, the worker, its fixtures and the members from the FreeMixer channel
+      # the daemon under test is this run's, as the rpm job builds it (which runs on tags and dispatch alone): installed
+      # by name, dnf takes the channel's, and with the omx-clap-host floor it does not meet it cannot install at all
+      - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
+
+      - uses: Open-Mixer/.github/.github/actions/build-rpm@openmixer-v1
+
+      - name: Install this run's daemon, and the worker, its fixtures and the members from the FreeMixer channel
         run: |
           set -euo pipefail
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
-          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.31.1' 'omx-clap-host < 0.32' \
+          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
+            ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \
+            'omx-clap-host >= 0.32.3' 'omx-clap-host < 0.33' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
-          # the channel's daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
+          # the daemon installed is the one built above, not a served one
+          built=$(rpm -qp --qf '%{NEVRA}' ./rpms/plugin-hostd-[0-9]*.x86_64.rpm)
+          test "$(rpm -q --qf '%{NEVRA}' plugin-hostd)" = "$built" || {
+            echo "::error::the installed plugin-hostd is $(rpm -q plugin-hostd), not this run's $built"; exit 1; }
+          # the daemon names its verbs in plugin-hostd-protocol's JSON from 0.16.0, in its own before
           for json in /usr/share/plugin-hostd-protocol/plugin-hostd.json /usr/share/plugin-hostd/protocol.json; do
             [ ! -e "$json" ] || break
           done
           grep -q '"chain_get"' "$json" || {
-            echo "::error::the channel's plugin-hostd has no chain_get (#162)"; exit 1; }
+            echo "::error::this run's plugin-hostd has no chain_get (#162)"; exit 1; }
           for f in /usr/libexec/omx-clap-host/tests/fault-14.clap /usr/libexec/omx-clap-host/tests/jack_identity \
                    /usr/lib/clap/omx-strip.clap /usr/lib/clap/omx-limiter.clap /usr/lib64/lv2/omx-delay.lv2/manifest.ttl; do
             test -e "$f" || { echo "::error::the channel's packages lack $f"; exit 1; }
@@ -736,7 +805,7 @@ jobs:
   release-dry-run:
     name: release workflow, dry run
     needs: changes
-    if: needs.changes.outputs.packages == 'true'
+    if: needs.changes.outputs.packages == 'true' && github.event_name != 'pull_request'
     permissions:
       contents: write
       issues: write

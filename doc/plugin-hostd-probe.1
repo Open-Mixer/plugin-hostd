@@ -1,4 +1,4 @@
-.TH PLUGIN\-HOSTD\-PROBE 1 "November 2026" "plugin-hostd 0.20.2" "User Commands"
+.TH PLUGIN\-HOSTD\-PROBE 1 "November 2026" "plugin-hostd 0.20.6" "User Commands"
 .SH NAME
 plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
 .SH SYNOPSIS
@@ -87,6 +87,11 @@ The program that writes the dump. Default omx\-clap\-scan.
 .TP
 .BI \-\-log " file" "\fR, \fB\-\-wall\-s " n
 The child's standard error, and its wall clock in seconds (default 60).
+.TP
+.B \-\-pages
+Write the pages of the descriptor's controls in place of the descriptor: each control of one group, in declared
+order, cut into pages of 8 (plugin\-hostd's docs/formats.md#the\-pages\-describe\-pages\-writes), the controls that
+state no group of their own one further group. The same options and exit codes as without it.
 .PP
 It exits 0 with a descriptor, 2 with none (usage, a table it cannot read, a dump it refuses, named on standard error),
 and 3 when the child made no dump.

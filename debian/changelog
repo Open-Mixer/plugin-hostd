@@ -1,3 +1,79 @@
+plugin-hostd (0.20.6) unstable; urgency=medium
+
+  * An LV2 uri that several bundles of the search path name is the bundle
+    plugin-db's declared rule gives, newest-version: of the bundles that
+    realise the plugin, the highest lv2:minorVersion, then the highest
+    lv2:microVersion; of equal versions the first in the search path, the
+    bundles of one directory in byte order of their names, never in the order
+    the directory lists them. The add, --pin-files and plugin-qualify's sync
+    read the same bundle; make test-bundle-rule holds it (#57, #58).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 08:35:00 +0000
+
+plugin-hostd (0.20.5) unstable; urgency=medium
+
+  * The clients read replies and feedback lines by the protocol table, with no
+    layout of their own: a word as its declared type (read_word in Python,
+    readWord in TypeScript) (#50).
+  * Floors: plugin-hostd-protocol >= 0.5.7 (< 0.6), the first whose table the
+    clients read this way, plugin-db >= 0.4.1 (< 0.5) (#50, #54), and
+    omx-clap-core >= 0.32.3 (< 0.33) for its contract, its host and the host's
+    tests.
+  * pins.h takes the length of a digest from plugin-db's plugin_db_constants.h,
+    which includes nothing, so the fuzz harnesses and their sources build with
+    no OpenSSL header; make test-fuzz-no-openssl holds it (#54).
+  * describe --pages gives a plugin with several hundred parameters and no
+    groups of its own a full set of pages in a stable order; Surge XT gets its
+    parameter pages (#52).
+  * bench: a matrix run is read by period length and rate, one table per
+    periods value, with each rate's safe minimum (#49).
+  * fuzz: each daemon verb is held to the call it must make, and quit is
+    compared whole (#53).
+  * CI: make sabotage runs as parallel jobs (#51).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 05:10:00 +0000
+
+plugin-hostd (0.20.4) unstable; urgency=medium
+
+  * Each hosted plugin's JACK client carries its name and instance in JACK
+    metadata (plugin-hostd-protocol's node_metadata), set by omx-clap-host
+    0.32.1; the client stays effect_<instance>, and clients match a hosted
+    node on the instance key (#33).
+  * The protocol clients: a Python package (python3-plugin-hostd-protocol) and
+    a TypeScript one (@openmixer/plugin-hostd-client on npm), both written
+    from the installed protocol table and held to each other on shared
+    fixtures (#29).
+  * Floors: plugin-hostd-protocol >= 0.5.5 and omx-clap-host >= 0.32.1 (<
+    0.33), whose preset_save is mod-host's form, the table's (#38).
+  * The clients read the plan, plan_get and estimate replies: the segments and
+    cores of a plan, the reasons a plan_get gives (instance, reason, its word,
+    the reply code of a plan-refused and retry), and every estimate figure by
+    its protocol name; a word of another shape is a ProtocolError, and counts
+    above 2^53-1 are refused in both clients (#39, #41).
+  * @openmixer/plugin-hostd-client ships a README, so its npm page says what
+    the client is and what it reads (#40).
+  * The npm publish step logs the trusted-publishing token exchange, so a
+    refused publisher names its reason (#37).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 12 Nov 2026 18:30:00 +0000
+
+plugin-hostd (0.20.3) unstable; urgency=medium
+
+  * describe writes a CLAP plugin's clap.meters/1 meters as the descriptor's
+    meters[] (id, output symbol, kind, channels, display range; dB for a gain
+    reduction, dBFS for a level) and refuses meters whose output symbols
+    collide with each other or with a parameter's
+  * describe gives a CLAP parameter its param-contract symbol, unit, scale and
+    step, and the contract's version and fingerprint in the extensions
+  * describe gives a CLAP control the meaning its declared panel's role plays,
+    read from the role tables of the contract directory (--contract-dir, else
+    $OMX_CONTRACT_PATH); a role no table declares leaves the meaning unknown
+  * The LV2 table reads the ratio unit omx-plugins' faces write
+  * omx-clap-host >= 0.31.2 (its scan writes the meter and contract records);
+    plugin-hostd-full: omx-plugins >= 0.19.3 (it installs the role table)
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 10 Nov 2026 23:54:41 +0100
+
 plugin-hostd (0.20.2) unstable; urgency=medium
 
   * Built and run against the inner layers' latest releases: plugin-hostd-protocol

@@ -21,15 +21,22 @@ const char *describe_format(const char *target);
 /* the plugin id a target names: the CLAP id after its last '#', or the LV2 URI; a pointer into target, or NULL */
 const char *describe_id(const char *target);
 
-/* the scanned descriptor of a dump: the format table's text, the dump's text and the target asked for; 0 with the
- * descriptor in out, -1 refused (a table it cannot read, a dump it refuses) with why */
-int describe_dump(const char *table_text, const char *dump_text, const char *target, sb_t *out, char *why,
-                  size_t why_size);
+/* the scanned descriptor of a dump: the format table's text, the dump's text, the target asked for and the contract
+ * directory's major (<contract dir>/<major>, NULL for none) whose role tables a role-to-meaning row reads; 0 with the
+ * descriptor in out, -1 refused (a table it cannot read, a dump it refuses, a role table it refuses) with why */
+int describe_dump(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out,
+                  char *why, size_t why_size);
 
 /* the panel document of a CLAP target (docs/panel.md): the panel object omx-clap-scan --json prints for the target's
  * id, its bytes as the scan wrote them, null when the plugin serves none; 0 with the document in out, -1 refused (no
  * JSON, no such plugin, a plugin the scan states no panel for) with why. An LV2 target's panel is null, scan_json
  * unread. */
 int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size);
+
+/* the pages of the target's descriptor (docs/formats.md#the-pages-describe-pages-writes): the same table, dump and
+ * contract directory as describe_dump, every control of exactly one page of its group's run, in declared order, cut
+ * at PAGE_SLOTS (src/pages.h); 0 with the pages in out, -1 refused as describe_dump refuses, with why. */
+int describe_pages(const char *table_text, const char *dump_text, const char *target, const char *roles_dir,
+                   sb_t *out, char *why, size_t why_size);
 
 #endif

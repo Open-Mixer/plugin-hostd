@@ -1409,6 +1409,54 @@ def an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_se
 
 
 @test
+def the_owner_client_reads_every_typed_reply_and_feedback_line_the_daemon_writes():
+    """plugin-hostd-protocol#17, #19: the owner's Python client reads, by the table alone, what this daemon writes:
+    worker_list, instance_info, plan, plan_get, estimate and hello's replies, and every feedback line of the run"""
+    sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
+    from plugin_hostd_protocol import Protocol
+    proto = Protocol()
+    cpus = four_cpus()
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on"}, cpus=cpus)
+
+    def read(line, verb):
+        w = d.send(line).split()
+        check(w[0] == "resp" and int(w[1]) >= 0, "%s -> %s" % (line, " ".join(w)))
+        return proto.read_reply(verb, w[2:], int(w[1]))
+    try:
+        for n in (1, 2):
+            d.expect(pin_n(p, n, "in-process"), "resp 0")
+        d.expect(pin_n(p, 3, "isolated"), "resp 0")
+        for n in (1, 2, 3):
+            d.expect("add %s %d" % (clap_n(p, n), n), "resp %d" % n)
+        plan = read("plan 1 1 2 3", "plan")
+        check(plan == {"segments": [[1, 2], [3]], "cores": [[None, None], [None]]}, "plan read by the table: %s" % plan)
+        got = read("plan_get 1", "plan_get")
+        check(got["segments"] == plan["segments"] and {"instance": 3, "reason": "verdict-isolated"} in got["reasons"],
+              "plan_get read by the table: %s" % got)
+        workers = read("worker_list", "worker_list")["workers"]
+        seen = d.workers()
+        check(sorted(w["worker"] for w in workers) == sorted(seen) and
+              all(w["pid"] == seen[w["worker"]]["pid"] and w["place"] == seen[w["worker"]]["place"] and
+                  w["state"] == seen[w["worker"]]["state"] for w in workers),
+              "worker_list read by the table: %s, the harness reads %s" % (workers, seen))
+        info = read("instance_info 3", "instance_info")
+        check(info["worker"] in [w["worker"] for w in workers] and info["crashes"] == 0,
+              "instance_info read by the table: %s" % info)
+        est = read("estimate 48000 128 %s" % clap_n(p, 1), "estimate")
+        check(est["workers"] >= 1 and isinstance(est["unknown"], list), "estimate read by the table: %s" % est)
+        hello = read("hello 1 tags", "hello")
+        check(hello["version"] == 1 and hello["extensions"] == ["tags"], "hello read by the table: %s" % hello)
+        ours = [e for e in d.events if e.split()[0] in proto.feedback and proto.feedback[e.split()[0]]["origin"] == "plugin-hostd"]
+        for e in d.events:
+            proto.parse(e)
+        check(all(proto.parse(e).get("fields") for e in ours), "each plugin-hostd line has its fields: %s" % ours)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def placement_none_pins_nothing_and_the_option_overrides_the_file():
     cpus = four_cpus()
     for kw in ({"conf": {"placement": "none"}}, {"conf": {"placement": "spread"}, "args": ["--placement=none"]}):
@@ -1702,9 +1750,11 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
-        check(set(VERBS) == {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                             "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"},
-              "declared: %s" % VERBS)
+        # the verbs this test drives by name must be declared; a protocol release may declare more (a minor adds rows),
+        # and each of those is answered for an LV2 instance by the daemon, never by mod-host, below
+        known = {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
+                 "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"}
+        check(known <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -1720,6 +1770,10 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         d.expect("param_info 0 :bypass", "resp -103")
         d.expect("remote_pages 9", "resp -3")
         d.expect("param_info 9 gain", "resp -3")
+        # a verb the protocol declares past those: mod-host has no answer of its own, so the daemon refuses it for an
+        # LV2 instance as an invalid operation, and the worker never hears it (checked with the rest below)
+        for verb in sorted(set(VERBS) - known):
+            d.expect("%s 0" % verb, "resp -902")
         _, w = d.holder(0)
         mark = d.mark()
         os.kill(w["pid"], signal.SIGKILL)

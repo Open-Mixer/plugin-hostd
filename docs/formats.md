@@ -87,8 +87,11 @@ which the row quotes. A field this section rules out is dropped by `docs/formats
 - a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back);
 - every field of the panel description (`omx_clap_plugin_panel_description.*` and the `omx_clap_panel_*` structures of
   omx-clap-core's `omx_clap_ext.h`): the panel travels whole, as the scan's `panel` object, by `panel_get`
-  ([panel.md](panel.md)), and the descriptor carries none of it. A panel field's row is a drop and nothing else;
-  `describe` refuses a table that makes one a word or the bag.
+  ([panel.md](panel.md)), and the descriptor carries none of it. A panel field's row is a drop and nothing else,
+  but for one: a role's `omx_clap_panel_role.role` is the word `controls[].meaning` through `role-to-meaning`, the
+  meaning the role plays given to the control its `param_id` names (omx-panel's `docs/panel-layout.md`, "Meanings and
+  roles": a declared panel names the role, a descriptor the meaning). `describe` refuses a table that makes any other
+  panel field a word or the bag, and the role field a word by any other transform.
 
 A TERM omx-contract marks `used` is never dropped: its row is a word or the bag.
 
@@ -114,6 +117,8 @@ format side.
 | `scale-points` | `<number> <label>` -> one point of the control's `values` and `labels` | the point back as `<number> <label>` | none |
 | `group-path` | a CLAP module path `a/b` -> the group `["a","b"]` | the group joined by `/` | none |
 | `port-group` | an LV2 group's label -> the group `["label"]`; a `pg:subGroupOf` label -> a level put before the group read so far | the path's last level, the group a port names | none |
+| `role-to-meaning` | a declared panel's role -> the meaning it plays, from the contract directory's role tables; a role no package declares gives nothing (the meaning stays `unknown`) | the one role that plays the meaning; refused when two or more do | the contract directory's `roleMeanings` items, never the row's own `values` |
+| `output-symbol` | a CLAP meter's name -> the output symbol a host reads it by, omx-clap-core's rule (`doc/reference.md`): each byte outside `[A-Za-z0-9_]` is `_`, a leading digit gets a `_` before it; an empty name is refused | the symbol itself, refused when it is no symbol | none |
 
 A new transform is added when a row needs it, never before; `make test-transforms` runs every function and its inverse
 over its vectors (in, out, back in, equal).
@@ -145,8 +150,8 @@ one transform renamed) and each arm must go red naming the field.
 ```
 
 - `scope`: `plugin`; `param:<index>` (CLAP, in `clap_plugin_params.get_info` order); `audio_in:<index>`,
-  `audio_out:<index>`, `note_in:<index>`, `note_out:<index>` (CLAP ports); `port:<index>` (an LV2 port, by
-  `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too. A CLAP plugin
+  `audio_out:<index>`, `note_in:<index>`, `note_out:<index>` (CLAP ports); `meter:<index>` (a CLAP meter of
+  `clap.meters/1`, in `get_info` order); `port:<index>` (an LV2 port, by `lv2:index`). A scope is a source field's first segment, so a bag key `<scope>/<field>` is one too. A CLAP plugin
   that serves a panel description adds `panel`, `section:<index>`, `control:<index>`, `role:<index>`,
   `display:<index>` and `placement_default:<index>` (omx-clap-scan 0.20.0); these scopes are no entry of the
   descriptor, and each of their fields is dropped (above).
@@ -162,7 +167,7 @@ The first line is `# omx-clap-scan --fields 1`, the format's version; a dump wit
 
 ## The descriptor `describe` writes
 
-`plugin-hostd-probe describe [--table <file>] [--fields-from <dump.tsv>] clap:<path>#<id> | lv2:<uri>` writes the
+`plugin-hostd-probe describe [--table <file>] [--fields-from <dump.tsv>] [--contract-dir <dir>] clap:<path>#<id> | lv2:<uri>` writes the
 `scanned` descriptor on stdout, exit 0; 2 when nothing is written (usage, a table it cannot read, a refused dump), 3 when
 the dump cannot be made. Without `--fields-from` it runs `omx-clap-scan --fields` under the probe runner's limits, in a
 child of its own (`run`'s isolation); with it, it reads a recorded dump, which is what its own tests do.
@@ -183,6 +188,23 @@ What the tables leave to `describe`:
   on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
   `toggle` defaults to its default being non-zero;
+- a CLAP parameter's contract entry (`org.openmixer.param-contract/1`) gives its `symbol`, its unit (a contract unit
+  `none` is the plugin stating none: `unknown`), its scale, and its `step` when the step is not 0 (0 is a continuous
+  travel, written as no step);
+- a CLAP `meter:` scope is one item of `meters[]` (omx-contract's `docs/descriptors.md`), in the plugin's order: a
+  gain reduction's unit is `dB`, a level's `dBFS` (`clap.meters/1`'s kinds), and its `scale` is `unknown`, as an
+  unstated CLAP scale is. A meter of a kind the descriptor has no word for (`CLAP_METER_KIND_OTHER`) is no item: its
+  kind is carried in the bag (`meter:<index>/clap_meter_info.kind`) and nothing else of it is written. A meter of more than one channel answers to `<symbol>_<channel>` from 0, and a plugin
+  whose meters give one output symbol twice, or one a parameter's `symbol` answers to, is refused naming the symbol,
+  as omx-clap-core refuses it;
+- a CLAP control's meaning from its declared panel's role: the role tables are the `roleMeanings` items of the
+  contract directory (omx-contract's `docs/contract-dir.md`, "A package's role meanings"), read from
+  `--contract-dir <dir>`, else `$OMX_CONTRACT_PATH`, else the directory plugin-hostd was built for, under its major:
+  every package's `MANIFEST.json` and each `.json` file it lists, each checked against its hash. A role declared
+  twice (`contract.role.duplicate`), a file that does not match its hash, a role whose `param_id` no parameter has, and
+  two roles giving one parameter two meanings are refused. With no role table installed every meaning stays `unknown`;
+  a role that plays none (`unknown`) leaves it so. The tests read the fixture directory
+  `tests/fixtures/contract-dir`, never the machine's;
 - an LV2 port's group path is its `pg:group` label with one `pg:subGroupOf` record per group above it, nearest first
   (the scanner follows the chain, `lv2:name` else `rdfs:label` of each group); the path is read outermost first, and a
   `pg:subGroupOf` with no `pg:group` before it is refused;
@@ -193,3 +215,28 @@ What the tables leave to `describe`:
   becomes `_`; `instrument` is written when the features hold it, `polyphonic` when it states more than one voice; `latency`
   is always written, `reports` false when no row sets it.
 - a word of a table that `describe` does not write is refused with the table: a new word is code here first.
+
+## The pages `describe --pages` writes
+
+`plugin-hostd-probe describe --pages [--table <file>] [--fields-from <dump.tsv>] clap:<path>#<id> | lv2:<uri>` writes
+the pages a host lists a plugin's controls in, one JSON document on stdout; the same exit codes as `describe`, since
+it runs the same descriptor first and refuses as `describe` refuses.
+
+A page is a run of `controls` (above), in their declared order, of one `group`; the controls that state no group of
+their own are one further group, `null`, not left off. A group's controls are cut into pages of 8, the size
+`remote_pages`/`remote_page_get` already cut an LV2 bundle's own groups into (`panel.md#drawing-a-panel-the-three-
+verbs-together`): a group's first page its first 8 controls in declared order, its second the next 8, and so on.
+Pages are written in the order their group first appears among the controls, a group's own pages consecutive and in
+that order. Every control is on exactly one page, and the pages of one descriptor are the same on every run: this
+holds whether or not a plugin groups its own controls, since the controls that state none are cut into pages the
+same way, by the same declared order.
+
+```json
+{"pages": [
+  {"group": ["Filter"], "params": [5]},
+  {"group": null, "params": [3, 7]}
+]}
+```
+
+- `group`: the page's controls' own `group` array, or `null` for the controls that state none;
+- `params`: the `id` of each control on the page (`controls[].id`), in declared order.

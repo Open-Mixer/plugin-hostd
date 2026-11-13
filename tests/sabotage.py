@@ -959,9 +959,14 @@ SABOTAGE = [
      "    if (!found)\n        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);\n    /* the memory comes first",
      "    if (0)\n        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);\n    /* the memory comes first",
      "under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles"),
+    ("a value the plugin moved itself leaves its instance clean, so no checkpoint holds it and a respawn loses it",
+     "src/supervisor.c",
+     "                if (!i || i->w != g_workers[n] || i->dirty)\n                    continue;\n                i->dirty = 1;",
+     "                if (!i || i->w != g_workers[n] || i->dirty)\n                    continue;\n                (void)now;",
+     "a_value_the_plugin_moved_itself_survives_a_respawn"),
     ("a chain's LV2 world is narrowed to its first member's bundle, not the union", "src/lv2.c",
-     "    for (k = 0; k < n; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]);",
-     "    for (k = 0; k < 1; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]);",
+     "    for (k = 0; k < n; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k], bundle_version);",
+     "    for (k = 0; k < 1; k++)\n    {\n        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k], bundle_version);",
      "under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_their_bundles"),
     ("a chain's worker gets the whole lv2_path", "src/supervisor.c",
      "        world = f->narrow_world(&g_conf, dir, uris, n);\n        free(uris);\n        return world;",
@@ -1896,9 +1901,27 @@ def run_test(tree, name, jack=False):
 
 
 
-def selected(entry):
+def in_shard(index):
+    """True when SABOTAGE_SHARD is unset, else when index falls in the i-th of the n shards it names (ci.yml's matrix)"""
+    shard = os.environ.get("SABOTAGE_SHARD")
+    if not shard:
+        return True
+    parts = shard.split("/")
+    try:
+        i, n = int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        i, n = 0, 0
+    if len(parts) != 2 or n < 1 or not (1 <= i <= n):
+        raise SystemExit("SABOTAGE_SHARD must be i/n with 1 <= i <= n, not %r" % shard)
+    return index % n == i - 1
+
+
+def selected(entry, index):
     """None when the arm runs, '' when the filters leave it out, else the line that says why it is skipped"""
     what, path, text, repl, name = entry[:5]
+    # SABOTAGE_SHARD=i/n: every n-th arm, by its position in SABOTAGE, so ci.yml's matrix runs the whole table once
+    if not in_shard(index):
+        return ""
     # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
     if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
         return ""
@@ -2065,11 +2088,16 @@ ROOT_WRITES_READ_ONLY = ("a_read_only_directory_stops_the_daemon_with_its_code_a
 work = None
 
 if __name__ == "__main__":
+    if "--count" in sys.argv[1:]:
+        # how many arms this shard (SABOTAGE_ONLY/SABOTAGE_FILE/SABOTAGE_KIND/SABOTAGE_SHARD, same as a real run)
+        # would run, with no tree copied and nothing built: ci.yml's sabotage-gate job sums this across the matrix
+        print(sum(1 for index, entry in enumerate(SABOTAGE) if selected(entry, index) is None))
+        sys.exit(0)
     # every arm in the order of the table; the arms run SABOTAGE_JOBS at a time (default: the cores, at most 8; 1 is one
     # after the other) and print in that order whichever finishes first
     plan = []
     for index, entry in enumerate(SABOTAGE):
-        why = selected(entry)
+        why = selected(entry, index)
         if why is None:
             plan.append((index, entry, None))
         elif why:

@@ -75,8 +75,15 @@ void proc_apply_env(pid_t pid, const worker_env_t *env);
  * privilege that lowers a nice below its own. */
 void proc_env_report(pid_t pid, const worker_env_t *env);
 
-/* The directory of LV2_PATH holding the bundle whose manifest names `uri`; malloc'd, NULL if none. */
-char *proc_find_lv2_bundle(const char *lv2_path, const char *uri);
+/* The version the data of `bundle` gives the plugin `uri`: its lv2:minorVersion and lv2:microVersion, each left 0 when
+ * not stated. */
+typedef void (*proc_lv2_version_fn)(const char *bundle, const char *uri, long *minor, long *micro);
+
+/* The bundle of LV2_PATH that is the plugin `uri`, by plugin-db's declared rule (PLUGIN_DB_BUNDLE_RULES, newest-version):
+ * of the bundles whose manifest realises it (or, when none does, that name it), the highest version `version` reads (none
+ * read, NULL, is all of version 0), and of equal versions the first in the path, each directory's bundles in byte order
+ * of their names; malloc'd, NULL if none. */
+char *proc_find_lv2_bundle(const char *lv2_path, const char *uri, proc_lv2_version_fn version);
 /* Every bundle of LV2_PATH whose manifest names `uri` and holds no binary (a preset bundle, the user's or one a
  * distribution ships, a MOD GUI), each handed to `fn` until it answers non-zero; how many, or -1 when stopped or short of
  * memory. The walk is remembered by search path and uri, and while no directory of the path has changed since (no bundle
