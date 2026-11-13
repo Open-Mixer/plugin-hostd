@@ -13,8 +13,21 @@ plugin-hostd (0.20.7) unstable; urgency=medium
     figure, never a verdict); both optional in the schema (D20, #63, #64).
   * tests: a sabotage arm for the checkpoint of a value the plugin moved
     itself (#24, #60).
+  * node_label <instance> [<label word> ...]: a client's label joins its
+    hosted node's pretty-name, and the daemon replays it after a respawn, so
+    it outlives its worker; an LV2 instance answers -902 (#35, #46).
+  * The protocol clients read the grouping reasons as constants written from
+    grouping.json, and each reason's retry from its declaration (#67, #69).
+  * proc_confine is the one setter of no_new_privs, checked: a worker, the
+    descriptor scan or the probe child that cannot have it is not run. The
+    sabotage arm for a nice the daemon cannot apply goes red on any host,
+    through a daemon started under RLIMIT_NICE 0 (#68, #74).
+  * tests: make test-preset-identity, a Surge XT preset the instance saved
+    loads back after a factory patch that renames its parameters (#27, #30).
+  * release: a catch-up dispatch input builds only the cells a served
+    version lacks (#71).
 
- -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 14:30:00 +0100
+ -- Pau Aliagas <linuxnow@gmail.com>  Sat, 14 Nov 2026 19:00:00 +0100
 
 plugin-hostd (0.20.6) unstable; urgency=medium
 

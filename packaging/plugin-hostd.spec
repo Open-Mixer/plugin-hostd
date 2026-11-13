@@ -237,7 +237,7 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
-* Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
+* Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
 - Every child the daemon starts that runs plugin code runs confined: a daemon
   worker, the descriptor scan and the probe runner's child, by one
   proc_confine (src/confine.c): no_new_privs, no descriptor of its parent's past
@@ -251,6 +251,19 @@ make test-daemon check-generated check-rendered
   never a verdict); both optional in the schema (D20, #63, #64).
 - tests: a sabotage arm for the checkpoint of a value the plugin moved itself
   (#24, #60).
+- node_label <instance> [<label word> ...]: a client's label joins its hosted
+  node's pretty-name, and the daemon replays it after a respawn, so it outlives
+  its worker; an LV2 instance answers -902 (#35, #46).
+- The protocol clients read the grouping reasons as constants written from
+  grouping.json, and each reason's retry from its declaration (#67, #69).
+- proc_confine is the one setter of no_new_privs, checked: a worker, the
+  descriptor scan or the probe child that cannot have it is not run. The
+  sabotage arm for a nice the daemon cannot apply goes red on any host, through
+  a daemon started under RLIMIT_NICE 0 (#68, #74).
+- tests: make test-preset-identity, a Surge XT preset the instance saved loads
+  back after a factory patch that renames its parameters (#27, #30).
+- release: a catch-up dispatch input builds only the cells a served version
+  lacks (#71).
 
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle
