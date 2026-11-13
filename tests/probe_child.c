@@ -218,8 +218,16 @@ static void put_rates(const char *rates, long quantum, unsigned notes)
                instrument ? ",\"from\":\"note\"" : "", instrument && r == silent ? ",\"heard\":false" : "");
     printf("},\"threadViolations\":0,\"processErrors\":0}");
     if (interposed)
+    {
         printf(",\"rtSafety\":{\"interposer\":true,\"swept\":false,\"sweepApplicable\":true,\"blocks\":64,\"allocationsInRun\":%ld,"
-               "\"locksInRun\":0,\"syscallsInRun\":0,\"events\":[]}", allocs ? atol(allocs) : 0L);
+               "\"locksInRun\":0,\"syscallsInRun\":0,\"events\":[]", allocs ? atol(allocs) : 0L);
+        /* the threads the plugin started and what other threads did while the audio thread was armed (D20) */
+        if (getenv("PROBE_CHILD_OWN_THREADS"))
+            printf(",\"ownThreads\":%ld,\"otherThreads\":{\"allocationsInRun\":%ld,\"locksInRun\":1,\"syscallsInRun\":2}",
+                   atol(getenv("PROBE_CHILD_OWN_THREADS")),
+                   getenv("PROBE_CHILD_OTHER_ALLOCATIONS") ? atol(getenv("PROBE_CHILD_OTHER_ALLOCATIONS")) : 0L);
+        printf("}");
+    }
     else
         printf(",\"rtSafety\":{\"interposer\":false}");
     if (instrument && note_allocs)
