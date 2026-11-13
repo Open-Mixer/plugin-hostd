@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.4
+Version: 0.20.5
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -237,6 +237,24 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.5-1
+- The clients read replies and feedback lines by the protocol table, with no
+  layout of their own: a word as its declared type (read_word in Python,
+  readWord in TypeScript) (#50).
+- Floors: plugin-hostd-protocol >= 0.5.7 (< 0.6), the first whose table the
+  clients read this way, and plugin-db >= 0.4.1 (< 0.5) (#50, #54).
+- pins.h takes the length of a digest from plugin-db's plugin_db_constants.h,
+  which includes nothing, so the fuzz harnesses and their sources build with no
+  OpenSSL header; make test-fuzz-no-openssl holds it (#54).
+- describe --pages gives a plugin with several hundred parameters and no groups
+  of its own a full set of pages in a stable order; Surge XT gets its parameter
+  pages (#52).
+- bench: a matrix run is read by period length and rate, one table per periods
+  value, with each rate's safe minimum (#49).
+- fuzz: each daemon verb is held to the call it must make, and quit is compared
+  whole (#53).
+- CI: make sabotage runs as parallel jobs (#51).
+
 * Thu Nov 12 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.4-1
 - Each hosted plugin's JACK client carries its name and instance in JACK
   metadata (plugin-hostd-protocol's node_metadata), set by omx-clap-host 0.32.1;
