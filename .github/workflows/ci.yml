@@ -63,9 +63,19 @@ jobs:
       # needs a daemon that cannot lower a nice
       options: --cap-add SYS_ADMIN --cap-add SYS_RESOURCE --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
+          bounded-install dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
 
       - uses: actions/checkout@v4
@@ -79,7 +89,7 @@ jobs:
 
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
-        run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+        run: bounded-install dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
       # an ordinary run builds against the channel: name where each omx package came from, refuse one from staging
       # (plugin-hostd-protocol#27: a stale staged contract package outranked the channel)
@@ -94,7 +104,7 @@ jobs:
       # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
       # none, and its base package carries the catalog
       - name: The protocol's Catalan catalog, where a language pack carries it
-        run: dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
+        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
 
       - name: Build
         run: make
@@ -123,7 +133,7 @@ jobs:
       # plugin of omx-plugins-clap that publishes one and of omx-clap-host-tests' fake compressor, which publishes none
       - name: Test panel_get against the installed scanner and real plugins
         run: |
-          dnf install -y --setopt=retries=10 omx-plugins-clap omx-plugins-contract
+          bounded-install dnf install -y --setopt=retries=10 omx-plugins-clap omx-plugins-contract
           make test-panel-wire
 
       # mod-host itself, the LV2 worker, from the OpenMixer channel, with the patches Open-Mixer/.github carries. The
@@ -131,7 +141,7 @@ jobs:
       - name: Install mod-host from the channel
         run: |
           set -euo pipefail
-          dnf install -y --setopt=retries=10 mod-host
+          bounded-install dnf install -y --setopt=retries=10 mod-host
           rpm -q mod-host
           floor=0.10.6.f14a230-11.3
           have=$(rpm -q --qf '%{VERSION}-%{RELEASE}' mod-host)
@@ -193,9 +203,19 @@ jobs:
       image: fedora:44
       options: --cap-add SYS_NICE
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
+          bounded-install dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
             iproute util-linux procps-ng diffutils python3-jsonschema
 
       - uses: actions/checkout@v4
@@ -207,7 +227,7 @@ jobs:
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
       - name: Install the build dependencies from the channel
-        run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+        run: bounded-install dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
       - name: Build
         run: make
@@ -237,10 +257,20 @@ jobs:
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
         run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev cmake \
+          bounded-install apt-get update -qq
+          bounded-install apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
@@ -257,7 +287,7 @@ jobs:
 
       # the worker and the fixtures: omx-clap-host-tests Depends on omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
-        run: apt-get build-dep -y --no-install-recommends ./
+        run: bounded-install apt-get build-dep -y --no-install-recommends ./
 
       # the CLAP headers, which Debian does not package either: built and installed from the pin of
       # Open-Mixer/.github, the same one the RPM and DEB builds of the CLAP worker use
@@ -303,8 +333,18 @@ jobs:
       # the clean root gets a /proc and a /dev of its own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
-        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
+        run: bounded-install dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
 
       - uses: actions/checkout@v4
         with:
@@ -324,9 +364,9 @@ jobs:
           set -euo pipefail
           mkdir -p dep-rpms
           # plugin-db-devel is built per architecture (the pin header and the library's link), not noarch
-          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol plugin-db-devel
+          bounded-install dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol plugin-db-devel
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
-          dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)"
+          bounded-install dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)"
 
       - uses: Open-Mixer/.github/.github/actions/build-rpm@openmixer-v1
 
@@ -472,10 +512,20 @@ jobs:
     container:
       image: debian:${{ matrix.suite }}
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
         run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian python3
+          bounded-install apt-get update -qq
+          bounded-install apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian python3
 
       - uses: actions/checkout@v4
         with:
@@ -501,7 +551,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dep-debs
-          (cd dep-debs && apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
+          (cd dep-debs && bounded-install apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
             omx-clap-core-contract omx-contract-data omx-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
@@ -546,6 +596,16 @@ jobs:
     container:
       image: debian:${{ matrix.suite }}
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - uses: actions/download-artifact@v4
         with:
           name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
@@ -553,8 +613,8 @@ jobs:
       - name: Install the package with its dependencies from the distribution
         run: |
           set -euo pipefail
-          apt-get update -qq
-          apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/plugin-db-dev_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          bounded-install apt-get update -qq
+          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/plugin-db-dev_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
@@ -643,12 +703,22 @@ jobs:
     container:
       image: debian:${{ matrix.suite }}
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       # what a Debian base image lacks and the page assumes: sudo and curl, which Raspberry Pi OS and Zynthian carry,
       # and python3 for the reader of the page
       - name: Prepare the clean container
         run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl sudo python3 apt-utils
+          bounded-install apt-get update -qq
+          bounded-install apt-get install -y --no-install-recommends ca-certificates curl sudo python3 apt-utils
 
       - uses: actions/checkout@v4
 
@@ -704,6 +774,16 @@ jobs:
       # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       # pipewire-jack-audio-connection-kit before the channel's packages: the libjack.so.0 omx-clap-host, plugin-hostd and
       # jack_identity load is then PipeWire's, never JACK2's, which looks for a jackd that does not run here. lilv-libs:
       # omx-clap-host opens liblilv-0.so.0 itself at its first LV2 add (dlopen, no rpm requirement), without it every LV2
@@ -711,7 +791,7 @@ jobs:
       # and the rpm job's build tools: the daemon under test is built here, from this checkout
       - name: Install the tools
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils \
+          bounded-install dnf install -y --setopt=install_weak_deps=False git dnf5-plugins python3 pipewire pipewire-utils \
             pipewire-jack-audio-connection-kit lilv-libs iproute util-linux procps-ng \
             rpm-build gcc make openssl-devel cjson-devel tar gzip pipewire-jack-audio-connection-kit-devel
 
@@ -732,7 +812,7 @@ jobs:
         run: |
           set -euo pipefail
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
-          dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
+          bounded-install dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
             ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \
             'omx-clap-host >= 0.32.3' 'omx-clap-host < 0.33' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config

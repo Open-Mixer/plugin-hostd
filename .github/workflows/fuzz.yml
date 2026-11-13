@@ -62,9 +62,19 @@ jobs:
     container:
       image: fedora:44
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install clang, libFuzzer and llvm-cov
         run: |
-          dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils openssl-devel \
+          bounded-install dnf install -y --setopt=install_weak_deps=False git dnf5-plugins clang compiler-rt llvm make gawk diffutils openssl-devel \
             python3 pkgconf-pkg-config
 
       - uses: actions/checkout@v4
@@ -80,7 +90,7 @@ jobs:
       - name: Install the protocol headers from the OpenMixer channel
         run: |
           set -euo pipefail
-          dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" 'plugin-db-devel >= 0.4.1' 'plugin-db-devel < 0.5'
+          bounded-install dnf install -y --setopt=retries=10 "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" 'plugin-db-devel >= 0.4.1' 'plugin-db-devel < 0.5'
 
       # fuzz-sabotage applies each mutant with git and restores it with git checkout
       - name: Let git work in the checkout

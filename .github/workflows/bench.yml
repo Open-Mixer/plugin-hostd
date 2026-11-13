@@ -33,10 +33,20 @@ jobs:
       run:
         shell: bash
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
         run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian python3
+          bounded-install apt-get update -qq
+          bounded-install apt-get install -y --no-install-recommends ca-certificates curl git dpkg-dev debhelper build-essential lintian python3
 
       - uses: actions/checkout@v4
         with:
@@ -72,6 +82,16 @@ jobs:
       run:
         shell: bash
     steps:
+      # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
+      # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
+      # the job's own checkout cleans every file it does not track.
+      - uses: actions/checkout@v4
+        with:
+          path: .ci-tools
+          sparse-checkout: tools/bounded-install.sh
+          sparse-checkout-cone-mode: false
+      - name: The bounded package manager wrapper
+        run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - uses: actions/download-artifact@v4
         with:
           name: plugin-hostd-bench-debs
@@ -80,12 +100,12 @@ jobs:
       - name: Install this run's plugin-hostd, and the other hosts, JACK and the plugins from the OpenMixer channel
         run: |
           set -euo pipefail
-          apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl
+          bounded-install apt-get update -qq
+          bounded-install apt-get install -y --no-install-recommends ca-certificates curl
           curl -fsSLO https://www.openmixer.org/deb/openmixer-release.deb
-          apt-get install -y ./openmixer-release.deb
-          apt-get update -qq
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-jsonschema \
+          bounded-install apt-get install -y ./openmixer-release.deb
+          bounded-install apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive bounded-install apt-get install -y --no-install-recommends python3 python3-jsonschema \
             shellcheck procps netcat-openbsd pkgconf libplugin-hostd-protocol-dev omx-clap-host omx-plugins-clap omx-plugins-lv2 \
             jackd2 jack-example-tools jalv calf-plugins ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb
 
