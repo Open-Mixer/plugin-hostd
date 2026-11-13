@@ -48,7 +48,15 @@
 
 /* record: reply-answer-self-made
  * mutant: src/verbs.c:216 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
- * input: add-too-few */
+ * input: add-too-few
+ * mutant: src/verbs.h:39 `strcspn(text, " \t") == n && !strncmp(text, format, n)` -> `!strncmp(text, format, n)`
+ * input: quit-prefix */
+
+/* record: call-of-verb
+ * mutant: src/verbs.c:237 `atoi(tok[1]) == -1 ? sup_remove_all() : sup_remove(atoi(tok[1]))` -> `sup_remove_all()`
+ * input: mod-host-remove
+ * mutant: src/verbs.c:230 `descriptors_get(tok[1])` -> `descriptors_panel_get(tok[1])`
+ * input: plugin-hostd-descriptor_get */
 
 /* record: reply-hello-no-worker
  * mutant: src/verbs.c:164 `strcmp(verb, OMX_VERB_HELLO)` -> `strcmp(verb, "hello_")`
