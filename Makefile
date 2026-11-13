@@ -90,7 +90,7 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
-SRC = src/main.c src/conf.c src/proc.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
+SRC = src/main.c src/conf.c src/proc.c src/confine.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
@@ -113,8 +113,8 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
@@ -227,6 +227,16 @@ render-verbs check-rendered:
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check)
+
+# the grouping reasons as constants of both clients' readers (#67): GroupingReason in clients/python and in clients/ts,
+# written between their markers from data/grouping.json by tools/grouping-reasons.py. `make render-grouping-reasons`
+# writes them, `make check-grouping-reasons` fails on any drift or any stray constant, and its self-test plants each
+.PHONY: render-grouping-reasons check-grouping-reasons
+render-grouping-reasons:
+	python3 tools/grouping-reasons.py write
+check-grouping-reasons:
+	python3 tools/grouping-reasons.py check
+	python3 tools/grouping-reasons.py self-test
 
 # the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
 # omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
@@ -368,7 +378,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
+test: test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -461,8 +471,8 @@ test-voices-cores-diag:
 test-proc: $(PROC_TEST)
 	./$(PROC_TEST)
 
-$(PROC_TEST): tests/proc_test.c src/proc.c src/proc.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c -pthread $(PIN_LIBS) -lm
+$(PROC_TEST): tests/proc_test.c src/proc.c src/confine.c src/proc.h src/confine.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c src/confine.c -pthread $(PIN_LIBS) -lm
 
 # the search settings (src/conf.c, plugin-hostd-protocol's plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
 test-conf: $(CONF_TEST)
@@ -578,6 +588,25 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios test
 	CURVE_REPLY=$(abspath tests/curve_reply) \
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
+
+# a preset an instance saved loads back after a factory patch of Surge XT (#27), through the daemon and a real
+# omx-clap-host (OMX_CLAP_HOST, default the installed one) over jack in a PipeWire of its own. Surge XT is the
+# distribution's (clap-surge-xt and surge-xt on Fedora): a Surge XT that is not installed stops the run, never a skip.
+# The patch names its macros ("Sync"), so loading it renames the plugin's parameters: a patch whose macros are all
+# unnamed (Attacky's) renames nothing and the test could not see #27. SURGE_CLAP and SURGE_FACTORY_PATCH name another
+# install's files.
+SURGE_CLAP ?= /usr/lib64/clap/Surge_XT.clap
+SURGE_FACTORY_PATCH ?= /usr/share/surge-xt/patches_factory/Basses/Squared.fxp
+OMX_CLAP_HOST ?= $(shell command -v omx-clap-host)
+
+.PHONY: test-preset-identity
+test-preset-identity: $(PROG) plugin-hostd-probe tests/stress.clap tests/jack_levels
+	@for f in "$(SURGE_CLAP)" "$(SURGE_FACTORY_PATCH)" "$(OMX_CLAP_HOST)"; do \
+	    [ -e "$$f" ] || { echo "test-preset-identity: missing '$$f' (Surge XT: clap-surge-xt and surge-xt; omx-clap-host)" >&2; exit 2; }; \
+	done
+	JACK_E2E_PY=preset_identity_e2e.py JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=$(abspath $(PROG)) OMX_CLAP_HOST=$(OMX_CLAP_HOST) \
+	SURGE_CLAP=$(SURGE_CLAP) SURGE_FACTORY_PATCH=$(SURGE_FACTORY_PATCH) PATH=$(abspath .):$$PATH \
+	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
 
 # the protocol clients (docs/clients.md): each client's own tests on clients/fixtures/codec.json, then both held to each
 # other on the fixtures and on plugin-hostd-protocol's host scenarios, and that comparison's self-test
@@ -790,6 +819,11 @@ test-consumer:
 # --pin-files: the files a pin holds as an add collects them, the list plugin-qualify takes (plugin-qualify#228)
 test-pin-files: $(PROG)
 	sh tests/pin_files_test.sh ./$(PROG)
+
+# which bundle an LV2 uri is when several name it: plugin-db's declared rule, newest version then search path and byte
+# order (#57)
+test-bundle-rule: $(PROG)
+	sh tests/bundle_rule_test.sh ./$(PROG)
 
 # --search-path: the LV2 and CLAP directories the daemon searches and their sources, the lists plugin-qualify scans
 # (plugin-qualify#9)

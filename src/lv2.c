@@ -46,6 +46,8 @@
 #define MANIFEST_MAX (4 * 1024 * 1024)
 #define LV2_BINARY   "http://lv2plug.in/ns/lv2core#binary"
 #define RDFS_SEEALSO "http://www.w3.org/2000/01/rdf-schema#seeAlso"
+#define LV2_MINOR_VERSION "http://lv2plug.in/ns/lv2core#minorVersion"
+#define LV2_MICRO_VERSION "http://lv2plug.in/ns/lv2core#microVersion"
 #define LV2_PREFIX   "lv2:"
 #define LV2_BYPASS_SYMBOL ":bypass"
 
@@ -381,6 +383,114 @@ static int read_manifest(const char *root, char **bytes, size_t *size)
     return got == st.st_size ? 0 : -1;
 }
 
+/* the lv2:minorVersion and lv2:microVersion text states for the plugin, as a whole number written bare or as a literal;
+ * the ones it does not state are left as they are */
+static void text_versions(const char *text, size_t size, const char *uri, long *minor, long *micro)
+{
+    scan_t *s = calloc(1, sizeof(scan_t));
+    token_t t;
+    int state = WANT_SUBJECT, ours = 0, depth = 0;
+    long *pred = NULL;
+
+    if (!s)
+        return;
+    scan_start(s, text, size);
+    for (next(s, &t); t.kind != T_END; next(s, &t))
+    {
+        if (t.kind == T_PUNCT && (t.text[0] == '[' || t.text[0] == '('))
+        {
+            if (depth++ == 0 && state == WANT_SUBJECT)
+                ours = 0;
+            continue;
+        }
+        if (t.kind == T_PUNCT && (t.text[0] == ']' || t.text[0] == ')'))
+        {
+            if (depth && --depth == 0)
+                state = state == WANT_SUBJECT ? WANT_PREDICATE : AFTER_OBJECT;
+            continue;
+        }
+        if (depth)
+            continue;
+        if (t.kind == T_DIRECTIVE && state == WANT_SUBJECT)
+        {
+            directive(s, &t);
+            continue;
+        }
+        expand(s, &t);
+        if (t.kind == T_PUNCT && t.text[0] == '.')
+            state = WANT_SUBJECT;
+        else if (t.kind == T_PUNCT && t.text[0] == ';')
+            state = WANT_PREDICATE;
+        else if (t.kind == T_PUNCT && t.text[0] == ',')
+            state = WANT_OBJECT;
+        else if (state == WANT_SUBJECT)
+        {
+            ours = t.kind == T_IRI && !strcmp(t.text, uri);
+            state = WANT_PREDICATE;
+        }
+        else if (state == WANT_PREDICATE)
+        {
+            pred = t.kind != T_IRI ? NULL : !strcmp(t.text, LV2_MINOR_VERSION) ? minor
+                                          : !strcmp(t.text, LV2_MICRO_VERSION) ? micro : NULL;
+            state = WANT_OBJECT;
+        }
+        else if (state == WANT_OBJECT)
+        {
+            char *end;
+            long v;
+
+            if (ours && pred && (t.kind == T_NAME || t.kind == T_LITERAL) && t.text[0] >= '0' && t.text[0] <= '9')
+            {
+                v = strtol(t.text, &end, 10);
+                if (*end == '\0')
+                    *pred = v;
+            }
+            state = AFTER_OBJECT;
+        }
+    }
+    free(s);
+}
+
+/* the version a bundle's data gives the plugin (proc_lv2_version_fn): its manifest, then each Turtle file the manifest
+ * names for it in the bundle, as lilv reads them; 0 for what none states */
+static void bundle_version(const char *bundle, const char *uri, long *minor, long *micro)
+{
+    names_t names = { NULL, 0 };
+    char *manifest = NULL, *text = NULL;
+    size_t size = 0;
+    int n;
+
+    *minor = *micro = 0;
+    if (read_manifest(bundle, &manifest, &size) != 0)
+    {
+        free(manifest);
+        return;
+    }
+    text_versions(manifest, size, uri, minor, micro);
+    if (manifest_files(manifest, size, bundle, uri, &names, 0) == 0)
+        for (n = 0; n < names.n; n++)
+        {
+            char decoded[PATH_MAX], full[PATH_MAX * 2];
+            size_t len = strlen(names.name[n]);
+            FILE *f;
+            long got;
+
+            if (len < 4 || strcmp(names.name[n] + len - 4, ".ttl") || phd_pin_path_decode(names.name[n], decoded, sizeof(decoded)))
+                continue;
+            snprintf(full, sizeof(full), "%s/%s", bundle, decoded);
+            if (!(f = fopen(full, "rb")))
+                continue;
+            if (fseek(f, 0, SEEK_END) == 0 && (got = ftell(f)) > 0 && got <= MANIFEST_MAX && fseek(f, 0, SEEK_SET) == 0 &&
+                (text = malloc(got + 1)) && fread(text, 1, got, f) == (size_t)got)
+                text_versions(text, got, uri, minor, micro);
+            free(text);
+            text = NULL;
+            fclose(f);
+        }
+    names_free(&names);
+    free(manifest);
+}
+
 /* the uri as the manifest names the plugin: without a prefix */
 static const char *bare(const char *uri)
 {
@@ -391,7 +501,7 @@ static const char *bare(const char *uri)
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files)
 {
     names_t names = { NULL, 0 };
-    char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL;
+    char *bundle = proc_find_lv2_bundle(search, bare(uri), bundle_version), *manifest = NULL;
     size_t manifest_size = 0;
     int n, based, rc = SUCCESS;
 
@@ -428,7 +538,7 @@ int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size
 int lv2_binary(const char *uri, const char *search, char *path, size_t size)
 {
     names_t names = { NULL, 0 };
-    char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL, decoded[PATH_MAX];
+    char *bundle = proc_find_lv2_bundle(search, bare(uri), bundle_version), *manifest = NULL, decoded[PATH_MAX];
     size_t manifest_size = 0;
     int rc = -1;
 
@@ -500,7 +610,7 @@ char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *u
     }
     for (k = 0; k < n; k++)
     {
-        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k]);
+        char *bundle = proc_find_lv2_bundle(conf->lv2_path, uris[k], bundle_version);
         int ok;
 
         if (!bundle)
@@ -850,7 +960,7 @@ static int port_read(const graph_t *g, const char *node, port_t *p)
 static ports_t *ports_load(const char *uri, const char *search)
 {
     names_t names = { NULL, 0 };
-    char *bundle = proc_find_lv2_bundle(search, bare(uri)), *manifest = NULL;
+    char *bundle = proc_find_lv2_bundle(search, bare(uri), bundle_version), *manifest = NULL;
     size_t size = 0;
     ports_t *ports = NULL;
     int n, k, ok = 0;

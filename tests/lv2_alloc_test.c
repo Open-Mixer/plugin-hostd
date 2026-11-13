@@ -65,10 +65,11 @@ int pin_refuse(const char *uri, const char *path, const char *why)
     return 0;
 }
 
-char *proc_find_lv2_bundle(const char *lv2_path, const char *uri)
+char *proc_find_lv2_bundle(const char *lv2_path, const char *uri, proc_lv2_version_fn version)
 {
     (void)lv2_path;
     (void)uri;
+    (void)version;
     return NULL;
 }
 

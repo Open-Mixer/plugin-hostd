@@ -55,6 +55,8 @@
  *                               the verb is unknown, -902)
  *   param_set <n> pages_changed <v>   v other than 0 writes "remote_pages_changed <n>" on the feedback port, as a CLAP
  *                               worker does when its plugin changes its remote pages
+ *   param_get <n> ptrace        "resp 0 <errno>" of a ptrace(PTRACE_PEEKUSER) of the fake's own untraced self: ESRCH,
+ *                               or EPERM where a seccomp filter refuses ptrace
  *   param_get <n> xruns=<v>     writes "xruns <v>" on the feedback port, v as sent, as a worker does when the JACK xruns it
  *                               counted change (v is the count since the worker started; the fake counts none itself),
  *                               and answers "resp 0 0". A read is no setting, so the daemon's ledger does not keep it and
@@ -124,6 +126,7 @@
  */
 
 #include <ctype.h>
+#include <errno.h>
 #include <dirent.h>
 #include <getopt.h>
 #include <fcntl.h>
@@ -136,6 +139,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
+#include <sys/ptrace.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -795,6 +799,9 @@ static void receive(msg_t *msg)
         }
         answer(fd, "resp 0");
     }
+    else if (verb_is(verb, EFFECT_PARAM_GET) && ntok == 3 && !strcmp(tok[2], "ptrace"))
+        /* what a plugin that pokes at a process gets: ESRCH from an untraced self, EPERM under the worker's filter */
+        answer(fd, "resp 0 %d", ptrace(PTRACE_PEEKUSER, getpid(), NULL, NULL) == -1 ? errno : 0);
     else if (verb_is(verb, EFFECT_PARAM_GET) && ntok == 3 && !strncmp(tok[2], "xruns=", 6))
     {
         char event[128];

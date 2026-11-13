@@ -92,6 +92,7 @@
 #include "describe.h"
 #include "json.h"
 #include "machine.h"
+#include "confine.h"
 #include "probe_cgroup.h"
 #include "probe_lock.h"
 
@@ -1225,6 +1226,16 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
         }
         close(status_pipe[0]);
         apply_limits(o, pinned, pin_option, r->measuring, rt_pipe[1]);
+        /* confined as a daemon worker is (#61), keeping the step records, the lock report and the exec-failure pipe */
+        {
+            int keep[3], nkeep = 0;
+
+            keep[nkeep++] = 3;
+            if (r->measuring && g_lock.asked)
+                keep[nkeep++] = PROBE_LOCK_FD;
+            keep[nkeep++] = status_pipe[1];
+            proc_confine(keep, nkeep);
+        }
         execvp(o->child, argv);
         {
             int e = errno;
@@ -1732,6 +1743,18 @@ static void put_count(sb_t *b, const cJSON *o, const char *from, const char *to)
         sb_printf(b, ", \"%s\": %.0f", to, v);
 }
 
+/* the rt-safety arm's thread figures, as a point carries them (D20, #63): the threads the plugin started, and what other
+ * threads did while the audio thread was armed, a figure and never a verdict; each only when the prober printed it whole */
+static void put_thread_figures(sb_t *b, const cJSON *rt)
+{
+    const cJSON *other = jget(rt, "otherThreads");
+    double a, l, s;
+
+    put_count(b, rt, "ownThreads", "ownThreads");
+    if (other && jnum(other, "allocationsInRun", &a) && jnum(other, "locksInRun", &l) && jnum(other, "syscallsInRun", &s))
+        sb_printf(b, ", \"otherThreads\": {\"allocations\": %.0f, \"locks\": %.0f, \"syscalls\": %.0f}", a, l, s);
+}
+
 /* a prober's note sweep, as a point carries it: whether it applied, the dialect it played in, and what process() or run()
  * did while it played when the interposer counted; a sweep the interposer did not count carries no counts */
 static void put_note_sweep(sb_t *b, const cJSON *ns)
@@ -1794,6 +1817,7 @@ static void put_lv2_measure(sb_t *b, const cJSON *m, long rate, unsigned quantum
         put_count(b, rt, "allocationsInRun", "allocations");
         put_count(b, rt, "locksInRun", "locks");
         put_count(b, rt, "syscallsInRun", "syscalls");
+        put_thread_figures(b, rt);
         if (ev && cJSON_IsArray(ev))
         {
             sb_printf(b, ", \"events\": [");
@@ -2643,6 +2667,7 @@ int main(int argc, char **argv)
                             sb_printf(&doc, ", \"threadViolations\": %.0f", v);
                         if (jnum(clap, "processErrors", &v))
                             sb_printf(&doc, ", \"processErrors\": %.0f", v);
+                        put_thread_figures(&doc, rt);
                         if (ev && cJSON_IsArray(ev))
                         {
                             size_t e;

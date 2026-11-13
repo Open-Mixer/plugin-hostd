@@ -307,6 +307,23 @@ def the_limits_reach_the_child():
 
 
 @test
+def the_child_runs_confined_as_a_daemon_worker_does():
+    """a qualification verdict describes the plugin as the console hosts it, so the probe's child runs under the
+    confinement a daemon worker runs under (proc_confine): no_new_privs, a seccomp filter, and no descriptor of the
+    runner's past stdin, stdout, stderr and the step records on 3 (the plugin-hostd issue of the probe's sandbox)"""
+    work = tempfile.mkdtemp(prefix="plugin-hostd-probe-confine.")
+    report = os.path.join(work, "confinement")
+    code, doc, _, _, _ = run(env={"PROBE_CHILD_CONFINEMENT": report})
+    check(code == 0, "exit status %d" % code)
+    lines = open(report).read().splitlines()
+    status = dict(l.split(":", 1) for l in lines if ":" in l and not l.startswith("fd "))
+    check(status.get("NoNewPrivs", "").strip() == "1", "the child cannot gain a privilege: %s" % status)
+    check(status.get("Seccomp", "").strip() == "2", "the child runs under a seccomp filter: %s" % status)
+    fds = {int(l.split()[1]): (l.split(" ", 2) + [""])[2] for l in lines if l.startswith("fd ")}
+    check(set(fds) <= {0, 1, 2, 3}, "the child holds stdin, stdout, stderr and the step records only: %s" % fds)
+
+
+@test
 def the_notes_an_instrument_holds_reach_the_clap_child():
     work = tempfile.mkdtemp(prefix="plugin-hostd-probe-argv.")
     seen = os.path.join(work, "argv")
@@ -574,6 +591,25 @@ def a_clap_child_runs_under_the_interposer_beside_it():
     for name in ("rt-safety", "note-sweep"):
         s = step(doc, name)
         check(s is not None and s["outcome"] == "probe.ok", "the %s step: %s" % (name, s))
+
+
+@test
+def the_rt_safety_arm_carries_the_plugins_own_threads_and_what_other_threads_did():
+    """D20: the arm counts the audio thread and the other threads apart, and the threads the plugin started; the
+    document carries both figures and validates, for a CLAP child and an LV2 one (plugin-hostd#63)"""
+    code, doc, _, _, err = run(env={"PROBE_CHILD_ALLOCATIONS": "0", "PROBE_CHILD_OWN_THREADS": "2", "PROBE_CHILD_OTHER_ALLOCATIONS": "5"})
+    check(doc is not None, "no document: exit %d %s" % (code, err))
+    valid(doc)
+    rt = doc["grid"][0]["rtSafety"]
+    check(rt.get("allocations") == 0 and rt.get("ownThreads") == 2
+          and rt.get("otherThreads") == {"allocations": 5, "locks": 1, "syscalls": 2},
+          "the CLAP child's own threads and other-thread figures reach the document: %s" % rt)
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_OWN_THREADS": "1"})
+    check(doc is not None, "no LV2 document: exit %d %s" % (code, err))
+    valid(doc)
+    rt = doc["grid"][0]["rtSafety"]
+    check(rt.get("ownThreads") == 3 and rt.get("otherThreads") == {"allocations": 7, "locks": 1, "syscalls": 2},
+          "the LV2 child's own threads and other-thread figures reach the document: %s" % rt)
 
 
 @test
