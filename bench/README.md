@@ -57,6 +57,15 @@ and the exit is 1. `bench/lib/send.sh <port> <line>...` sends protocol lines to 
 one process per plugin to one chain, and the xruns summed per mode, with and without stress. A table of grouped against
 one process per plugin is made by running the `cvp3,cvp8,cvp16` scenarios on the machine and handing the document to it.
 
+`bench/matrix.sh [--json] <document-or-set-directory>...` reads a matrix run, one document per rate, frame count and
+periods (a set directory `r<rate>-f<frames>-n<periods>` or a document), as one result. Rates compare at equal period
+length, so it prints one markdown table per periods value (`n2`, `n3` for the alsa driver, `dummy` for the dummy
+driver) with a row per period in milliseconds and a column per rate. A cell is the set's clean or xruns verdict, its
+frames, and per host its clean cells over its ok cells with the xruns summed; a period under 1 ms is marked `sub-ms`,
+and a set that ran no cell, or a set directory with no document, `not reachable`. Under each table, per rate, the
+safe minimum: the shortest clean period with every longer period of that rate clean too. `--json` writes the same
+result as JSON.
+
 Scenarios
 ---------
 
