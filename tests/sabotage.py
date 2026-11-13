@@ -679,7 +679,7 @@ SABOTAGE = [
      "a_limit_that_was_required_and_is_not_applied_refuses_the_run_and_writes_no_document", "probe"),
     ("the child's file size limit is not set", "src/probe.c", "    put_rlimit(RLIMIT_FSIZE, (rlim_t)o->file_bytes, (rlim_t)o->file_bytes);\n",
      "", "the_limits_reach_the_child", "probe"),
-    ("the child may gain privileges", "src/probe.c", "    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)\n        _exit(120);\n",
+    ("the child may gain privileges", "src/confine.c", "    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)\n        return -1;\n",
      "", "the_limits_reach_the_child", "probe"),
     ("the child is not made to die with the runner", "src/probe.c", "    prctl(PR_SET_PDEATHSIG, SIGKILL);\n", "",
      "the_limits_reach_the_child", "probe"),
