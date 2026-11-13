@@ -154,11 +154,14 @@ static void close_inherited(const int *keep, int n)
             close((int)fd);
 }
 
-void proc_confine(const int *keep, int nkeep)
+int proc_confine(const int *keep, int nkeep)
 {
     /* nothing the process execs can gain a privilege (setuid, file capabilities); real-time scheduling comes from
-     * RLIMIT_RTPRIO or rtkit and is not one of them */
-    (void)prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+     * RLIMIT_RTPRIO or rtkit and is not one of them. The one place a worker or a probe child is given it (#68): a
+     * process that cannot have it is not run */
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
+        return -1;
     close_inherited(keep, nkeep);
     confine_syscalls();
+    return 0;
 }

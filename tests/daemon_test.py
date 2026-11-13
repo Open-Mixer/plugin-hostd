@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # plugin-hostd against workers that are not plugin hosts (tests/fake-host). No jack, no plugin: the daemon's own
 # behaviour, over the wire, the way a controller sees it. tests/jack_e2e.sh runs the real workers.
-import errno, json, os, re, shutil, signal, subprocess, sys, tempfile, time
+import errno, json, os, re, resource, shutil, signal, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
@@ -1547,6 +1547,41 @@ def worker_env_reaches_new_and_running_workers():
         d.expect("worker_env lv2 - 99", "resp -902")
         d.expect("worker_env lv2 - - 50", "resp -902")   # no fifth word: a priority is not offered
         d.expect("worker_env midi - -", "resp -902")
+    finally:
+        d.close()
+
+
+def held_cannot_lower():
+    """whether a process under RLIMIT_NICE 0 is refused a nice below its own: true unless this identity has
+    CAP_SYS_NICE, which no rlimit binds; asked of the kernel in a child under that limit"""
+    r = subprocess.run([sys.executable, "-c", "import os, resource\n"
+                        "resource.setrlimit(resource.RLIMIT_NICE, (0, 0))\n"
+                        "try:\n    os.setpriority(os.PRIO_PROCESS, 0, os.getpriority(os.PRIO_PROCESS, 0) - 1)\n"
+                        "except PermissionError:\n    raise SystemExit(0)\nraise SystemExit(1)"])
+    return r.returncode == 0
+
+
+@test
+def a_nice_the_daemon_cannot_apply_is_logged():
+    """the not-applied branch, made to happen on any host: a daemon started under RLIMIT_NICE 0 cannot give a worker
+    a nice below its own, and says so. worker_env_reaches_new_and_running_workers sees that branch only where the
+    test's identity cannot lower a nice (a container's root); a desk whose audio group may lower one (RLIMIT_NICE 39
+    from limits.d) applies every nice there, and a removed log line went unseen (#68)"""
+    if not held_cannot_lower():
+        print("skip a_nice_the_daemon_cannot_apply_is_logged: this identity has CAP_SYS_NICE, which RLIMIT_NICE does not bind")
+        return
+    own = os.getpriority(os.PRIO_PROCESS, 0)
+    d = daemon(rlimits={resource.RLIMIT_NICE: (0, 0)})
+    try:
+        d.expect("worker_env lv2 - %d" % (own + 3), "resp 0")
+        d.expect("add fake:a 0", "resp 0")
+        pid = d.holder(0)[1]["pid"]
+        nice = lambda: int(open("/proc/%d/stat" % pid).read().rsplit(")", 1)[1].split()[16])
+        wait_for(lambda: nice() == own + 3, "the worker's nice reaching %d" % (own + 3))
+        d.expect("worker_env lv2 - %d" % (own + 1), "resp 0")
+        wait_for(lambda: "keeps nice %d, the nice %d was not applied" % (own + 3, own + 1) in d.log(),
+                 "a nice below the worker's, which the held daemon cannot give, logged: %r" % d.log())
+        check(nice() == own + 3, "the worker keeps its nice: %d" % nice())
     finally:
         d.close()
 
