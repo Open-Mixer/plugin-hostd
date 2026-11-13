@@ -47,6 +47,28 @@ class Fixtures(unittest.TestCase):
         self.assertTrue(p.sentence(p.code("reply.plugin-hostd.preset-not-applied"), "ca"))
         self.assertIsNone(p.sentence(0, "en"))
 
+    def test_a_catalog_entry_reads_as_its_text_whatever_its_shape(self):
+        """#78: omx-contract 3.18.0 stores a catalog entry as an object ({text, by, source}); sentence() is the text,
+        read through omx-contract's catalog reader, and English for a machine entry made from another source sentence"""
+        import hashlib, tempfile
+        p0 = self.protocol
+        name = "reply.plugin-hostd.preset-not-applied"
+        owner = p0.owners[name]
+        english = p0.sentence(p0.code(name), "en")
+        other = "reply.plugin-hostd.label-invalid"
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, owner, "catalogs"))
+            with open(os.path.join(d, owner, "catalogs", "ca.json"), "w") as f:
+                json.dump({"kind": "catalog", "owner": owner, "lang": "ca", "messages": {
+                    name: {"text": "No s'ha aplicat", "by": "human"},
+                    other: {"text": "Etiqueta antiga", "by": "machine", "model": "m",
+                            "source": hashlib.sha256(b"not its sentence").hexdigest()}}}, f)
+            p = Protocol(datadir=d)
+            self.assertEqual(p.sentence(p.code(name), "ca"), "No s'ha aplicat")
+            self.assertEqual(p.sentence(p.code(other), "ca"), p.sentence(p.code(other), "en"))
+            self.assertIsInstance(p.sentence(p.code(other), "ca"), str)
+        self.assertIsInstance(english, str)
+
 
 class Replies(unittest.TestCase):
     """The replies with a shape of their own, on the lines docs/guide.md shows."""
