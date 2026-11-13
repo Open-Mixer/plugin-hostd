@@ -21,7 +21,7 @@ BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor
-BuildRequires: (plugin-hostd-protocol-devel >= 0.5.8 with plugin-hostd-protocol-devel < 0.6)
+BuildRequires: (plugin-hostd-protocol-devel >= 0.5.9 with plugin-hostd-protocol-devel < 0.6)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
@@ -29,7 +29,7 @@ BuildRequires: (plugin-hostd-protocol-devel >= 0.5.8 with plugin-hostd-protocol-
 BuildRequires: (omx-contract-devel >= 3.12.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
-Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.8 with plugin-hostd-protocol%{?_isa} < 0.6)
+Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.9 with plugin-hostd-protocol%{?_isa} < 0.6)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -44,7 +44,7 @@ BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
 BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
+BuildRequires: (plugin-hostd-protocol-contract >= 0.5.9 with plugin-hostd-protocol-contract < 0.6)
 BuildRequires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
 %endif
 # the format tables, which readers read at run time
@@ -73,7 +73,7 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: (plugin-hostd-protocol-devel >= 0.5.8 with plugin-hostd-protocol-devel < 0.6)
+Requires: (plugin-hostd-protocol-devel >= 0.5.9 with plugin-hostd-protocol-devel < 0.6)
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
 Requires: (plugin-db-devel >= 0.4.1 with plugin-db-devel < 0.5)
 
@@ -90,10 +90,10 @@ Summary: The Python client of plugin-hostd's protocol
 BuildArch: noarch
 Requires: python3
 # what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
-# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.8 the first that declares a code's transient (#70); a floor and the
+# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.8 the first that declares a code's transient (#70), 0.5.9 the first whose default CLAP path holds the distributions' folders (#82); a floor and the
 # next minor
-Requires: (plugin-hostd-protocol >= 0.5.8 with plugin-hostd-protocol < 0.6)
-Requires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
+Requires: (plugin-hostd-protocol >= 0.5.9 with plugin-hostd-protocol < 0.6)
+Requires: (plugin-hostd-protocol-contract >= 0.5.9 with plugin-hostd-protocol-contract < 0.6)
 Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
 Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
 
@@ -110,7 +110,7 @@ Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
+Requires: (plugin-hostd-protocol-contract >= 0.5.9 with plugin-hostd-protocol-contract < 0.6)
 Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
