@@ -25,7 +25,6 @@
 #include <string.h>
 
 #include <host-errors.h>
-#include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
 
 #include "pins.h"

@@ -90,7 +90,89 @@ def gate_scan(root):
     return []
 
 
+# Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick): a pull request runs the plain tier
+# and one package arm (fc44 x86_64, trixie amd64); `make sabotage` (36 minutes of the last green run), the release dry
+# run and bookworm run on push to main, tags and dispatch. Each is red where a pull request would run it.
+OFF_PR = "github.event_name != 'pull_request'"
+
+
+def tier_scan(root):
+    """every finding as 'path what'"""
+    path = os.path.join(root, ".github", "workflows", "ci.yml")
+    if not os.path.exists(path):
+        return []
+    lines = open(path).read().split("\n")
+    found = []
+    for n, line in enumerate(lines):
+        if re.search(r"\bmake sabotage\b", line) and not line.lstrip().startswith("#"):
+            # the step that holds it: back to its `- name:` or `- run:` line, its `if:` between there and here
+            start = n
+            while start > 0 and not re.match(r"^\s*- (name|run|uses):", lines[start]):
+                start -= 1
+            if not any(OFF_PR in l for l in lines[start:n]):
+                found.append("ci.yml:%d make sabotage runs on a pull request: it belongs to push, tags and dispatch" % (n + 1))
+    text = "\n".join(lines)
+    m = re.search(r"^  release-dry-run:\n((?:    .*\n|\n)*)", text + "\n", re.M)
+    if m and not re.search(r"^    if: .*" + re.escape(OFF_PR), m.group(1), re.M):
+        found.append("ci.yml: release-dry-run runs on a pull request: it belongs to push, tags and dispatch")
+    for n, line in enumerate(lines):
+        if re.match(r"^\s*suite: \[", line):
+            found.append("ci.yml:%d a suite matrix that a pull request runs whole: trixie alone on a pull request" % (n + 1))
+    return found
+
+
+# A job tests the daemon of its own run: plugin-hostd and plugin-hostd-contract are installed from the packages the run
+# built (./rpms/..., ./debs/...), never by name from a repository. By name, dnf or apt takes the channel's daemon, and
+# the job tests the served release instead of the change; with a floor the served one does not meet (omx-clap-host
+# >= 0.32 against a served plugin-hostd that wants < 0.32), it cannot even install (#44's Zynthian chain).
+INSTALL = re.compile(r"\b(dnf5?|apt-get|apt)\s+(?:-\S+\s+)*(install|download)\b")
+OWN_PACKAGE = re.compile(r"(?<![\w./*\[-])'?plugin-hostd(?:-contract)?(?=['\s<>=]|$)")
+# bench.yml tests the benchmark harness, not the daemon: it drives the hosts the channel serves, plugin-hostd among them
+SERVED_HOSTS = {"bench.yml"}
+
+
+def own_build_scan(root):
+    """every finding as 'path:line what'"""
+    found = []
+    for path in workflow_files(root):
+        if os.path.basename(path) in SERVED_HOSTS:
+            continue
+        lines = open(path).read().split("\n")
+        for n, line in enumerate(lines):
+            if line.lstrip().startswith("#") or not INSTALL.search(line):
+                continue
+            command, k = line, n
+            while command.rstrip().endswith("\\") and k + 1 < len(lines):
+                k += 1
+                command = command.rstrip()[:-1] + " " + lines[k].strip()
+            if OWN_PACKAGE.search(command):
+                found.append("%s:%d installs plugin-hostd by name: from a repository it is the channel's daemon, not this run's"
+                             % (os.path.relpath(path, root), n + 1))
+    return found
+
+
 def main():
+    own = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+    try:
+        wf = os.path.join(own, ".github", "workflows")
+        os.makedirs(wf)
+        open(os.path.join(wf, "ci.yml"), "w").write(
+            "          dnf install -y --setopt=retries=10 plugin-hostd 'omx-clap-host >= 0.32.0' \\\n"
+            "            omx-plugins-clap\n"
+            "          dnf install -y omx-clap-host-tests \\\n            'plugin-hostd-contract >= 0.20'\n"
+            "          # dnf install plugin-hostd\n")
+        seen = own_build_scan(own)
+        open(os.path.join(wf, "ci.yml"), "w").write(
+            "          dnf install -y ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \\\n"
+            "            plugin-hostd-protocol-devel /usr/bin/plugin-hostd 'omx-clap-host >= 0.32.0'\n"
+            "          apt-get install -y ./debs/plugin-hostd_*.deb\n")
+        if [s.split(" ")[0] for s in seen] != [".github/workflows/ci.yml:1", ".github/workflows/ci.yml:3"] or own_build_scan(own):
+            print("FAIL the own-build scan misses a planted install of plugin-hostd by name, or refuses the run's files: saw %s" % seen)
+            return 1
+    finally:
+        shutil.rmtree(own, ignore_errors=True)
+    print("ok   the own-build scan sees a planted plugin-hostd and plugin-hostd-contract by name, and passes the run's own files")
+    gate = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     gate = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
         wf = os.path.join(gate, ".github", "workflows")
@@ -134,7 +216,36 @@ def main():
     finally:
         shutil.rmtree(bad, ignore_errors=True)
     print("ok   the cancel scan sees a planted paths filter, a missing group, a cancelling group and a release group")
+    tiers = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+    try:
+        wf = os.path.join(tiers, ".github", "workflows")
+        os.makedirs(wf)
+        open(os.path.join(wf, "ci.yml"), "w").write(
+            "jobs:\n  test:\n    steps:\n      - name: s\n        run: make sabotage\n"
+            "  deb:\n    strategy:\n      matrix:\n        suite: [bookworm, trixie]\n"
+            "  release-dry-run:\n    if: needs.changes.outputs.packages == 'true'\n    uses: ./x.yml\n")
+        seen = tier_scan(tiers)
+        open(os.path.join(wf, "ci.yml"), "w").write(
+            "jobs:\n  test:\n    steps:\n      - name: s\n        if: %s\n        run: make sabotage\n"
+            "  deb:\n    strategy:\n      matrix:\n        suite: ${{ fromJSON(github.event_name == 'pull_request' && '[\"trixie\"]' || '[\"bookworm\", \"trixie\"]') }}\n"
+            "  release-dry-run:\n    if: needs.changes.outputs.packages == 'true' && %s\n    uses: ./x.yml\n" % (OFF_PR, OFF_PR))
+        if len(seen) != 3 or tier_scan(tiers):
+            print("FAIL the tier scan misses a planted heavy step on a pull request, or refuses a split one: saw %s" % seen)
+            return 1
+    finally:
+        shutil.rmtree(tiers, ignore_errors=True)
+    print("ok   the tier scan sees a planted sabotage, a whole suite matrix and a dry run on a pull request, and passes them split")
     failed = 0
+    for f in own_build_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   every job installs plugin-hostd from its own run's packages, none by name from the channel")
+    for f in tier_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   a pull request runs the plain tier and one package arm; sabotage, bookworm and the dry run on push, tags, dispatch")
     for f in cancel_scan(ROOT):
         print("FAIL %s" % f)
         failed += 1

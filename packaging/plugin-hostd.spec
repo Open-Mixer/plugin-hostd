@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.3
+Version: 0.20.6
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -13,13 +13,15 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
+# %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
+BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: (pkgconfig(plugin-db) >= 0.3.1 with pkgconfig(plugin-db) < 0.4)
+BuildRequires: (pkgconfig(plugin-db) >= 0.4.1 with pkgconfig(plugin-db) < 0.5)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor
-BuildRequires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-devel < 0.6)
+BuildRequires: (plugin-hostd-protocol-devel >= 0.5.7 with plugin-hostd-protocol-devel < 0.6)
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
@@ -27,7 +29,7 @@ BuildRequires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-
 BuildRequires: (omx-contract-devel >= 3.12.0 with omx-contract-devel < 4)
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
-Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.2 with plugin-hostd-protocol%{?_isa} < 0.6)
+Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.7 with plugin-hostd-protocol%{?_isa} < 0.6)
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -35,22 +37,22 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.2 with plugin-hostd-protocol%{?_
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
-BuildRequires: (omx-clap-host-tests >= 0.31.1 with omx-clap-host-tests < 0.32)
+BuildRequires: (omx-clap-host-tests >= 0.32.3 with omx-clap-host-tests < 0.33)
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: (plugin-hostd-protocol-contract >= 0.5.2 with plugin-hostd-protocol-contract < 0.6)
-BuildRequires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
+BuildRequires: (plugin-hostd-protocol-contract >= 0.5.7 with plugin-hostd-protocol-contract < 0.6)
+BuildRequires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: (omx-clap-host >= 0.31.2 with omx-clap-host < 0.32)
+Recommends: (omx-clap-host >= 0.32.3 with omx-clap-host < 0.33)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -71,9 +73,9 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: (plugin-hostd-protocol-devel >= 0.5.2 with plugin-hostd-protocol-devel < 0.6)
+Requires: (plugin-hostd-protocol-devel >= 0.5.7 with plugin-hostd-protocol-devel < 0.6)
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: (plugin-db-devel >= 0.3.1 with plugin-db-devel < 0.4)
+Requires: (plugin-db-devel >= 0.4.1 with plugin-db-devel < 0.5)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -83,13 +85,33 @@ declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
 
+%package -n python3-plugin-hostd-protocol
+Summary: The Python client of plugin-hostd's protocol
+BuildArch: noarch
+Requires: python3
+# what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
+# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.7 the newest served; a floor and the
+# next minor
+Requires: (plugin-hostd-protocol >= 0.5.7 with plugin-hostd-protocol < 0.6)
+Requires: (plugin-hostd-protocol-contract >= 0.5.7 with plugin-hostd-protocol-contract < 0.6)
+Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
+Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
+
+%description -n python3-plugin-hostd-protocol
+The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec
+over the files plugin-hostd-protocol installs, which encodes and decodes every
+command the protocol declares, parses the replies, feedback lines and protocol
+errors, and gives each reply code its sentence. A controller speaks the
+protocol through it and restates nothing; the npm package
+@openmixer/plugin-hostd-client is the same codec in TypeScript.
+
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: (plugin-hostd-protocol-contract >= 0.5.2 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.31.1 with omx-clap-core-contract < 0.32)
+Requires: (plugin-hostd-protocol-contract >= 0.5.7 with plugin-hostd-protocol-contract < 0.6)
+Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
@@ -115,7 +137,7 @@ BuildArch: noarch
 # next year's first (tests/full_ranges.py). The panel is a weak
 # dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
 Requires: %{name} = %{version}-%{release}
-Requires: (omx-clap-host >= 0.31.2 with omx-clap-host < 0.32)
+Requires: (omx-clap-host >= 0.32.3 with omx-clap-host < 0.33)
 Requires: (omx-plugins >= 0.19.3 with omx-plugins < 0.20)
 Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)
 Recommends: (omx-panel >= 0.13.0 with omx-panel < 0.14)
@@ -164,6 +186,8 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %make_install PREFIX=%{_prefix}
 # the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
+# the Python client, told where pkg-config finds the files it reads (docs/clients.md)
+%make_build install-python DESTDIR=%{buildroot} PREFIX=%{_prefix} PYTHON3_SITELIB=%{python3_sitelib}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -202,12 +226,65 @@ make test-daemon check-generated check-rendered
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
 
+%files -n python3-plugin-hostd-protocol
+%license COPYING
+%doc docs/clients.md
+%{python3_sitelib}/plugin_hostd_protocol/
+
 %files contract
 %license COPYING
 %doc README.md
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
+- An LV2 uri that several bundles of the search path name is the bundle
+  plugin-db's declared rule gives, newest-version: of the bundles that realise
+  the plugin, the highest lv2:minorVersion, then the highest lv2:microVersion;
+  of equal versions the first in the search path, the bundles of one directory
+  in byte order of their names, never in the order the directory lists them.
+  The add, --pin-files and plugin-qualify's sync read the same bundle; make
+  test-bundle-rule holds it (#57, #58).
+
+* Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.5-1
+- The clients read replies and feedback lines by the protocol table, with no
+  layout of their own: a word as its declared type (read_word in Python,
+  readWord in TypeScript) (#50).
+- Floors: plugin-hostd-protocol >= 0.5.7 (< 0.6), the first whose table the
+  clients read this way, plugin-db >= 0.4.1 (< 0.5) (#50, #54), and omx-clap-core
+  >= 0.32.3 (< 0.33) for its contract, its host and the host's tests.
+- pins.h takes the length of a digest from plugin-db's plugin_db_constants.h,
+  which includes nothing, so the fuzz harnesses and their sources build with no
+  OpenSSL header; make test-fuzz-no-openssl holds it (#54).
+- describe --pages gives a plugin with several hundred parameters and no groups
+  of its own a full set of pages in a stable order; Surge XT gets its parameter
+  pages (#52).
+- bench: a matrix run is read by period length and rate, one table per periods
+  value, with each rate's safe minimum (#49).
+- fuzz: each daemon verb is held to the call it must make, and quit is compared
+  whole (#53).
+- CI: make sabotage runs as parallel jobs (#51).
+
+* Thu Nov 12 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.4-1
+- Each hosted plugin's JACK client carries its name and instance in JACK
+  metadata (plugin-hostd-protocol's node_metadata), set by omx-clap-host 0.32.1;
+  the client stays effect_<instance>, and clients match a hosted node on the
+  instance key (#33).
+- The protocol clients: a Python package (python3-plugin-hostd-protocol) and a
+  TypeScript one (@openmixer/plugin-hostd-client on npm), both written from the
+  installed protocol table and held to each other on shared fixtures (#29).
+- Floors: plugin-hostd-protocol >= 0.5.5 and omx-clap-host >= 0.32.1 (< 0.33),
+  whose preset_save is mod-host's form, the table's (#38).
+- The clients read the plan, plan_get and estimate replies: the segments and
+  cores of a plan, the reasons a plan_get gives (instance, reason, its word, the
+  reply code of a plan-refused and retry), and every estimate figure by its
+  protocol name; a word of another shape is a ProtocolError, and counts above
+  2^53-1 are refused in both clients (#39, #41).
+- @openmixer/plugin-hostd-client ships a README, so its npm page says what the
+  client is and what it reads (#40).
+- The npm publish step logs the trusted-publishing token exchange, so a refused
+  publisher names its reason (#37).
+
 * Tue Nov 10 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.3-1
 - describe writes a CLAP plugin's clap.meters/1 meters as the descriptor's
   meters[] (id, output symbol, kind, channels, display range; dB for a gain

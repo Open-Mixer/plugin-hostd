@@ -42,6 +42,17 @@ def fail(what):
     print("FAIL " + what)
 
 
+# the plugin-hostd-protocol release this tree is written against: the spec's floor (tools/protocol-floor.sh)
+FLOOR = subprocess.run(["sh", os.path.join(ROOT, "tools", "protocol-floor.sh")], capture_output=True, text=True,
+                       check=True).stdout.strip()
+
+
+def newer_than_floor(since):
+    """whether a verb's own since names a protocol release past the floor; a verb with none is the tree's"""
+    as_tuple = lambda v: tuple(int(x) for x in v.split("."))
+    return bool(since) and as_tuple(since) > as_tuple(FLOOR)
+
+
 # ---------------------------------------------------------------- the declarations
 
 def codes_of(docs):
@@ -229,6 +240,7 @@ LINES = {
     "preset_list": ("1", "", ("99", "3")),
     "preset_get": ("1 0", "1", ("99 0", "3 0")),
     "track_info": ('1 "Lead" #112233', "1", ("99 x -",)),
+    "node_label": ("1 Lead", "", ("99 x",)),
     "remote_pages": ("1", "", ("99",)),
     "remote_page_get": ("1 0", "1", ("99 0",)),
     "param_info": ("1 0", "1", ("99 x",)),
@@ -278,7 +290,12 @@ def check_verbs(declared):
     try:
         d, ctx = setup(s)
         owed = [v for v in declared if owes(declared[v], HOSTD)]
-        missing = [v for v in owed if v not in LINES]
+        # a verb a protocol release past this tree's floor added (its own since) is not this tree's: said, not owed
+        later = [v for v in owed if v not in LINES and newer_than_floor(declared[v].get("since"))]
+        if later:
+            print("note %s: declared by a plugin-hostd-protocol release past this tree's floor %s, not checked here"
+                  % (sorted(later), FLOOR))
+        missing = [v for v in owed if v not in LINES and v not in later]
         if missing:
             fail("no well-formed line for %s, which the declarations give plugin-hostd" % missing)
         for verb in sorted((v for v in owed if v in LINES), key=ORDER.index):

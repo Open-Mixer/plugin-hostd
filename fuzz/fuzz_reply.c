@@ -182,6 +182,7 @@ struct source {
     int open;                   /* in the relay's table */
     int closed;                 /* the worker closed its end */
     int eintr;                  /* the next recv is interrupted */
+    int eof_seen;               /* recv answered 0, the worker's end: the one end the relay may read as its eof */
     struct list pending;        /* what the worker wrote and recv has not handed over, one entry per write */
     size_t pending_off;         /* how much of the first entry recv has handed over */
     /* the reference splitter over the bytes recv handed over */
@@ -257,7 +258,10 @@ static ssize_t fuzz_recv(int fd, void *buf, size_t len, int flags)
     if (s->pending.n == 0)
     {
         if (s->closed)
+        {
+            s->eof_seen = 1;
             return 0;
+        }
         errno = EAGAIN;
         return -1;
     }
@@ -555,6 +559,34 @@ static source_t *relay_source(int fd)
     return NULL;
 }
 
+/* the relay's table holds every source the harness added and did not remove: a worker it was handed it follows */
+__attribute__((noinline)) static void check_followed(void)
+{
+    int k;
+
+    for (k = 0; k < SOURCES_MAX; k++)
+        /* a worker handed to the relay and not removed is in its table
+         * record: relay-holds-each-worker */
+        if (g_s[k].open && relay_source(g_s[k].fd) == NULL)
+            abort();
+}
+
+/* the relay reads a source until recv answered 0 for it, and from then on no more: its eof is the harness's record */
+__attribute__((noinline)) static void check_eof(void)
+{
+    int k;
+
+    for (k = 0; k < SOURCES_MAX; k++)
+    {
+        source_t *r = g_s[k].open ? relay_source(g_s[k].fd) : NULL;
+
+        /* the relay stops reading a worker at its end, and only there
+         * record: relay-eof-is-the-end */
+        if (r != NULL && !r->eof != !g_s[k].eof_seen)
+            abort();
+    }
+}
+
 static void op_add(void)
 {
     int i;
@@ -573,16 +605,19 @@ static void op_add(void)
              * record: relay-follows-worker */
             if (relay_add(g_s[i].fd) != 0)
                 abort();
+            check_followed();
             return;
         }
 }
 
 static void op_drain(struct source *s)
 {
-    source_t *r = relay_source(s->fd);
+    source_t *r;
     size_t at = 0;
 
-    if (r == NULL || r->eof)
+    check_followed();
+    r = relay_source(s->fd);
+    if (r->eof)
         return;
     pthread_mutex_lock(&g_lock);
     drain(r);
@@ -603,8 +638,10 @@ static int relay_reads(const struct source *s)
 static void op_remove(struct source *s)
 {
     size_t at = 0;
-    int reads = relay_reads(s);
+    int reads;
 
+    check_followed();
+    reads = relay_reads(s);
     relay_remove(s->fd);
     if (reads)
         check_no_loss_read(s);
@@ -621,6 +658,7 @@ static void op_gone(int id)
     int i, k, reads[SOURCES_MAX];
 
     snprintf(prefix, sizeof(prefix), "%s %d ", PHD_EVENT_PARAM_GESTURE, id);
+    check_followed();
     for (k = 0; k < SOURCES_MAX; k++)
         reads[k] = g_s[k].open && relay_reads(&g_s[k]);
     relay_instance_gone(id);
@@ -721,6 +759,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
             g_gone = 1;
             break;
         }
+        check_eof();
         check_bounded();
     }
     /* the daemon stops: every source left is closed and every gesture still held is ended, in the relay's table order */
