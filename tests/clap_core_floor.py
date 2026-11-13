@@ -10,7 +10,7 @@ import os, re, sys
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CEILING = "0.33"
 # package: (floor, declarations in the spec, declarations in debian/control)
-WANT = {"omx-clap-core-contract": ("0.31.1", 3, 3), "omx-clap-host-tests": ("0.31.1", 1, 1), "omx-clap-host": ("0.32.0", 2, 2)}
+WANT = {"omx-clap-core-contract": ("0.31.1", 3, 3), "omx-clap-host-tests": ("0.31.1", 1, 1), "omx-clap-host": ("0.32.1", 2, 2)}
 
 
 def problems(spec, control):
