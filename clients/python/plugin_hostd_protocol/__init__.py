@@ -19,7 +19,7 @@ except ImportError:
     _installed = None
 
 __all__ = ["Protocol", "ProtocolError", "words", "quote", "encode_path", "decode_path", "uri_word", "pin_key",
-           "format_number", "RETRY_REASONS", "Names"]
+           "format_number", "RETRY_REASONS", "GroupingReason", "Names"]
 
 
 class ProtocolError(ValueError):
@@ -201,9 +201,36 @@ def _texts(node, out):
 NONE = "-"
 # the largest count both clients hold exactly (a double's whole numbers)
 _SAFE = 2 ** 53 - 1
+
+# the reasons a plan gives, written from data/grouping.json (tools/grouping-reasons.py, #67)
+# BEGIN GENERATED grouping-reasons (tools/grouping-reasons.py, from data/grouping.json): do not edit
+class GroupingReason:
+    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS): a controller compares against these and writes no
+    reason word of its own. plan_get answers them as instance:reason; a plan-refused is followed by a colon and the
+    number of the refusal."""
+
+    REFUSED = "refused"
+    NO_PIN = "no-pin"
+    NO_VERDICT = "no-verdict"
+    VERDICT_ISOLATED = "verdict-isolated"
+    FORMAT_WORLD = "format-world"
+    HISTORY_CRASHED = "history-crashed"
+    HISTORY_XRUNS = "history-xruns"
+    COST_OVER = "cost-over"
+    FORMAT_MIXED = "format-mixed"
+    GROUP_FULL = "group-full"
+    GROUP_COST = "group-cost"
+    COST_ASSUMED = "cost-assumed"
+    NO_NEIGHBOUR = "no-neighbour"
+    GROUPING_OFF = "grouping-off"
+    HISTORY_UNAVAILABLE = "history-unavailable"
+    PLAN_REFUSED = "plan-refused"
+# END GENERATED grouping-reasons
+
+
 # the reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
 # (no-verdict), what refused a segment may pass (plan-refused)
-RETRY_REASONS = ("no-verdict", "plan-refused")
+RETRY_REASONS = (GroupingReason.NO_VERDICT, GroupingReason.PLAN_REFUSED)
 
 
 class Names:

@@ -63,6 +63,13 @@ TypeScript):
   name (`latency_frames`, `cpu_percent`, `ram_bytes`, `workers`, `unknown_count`, `members` with the
   reply code of each one that has no figure, and the four memory figures), none for a figure the daemon
   answers `-`. A word that is not the shape is an error, never a guess.
+- **GroupingReason**: the reasons a plan gives as constants, one for every word of
+  `PLUGIN_HOSTD_GROUPING_REASONS` (`GroupingReason.GROUPING_OFF` in Python, `GroupingReason.groupingOff`
+  in TypeScript, the key the file gives it), so a controller compares against them and writes no reason
+  word. They are written from `data/grouping.json` by `tools/grouping-reasons.py` (`make
+  render-grouping-reasons`), never by hand; `make check-grouping-reasons` fails on any drift, and the
+  tests of both clients hold each declared reason to its constant and each constant to a declared reason
+  (#67).
 - the words of a line (`words`, `quote`), the percent-encoded path of a `clap:` uri (`encode_path`,
   `decode_path`, `uri_word`, `pin_key`), as the grammar and the pin section of plugin-hostd-protocol's
   documentation write them.

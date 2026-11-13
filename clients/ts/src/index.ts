@@ -48,6 +48,31 @@ export interface Plan {
   readonly cores: (number | null)[][];
 }
 
+// BEGIN GENERATED grouping-reasons (tools/grouping-reasons.py, from data/grouping.json): do not edit
+/** The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS), by the key the file gives each: a controller compares
+ * against these and writes no reason word of its own. A plan-refused is followed by a colon and the refusal's number. */
+export const GroupingReason = {
+  refused: 'refused',
+  noPin: 'no-pin',
+  noVerdict: 'no-verdict',
+  verdictIsolated: 'verdict-isolated',
+  formatWorld: 'format-world',
+  historyCrashed: 'history-crashed',
+  historyXruns: 'history-xruns',
+  costOver: 'cost-over',
+  formatMixed: 'format-mixed',
+  groupFull: 'group-full',
+  groupCost: 'group-cost',
+  costAssumed: 'cost-assumed',
+  noNeighbour: 'no-neighbour',
+  groupingOff: 'grouping-off',
+  historyUnavailable: 'history-unavailable',
+  planRefused: 'plan-refused',
+} as const;
+/** One of the reasons a plan gives. */
+export type GroupingReasonWord = (typeof GroupingReason)[keyof typeof GroupingReason];
+// END GENERATED grouping-reasons
+
 /** A member of a plan that has a reason: the word of PLUGIN_HOSTD_GROUPING_REASONS, the code a plan-refused carries. */
 export interface PlanReason {
   readonly instance: number;
@@ -327,7 +352,7 @@ const NONE = '-';
  * The reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
  * (no-verdict), what refused a segment may pass (plan-refused).
  */
-export const RETRY_REASONS: readonly string[] = ['no-verdict', 'plan-refused'];
+export const RETRY_REASONS: readonly string[] = [GroupingReason.noVerdict, GroupingReason.planRefused];
 
 /**
  * A plan's cores in its segments' shape: each member's core, null for one that is not pinned, and for every member

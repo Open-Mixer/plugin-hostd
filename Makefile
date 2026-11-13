@@ -228,6 +228,16 @@ render-verbs check-rendered:
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check)
 
+# the grouping reasons as constants of both clients' readers (#67): GroupingReason in clients/python and in clients/ts,
+# written between their markers from data/grouping.json by tools/grouping-reasons.py. `make render-grouping-reasons`
+# writes them, `make check-grouping-reasons` fails on any drift or any stray constant, and its self-test plants each
+.PHONY: render-grouping-reasons check-grouping-reasons
+render-grouping-reasons:
+	python3 tools/grouping-reasons.py write
+check-grouping-reasons:
+	python3 tools/grouping-reasons.py check
+	python3 tools/grouping-reasons.py self-test
+
 # the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
 # omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
 # arms, each red naming its field. CONTRACT_SCHEMA_MAJOR=<n> reads the TERM files of another major
@@ -368,7 +378,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
+test: test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -578,6 +588,25 @@ test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios test
 	CURVE_REPLY=$(abspath tests/curve_reply) \
 	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
+
+# a preset an instance saved loads back after a factory patch of Surge XT (#27), through the daemon and a real
+# omx-clap-host (OMX_CLAP_HOST, default the installed one) over jack in a PipeWire of its own. Surge XT is the
+# distribution's (clap-surge-xt and surge-xt on Fedora): a Surge XT that is not installed stops the run, never a skip.
+# The patch names its macros ("Sync"), so loading it renames the plugin's parameters: a patch whose macros are all
+# unnamed (Attacky's) renames nothing and the test could not see #27. SURGE_CLAP and SURGE_FACTORY_PATCH name another
+# install's files.
+SURGE_CLAP ?= /usr/lib64/clap/Surge_XT.clap
+SURGE_FACTORY_PATCH ?= /usr/share/surge-xt/patches_factory/Basses/Squared.fxp
+OMX_CLAP_HOST ?= $(shell command -v omx-clap-host)
+
+.PHONY: test-preset-identity
+test-preset-identity: $(PROG) plugin-hostd-probe tests/stress.clap tests/jack_levels
+	@for f in "$(SURGE_CLAP)" "$(SURGE_FACTORY_PATCH)" "$(OMX_CLAP_HOST)"; do \
+	    [ -e "$$f" ] || { echo "test-preset-identity: missing '$$f' (Surge XT: clap-surge-xt and surge-xt; omx-clap-host)" >&2; exit 2; }; \
+	done
+	JACK_E2E_PY=preset_identity_e2e.py JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=$(abspath $(PROG)) OMX_CLAP_HOST=$(OMX_CLAP_HOST) \
+	SURGE_CLAP=$(SURGE_CLAP) SURGE_FACTORY_PATCH=$(SURGE_FACTORY_PATCH) PATH=$(abspath .):$$PATH \
+	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
 
 # the protocol clients (docs/clients.md): each client's own tests on clients/fixtures/codec.json, then both held to each
 # other on the fixtures and on plugin-hostd-protocol's host scenarios, and that comparison's self-test
