@@ -10,7 +10,7 @@ Build-Depends: debhelper-compat (= 13),
                libomxdsp-dev (>= 0.32.0~) <!nocheck>, libomxdsp-dev (<< 0.33~) <!nocheck>,
                omx-contract (>= 3.12.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
                plugin-hostd-protocol-contract (>= 0.5.7~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
-               plugin-db-dev (>= 0.4.0~), plugin-db-dev (<< 0.5~),
+               plugin-db-dev (>= 0.4.1~), plugin-db-dev (<< 0.5~),
                libcjson-dev,
                pkgconf,
                python3
@@ -85,7 +85,7 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
-Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.5.7~), libplugin-hostd-protocol-dev (<< 0.6~), plugin-db-dev (>= 0.4.0~), plugin-db-dev (<< 0.5~), ${misc:Depends}
+Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.5.7~), libplugin-hostd-protocol-dev (<< 0.6~), plugin-db-dev (>= 0.4.1~), plugin-db-dev (<< 0.5~), ${misc:Depends}
 Description: C headers to drive plugin-hostd from your own controller
  The words of the grouping planner and the running history,
  and the schemas of the probe output and of a preset file. The protocol a

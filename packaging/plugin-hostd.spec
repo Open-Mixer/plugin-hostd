@@ -16,7 +16,7 @@ BuildRequires: python3
 # %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
 BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: (pkgconfig(plugin-db) >= 0.4.0 with pkgconfig(plugin-db) < 0.5)
+BuildRequires: (pkgconfig(plugin-db) >= 0.4.1 with pkgconfig(plugin-db) < 0.5)
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
@@ -75,7 +75,7 @@ Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
 Requires: (plugin-hostd-protocol-devel >= 0.5.7 with plugin-hostd-protocol-devel < 0.6)
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: (plugin-db-devel >= 0.4.0 with plugin-db-devel < 0.5)
+Requires: (plugin-db-devel >= 0.4.1 with plugin-db-devel < 0.5)
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -90,7 +90,7 @@ Summary: The Python client of plugin-hostd's protocol
 BuildArch: noarch
 Requires: python3
 # what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
-# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata; a floor and the
+# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.7 the newest served; a floor and the
 # next minor
 Requires: (plugin-hostd-protocol >= 0.5.7 with plugin-hostd-protocol < 0.6)
 Requires: (plugin-hostd-protocol-contract >= 0.5.7 with plugin-hostd-protocol-contract < 0.6)

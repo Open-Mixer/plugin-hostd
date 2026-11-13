@@ -23,7 +23,7 @@
 
 #include <sys/types.h>
 
-#include <plugin-db/pin.h>
+#include <plugin-db/plugin_db_constants.h>
 
 #include "formats.h"
 
@@ -62,7 +62,7 @@ int pins_clear(const char *uri);
 int pins_known(const char *uri);
 /* the SHA-256 of the first file the pin of the uri holds, as the pin holds it: the binary the running history is kept
  * under. -1 when the uri has no pin */
-int pins_digest(const char *uri, char hex[PHD_SHA256_HEX_LEN + 1]);
+int pins_digest(const char *uri, char hex[OMX_PLUGIN_DB_PIN_SHA256_HEX_LEN + 1]);
 int pins_in_process(const char *uri);
 /* whether the pin of the uri grants it the CLAP thread pool: it carries pool=cores and is not a refusal (the pool is the
  * plugin's qualification's to give, never a global switch) */
