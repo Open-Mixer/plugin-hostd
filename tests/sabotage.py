@@ -21,7 +21,9 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # "vocabulary" breaks the probe schema, its template or a copy of omx-contract's omx-vocabulary.schema.json and runs
 # tests/vocabulary_derived.py; "presetschema" breaks
 # protocol/preset.schema.json and runs tests/preset_format.py; "pool" breaks tests/sabotage_pool.py or the port range of
-# tests/harness.py and runs tests/sabotage_pool_test.py; "placement" breaks src/placement.c and runs tests/placement_test.c
+# tests/harness.py and runs tests/sabotage_pool_test.py; "placement" breaks src/placement.c and runs tests/placement_test.c;
+# "timing" breaks how tests/harness.py reads the load, or a timing proof of tests/daemon_test.py, and runs
+# tests/timing_load_test.py (ruling 2026-11-11: a timing proof warns on a loaded node and fails on a quiet one)
 # The declared protocol is plugin-hostd-protocol's. An arm that breaks one of its headers (include/plugin-hostd/ and a
 # name of PROTOCOL_HEADERS below) breaks a copy of the installed headers in the arm's tree, which -Iinclude finds before
 # the installed ones (tests/declared.py, overlay); an arm that breaks protocol-data/verbs.json breaks a copy of the
@@ -1652,6 +1654,19 @@ SABOTAGE = [
      "the_number_of_jobs_is_the_cores_to_eight_or_what_is_asked", "pool"),
     ("a range of ports is ignored", "tests/harness.py", 'base = os.environ.get("PLUGIN_HOSTD_TEST_PORT_BASE")',
      'base = None', "a_port_pair_inside_a_range_comes_from_that_range", "pool"),
+    # a timing proof reads the load (ruling 2026-11-11): tests/timing_load_test.py, with a fake load
+    ("a loaded node is never seen: a timing miss fails there too", "tests/harness.py",
+     "            if load > cores:\n", "            if False:\n", "on a loaded node a missed bound and a wait past its bound do not fail the run", "timing"),
+    ("the fake load is not read, so a run cannot be told the node is loaded", "tests/harness.py",
+     "    if fake:\n", "    if False:\n", "the warning names the miss and the load", "timing"),
+    ("every failure on a loaded node warns, not a timing miss alone", "tests/harness.py",
+     "        except TimingMiss as e:\n", "        except Fail as e:\n", "a wrong answer fails on a loaded node", "timing"),
+    ("a wait past its bound is a plain failure, whatever the load", "tests/harness.py",
+     '    raise (TimingMiss if timing else Fail)("timed out waiting for " + what)',
+     '    raise Fail("timed out waiting for " + what)', "on a loaded node a missed bound and a wait past its bound do not fail the run", "timing"),
+    ("the respawn proof's bound is a plain check again", "tests/daemon_test.py",
+     'check_timing(took < 1.0, "the death was said', 'check(took < 1.0, "the death was said',
+     "the respawn proof's bound and its waits are timing checks", "timing"),
     ("a pg:group of a port is not read", "src/lv2.c", "    p->group = group ? strdup(group) : NULL;\n", "    p->group = NULL;\n", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
     ("a group past 8 ports is not paged on", "src/lv2.c", "            if (taken % PAGE_SLOTS == 0)\n", "            if (taken == 0)\n", "an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports"),
     ("the outputs of a bundle are paged with its inputs", "src/lv2.c", "            if (!q->input || q->hidden || !group_eq(q->group, p->group))",
@@ -1894,12 +1909,18 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "sabotage_pool_test.py"), name], capture_output=True,
                            text=True, timeout=120)
         return p.returncode, p.stdout
+    if jack == "timing":
+        p = subprocess.run([sys.executable, os.path.join(tree, "tests", "timing_load_test.py")], capture_output=True,
+                           text=True, timeout=120)
+        return p.returncode, p.stdout
     if jack in ("nopins", "ciguards"):
         script = {"nopins": "no_pins.py", "ciguards": "ci_guards.py"}[jack]
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", script), tree], capture_output=True,
                            text=True, timeout=60)
         return p.returncode, p.stdout
-    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE)
+    # a sabotaged timing proof is judged as on a quiet node: on a loaded runner its miss would warn and pass, and the
+    # arm would read as decoration (ruling 2026-11-11; the load is faked to 0 for the arm and its control alike)
+    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
     cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
     return p.returncode, p.stdout
@@ -2035,6 +2056,10 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "tests", "lib"), os.path.join(tree, "tests", "lib"))
         for f in ("sabotage_pool.py", "sabotage_pool_test.py", "harness.py", "declared.py"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
+    elif jack == "timing":
+        shutil.copytree(os.path.join(ROOT, "tests", "lib"), os.path.join(tree, "tests", "lib"))
+        for f in ("timing_load_test.py", "harness.py", "declared.py", "daemon_test.py", "scan_fixture.py"):
+            shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
     elif jack == "ciguards":
         shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
     elif jack == "verbs":
@@ -2068,7 +2093,7 @@ def arm(entry, tree):
     if jack == "probe":
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                      "verbtable", "planner", "qualcost", "placement", "pool"):
+                      "verbtable", "planner", "qualcost", "placement", "pool", "timing"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))
