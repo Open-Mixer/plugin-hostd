@@ -92,6 +92,7 @@
 #include "describe.h"
 #include "json.h"
 #include "machine.h"
+#include "confine.h"
 #include "probe_cgroup.h"
 #include "probe_lock.h"
 
@@ -1225,6 +1226,16 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
         }
         close(status_pipe[0]);
         apply_limits(o, pinned, pin_option, r->measuring, rt_pipe[1]);
+        /* confined as a daemon worker is (#61), keeping the step records, the lock report and the exec-failure pipe */
+        {
+            int keep[3], nkeep = 0;
+
+            keep[nkeep++] = 3;
+            if (r->measuring && g_lock.asked)
+                keep[nkeep++] = PROBE_LOCK_FD;
+            keep[nkeep++] = status_pipe[1];
+            proc_confine(keep, nkeep);
+        }
         execvp(o->child, argv);
         {
             int e = errno;

@@ -36,6 +36,7 @@
 #include <plugin-hostd/protocol.h>
 
 #include "describe.h"
+#include "confine.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "json.h"
@@ -305,7 +306,7 @@ static void scan_start(scan_t *s, int panel)
         dup2(out, STDOUT_FILENO);
         dup2(log >= 0 ? log : out, STDERR_FILENO);
         signal(SIGPIPE, SIG_DFL);
-        proc_confine();
+        proc_confine(NULL, 0);
         execlp(g_conf->probe, g_conf->probe, panel ? "panel" : "describe", s->target, (char *)NULL);
         _exit(127);
     }
