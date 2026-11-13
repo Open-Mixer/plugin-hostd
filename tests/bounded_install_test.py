@@ -117,6 +117,28 @@ def main():
               "%.1f s" % (rc, took))
         rc, out, took = run(WRAPPER, ["true"], sources, 60)
         check(rc == 0, "a command that succeeds is green")
+        # an apt attempt killed by its timeout can leave dpkg interrupted, which the next attempt refuses at once ("dpkg was
+        # interrupted, you must manually run 'dpkg --configure -a'", #81's own run on a slow runner): before trying again
+        # the wrapper finishes dpkg's work. Stub apt-get and dpkg: the first apt-get hangs, the second succeeds only if
+        # dpkg --configure -a ran in between.
+        stubs = os.path.join(work, "bin")
+        os.makedirs(stubs)
+        state = os.path.join(work, "state")
+        open(os.path.join(stubs, "apt-get"), "w").write(
+            "#!/bin/sh\nif [ ! -e %s.hung ]; then touch %s.hung; sleep 30; fi\n[ -e %s.configured ] || "
+            "{ echo \"E: dpkg was interrupted\" >&2; exit 100; }\nexit 0\n" % (state, state, state))
+        open(os.path.join(stubs, "dpkg"), "w").write(
+            "#!/bin/sh\n[ \"$*\" = \"--configure -a\" ] && touch %s.configured\nexit 0\n" % state)
+        for f in ("apt-get", "dpkg"):
+            os.chmod(os.path.join(stubs, f), 0o755)
+        env_path = os.environ["PATH"]
+        os.environ["PATH"] = stubs + ":" + env_path
+        try:
+            rc, out, took = run(WRAPPER, ["apt-get", "install", "-y", "x"], sources, 60)
+        finally:
+            os.environ["PATH"] = env_path
+        check(rc == 0 and os.path.exists(state + ".configured"), "an apt attempt killed by its timeout is followed by "
+              "dpkg --configure -a before the next one, which then succeeds: rc %s, %r" % (rc, out[-200:]))
         sabotaged = os.path.join(work, "bounded-install.sh")
         text = open(WRAPPER).read()
         check("timeout -k" in text, "the wrapper bounds each attempt with timeout -k")
