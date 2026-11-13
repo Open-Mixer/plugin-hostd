@@ -90,7 +90,7 @@ Under Zynthian on a Raspberry Pi 5: <https://openmixer.org/docs/zynthian> says w
 it and where it stands; the measurements are at <https://openmixer.org/benchmarks>, and how they were taken, with the
 design of pins, chains and grouping, in the technical notes at <https://openmixer.org/notes>.
 
-Building from source: see [BUILDING.md](../BUILDING.md). More about FreeMixer at <https://www.openmixer.org>.
+Building from source: see [BUILDING.md](../BUILDING.md). More about OpenMixer at <https://www.openmixer.org>.
 
 Protocol
 --------
