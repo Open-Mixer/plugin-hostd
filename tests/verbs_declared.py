@@ -240,6 +240,7 @@ LINES = {
     "preset_list": ("1", "", ("99", "3")),
     "preset_get": ("1 0", "1", ("99 0", "3 0")),
     "track_info": ('1 "Lead" #112233', "1", ("99 x -",)),
+    "node_label": ("1 Lead", "", ("99 x",)),
     "remote_pages": ("1", "", ("99",)),
     "remote_page_get": ("1 0", "1", ("99 0",)),
     "param_info": ("1 0", "1", ("99 x",)),
