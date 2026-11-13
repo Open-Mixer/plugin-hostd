@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # A preset an instance saved loads back into that instance after a patch of the plugin's own changed its parameters'
 # names (#27), with a real omx-clap-host behind the daemon, over jack, in the namespace tests/jack_e2e.sh built. The
-# plugin is Surge XT as the distribution packages it (clap-surge-xt, surge-xt-data): its parameter ids are hashes and
-# the names of its macros and FX slots follow the loaded patch.
+# plugin is Surge XT as the distribution packages it (clap-surge-xt, surge-xt): its parameter ids are hashes and
+# the names of its macros and FX slots follow the loaded patch, so the factory patch must name its macros (the Makefile's does).
 import json, os, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -12,7 +12,7 @@ EXE = os.environ["PLUGIN_HOSTD"]
 CLAP_HOST = os.environ["OMX_CLAP_HOST"]
 SURGE = os.environ["SURGE_CLAP"]             # Surge_XT.clap
 SURGE_ID = "org.surge-synth-team.surge-xt"
-PATCH = os.environ["SURGE_FACTORY_PATCH"]    # a factory patch of surge-xt-data, an .fxp
+PATCH = os.environ["SURGE_FACTORY_PATCH"]    # a factory patch of surge-xt, an .fxp
 PROBE = os.environ.get("PLUGIN_HOSTD_PROBE") or os.path.join(os.path.dirname(EXE), "plugin-hostd-probe")
 TESTS = []
 INST = 3
