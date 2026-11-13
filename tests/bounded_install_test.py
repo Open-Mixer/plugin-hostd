@@ -6,10 +6,13 @@ timeout-minutes (#76's bench and #72's harness each hung on a channel mirror unt
 
 - the scan: every apt-get, apt or dnf call in .github/workflows that fetches (install, update, upgrade, download,
   builddep, build-dep, makecache) runs through tools/bounded-install.sh; a planted bare call is seen.
-- the wrapper: a command that hangs on a stub mirror (a server that accepts and never answers) turns red within its
-  attempts' bound, naming the command and the mirror the sources name; a command that fails fast is red at once,
-  with no retry; one that succeeds is green.
-- the sabotage: the wrapper with its timeout taken out hangs on the same stub, so the bound is the wrapper's.
+- the wrapper bounds an attempt by inactivity, never by a short total (ruling of 2026-11-14 on #81): a command that
+  prints nothing on a stub mirror that accepts and never answers is red after its attempts' idle bounds, naming the
+  command and the mirror the sources name; a slow command that keeps printing passes, however long it takes within the
+  generous total; a command that fails fast is red at once, with no retry; one that succeeds is green; an apt attempt
+  ended by the bound is followed by dpkg --configure -a before the next.
+- the sabotage: with the idle bound taken out the wrapper hangs on the silent stub; with a short total the slow command
+  is killed, so the slow case is what tells an idle bound from a total one.
 """
 import os
 import re
@@ -71,11 +74,12 @@ def hanging_mirror():
     return "http://127.0.0.1:%d/debian/" % s.getsockname()[1], close
 
 
-def run(wrapper, argv, sources, limit):
-    env = dict(os.environ, BOUNDED_INSTALL_TIMEOUT_S="2", BOUNDED_INSTALL_RETRIES="2", BOUNDED_INSTALL_SOURCES=sources)
+def run(wrapper, argv, sources, limit, total="30"):
+    env = dict(os.environ, BOUNDED_INSTALL_IDLE_S="2", BOUNDED_INSTALL_TOTAL_S=total, BOUNDED_INSTALL_RETRIES="2",
+               BOUNDED_INSTALL_SOURCES=sources)
     started = time.monotonic()
     try:
-        p = subprocess.run(["sh", wrapper] + argv, capture_output=True, text=True, env=env, timeout=limit)
+        p = subprocess.run(["bash", wrapper] + argv, capture_output=True, text=True, env=env, timeout=limit)
         return p.returncode, p.stdout + p.stderr, time.monotonic() - started
     except subprocess.TimeoutExpired:
         return None, "", time.monotonic() - started
@@ -107,10 +111,14 @@ def main():
         open(sources, "w").write("Types: deb\nURIs: %s\nSuites: ./\n" % url)
         hang = ["curl", "-s", url]
         rc, out, took = run(WRAPPER, hang, sources, 60)
-        check(rc == 1 and took < 20, "a command that hangs on the stub mirror is red after its three attempts: rc %s in %.1f s"
-              % (rc, took))
-        check("curl -s %s" % url in out and "3 attempts" in out and "timed out" in out,
-              "the red names the command, its attempts and the timeout: %r" % out[-300:])
+        check(rc == 1 and took < 20, "a command silent on the stub mirror is red after three attempts of its idle bound: rc "
+              "%s in %.1f s" % (rc, took))
+        check("curl -s %s" % url in out and "3 attempts" in out and "printed nothing for 2 s" in out,
+              "the red names the command, its attempts and the idle bound: %r" % out[-300:])
+        slow = ["sh", "-c", "for i in 1 2 3 4 5; do echo unpacking $i; sleep 1; done"]
+        rc, out, took = run(WRAPPER, slow, sources, 60)
+        check(rc == 0 and out.count("unpacking") == 5, "a slow command that keeps printing passes, past several idle bounds "
+              "(5 s against 2 s): rc %s in %.1f s" % (rc, took))
         check(out.count(url) >= 2 and "::error::" in out, "the red names the mirror the sources name, as an error line")
         rc, out, took = run(WRAPPER, ["sh", "-c", "echo nothing provides x >&2; exit 100"], sources, 60)
         check(rc == 1 and took < 5 and "attempt 2" not in out, "a command that fails fast is red at once, not retried: rc %s, "
@@ -125,7 +133,7 @@ def main():
         os.makedirs(stubs)
         state = os.path.join(work, "state")
         open(os.path.join(stubs, "apt-get"), "w").write(
-            "#!/bin/sh\nif [ ! -e %s.hung ]; then touch %s.hung; sleep 30; fi\n[ -e %s.configured ] || "
+            "#!/bin/sh\nif [ ! -e %s.hung ]; then touch %s.hung; echo Unpacking; sleep 30; fi\n[ -e %s.configured ] || "
             "{ echo \"E: dpkg was interrupted\" >&2; exit 100; }\nexit 0\n" % (state, state, state))
         open(os.path.join(stubs, "dpkg"), "w").write(
             "#!/bin/sh\n[ \"$*\" = \"--configure -a\" ] && touch %s.configured\nexit 0\n" % state)
@@ -141,10 +149,13 @@ def main():
               "dpkg --configure -a before the next one, which then succeeds: rc %s, %r" % (rc, out[-200:]))
         sabotaged = os.path.join(work, "bounded-install.sh")
         text = open(WRAPPER).read()
-        check("timeout -k" in text, "the wrapper bounds each attempt with timeout -k")
-        open(sabotaged, "w").write(re.sub(r"timeout -k \S+ \S+ ", "", text))
+        check('read -r -t "$idle_s"' in text, "the wrapper reads the command's output with its idle bound")
+        open(sabotaged, "w").write(text.replace('read -r -t "$idle_s"', "read -r"))
         rc, out, took = run(sabotaged, hang, sources, 12)
-        check(rc is None, "sabotage: with its timeout taken out the wrapper hangs on the stub mirror (still running at 12 s)")
+        check(rc is None, "sabotage: with the idle bound taken out the wrapper hangs on the silent stub (still running at 12 s)")
+        rc, out, took = run(WRAPPER, slow, sources, 60, total="3")
+        check(rc == 1, "sabotage: a short total kills the slow command that keeps printing (rc %s): the slow case tells an "
+              "idle bound from a total one" % rc)
     finally:
         close()
         shutil.rmtree(work, ignore_errors=True)
