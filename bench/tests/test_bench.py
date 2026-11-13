@@ -1652,5 +1652,92 @@ class TeardownWork(unittest.TestCase):
         self.assertFalse(os.path.exists(work), "teardown left its work dir %s" % work)
 
 
+
+class PartialResults(unittest.TestCase):
+    """plugin-hostd#45: a run that breaks keeps the cells it measured, and a client gone from the graph is a failed row
+    with its reason, not a KeyError that ends the run (Pi 5 + RME, 96000/64: JACK dropped the clients after three
+    hosts' idle cells, wire() raised KeyError 'midi_in', and the set showed 0 cells)"""
+
+    class Host:
+        def __init__(self):
+            self.wired = []
+
+        def connect(self, a, b):
+            self.wired.append((a, b))
+
+    GRAPH = {"sine": {"audio_out": ["sine:output1"]}, "system": {"audio_in": ["system:playback_1", "system:playback_2"]},
+             "seq": {"midi_out": ["seq:out"]}}
+
+    def wire_on(self, graph, clients, instrument):
+        keep = bench.ports
+        bench.ports = lambda env: graph
+        self.addCleanup(setattr, bench, "ports", keep)
+        return bench.wire(self.Host(), {}, clients, instrument)
+
+    def test_a_client_gone_from_the_graph_fails_the_row_naming_it(self):
+        with self.assertRaises(bench.Failed) as e:
+            self.wire_on(dict(self.GRAPH), ["omx-piano"], True)
+        self.assertIn("omx-piano", str(e.exception))
+        self.assertIn("gone from the graph", str(e.exception))
+
+    def test_a_client_without_the_port_fails_the_row_naming_the_port(self):
+        graph = dict(self.GRAPH, **{"omx-piano": {"audio_out": ["omx-piano:out"]}})
+        with self.assertRaises(bench.Failed) as e:
+            self.wire_on(graph, ["omx-piano"], True)
+        self.assertIn("omx-piano has no midi_in port", str(e.exception))
+
+    def test_a_whole_graph_still_wires_positive_control(self):
+        graph = dict(self.GRAPH, **{"fx": {"audio_in": ["fx:in"], "audio_out": ["fx:out"]}})
+        self.assertEqual(self.wire_on(graph, ["fx"], False), ["fx:out"])
+
+    def runner(self, out, cells):
+        """a Runner whose cells are `cells` (a list of rows, or an exception to raise), nothing else of the machine"""
+        for name, value in (("machine", lambda cls: {"class": cls}), ("software", lambda files: {})):
+            keep = getattr(bench, name)
+            setattr(bench, name, value)
+            self.addCleanup(setattr, bench, name, keep)
+        fake = types.SimpleNamespace(args=types.SimpleNamespace(cls="ci", out=out, rates=[48000, 96000], frames=[64],
+                                                                stress_guard=None, qualify=False),
+                                     cat=types.SimpleNamespace(files=lambda: []), seen=[])
+        fake.governor_on = lambda: None
+        fake.jack_doc = lambda: {"driver": "dummy", "priority": 70}
+        fake.plan = lambda: ["row"]
+        fake.doc_id = lambda: bench.Runner.doc_id(fake)
+        fake.settle_gate = lambda doc, rows: None
+
+        def run_cell(rate, frames, rows):
+            cell = cells.pop(0)
+            fake.seen.append(sorted(os.listdir(out)))
+            if isinstance(cell, Exception):
+                raise cell
+            return cell
+
+        fake.run_cell = run_cell
+        return fake
+
+    def test_the_cells_measured_survive_a_run_that_breaks(self):
+        out = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", out]))
+        fake = self.runner(out, [[run_row(id="idle", rate=48000)], KeyError("midi_in")])
+        with self.assertRaises(KeyError):
+            bench.Runner.run(fake)
+        partial = [f for f in os.listdir(out) if f.endswith(".json.partial")]
+        self.assertEqual(len(partial), 1, "the document so far is kept beside where the whole one goes: %s" % os.listdir(out))
+        self.assertEqual([f for f in os.listdir(out) if f.endswith(".json")], [], "no whole document is claimed")
+        with open(os.path.join(out, partial[0])) as f:
+            doc = json.load(f)
+        self.assertEqual([(r["id"], r["rate"]) for r in doc["scenarios"]], [("idle", 48000)])
+        self.assertEqual(fake.seen[1], partial, "written before the next cell began, not when the run ended")
+
+    def test_a_whole_run_leaves_its_document_and_no_partial(self):
+        out = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", out]))
+        fake = self.runner(out, [[run_row(id="a", rate=48000)], [run_row(id="b", rate=96000)]])
+        path = bench.Runner.run(fake)
+        self.assertEqual(sorted(os.listdir(out)), [os.path.basename(path)])
+        with open(path) as f:
+            self.assertEqual([r["id"] for r in json.load(f)["scenarios"]], ["a", "b"])
+
+
 if __name__ == "__main__":
     unittest.main()
