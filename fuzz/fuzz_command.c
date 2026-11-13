@@ -539,7 +539,9 @@ __attribute__((noinline)) static void check_verb_call(const struct words *w)
     size_t v, remove_len = strcspn(EFFECT_REMOVE, " ");
     int c, own = 0, foreign = 0, fn = -1, also = -1;
 
-    if (w->n == 0)
+    /* which word of a message with a quote is its verb is the protocol library's reader of quotes to say, which the
+     * harness does not model (check_round_trip leaves such a message out for the same reason) */
+    if (w->n == 0 || strchr(w->text, '"'))
         return;
     if (strlen(w->w[0]) == remove_len && !strncmp(w->w[0], EFFECT_REMOVE, remove_len))
         fn = w->n > 1 && atoi(w->w[1]) == -1 ? REC_REMOVE_ALL : REC_REMOVE;
