@@ -120,21 +120,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Open-Mixer/.github/.github/actions/add-openmixer@main
       - run: bash tools/full-install-check.sh deb "$GITHUB_REF_NAME" ${{ matrix.mode }}
+  # the Fedora cells the plugin-hostd-full install check runs: check-matrix's answer (rule 11-10: fc45 beside fc44;
+  # the quick set while a release wave is open, the whole matrix declared here otherwise)
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rpm: ${{ steps.m.outputs.rpm }}
+      rpm-count: ${{ steps.m.outputs.rpm-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          rpm-releases: '["44", "45"]'
+          rpm-arches: '["x86_64", "aarch64"]'
+
 
   full-rpm:
-    name: plugin-hostd-full (Fedora 44, ${{ matrix.arch }}, ${{ matrix.mode }})
-    needs: rpm
-    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' && inputs.catch-up != true }}
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    name: plugin-hostd-full (${{ matrix.cell.image }}, ${{ matrix.cell.arch }}, ${{ matrix.mode }})
+    needs: [checks, rpm]
+    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' && inputs.catch-up != true && needs.checks.outputs.rpm-count != '0' }}
+    runs-on: ${{ matrix.cell.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
       contents: read
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        cell: ${{ fromJSON(needs.checks.outputs.rpm) }}
         mode: [default, headless]
     steps:
       - uses: actions/checkout@v4
