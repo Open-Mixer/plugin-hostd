@@ -51,16 +51,36 @@ jobs:
           else
             echo "fuzz=false" >> "$GITHUB_OUTPUT"
           fi
+  # the Fedora cells fuzz runs: check-matrix's answer (rule 11-10: fc45 beside fc44;
+  # the quick set while a release wave is open, the whole matrix declared here otherwise)
+  checks:
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      rpm: ${{ steps.m.outputs.rpm }}
+      rpm-count: ${{ steps.m.outputs.rpm-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          rpm-releases: '["44", "45"]'
+          rpm-arches: '["x86_64"]'
+
 
   fuzz:
-    name: fuzz the command parser and the reply stream
-    needs: changes
-    if: needs.changes.outputs.fuzz == 'true'
+    name: fuzz the command parser and the reply stream (${{ matrix.cell.image }})
+    needs: [checks, changes]
+    if: (needs.changes.outputs.fuzz == 'true') && needs.checks.outputs.rpm-count != '0'
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
     # a backstop: fuzz-run spends 60 s on each harness and fuzz-sabotage runs seeds only, so the job ends well inside it
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.rpm) }}
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
     steps:
       - name: Install clang, libFuzzer and llvm-cov
         run: |
@@ -113,6 +133,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-findings
+          name: fuzz-findings-fc${{ matrix.cell.fedora }}-${{ matrix.cell.arch }}
           path: fuzz/findings/
           if-no-files-found: ignore

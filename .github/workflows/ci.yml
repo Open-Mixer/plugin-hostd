@@ -60,13 +60,43 @@ jobs:
   # local copy of either (Open-Mixer/.github's public-sources-check)
   public-sources:
     uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@openmixer-v1
+  # the Fedora cells the build, probe-cap and the Zynthian chain run, and the rpm job's: check-matrix's answer
+  # (rule 11-10: fc45 beside fc44; the quick set while a release wave is open, the whole matrix declared here otherwise)
+  checks:
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      rpm: ${{ steps.m.outputs.rpm }}
+      rpm-count: ${{ steps.m.outputs.rpm-count }}
+      packages: ${{ steps.p.outputs.rpm }}
+      packages-count: ${{ steps.p.outputs.rpm-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          rpm-releases: '["44", "45"]'
+          rpm-arches: '["x86_64"]'
+      # the rpm job's cells: aarch64 beside x86_64 except on a pull request
+      - id: p
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          rpm-releases: '["44", "45"]'
+          rpm-arches: ${{ github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]' }}
 
   test:
-    name: build and test
+    needs: checks
+    if: needs.checks.outputs.rpm-count != '0'
+    name: build and test (${{ matrix.cell.image }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.rpm) }}
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
       # CAP_SYS_RESOURCE lets the probe test raise RLIMIT_RTPRIO and RLIMIT_MEMLOCK as LimitRTPRIO= and LimitMEMLOCK= do,
       # so it measures at the highest SCHED_FIFO priority with its memory locked. Not CAP_SYS_NICE: the worker_env test
@@ -196,11 +226,17 @@ jobs:
   # the highest-priority arm must get SCHED_FIFO 99 with grantedBy cap, and the describe child beside it keeps the limits
   # the runner was started with (#252)
   probe-cap:
-    name: the probe's real-time arm under CAP_SYS_NICE
+    needs: checks
+    if: needs.checks.outputs.rpm-count != '0'
+    name: the probe's real-time arm under CAP_SYS_NICE (${{ matrix.cell.image }})
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.rpm) }}
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
       options: --cap-add SYS_NICE
     steps:
       - name: Install the build tools
@@ -299,17 +335,17 @@ jobs:
           echo "An aarch64 run of this job is not here either: this is x86_64 only, a separate step for later."
 
   rpm:
-    name: RPMs (fc44, ${{ matrix.arch }}), installed in a clean root
-    needs: changes
-    if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    name: RPMs (fc${{ matrix.cell.fedora }}, ${{ matrix.cell.arch }}), installed in a clean root
+    needs: [checks, changes]
+    if: needs.changes.outputs.packages == 'true' && needs.checks.outputs.packages-count != '0'
+    runs-on: ${{ matrix.cell.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
+        cell: ${{ fromJSON(needs.checks.outputs.packages) }}
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
       # the clean root gets a /proc and a /dev of its own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
@@ -334,7 +370,7 @@ jobs:
           set -euo pipefail
           mkdir -p dep-rpms
           # plugin-db-devel is built per architecture (the pin header and the library's link), not noarch
-          dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol plugin-db-devel
+          dnf download -y --setopt=retries=10 --arch ${{ matrix.cell.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol plugin-db-devel
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
           dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)"
 
@@ -343,7 +379,7 @@ jobs:
       - name: Check the file lists
         run: |
           set -euo pipefail
-          for rpm in rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm; do
+          for rpm in rpms/plugin-hostd-[0-9]*.${{ matrix.cell.arch }}.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/bin/plugin-hostd /usr/bin/plugin-hostd-probe /usr/share/man/man1/plugin-hostd.1.gz \
@@ -390,18 +426,18 @@ jobs:
           done
           ls rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
           # the tests package: the fake worker, where plugin-qualify's pins-file test finds it
-          for rpm in rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm; do
+          for rpm in rpms/plugin-hostd-tests-[0-9]*.${{ matrix.cell.arch }}.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py \
               /usr/share/doc/plugin-hostd-tests/README.md /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             # tied to the same build: the requirement names the exact version-release and the isa of this very package
-            case "${{ matrix.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.arch }}"; exit 1 ;; esac
+            case "${{ matrix.cell.arch }}" in x86_64) isa=x86-64 ;; aarch64) isa=aarch-64 ;; *) echo "no isa for ${{ matrix.cell.arch }}"; exit 1 ;; esac
             vr=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")
             rpm -qp --requires "$rpm" | grep -qxF "plugin-hostd($isa) = $vr"
           done
-          ls rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
+          ls rpms/plugin-hostd-tests-[0-9]*.${{ matrix.cell.arch }}.rpm
           ls rpms/plugin-hostd-*.src.rpm
 
       # the worker the smoke test runs the installed daemon against
@@ -413,11 +449,11 @@ jobs:
           rpms: |
             dep-rpms/plugin-hostd-protocol-[0-9]*.rpm
             dep-rpms/plugin-hostd-protocol-contract-[0-9]*.noarch.rpm
-            dep-rpms/plugin-db-devel-[0-9]*.${{ matrix.arch }}.rpm
+            dep-rpms/plugin-db-devel-[0-9]*.${{ matrix.cell.arch }}.rpm
             dep-rpms/mod-host-protocol-[0-9]*.rpm
-            rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
+            rpms/plugin-hostd-[0-9]*.${{ matrix.cell.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
-            rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
+            rpms/plugin-hostd-tests-[0-9]*.${{ matrix.cell.arch }}.rpm
           packages: python3
 
       - name: The daemon reports the version of its package and resolves its libraries
@@ -460,7 +496,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-rpms-fc44-${{ matrix.arch }}
+          name: plugin-hostd-rpms-fc${{ matrix.cell.fedora }}-${{ matrix.cell.arch }}
           path: rpms/plugin-hostd-[0-9]*.rpm
           if-no-files-found: error
           retention-days: 1
@@ -706,11 +742,17 @@ jobs:
   # A channel that lacks one fails the job by name. It is an x86_64 Fedora container: no Zynthian image, no ARM board,
   # no Zynthian UI.
   zynthian-chain:
-    name: a Zynthian chain of omx-plugins members, run by omx-clap-host, its audio measured member by member
+    needs: checks
+    if: needs.checks.outputs.rpm-count != '0'
+    name: a Zynthian chain of omx-plugins members, run by omx-clap-host, its audio measured member by member (${{ matrix.cell.image }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.rpm) }}
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
       # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
