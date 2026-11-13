@@ -2487,6 +2487,86 @@ class Plugins:
         shutil.rmtree(self.dir, ignore_errors=True)
 
 
+def fresh_add(home, config_text=None, state_made=False):
+    """a daemon on a fresh HOME and XDG dirs (no settings unless config_text, no CLAP_PATH), the fake host as the
+    omx-clap-host on PATH, and its answer to the first add of a .clap under $HOME/.clap: (reply, the pin store's text)"""
+    clap = os.path.join(home, ".clap", "omx-fault.clap")
+    os.makedirs(os.path.dirname(clap), exist_ok=True)
+    write(clap, b"clean pad build")
+    cfg, state, bin_dir = (os.path.join(home, d) for d in ("cfg", "state", "bin"))
+    for d in (cfg, state, bin_dir):
+        os.makedirs(d, exist_ok=True)
+    if config_text is not None:
+        write(os.path.join(cfg, "plugin-hostd.conf"), config_text.encode())
+    if state_made:
+        os.makedirs(os.path.join(state, "plugin-hostd"), exist_ok=True)
+    os.symlink(FAKE, os.path.join(bin_dir, "omx-clap-host"))
+    env = {k: v for k, v in os.environ.items() if k not in ("CLAP_PATH", "XDG_CONFIG_HOME", "XDG_STATE_HOME")}
+    env.update(HOME=home, XDG_CONFIG_HOME=cfg, XDG_STATE_HOME=state, PATH=bin_dir + ":" + env.get("PATH", ""))
+    import socket
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    proc = subprocess.Popen([EXE, "-n", "-p", str(port)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    try:
+        deadline = time.time() + 10
+        while True:
+            try:
+                s = socket.create_connection(("127.0.0.1", port), timeout=10)
+                break
+            except OSError:
+                if time.time() > deadline:
+                    raise Fail("the fresh daemon never listened on %d" % port)
+                time.sleep(0.1)
+        s.sendall(("add clap:%s#org.openmixer.fault 0\0" % clap).encode())
+        reply = b""
+        while not reply.endswith(b"\0"):
+            chunk = s.recv(256)
+            if not chunk:
+                break
+            reply += chunk
+        s.close()
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    store = os.path.join(state, "plugin-hostd", "pins")
+    return reply.rstrip(b"\0").decode(), open(store).read() if os.path.exists(store) else ""
+
+
+@test
+def a_fresh_daemon_learns_the_first_add_of_a_plugin_in_a_default_folder():
+    """plugin-hostd#82: first-use learning is the table's default (require_pins 1, pin_mode first-use): on a fresh daemon
+    the first add of a plugin in a default CLAP folder learns its pin and is admitted. The declared default holds the
+    folders distributions install CLAP plugins in (/usr/lib64/clap is Fedora's, /usr/local/lib/clap the Pi image's,
+    plugin-hostd-protocol >= 0.5.9), where a fresh daemon answered -508, not learned; and the first add is admitted with no
+    settings, with settings stating the default, and with the state directory made beforehand"""
+    env = {k: v for k, v in os.environ.items() if k != "CLAP_PATH"}
+    home = tempfile.mkdtemp(prefix="plugin-hostd-fresh.")
+    try:
+        env.update(HOME=home, XDG_CONFIG_HOME=os.path.join(home, "none"))
+        out = subprocess.run([EXE, "--search-path"], env=env, capture_output=True, text=True).stdout
+        clap = [l.split("\t")[2] for l in out.splitlines() if l.startswith("clap\teffective\t")]
+        dirs = clap[0].split(":") if clap else []
+        for d in ("/usr/local/lib/clap", "/usr/lib64/clap", "/usr/local/lib64/clap"):
+            check(d in dirs, "with no settings the declared CLAP path holds %s: %s" % (d, dirs))
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+    for name, config, made in (("no settings", None, False),
+                               ("settings stating require_pins 1 and pin_mode first-use",
+                                "require_pins 1\npin_mode first-use\n", False),
+                               ("the state directory made beforehand", None, True)):
+        home = tempfile.mkdtemp(prefix="plugin-hostd-fresh.")
+        try:
+            reply, store = fresh_add(home, config, made)
+            check(reply == "resp 0", "%s: the first add is admitted: %r" % (name, reply))
+            check("omx-fault.clap" in store, "%s: its pin is in the pin store: %r" % (name, store[:200]))
+        finally:
+            shutil.rmtree(home, ignore_errors=True)
+
+
 @test
 def an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts():
     p = Plugins()
