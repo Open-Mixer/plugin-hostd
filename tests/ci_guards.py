@@ -127,8 +127,9 @@ def tier_scan(root):
 # >= 0.32 against a served plugin-hostd that wants < 0.32), it cannot even install (#44's Zynthian chain).
 INSTALL = re.compile(r"\b(dnf5?|apt-get|apt)\s+(?:-\S+\s+)*(install|download)\b")
 OWN_PACKAGE = re.compile(r"(?<![\w./*\[-])'?plugin-hostd(?:-contract)?(?=['\s<>=]|$)")
-# bench.yml tests the benchmark harness, not the daemon: it drives the hosts the channel serves, plugin-hostd among them
-SERVED_HOSTS = {"bench.yml"}
+# every workflow installs the daemon this run built: the smoke run of bench.yml too, which on a cell the channel has
+# not yet served this version cannot resolve plugin-hostd by name (its plugin-hostd-contract is newer)
+SERVED_HOSTS = set()
 
 
 def own_build_scan(root):
