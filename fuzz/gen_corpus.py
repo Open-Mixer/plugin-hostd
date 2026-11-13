@@ -131,6 +131,8 @@ def command_corpus(out):
     seeds["quit-leading-space"] = message("  quit")
     # a word that starts with quit and is not quit: the daemon must not quit on it (the harness reads quit itself)
     seeds["quit-prefix"] = message("quitx")
+    # one quoted word that starts with quit and holds a space: a word, not the verb quit (found by fuzz-run)
+    seeds["quit-quoted-with-a-space"] = message('"quit now"')
     # a first word that starts with "@", in a session not granted tags: a tag and a command, a tag alone, "@" alone,
     # and one that is no tag; each is answered `not found` (the protocol page, Request tags)
     seeds["tagged-command"] = message("@a7 param_get 0 gain")

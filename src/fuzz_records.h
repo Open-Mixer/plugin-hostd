@@ -49,7 +49,9 @@
 /* record: reply-answer-self-made
  * mutant: src/verbs.c:216 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
  * input: add-too-few
- * mutant: src/verbs.h:39 `strcspn(text, " \t") == n && !strncmp(text, format, n)` -> `!strncmp(text, format, n)`
+ * mutant: src/verbs.c:306 `!strcmp(verb, QUIT)` -> `verb_is(verb, QUIT)`
+ * input: quit-quoted-with-a-space
+ * mutant: src/verbs.c:306 `!strcmp(verb, QUIT)` -> `!strncmp(verb, QUIT, strlen(QUIT))`
  * input: quit-prefix */
 
 /* record: call-of-verb
