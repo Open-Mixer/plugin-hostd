@@ -74,7 +74,10 @@ TypeScript):
   `decode_path`, `uri_word`, `pin_key`), as the grammar and the pin section of plugin-hostd-protocol's
   documentation write them.
 - **code**(name), **name**(code), **sentence**(code, lang): the reply codes, from the table and the
-  vocabulary.
+  vocabulary. A sentence in another language than English is read from the code's owner's catalog through
+  omx-contract's catalog reader (`omx_contract_catalog`, `@openmixer/omx-contract/catalog`): the entry's text whatever
+  its shape, a string or an object `{text, by, source}`, and the English sentence where the catalog has none or only a
+  machine entry made from another source sentence (#78).
 - **verb** and **code** as constants (plugin-hostd-protocol#24): `verb.<word>` is every verb the table
   declares, a command's or a feedback line's (`verb.output_set`), and `code.<name>` every reply code by its
   last segment in snake case, valued with the code (`code.worker_spawn` is

@@ -116,7 +116,8 @@ Architecture: all
 Depends: python3, libplugin-hostd-protocol0 (>= 0.5.8~), libplugin-hostd-protocol0 (<< 0.6~),
          plugin-hostd-protocol-contract (>= 0.5.8~), plugin-hostd-protocol-contract (<< 0.6~),
          omx-clap-core-contract (>= 0.32.3~), omx-clap-core-contract (<< 0.33~),
-         omx-contract (>= 3.12.0~), omx-contract (<< 4~), ${misc:Depends}
+         omx-contract (>= 3.12.0~), omx-contract (<< 4~),
+         omx-contract-data (>= 3.16.0~), omx-contract-data (<< 4~), ${misc:Depends}
 Description: Python client of plugin-hostd's protocol
  plugin_hostd_protocol: one codec over the files plugin-hostd-protocol
  installs, which encodes and decodes every command the protocol declares,
