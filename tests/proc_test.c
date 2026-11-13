@@ -72,19 +72,19 @@ static void test_bundle_lookup(void)
     mkdir(second, 0755);
     write_manifest(first, "omx-modgui-fil.lv2", gui);
     snprintf(path, sizeof(path), "%s:%s", first, second);
-    found = proc_find_lv2_bundle(path, uri);
+    found = proc_find_lv2_bundle(path, uri, NULL);
     check(found && strstr(found, "omx-modgui-fil.lv2"), "with no other bundle, the one that names the plugin");
     free(found);
     write_manifest(second, "fil.lv2", real);
-    found = proc_find_lv2_bundle(path, uri);
+    found = proc_find_lv2_bundle(path, uri, NULL);
     check(found && strstr(found, "/fil.lv2"), "the bundle with the binary, not the GUI bundle earlier on the path");
     free(found);
     write_manifest(first, "aaa-gui.lv2", gui);
     write_manifest(first, "zzz-gui.lv2", gui);
-    found = proc_find_lv2_bundle(path, uri);
+    found = proc_find_lv2_bundle(path, uri, NULL);
     check(found && strstr(found, "/fil.lv2"), "the binary's bundle whichever order the directory lists them");
     free(found);
-    check(proc_find_lv2_bundle(path, "http://example.org/other") == NULL, "a plugin no manifest names has no bundle");
+    check(proc_find_lv2_bundle(path, "http://example.org/other", NULL) == NULL, "a plugin no manifest names has no bundle");
 }
 
 
@@ -111,11 +111,11 @@ static void test_bundle_lookup_remembers(void)
         write_manifest(dir, name, other);
     }
     write_manifest(dir, "late.lv2", real);
-    found = proc_find_lv2_bundle(dir, uri);
+    found = proc_find_lv2_bundle(dir, uri, NULL);
     check(found && strstr(found, "/late.lv2"), "the plugin's bundle among forty others");
     free(found);
     reads = proc_manifest_reads;
-    found = proc_find_lv2_bundle(dir, uri);
+    found = proc_find_lv2_bundle(dir, uri, NULL);
     check(found && strstr(found, "/late.lv2") && proc_manifest_reads - reads == 1,
           "found again with one manifest read, not a walk of the path");
     free(found);
@@ -123,12 +123,12 @@ static void test_bundle_lookup_remembers(void)
     snprintf(from, sizeof(from), "%s/late.lv2", dir);
     snprintf(moved, sizeof(moved), "%s/zz-late.lv2", dir);
     check(rename(from, moved) == 0, "the bundle moved");
-    found = proc_find_lv2_bundle(dir, uri);
+    found = proc_find_lv2_bundle(dir, uri, NULL);
     check(found && strstr(found, "/zz-late.lv2"), "a moved bundle is found where it is now, not where it was");
     free(found);
     /* the bundle no longer holds the plugin: no bundle, not the remembered one */
     write_manifest(dir, "zz-late.lv2", other);
-    found = proc_find_lv2_bundle(dir, uri);
+    found = proc_find_lv2_bundle(dir, uri, NULL);
     check(found == NULL, "a bundle that no longer names the plugin is not answered from memory");
     free(found);
 }
