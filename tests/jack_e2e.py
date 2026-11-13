@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The real workers behind the daemon, over jack, in the namespace tests/jack_e2e.sh built.
-import filecmp, json, os, shutil, signal, socket, subprocess, sys, tempfile, threading, time
+import filecmp, json, os, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from declared import variable
@@ -81,6 +81,10 @@ with open(variable("table")) as f:
     NODE_METADATA = {r["name"]: r for r in json.load(f)["node_metadata"]}
 PRETTY_NAME = NODE_METADATA["pretty_name"]["key"]
 INSTANCE_KEY = NODE_METADATA["instance"]["key"]
+# the longest label node_label takes (plugin-hostd#35), PHD_NODE_LABEL_MAX of the protocol.h the daemon is built with
+import declared
+with open(os.path.join(declared.include_dir(), "plugin-hostd", "protocol.h")) as f:
+    CONSTANT_LABEL_MAX = int(re.search(r"^#define PHD_NODE_LABEL_MAX (\d+)$", f.read(), re.M).group(1))
 
 
 def node_value(name, *args):
@@ -600,6 +604,34 @@ def a_hosted_node_carries_its_plugin_name_and_instance_for_every_client():
         wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == node_value("pretty_name", "stress", 7),
                  "the respawned effect_7's pretty-name", 10)
         check(metadata("effect_7").get(INSTANCE_KEY) == node_value("instance", 7), "the respawned effect_7 carries its key")
+    finally:
+        d.close()
+
+
+
+@test
+def a_client_label_joins_a_hosted_nodes_name_and_outlives_its_worker():
+    """plugin-hostd#35: node_label names the node <label>: <plugin> (<instance>), the daemon keeps it so a respawned
+    worker's node is labelled again, no words clears it; a label too long is refused, and so is a node that is not"""
+    d = daemon(conf={"checkpoint_ms": 300})
+    try:
+        d.expect("add %s 7" % STRESS, "resp 7")
+        plain, labelled = node_value("pretty_name", "stress", 7), node_value("labelled_name", "Vocal 1", "stress", 7)
+        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == plain, "effect_7's pretty-name", 10)
+        d.expect("node_label 7 Vocal 1", "resp 0")
+        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == labelled, "effect_7 labelled %r" % labelled, 10)
+        d.expect("node_label 7 %s" % ("x" * (CONSTANT_LABEL_MAX + 1)), resp("LABEL_INVALID"))
+        check(metadata("effect_7").get(PRETTY_NAME) == labelled, "a refused label leaves the node labelled")
+        d.expect("node_label 9 x", "resp -3")
+        _, w = d.holder(7)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        wait_for(lambda: not has_ports(7), "effect_7's ports to leave the graph (the kill landed)")
+        d.wait_event("instance_restored 7 ", since=mark)
+        wait_for(lambda: has_ports(7), "effect_7's ports to come back")
+        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == labelled, "the respawned effect_7 labelled again", 10)
+        d.expect("node_label 7", "resp 0")
+        wait_for(lambda: metadata("effect_7").get(PRETTY_NAME) == plain, "no words clears the label", 10)
     finally:
         d.close()
 

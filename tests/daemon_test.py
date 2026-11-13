@@ -1753,7 +1753,8 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         # the verbs this test drives by name must be declared; a protocol release may declare more (a minor adds rows),
         # and each of those is answered for an LV2 instance by the daemon, never by mod-host, below
         known = {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
-                 "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui"}
+                 "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui",
+                 "node_label"}
         check(known <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
@@ -1762,6 +1763,9 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         for bad in BAD_TRACK:
             d.expect(bad, "resp -902")
         d.expect("track_info 9 a -", "resp -3")
+        # mod-host sets no JACK metadata: an LV2 instance's node takes no label (#35), and the worker never hears it
+        d.expect("node_label 0 Vocal 1", "resp -902")
+        d.expect("node_label 9 x", "resp -3")
         d.expect("remote_pages 0", "resp 0")
         d.expect("remote_page_get 0 0", "resp -902")
         d.expect("param_set 0 gain 0.5000", "resp 0")
