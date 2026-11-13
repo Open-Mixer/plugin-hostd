@@ -215,7 +215,8 @@ int proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const
             setenv(world_env, world, 1);
         if (env)
             apply_thread(0, env);
-        proc_confine(NULL, 0);
+        if (proc_confine(NULL, 0) != 0)
+            _exit(127);
         if (env && env->thread_pool)
             execlp(bin, bin, "-n", "-p", port_arg, "-f", fb_arg, PHD_WORKER_THREAD_POOL_ON, (char *)NULL);
         else

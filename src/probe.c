@@ -922,8 +922,6 @@ static void apply_limits(const options_t *o, const cpu_set_t *pinned, int pin_op
 {
     setpgid(0, 0);
     prctl(PR_SET_PDEATHSIG, SIGKILL);
-    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
-        _exit(120);
     put_rlimit(RLIMIT_CPU, (rlim_t)o->cpu_s, (rlim_t)o->cpu_s + 5);
     /* the measured child's memory is the cgroup's to bound when there is one: RLIMIT_DATA would refuse address space the
      * plugin never touches */
@@ -1234,7 +1232,8 @@ static void run_child(const options_t *o, char **argv, const cpu_set_t *pinned, 
             if (r->measuring && g_lock.asked)
                 keep[nkeep++] = PROBE_LOCK_FD;
             keep[nkeep++] = status_pipe[1];
-            proc_confine(keep, nkeep);
+            if (proc_confine(keep, nkeep) != 0)
+                _exit(120);
         }
         execvp(o->child, argv);
         {
