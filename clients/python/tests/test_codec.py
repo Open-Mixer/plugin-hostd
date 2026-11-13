@@ -79,12 +79,13 @@ class Replies(unittest.TestCase):
         self.assertEqual((e["ram_used_bytes"], e["ram_added_bytes"], e["ram_budget_bytes"], e["ram_unknown_count"]),
                          (0, None, None, 3))
 
-    def test_the_reasons_to_ask_again_are_words_the_daemon_declares(self):
+    def test_the_reasons_to_ask_again_are_the_reasons_the_file_declares_retry(self):
+        # RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
         with open(GROUPING) as f:
-            words = [w["word"] for w in json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].values()]
-        self.assertEqual(RETRY_REASONS, ("no-verdict", "plan-refused"))
-        for word in RETRY_REASONS:
-            self.assertIn(word, words)
+            item = json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]
+        declared = tuple(w["word"] for w in item["words"].values() if w.get("group") == "retry")
+        self.assertTrue(declared)
+        self.assertEqual(RETRY_REASONS, declared)
 
 
 class Constants(unittest.TestCase):
@@ -151,6 +152,16 @@ class GroupingReasons(unittest.TestCase):
     def test_no_constant_names_a_reason_the_file_does_not_declare(self):
         self.assertEqual(sorted(set(self.constants().values()) - self.declared()), [])
         self.assertEqual(len(self.constants()), len(self.declared()))
+
+    def test_every_reason_declares_its_retry_property(self):
+        with open(GROUPING) as f:
+            file = json.load(f)
+        groups = {w["word"] for w in file["PLUGIN_HOSTD_GROUPING_REASON_GROUPS"]["words"].values()}
+        self.assertEqual(groups, {"retry", "final"})
+        self.assertEqual(file["PLUGIN_HOSTD_GROUPING_REASONS"]["groups"], "PLUGIN_HOSTD_GROUPING_REASON_GROUPS")
+        for key, row in file["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].items():
+            with self.subTest(reason=key):
+                self.assertIn(row.get("group"), groups)
 
     def test_the_known_reasons_are_the_files(self):
         self.assertEqual(GroupingReason.GROUPING_OFF, "grouping-off")
