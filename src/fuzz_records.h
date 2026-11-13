@@ -48,7 +48,17 @@
 
 /* record: reply-answer-self-made
  * mutant: src/verbs.c:216 `return sup_resp(ERR_INVALID_OPERATION);` -> `return sup_resp(SUCCESS);`
- * input: add-too-few */
+ * input: add-too-few
+ * mutant: src/verbs.c:306 `!strcmp(verb, QUIT)` -> `verb_is(verb, QUIT)`
+ * input: quit-quoted-with-a-space
+ * mutant: src/verbs.c:306 `!strcmp(verb, QUIT)` -> `!strncmp(verb, QUIT, strlen(QUIT))`
+ * input: quit-prefix */
+
+/* record: call-of-verb
+ * mutant: src/verbs.c:237 `atoi(tok[1]) == -1 ? sup_remove_all() : sup_remove(atoi(tok[1]))` -> `sup_remove_all()`
+ * input: mod-host-remove
+ * mutant: src/verbs.c:230 `descriptors_get(tok[1])` -> `descriptors_panel_get(tok[1])`
+ * input: plugin-hostd-descriptor_get */
 
 /* record: reply-hello-no-worker
  * mutant: src/verbs.c:164 `strcmp(verb, OMX_VERB_HELLO)` -> `strcmp(verb, "hello_")`
@@ -190,6 +200,14 @@
 
 /* record: relay-follows-worker
  * mutant: src/relay.c:541 `fd < 0` -> `fd >= 0`
+ * input: lines */
+
+/* record: relay-holds-each-worker
+ * mutant: src/relay.c:562 `g_src[g_nsrc++].fd = fd;` -> `g_src[g_nsrc].fd = fd;`
+ * input: lines */
+
+/* record: relay-eof-is-the-end
+ * mutant: src/relay.c:318 `if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK))` -> `if (n <= 0)`
  * input: lines */
 
 #endif
