@@ -37,6 +37,7 @@
 #include <plugin-hostd/protocol.h>
 
 #include "formats.h"
+#include "pages.h"
 #include "pins.h"
 #include "proc.h"
 #include "supervisor.h"
@@ -527,7 +528,6 @@ char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *u
 #define RDF_TYPE  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 #define TRIPLES_MAX   200000
 #define PARSE_DEPTH   16
-#define PAGE_SLOTS    8
 #define WORD_MAX      255
 
 typedef struct TRIPLE_T {
