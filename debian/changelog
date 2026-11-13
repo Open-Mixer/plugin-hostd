@@ -1,3 +1,21 @@
+plugin-hostd (0.20.7) unstable; urgency=medium
+
+  * Every child the daemon starts that runs plugin code runs confined: a
+    daemon worker, the descriptor scan and the probe runner's child, by one
+    proc_confine (src/confine.c): no_new_privs, no descriptor of its parent's
+    past the ones it is given, and a seccomp filter that answers EPERM to
+    ptrace, process_vm_readv/writev, mount, kexec, module loading and the
+    like. A worker reads /dev/null on stdin. A qualification verdict describes
+    the plugin as the console hosts it (#16, #61).
+  * The probe document carries the rt-safety arm's thread figures: ownThreads,
+    the threads the plugin started, and otherThreads {allocations, locks,
+    syscalls}, what other threads did while the audio thread was armed (a
+    figure, never a verdict); both optional in the schema (D20, #63, #64).
+  * tests: a sabotage arm for the checkpoint of a value the plugin moved
+    itself (#24, #60).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 13 Nov 2026 14:30:00 +0100
+
 plugin-hostd (0.20.6) unstable; urgency=medium
 
   * An LV2 uri that several bundles of the search path name is the bundle

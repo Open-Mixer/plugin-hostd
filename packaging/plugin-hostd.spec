@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.6
+Version: 0.20.7
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -237,6 +237,21 @@ make test-daemon check-generated check-rendered
 %{omx_contract_dir}/plugin-hostd/
 
 %changelog
+* Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
+- Every child the daemon starts that runs plugin code runs confined: a daemon
+  worker, the descriptor scan and the probe runner's child, by one
+  proc_confine (src/confine.c): no_new_privs, no descriptor of its parent's past
+  the ones it is given, and a seccomp filter that answers EPERM to ptrace,
+  process_vm_readv/writev, mount, kexec, module loading and the like. A worker
+  reads /dev/null on stdin. A qualification verdict describes the plugin as the
+  console hosts it (#16, #61).
+- The probe document carries the rt-safety arm's thread figures: ownThreads,
+  the threads the plugin started, and otherThreads {allocations, locks,
+  syscalls}, what other threads did while the audio thread was armed (a figure,
+  never a verdict); both optional in the schema (D20, #63, #64).
+- tests: a sabotage arm for the checkpoint of a value the plugin moved itself
+  (#24, #60).
+
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle
   plugin-db's declared rule gives, newest-version: of the bundles that realise
