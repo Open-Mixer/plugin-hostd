@@ -243,12 +243,12 @@ class GroupingReason:
     GROUPING_OFF = "grouping-off"
     HISTORY_UNAVAILABLE = "history-unavailable"
     PLAN_REFUSED = "plan-refused"
-# END GENERATED grouping-reasons
 
 
-# the reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
-# (no-verdict), what refused a segment may pass (plan-refused)
+# the reasons of a plan that a later plan may not give again with the chain as it is: the reasons that declare
+# the group retry in the file, read from it and chosen nowhere in code
 RETRY_REASONS = (GroupingReason.NO_VERDICT, GroupingReason.PLAN_REFUSED)
+# END GENERATED grouping-reasons
 
 
 class Names:

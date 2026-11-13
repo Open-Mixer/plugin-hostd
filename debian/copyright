@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: plugin-hostd
-Source: https://github.com/FreeMixer/plugin-hostd
+Source: https://github.com/Open-Mixer/plugin-hostd
 
 Files: *
 Copyright: 2026 Pau Aliagas <linuxnow@gmail.com>

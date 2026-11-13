@@ -58,8 +58,8 @@ TypeScript):
   its `cores` in the same shape, none for a member that is not pinned. A plan read back also gives its
   `reasons`: the instance, the reason as written, its word of `PLUGIN_HOSTD_GROUPING_REASONS`, the reply
   code a `plan-refused` carries with its name, and `retry`, true for the reasons a later plan may not give
-  again with the chain unchanged (`RETRY_REASONS`: `no-verdict`, `plan-refused`; a list the clients
-  hold, the grouping declaration has no such attribute). An estimate is every figure by the protocol's
+  again with the chain unchanged (`RETRY_REASONS`: the reasons whose group `data/grouping.json` declares `retry`, `no-verdict` and
+  `plan-refused` today, written from the file by the same tool as `GroupingReason`). An estimate is every figure by the protocol's
   name (`latency_frames`, `cpu_percent`, `ram_bytes`, `workers`, `unknown_count`, `members` with the
   reply code of each one that has no figure, and the four memory figures), none for a figure the daemon
   answers `-`. A word that is not the shape is an error, never a guess.

@@ -274,7 +274,7 @@ check-no-json-escape-loop:
 	python3 tests/no_json_escape_loop.py
 	python3 tests/no_json_escape_loop.py --self-test
 
-# No tracked file points into a private repository, issue, branch or path: FreeMixer/.github's private-refs check, from a
+# No tracked file points into a private repository, issue, branch or path: Open-Mixer/.github's private-refs check, from a
 # checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
 FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
 .PHONY: private-refs check-no-protocol-copy check-no-json-escape-loop
@@ -380,7 +380,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-verbs-declared check-rendered check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
+test: test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-full-ranges test-records-candidate
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -413,6 +413,11 @@ test-bind-sabotage: $(PROG) $(FAKE)
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG) $(FAKE) $(SLOW_FSYNC)
 	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
+
+# a timing proof reads the load (ruling 2026-11-11): on a node loaded past its cores a missed bound warns, naming the
+# load, for the gate to rerun on a quiet node; on a quiet node it fails (tests/timing_load_test.py, with a fake load)
+test-timing-load:
+	python3 tests/timing_load_test.py
 
 # the declared verbs on the daemon's socket (tests/verbs_declared.py): each answers its declared reply and codes, the
 # daemon answers no undeclared word itself, and a verb both hosts owe answers in one shape from both; omx-clap-core's
