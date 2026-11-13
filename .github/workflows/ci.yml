@@ -29,6 +29,16 @@ concurrency:
 # tier and one package arm (fc44 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
 # main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
+  # no Fedora release written into a job: the cells come from check-matrix (rule 11-10, ruling D25)
+  fedora-cells:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/workflows
+      - uses: Open-Mixer/.github/.github/actions/fedora-cells@openmixer-v1
+
   # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
   # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
   changes:
