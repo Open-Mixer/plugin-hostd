@@ -1,0 +1,72 @@
+{
+  "schema": "omx-bench/1",
+  "id": "pi-r96000-f64-n3",
+  "machine": {
+    "class": "rpi5"
+  },
+  "software": {},
+  "jack": {
+    "driver": "alsa",
+    "priority": 70,
+    "device": "hw:X",
+    "periods": 3
+  },
+  "scenarios": [
+    {
+      "id": "idle",
+      "title": "idle",
+      "host": "H1",
+      "rate": 96000,
+      "frames": 64,
+      "plugins": [],
+      "status": "failed",
+      "note": "did not run",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": null,
+      "dsp_load_avg": null
+    },
+    {
+      "id": "idle",
+      "title": "idle",
+      "host": "H2",
+      "rate": 96000,
+      "frames": 64,
+      "plugins": [],
+      "status": "failed",
+      "note": "did not run",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": null,
+      "dsp_load_avg": null
+    },
+    {
+      "id": "idle",
+      "title": "idle",
+      "host": "H3",
+      "rate": 96000,
+      "frames": 64,
+      "plugins": [],
+      "status": "failed",
+      "note": "did not run",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": null,
+      "dsp_load_avg": null
+    },
+    {
+      "id": "idle",
+      "title": "idle",
+      "host": "H4",
+      "rate": 96000,
+      "frames": 64,
+      "plugins": [],
+      "status": "failed",
+      "note": "did not run",
+      "stress": "none",
+      "mode": "individual",
+      "xruns": null,
+      "dsp_load_avg": null
+    }
+  ]
+}
