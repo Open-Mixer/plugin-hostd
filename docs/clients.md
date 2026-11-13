@@ -68,6 +68,16 @@ TypeScript):
   documentation write them.
 - **code**(name), **name**(code), **sentence**(code, lang): the reply codes, from the table and the
   vocabulary.
+- **verb** and **code** as constants (plugin-hostd-protocol#24): `verb.<word>` is every verb the table
+  declares, a command's or a feedback line's (`verb.output_set`), and `code.<name>` every reply code by its
+  last segment in snake case, valued with the code (`code.worker_spawn` is
+  `reply.plugin-hostd.worker-spawn`); `code` called is still a code's number by its name. A client compares
+  what it decoded against these, never a literal it writes; a name the table does not declare is an error
+  (`AttributeError` in Python, `ProtocolError` in TypeScript), never a silent string. Two codes that would
+  share a constant refuse the table.
+- **transient**(code), by number or name: whether an identical request may succeed later with no change by
+  the caller, as the table declares the code (plugin-hostd-protocol#23, rulings D22 and D23: the worker not
+  up, the storm bound spent, the verb dropped with its worker). A client asks this, never a list of names.
 
 The clients carry no transport: a controller opens the socket and sends the lines.
 

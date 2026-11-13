@@ -19,7 +19,7 @@ except ImportError:
     _installed = None
 
 __all__ = ["Protocol", "ProtocolError", "words", "quote", "encode_path", "decode_path", "uri_word", "pin_key",
-           "format_number", "RETRY_REASONS"]
+           "format_number", "RETRY_REASONS", "Names"]
 
 
 class ProtocolError(ValueError):
@@ -206,6 +206,42 @@ _SAFE = 2 ** 53 - 1
 RETRY_REASONS = ("no-verdict", "plan-refused")
 
 
+class Names:
+    """The names a table declares, each an attribute valued with what it names (plugin-hostd-protocol#24): a client
+    compares what it decoded against one, never a literal it writes. A name the table does not declare is an
+    AttributeError, never a silent string; iterating gives the names. Calling it, where one is given, is `lookup`."""
+
+    def __init__(self, what, values, lookup=None):
+        object.__setattr__(self, "_what", what)
+        object.__setattr__(self, "_values", dict(values))
+        object.__setattr__(self, "_lookup", lookup)
+
+    def __getattr__(self, name):
+        try:
+            return self._values[name]
+        except KeyError:
+            raise AttributeError("the protocol declares no %s %s" % (self._what, name)) from None
+
+    def __setattr__(self, name, value):
+        raise AttributeError("the %s names are the table's" % self._what)
+
+    def __iter__(self):
+        return iter(sorted(self._values))
+
+    def __dir__(self):
+        return sorted(self._values)
+
+    def __call__(self, *args):
+        if self._lookup is None:
+            raise TypeError("the %s names are not callable" % self._what)
+        return self._lookup(*args)
+
+
+def _short(code):
+    """A reply code's constant: its last segment, snake case (reply.plugin-hostd.worker-spawn is worker_spawn)."""
+    return code.rsplit(".", 1)[1].replace("-", "_")
+
+
 class Protocol:
     """plugin-hostd's protocol as its installed files declare it.
 
@@ -230,6 +266,17 @@ class Protocol:
         self.types = t.get("arg_types") or {}
         self.names = {r["resp"]: r["code"] for r in t["reply_codes"]}
         self.codes = {v: k for k, v in self.names.items()}
+        # the codes an identical request may pass later with no change by the caller (#23, D22, D23): the table's
+        # declaration, never a list of names
+        self._transient = frozenset(r["resp"] for r in t["reply_codes"] if r.get("transient") is True)
+        # the verbs and the reply codes as constants (#24); two codes of one last segment would be one name: refused
+        self.verb = Names("verb", {w: w for w in list(self.commands) + list(self.feedback)})
+        short = {}
+        for code in self.codes:
+            if _short(code) in short:
+                raise ProtocolError("the codes %s and %s share the constant %s" % (short[_short(code)], code, _short(code)))
+            short[_short(code)] = code
+        self.code = Names("code", short, self._code)
         if contract_dirs is None:
             env = os.environ.get("OMX_CONTRACT_PATH")
             contract_dirs = [d for d in env.split(":") if d] if env else list(getattr(_installed, "CONTRACT_DIRS", ())) or \
@@ -512,11 +559,21 @@ class Protocol:
 
     # ---- codes
 
-    def code(self, name):
+    # code: the reply codes by their constant (code.worker_spawn), and called, a code's number by its name
+
+    def _code(self, name):
         """The number of a reply code by its name (reply.<group>.<reason>); ProtocolError for one the table lacks."""
         if name not in self.codes:
             raise ProtocolError("the protocol declares no code %s" % name)
         return self.codes[name]
+
+    def transient(self, code):
+        """Whether a refusal is transient, by its number or its name: an identical request may succeed later with no
+        change by the caller, as the table declares it. ProtocolError for a code the table lacks."""
+        resp = self._code(code) if isinstance(code, str) else code
+        if resp not in self.names:
+            raise ProtocolError("the protocol declares no code %s" % code)
+        return resp in self._transient
 
     def name(self, code):
         """The name of a reply code, or None for a number the table gives no name."""
