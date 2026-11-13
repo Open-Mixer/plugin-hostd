@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The daemon under test and a controller for it: a command socket, a feedback socket read on a thread, and
 # helpers that wait for what the daemon does instead of sleeping and hoping.
-import json, os, random, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
+import json, os, random, re, resource, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import plugin_hostd_client
@@ -93,8 +93,9 @@ def wait_for(cond, what, timeout=CEILING, step=0.02):
 
 
 class Daemon:
-    def __init__(self, exe, worker, clap_worker=None, conf=None, env=None, feedback=True, cpus=None, args=None):
-        """cpus: the daemon starts with this affinity, as under taskset; args: more options on its command line"""
+    def __init__(self, exe, worker, clap_worker=None, conf=None, env=None, feedback=True, cpus=None, args=None, rlimits=None):
+        """cpus: the daemon starts with this affinity, as under taskset; args: more options on its command line;
+        rlimits: {resource: (soft, hard)} the daemon starts under, as under prlimit"""
         self.exe = exe
         DAEMONS.append(self)
         self.tmp = tempfile.mkdtemp(prefix="plugin-hostd-test.")
@@ -134,7 +135,11 @@ class Daemon:
         # the ports are free when port_pair picks them, not when the daemon binds: one that exits before it is ready
         # lost that race, and is started again on fresh ones
         extra = list(args or [])
-        pin = (lambda: os.sched_setaffinity(0, cpus)) if cpus else None
+        def pin():
+            if cpus:
+                os.sched_setaffinity(0, cpus)
+            for r, limit in (rlimits or {}).items():
+                resource.setrlimit(r, limit)
         for attempt in range(3):
             self.cmd_port, self.fb_port = port_pair()
             args = [exe, "-n", "-p", str(self.cmd_port), "-c", self.conf]

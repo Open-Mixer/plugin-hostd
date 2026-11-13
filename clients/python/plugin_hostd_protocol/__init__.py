@@ -19,7 +19,7 @@ except ImportError:
     _installed = None
 
 __all__ = ["Protocol", "ProtocolError", "words", "quote", "encode_path", "decode_path", "uri_word", "pin_key",
-           "format_number", "RETRY_REASONS"]
+           "format_number", "RETRY_REASONS", "GroupingReason", "Names"]
 
 
 class ProtocolError(ValueError):
@@ -201,9 +201,72 @@ def _texts(node, out):
 NONE = "-"
 # the largest count both clients hold exactly (a double's whole numbers)
 _SAFE = 2 ** 53 - 1
+
+# the reasons a plan gives, written from data/grouping.json (tools/grouping-reasons.py, #67)
+# BEGIN GENERATED grouping-reasons (tools/grouping-reasons.py, from data/grouping.json): do not edit
+class GroupingReason:
+    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS): a controller compares against these and writes no
+    reason word of its own. plan_get answers them as instance:reason; a plan-refused is followed by a colon and the
+    number of the refusal."""
+
+    REFUSED = "refused"
+    NO_PIN = "no-pin"
+    NO_VERDICT = "no-verdict"
+    VERDICT_ISOLATED = "verdict-isolated"
+    FORMAT_WORLD = "format-world"
+    HISTORY_CRASHED = "history-crashed"
+    HISTORY_XRUNS = "history-xruns"
+    COST_OVER = "cost-over"
+    FORMAT_MIXED = "format-mixed"
+    GROUP_FULL = "group-full"
+    GROUP_COST = "group-cost"
+    COST_ASSUMED = "cost-assumed"
+    NO_NEIGHBOUR = "no-neighbour"
+    GROUPING_OFF = "grouping-off"
+    HISTORY_UNAVAILABLE = "history-unavailable"
+    PLAN_REFUSED = "plan-refused"
+# END GENERATED grouping-reasons
+
+
 # the reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
 # (no-verdict), what refused a segment may pass (plan-refused)
-RETRY_REASONS = ("no-verdict", "plan-refused")
+RETRY_REASONS = (GroupingReason.NO_VERDICT, GroupingReason.PLAN_REFUSED)
+
+
+class Names:
+    """The names a table declares, each an attribute valued with what it names (plugin-hostd-protocol#24): a client
+    compares what it decoded against one, never a literal it writes. A name the table does not declare is an
+    AttributeError, never a silent string; iterating gives the names. Calling it, where one is given, is `lookup`."""
+
+    def __init__(self, what, values, lookup=None):
+        object.__setattr__(self, "_what", what)
+        object.__setattr__(self, "_values", dict(values))
+        object.__setattr__(self, "_lookup", lookup)
+
+    def __getattr__(self, name):
+        try:
+            return self._values[name]
+        except KeyError:
+            raise AttributeError("the protocol declares no %s %s" % (self._what, name)) from None
+
+    def __setattr__(self, name, value):
+        raise AttributeError("the %s names are the table's" % self._what)
+
+    def __iter__(self):
+        return iter(sorted(self._values))
+
+    def __dir__(self):
+        return sorted(self._values)
+
+    def __call__(self, *args):
+        if self._lookup is None:
+            raise TypeError("the %s names are not callable" % self._what)
+        return self._lookup(*args)
+
+
+def _short(code):
+    """A reply code's constant: its last segment, snake case (reply.plugin-hostd.worker-spawn is worker_spawn)."""
+    return code.rsplit(".", 1)[1].replace("-", "_")
 
 
 class Protocol:
@@ -230,6 +293,17 @@ class Protocol:
         self.types = t.get("arg_types") or {}
         self.names = {r["resp"]: r["code"] for r in t["reply_codes"]}
         self.codes = {v: k for k, v in self.names.items()}
+        # the codes an identical request may pass later with no change by the caller (#23, D22, D23): the table's
+        # declaration, never a list of names
+        self._transient = frozenset(r["resp"] for r in t["reply_codes"] if r.get("transient") is True)
+        # the verbs and the reply codes as constants (#24); two codes of one last segment would be one name: refused
+        self.verb = Names("verb", {w: w for w in list(self.commands) + list(self.feedback)})
+        short = {}
+        for code in self.codes:
+            if _short(code) in short:
+                raise ProtocolError("the codes %s and %s share the constant %s" % (short[_short(code)], code, _short(code)))
+            short[_short(code)] = code
+        self.code = Names("code", short, self._code)
         if contract_dirs is None:
             env = os.environ.get("OMX_CONTRACT_PATH")
             contract_dirs = [d for d in env.split(":") if d] if env else list(getattr(_installed, "CONTRACT_DIRS", ())) or \
@@ -512,11 +586,21 @@ class Protocol:
 
     # ---- codes
 
-    def code(self, name):
+    # code: the reply codes by their constant (code.worker_spawn), and called, a code's number by its name
+
+    def _code(self, name):
         """The number of a reply code by its name (reply.<group>.<reason>); ProtocolError for one the table lacks."""
         if name not in self.codes:
             raise ProtocolError("the protocol declares no code %s" % name)
         return self.codes[name]
+
+    def transient(self, code):
+        """Whether a refusal is transient, by its number or its name: an identical request may succeed later with no
+        change by the caller, as the table declares it. ProtocolError for a code the table lacks."""
+        resp = self._code(code) if isinstance(code, str) else code
+        if resp not in self.names:
+            raise ProtocolError("the protocol declares no code %s" % code)
+        return resp in self._transient
 
     def name(self, code):
         """The name of a reply code, or None for a number the table gives no name."""

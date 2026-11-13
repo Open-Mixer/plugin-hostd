@@ -40,7 +40,7 @@
     {"op": "parse", "in": "resp 0 0.2500", "expect": {"kind": "resp", "code": 0, "data": ["0.2500"]}},
     {"op": "parse", "in": "resp -103", "expect": {"kind": "resp", "code": -103, "name": "reply.host.param-symbol-invalid", "data": []}},
     {"op": "parse", "in": "resp -103 reply.host.param-symbol-invalid", "expect": {"kind": "resp", "code": -103, "name": "reply.host.param-symbol-invalid", "data": ["reply.host.param-symbol-invalid"]}},
-    {"op": "parse", "in": "resp -104 PRESET_PLUGIN_CHANGED", "expect": {"kind": "resp", "code": -104, "data": ["PRESET_PLUGIN_CHANGED"]}},
+    {"op": "parse", "in": "resp -104 PRESET_PLUGIN_CHANGED", "expect": {"kind": "resp", "code": -104, "name": "reply.host.preset-uri-invalid", "data": ["PRESET_PLUGIN_CHANGED"]}},
     {"op": "parse", "in": "resp -544", "expect": {"kind": "resp", "code": -544, "name": "reply.plugin-hostd.preset-not-applied", "data": []}},
     {"op": "parse", "in": "@t7 resp 0 0.2500", "expect": {"kind": "resp", "tag": "t7", "code": 0, "data": ["0.2500"]}},
     {"op": "parse", "in": "#12 output_set 3 level 0.5", "expect": {"kind": "feedback", "seq": 12, "line": "output_set", "args": [3, "level", 0.5]}},

@@ -63,11 +63,28 @@ TypeScript):
   name (`latency_frames`, `cpu_percent`, `ram_bytes`, `workers`, `unknown_count`, `members` with the
   reply code of each one that has no figure, and the four memory figures), none for a figure the daemon
   answers `-`. A word that is not the shape is an error, never a guess.
+- **GroupingReason**: the reasons a plan gives as constants, one for every word of
+  `PLUGIN_HOSTD_GROUPING_REASONS` (`GroupingReason.GROUPING_OFF` in Python, `GroupingReason.groupingOff`
+  in TypeScript, the key the file gives it), so a controller compares against them and writes no reason
+  word. They are written from `data/grouping.json` by `tools/grouping-reasons.py` (`make
+  render-grouping-reasons`), never by hand; `make check-grouping-reasons` fails on any drift, and the
+  tests of both clients hold each declared reason to its constant and each constant to a declared reason
+  (#67).
 - the words of a line (`words`, `quote`), the percent-encoded path of a `clap:` uri (`encode_path`,
   `decode_path`, `uri_word`, `pin_key`), as the grammar and the pin section of plugin-hostd-protocol's
   documentation write them.
 - **code**(name), **name**(code), **sentence**(code, lang): the reply codes, from the table and the
   vocabulary.
+- **verb** and **code** as constants (plugin-hostd-protocol#24): `verb.<word>` is every verb the table
+  declares, a command's or a feedback line's (`verb.output_set`), and `code.<name>` every reply code by its
+  last segment in snake case, valued with the code (`code.worker_spawn` is
+  `reply.plugin-hostd.worker-spawn`); `code` called is still a code's number by its name. A client compares
+  what it decoded against these, never a literal it writes; a name the table does not declare is an error
+  (`AttributeError` in Python, `ProtocolError` in TypeScript), never a silent string. Two codes that would
+  share a constant refuse the table.
+- **transient**(code), by number or name: whether an identical request may succeed later with no change by
+  the caller, as the table declares the code (plugin-hostd-protocol#23, rulings D22 and D23: the worker not
+  up, the storm bound spent, the verb dropped with its worker). A client asks this, never a list of names.
 
 The clients carry no transport: a controller opens the socket and sends the lines.
 

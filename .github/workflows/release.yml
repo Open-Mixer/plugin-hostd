@@ -17,7 +17,15 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Sign and publish; only a run on a tag publishes'
+        description: 'Sign and publish; only a run on a tag, or one naming a tag in source-ref, publishes'
+        type: boolean
+        default: false
+      source-ref:
+        description: 'Tag v<version> to release with this workflow (a tag whose own release workflow can no longer run); empty builds the branch'
+        type: string
+        default: ''
+      republish:
+        description: 'Let the release go out over a version the channel already serves (finish a partial publish)'
         type: boolean
         default: false
       arm:
@@ -32,6 +40,10 @@ on:
         description: 'Ignored by the shared workflows, kept for this wave only'
         type: string
         default: ''
+      catch-up:
+        description: 'With source-ref: build and publish only the cells of the set the served version lacks; never rewrites a file the channel serves'
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       publish:
@@ -61,7 +73,10 @@ jobs:
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
-      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["x86_64"]' || '["x86_64", "aarch64"]' }}
+      source-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
+      republish: ${{ github.event_name == 'workflow_dispatch' && inputs.republish == true }}
+      catch-up: ${{ github.event_name == 'workflow_dispatch' && inputs.catch-up == true }}
+      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false && !inputs.source-ref) && '["x86_64"]' || '["x86_64", "aarch64"]' }}
     secrets: inherit
 
   # or skipped RPM job skips this one, so no DEB is published after a failed RPM.
@@ -73,7 +88,10 @@ jobs:
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ github.event_name == 'push' || inputs.publish == true }}
-      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '["amd64"]' || '["amd64", "arm64"]' }}
+      source-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
+      republish: ${{ github.event_name == 'workflow_dispatch' && inputs.republish == true }}
+      catch-up: ${{ github.event_name == 'workflow_dispatch' && inputs.catch-up == true }}
+      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false && !inputs.source-ref) && '["amd64"]' || '["amd64", "arm64"]' }}
     secrets: inherit
 
   # plugin-hostd-full from the channel, the way the install pages say, in a clean container of every Debian release and
@@ -81,11 +99,11 @@ jobs:
   # with it, and the records of the machine's class; the headless one (--no-install-recommends,
   # install_weak_deps=False) leaves out omx-panel and every X server, Xlib, Wayland and GTK package
   # (tools/full-install-check.sh, which also names the only packages allowed to pull libxcb and nodejs). After the
-  # publish of a tag only: the channel is where it installs from.
+  # publish of a tag only: the channel is where it installs from. Not on a catch-up, whose cells are not these.
   full-deb:
     name: plugin-hostd-full (${{ matrix.suite }}, ${{ matrix.arch }}, ${{ matrix.mode }})
     needs: deb
-    if: ${{ !cancelled() && needs.deb.result == 'success' && github.ref_type == 'tag' }}
+    if: ${{ !cancelled() && needs.deb.result == 'success' && github.ref_type == 'tag' && inputs.catch-up != true }}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
@@ -106,7 +124,7 @@ jobs:
   full-rpm:
     name: plugin-hostd-full (Fedora 44, ${{ matrix.arch }}, ${{ matrix.mode }})
     needs: rpm
-    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' }}
+    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' && inputs.catch-up != true }}
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
