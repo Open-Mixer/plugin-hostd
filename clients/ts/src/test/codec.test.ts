@@ -105,7 +105,7 @@ describe('the grouping reasons are constants of the reader, written from data/gr
     const all = JSON.parse(readFileSync(GROUPING, 'utf8')) as Record<string, { groups?: string; words: Record<string, { word: string; group?: string }> }>;
     const groups = Object.values(all.PLUGIN_HOSTD_GROUPING_REASON_GROUPS?.words ?? {}).map((w) => w.word).sort();
     assert.deepEqual(groups, ['final', 'retry']);
-    assert.equal(all.PLUGIN_HOSTD_GROUPING_REASONS.groups, 'PLUGIN_HOSTD_GROUPING_REASON_GROUPS');
+    assert.equal(all.PLUGIN_HOSTD_GROUPING_REASONS!.groups, 'PLUGIN_HOSTD_GROUPING_REASON_GROUPS');
     for (const [key, row] of declared) assert.ok(row.group !== undefined && groups.includes(row.group), key);
   });
 

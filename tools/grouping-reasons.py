@@ -4,7 +4,8 @@
 #
 # The grouping reasons as constants of the clients' readers (#67). data/grouping.json declares them
 # (PLUGIN_HOSTD_GROUPING_REASONS); GroupingReason in clients/python/plugin_hostd_protocol/__init__.py and in
-# clients/ts/src/index.ts is written between its markers from that file, never by hand.
+# clients/ts/src/index.ts is written between its markers from that file, never by hand, and so is RETRY_REASONS: the
+# reasons whose group the file declares retry (every reason names its group, retry or final).
 #
 #   tools/grouping-reasons.py write       writes both regions
 #   tools/grouping-reasons.py check       fails when a region is missing or is not what the file gives
@@ -30,7 +31,9 @@ def fail(msg):
 def reasons(root):
     try:
         with open(os.path.join(root, JSON), encoding="utf-8") as f:
-            words = json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]["words"]
+            data = json.load(f)
+        words = data["PLUGIN_HOSTD_GROUPING_REASONS"]["words"]
+        groups = {w["word"] for w in data["PLUGIN_HOSTD_GROUPING_REASON_GROUPS"]["words"].values()}
     except (OSError, ValueError, KeyError) as e:
         fail(f"{JSON}: {e}")
     out = []
@@ -38,7 +41,10 @@ def reasons(root):
         word = row["word"]
         if not re.fullmatch(r"[a-z]+(-[a-z]+)*", word) or not re.fullmatch(r"[a-z][A-Za-z]*", key):
             fail(f"{JSON}: {key}: {word!r} is no reason word")
-        out.append((key, word))
+        # the retry property: every reason names its group, one of the two the file declares
+        if groups != {"retry", "final"} or row.get("group") not in groups:
+            fail(f"{JSON}: {key}: no retry property (group is one of {sorted(groups)}, got {row.get('group')!r})")
+        out.append((key, word, row["group"] == "retry"))
     if not out:
         fail(f"{JSON}: no reason")
     return out
@@ -53,7 +59,11 @@ def python_region(rs):
          '    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS): a controller compares against these and writes no',
          '    reason word of its own. plan_get answers them as instance:reason; a plan-refused is followed by a colon and the',
          '    number of the refusal."""', ""]
-    o += [f'    {w.upper().replace("-", "_")} = "{w}"' for _, w in rs]
+    o += [f'    {w.upper().replace("-", "_")} = "{w}"' for _, w, _r in rs]
+    names = ", ".join(f"GroupingReason.{w.upper().replace('-', '_')}" for _, w, r in rs if r)
+    o += ["", "", "# the reasons of a plan that a later plan may not give again with the chain as it is: the reasons that declare",
+          "# the group retry in the file, read from it and chosen nowhere in code",
+          f"RETRY_REASONS = ({names})"]
     o.append(f"# END GENERATED {NAME}")
     return "\n".join(o) + "\n"
 
@@ -63,9 +73,15 @@ def ts_region(rs):
          "/** The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS), by the key the file gives each: a controller compares",
          " * against these and writes no reason word of its own. A plan-refused is followed by a colon and the refusal's number. */",
          "export const GroupingReason = {"]
-    o += [f"  {k}: '{w}'," for k, w in rs]
+    o += [f"  {k}: '{w}'," for k, w, _r in rs]
+    names = ", ".join(f"GroupingReason.{k}" for k, _, r in rs if r)
     o += ["} as const;", "/** One of the reasons a plan gives. */",
           "export type GroupingReasonWord = (typeof GroupingReason)[keyof typeof GroupingReason];",
+          "/**",
+          " * The reasons of a plan that a later plan may not give again with the chain as it is: the reasons the file declares",
+          " * in the group retry, read from it and chosen nowhere in code.",
+          " */",
+          f"export const RETRY_REASONS: readonly string[] = [{names}];",
           f"// END GENERATED {NAME}"]
     return "\n".join(o) + "\n"
 

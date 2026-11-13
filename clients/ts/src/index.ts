@@ -71,6 +71,11 @@ export const GroupingReason = {
 } as const;
 /** One of the reasons a plan gives. */
 export type GroupingReasonWord = (typeof GroupingReason)[keyof typeof GroupingReason];
+/**
+ * The reasons of a plan that a later plan may not give again with the chain as it is: the reasons the file declares
+ * in the group retry, read from it and chosen nowhere in code.
+ */
+export const RETRY_REASONS: readonly string[] = [GroupingReason.noVerdict, GroupingReason.planRefused];
 // END GENERATED grouping-reasons
 
 /** A member of a plan that has a reason: the word of PLUGIN_HOSTD_GROUPING_REASONS, the code a plan-refused carries. */
@@ -310,11 +315,6 @@ function escapeRegExp(s: string): string {
 
 /** A figure or a list the daemon has none for. */
 const NONE = '-';
-/**
- * The reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
- * (no-verdict), what refused a segment may pass (plan-refused).
- */
-export const RETRY_REASONS: readonly string[] = [GroupingReason.noVerdict, GroupingReason.planRefused];
 
 /**
  * A plan's cores in its segments' shape: each member's core, null for one that is not pinned, and for every member
