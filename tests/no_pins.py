@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor (>= the lowest
 # version with the API it uses) and a ceiling, the next minor after the release it is tested against (`>= 0.31.0 with
-# < 0.33`; an exact pin or any other ceiling is a pin), installed from the FreeMixer channel by dnf builddep / apt-get
+# < 0.33`; an exact pin or any other ceiling is a pin), installed from the OpenMixer channel by dnf builddep / apt-get
 # build-dep. No pins file,
 # no submodule, no ref or sha a workflow checks a sibling out at, no sibling built from source.
 # omx-clap-core is a build dependency of the check stage only (%if %{with check} in the spec, <!nocheck> in

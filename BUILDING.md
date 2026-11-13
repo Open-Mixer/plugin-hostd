@@ -106,7 +106,7 @@ also reads the meters of a CLAP compressor as `output_set` on the daemon's feedb
 worker is killed.
 
 Given `MOD_HOST` and a bundle, it also runs mod-host's scenario corpus against the daemon with an LV2 worker, and kills
-an LV2 worker to read the graph and a parameter back. The CI job does this with the mod-host package of the FreeMixer
+an LV2 worker to read the graph and a parameter back. The CI job does this with the mod-host package of the OpenMixer
 channel and this repository's fixture bundle: build `tests/plugin-hostd-fixture.lv2/plugin-hostd-fixture.so` and give
 `MOD_HOST=/usr/bin/mod-host LV2_DIR=$PWD/tests LV2_URI=urn:plugin-hostd:test:stereo LV2_BUNDLE=plugin-hostd-fixture.lv2
 LV2_PARAM=gain`. The world is the whole `tests/` directory on purpose: lilv warns about every entry that is no bundle
