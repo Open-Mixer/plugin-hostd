@@ -1224,23 +1224,34 @@ class Host:
             self.procs.stop(self.proc)
 
 
+def client_ports(graph, client, kind):
+    """the `kind` ports of `client` (audio_in, audio_out, midi_in) in the graph. A client gone from the graph, or one
+    without that port, fails the row naming it (plugin-hostd#45: JACK dropped the clients at 96000/64 on the Pi and a
+    bare KeyError ended the run)"""
+    if client not in graph:
+        raise Failed("%s is gone from the graph (JACK dropped the client)" % client)
+    found = graph[client].get(kind) or []
+    if not found:
+        raise Failed("%s has no %s port" % (client, kind))
+    return found
+
+
 def wire(host, env, clients, instrument):
     """sine (or the chords) into the first client, each client into the next, the last into the playback ports"""
     graph = ports(env)
     if instrument:
-        host.connect("seq:out", graph[clients[0]]["midi_in"][0])
+        host.connect("seq:out", client_ports(graph, clients[0], "midi_in")[0])
         src = []
     else:
-        src = graph["sine"]["audio_out"]
+        src = client_ports(graph, "sine", "audio_out")
     for c in clients:
-        ins = graph.get(c, {}).get("audio_in", [])
-        for k, port in enumerate(ins):
+        if c not in graph:
+            raise Failed("%s is gone from the graph (JACK dropped the client)" % c)
+        for k, port in enumerate(graph[c].get("audio_in", [])):
             if src:
                 host.connect(src[min(k, len(src) - 1)], port)
-        src = graph.get(c, {}).get("audio_out", [])
-        if not src:
-            raise Failed("%s has no audio output" % c)
-    for k, port in enumerate(graph["system"]["audio_in"][:2]):
+        src = client_ports(graph, c, "audio_out")
+    for k, port in enumerate(client_ports(graph, "system", "audio_in")[:2]):
         host.connect(src[min(k, len(src) - 1)], port)
     return src
 
@@ -1728,8 +1739,8 @@ class Runner:
         else:
             pid = host.proc.pid
         graph = ports(self.env)
-        ins = graph[client]["audio_in"][0]
-        outs = graph[client]["audio_out"][0]
+        ins = client_ports(graph, client, "audio_in")[0]
+        outs = client_ports(graph, client, "audio_out")[0]
         wired = lambda: connected(self.env, ins, "sine:output1") and connected(self.env, outs, "system:playback_1")
         t0 = time.monotonic()
         os.kill(pid, signal.SIGKILL)
@@ -1827,7 +1838,9 @@ class Runner:
         day = datetime.date.today().strftime("%Y%m%d")
         os.makedirs(self.args.out, exist_ok=True)
         seq = 1
-        while os.path.exists(os.path.join(self.args.out, "%s-%s-%d.json" % (self.args.cls, day, seq))):
+        # a broken run's document so far holds its id too: the next run never writes over the cells it kept
+        while any(os.path.exists(os.path.join(self.args.out, "%s-%s-%d.json%s" % (self.args.cls, day, seq, end)))
+                  for end in ("", ".partial")):
             seq += 1
         return "%s-%s-%d" % (self.args.cls, day, seq)
 
@@ -1848,18 +1861,20 @@ class Runner:
         doc = {"schema": "omx-bench/1", "id": self.doc_id(), "machine": machine(self.args.cls),
                **({"stress_guard": shlex.join(self.args.stress_guard)} if self.args.stress_guard else {}),
                "software": software(self.cat.files()), "jack": self.jack_doc(), "scenarios": []}
+        path = os.path.join(self.args.out, doc["id"] + ".json")
         rows = self.plan()
         for rate in self.args.rates:
             for frames in self.args.frames:
                 doc["scenarios"].extend(self.run_cell(rate, frames, rows))
+                # the cells so far, after every cell: a run that breaks later keeps them (plugin-hostd#45). Not
+                # <id>.json, which only a whole run writes, so nothing reads a broken run as a whole one
+                write_doc(doc, path + ".partial")
         self.settle_gate(doc, rows)
         if self.args.qualify:
             doc["qualification"] = self.qualify(self.args.rates, self.args.frames)
-        path = os.path.join(self.args.out, doc["id"] + ".json")
-        with open(path + ".tmp", "w") as f:
-            json.dump(doc, f, indent=2)
-            f.write("\n")
-        os.rename(path + ".tmp", path)
+        write_doc(doc, path)
+        if os.path.exists(path + ".partial"):
+            os.remove(path + ".partial")
         return path
 
     def settle_gate(self, doc, rows):
@@ -1899,6 +1914,14 @@ class Runner:
             return False
         log("teardown: no host, no JACK server, no other process of this run is left")
         return True
+
+
+def write_doc(doc, path):
+    """doc at path, whole or not at all: written beside it and renamed over it"""
+    with open(path + ".tmp", "w") as f:
+        json.dump(doc, f, indent=2)
+        f.write("\n")
+    os.rename(path + ".tmp", path)
 
 
 def csv_ints(text):

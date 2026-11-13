@@ -24,7 +24,7 @@ publish installs `mod-host` and `jalv` explicitly; without them H3 and H4 read `
 | Option | Meaning |
 |--------|---------|
 | `--class rpi5\|desk\|ci` | the machine class; it starts the document id, `<class>-<yyyymmdd>-<seq>` |
-| `--out DIR` | where the document goes |
+| `--out DIR` | where the document goes: `<id>.json` when the run ends whole; after every cell the cells so far are in `<id>.json.partial`, which a run that breaks leaves behind (a valid `omx-bench/1` document of the cells it measured, never read as a whole set) and a whole run removes |
 | `--rates`, `--frames` | the matrix; the default is 48000,96000 and 128,256 |
 | `--scenarios a,b` | only these scenarios |
 | `--hosts H1,H2` | only these hosts |
