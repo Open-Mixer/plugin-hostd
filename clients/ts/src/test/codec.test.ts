@@ -8,7 +8,7 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { answer } from '../cli.js';
-import { formatNumber, Protocol, ProtocolError, RETRY_REASONS } from '../index.js';
+import { formatNumber, GroupingReason, Protocol, ProtocolError, RETRY_REASONS } from '../index.js';
 
 const FIXTURES = new URL('../../../fixtures/codec.json', import.meta.url);
 const GROUPING = new URL('../../../../data/grouping.json', import.meta.url);
@@ -84,6 +84,25 @@ describe('the replies with a shape of their own', () => {
     const words = Object.values(declared.PLUGIN_HOSTD_GROUPING_REASONS.words).map((w) => w.word);
     assert.deepEqual([...RETRY_REASONS], ['no-verdict', 'plan-refused']);
     for (const word of RETRY_REASONS) assert.ok(words.includes(word), word);
+  });
+});
+
+describe('the grouping reasons are constants of the reader, written from data/grouping.json (#67)', () => {
+  const file = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string }> } };
+  const declared = Object.entries(file.PLUGIN_HOSTD_GROUPING_REASONS.words);
+
+  it('has a constant for every declared reason, named as the file keys it, with the file\'s value', () => {
+    for (const [key, { word }] of declared) assert.equal((GroupingReason as Record<string, string>)[key], word, key);
+  });
+
+  it('has no constant that names a reason the file does not declare', () => {
+    assert.deepEqual(Object.keys(GroupingReason).sort(), declared.map(([key]) => key).sort());
+    assert.deepEqual(Object.values(GroupingReason).sort(), declared.map(([, { word }]) => word).sort());
+  });
+
+  it('spells the two a controller branches on', () => {
+    assert.equal(GroupingReason.groupingOff, 'grouping-off');
+    assert.equal(GroupingReason.planRefused, 'plan-refused');
   });
 });
 

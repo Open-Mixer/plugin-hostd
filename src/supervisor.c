@@ -339,6 +339,7 @@ static void instance_free(instance_t *i)
     free(i->sus_line);
     free(i->sus_prev);
     free(i->track_info);
+    free(i->node_label);
     free(i);
 }
 
@@ -1509,6 +1510,12 @@ static int replay_add(worker_t *w, instance_t *i)
     /* before the state: what the plugin does on hearing it is overwritten by the state it saved; mod-host
      * has no track_info, so a worker that does not answer the instance verbs never gets it */
     if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->track_info) != RPC_OK)
+    {
+        on_death(w, i->id);
+        return -1;
+    }
+    /* its node's label, so a respawned worker's node is named as the client left it (#35) */
+    if (i->node_label && format_at(i->fmt)->native_instance_verbs && replay_line(w, i->node_label) != RPC_OK)
     {
         on_death(w, i->id);
         return -1;
@@ -2908,6 +2915,19 @@ char *sup_instance_verb(const char *line, int ledger)
     else if (format_at(i->fmt)->native_instance_verbs)
     {
         reply = sup_call(id, line);
+        /* node_label: the latest label is kept, and a label cleared (no words) keeps nothing */
+        if (ledger == PHD_LEDGER_REPLACE && !strcmp(word[0], OMX_VERB_NODE_LABEL) && resp_code(reply) >= 0 && g_inst[id] == i)
+        {
+            char *kept = count > 2 ? strdup(line) : NULL;
+
+            free(i->node_label);
+            i->node_label = kept;
+            if (count > 2 && !kept)
+            {
+                free(reply);
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
+            }
+        }
         if (ledger == PHD_LEDGER_REPLACE && !strcmp(word[0], OMX_VERB_TRACK_INFO) && resp_code(reply) >= 0 && g_inst[id] == i)
         {
             char *kept = strdup(line);
@@ -2924,7 +2944,10 @@ char *sup_instance_verb(const char *line, int ledger)
             }
         }
     }
-    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker */
+    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker; mod-host sets no
+     * JACK metadata, so an LV2 instance's node takes no label (the lv2-worker level of node_label is absent) */
+    else if (!strcmp(word[0], OMX_VERB_NODE_LABEL))
+        reply = sup_resp(ERR_INVALID_OPERATION);
     else if (!strcmp(word[0], OMX_VERB_TRACK_INFO))
     {
         char *kept = strdup(line);
