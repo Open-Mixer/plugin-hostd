@@ -201,23 +201,27 @@ def marked():
 # ---------------------------------------------------------------- /proc measurements
 
 
-def proc_sample(pid):
-    """utime+stime ticks, RSS kB, PSS kB, voluntary and involuntary context switches of one process"""
-    with open("/proc/%d/stat" % pid) as f:
+def proc_sample(pid, proc="/proc"):
+    """utime+stime ticks, RSS kB, PSS kB, voluntary and involuntary context switches of one process. RSS and PSS
+    are both smaps_rollup's, one walk of the mappings, so PSS never exceeds RSS; stat's RSS, a counter each thread
+    caches and syncs lazily, only when smaps_rollup cannot be read (PSS is then None)"""
+    with open("%s/%d/stat" % (proc, pid)) as f:
         fields = f.read().rsplit(")", 1)[1].split()
     ticks = int(fields[11]) + int(fields[12])
     rss = int(fields[21]) * PAGE_KB
     pss = 0
     try:
-        with open("/proc/%d/smaps_rollup" % pid) as f:
+        with open("%s/%d/smaps_rollup" % (proc, pid)) as f:
             for line in f:
-                if line.startswith("Pss:"):
+                if line.startswith("Rss:"):
+                    rss = int(line.split()[1])
+                elif line.startswith("Pss:"):
                     pss = int(line.split()[1])
     except OSError:
         pss = None
     # a process's status counts its main thread only: the switches are summed over its threads
     vol = invol = 0
-    for status in glob.glob("/proc/%d/task/*/status" % pid):
+    for status in glob.glob("%s/%d/task/*/status" % (proc, pid)):
         try:
             with open(status) as f:
                 for line in f:
