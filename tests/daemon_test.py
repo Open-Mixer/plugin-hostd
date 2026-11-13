@@ -1388,9 +1388,11 @@ def the_owner_client_reads_every_typed_reply_and_feedback_line_the_daemon_writes
         check(got["segments"] == plan["segments"] and {"instance": 3, "reason": "verdict-isolated"} in got["reasons"],
               "plan_get read by the table: %s" % got)
         workers = read("worker_list", "worker_list")["workers"]
-        check(sorted(w["worker"] for w in workers) == sorted("w%d" % k for k in d.workers()) and
-              all(w["state"] == "up" and w["format"] == "clap" for w in workers),
-              "worker_list read by the table: %s, the harness reads %s" % (workers, d.workers()))
+        seen = d.workers()
+        check(sorted(w["worker"] for w in workers) == sorted(seen) and
+              all(w["pid"] == seen[w["worker"]]["pid"] and w["place"] == seen[w["worker"]]["place"] and
+                  w["state"] == seen[w["worker"]]["state"] for w in workers),
+              "worker_list read by the table: %s, the harness reads %s" % (workers, seen))
         info = read("instance_info 3", "instance_info")
         check(info["worker"] in [w["worker"] for w in workers] and info["crashes"] == 0,
               "instance_info read by the table: %s" % info)

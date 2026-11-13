@@ -206,31 +206,6 @@ _SAFE = 2 ** 53 - 1
 RETRY_REASONS = ("no-verdict", "plan-refused")
 
 
-def _count(word, absent=False):
-    if absent and word == NONE:
-        return None
-    if not _INT.match(word) or word.startswith("-") or int(word) > _SAFE:
-        raise ProtocolError("%s is not a count" % word)
-    return int(word)
-
-
-def _segments(word, absent):
-    """'1,2;3' as [[1, 2], [3]]; with absent, a member written - is None."""
-    out = []
-    for segment in word.split(";"):
-        out.append([_count(m, absent) for m in segment.split(",")])
-    return out
-
-
-def _cores(word, segments):
-    if word is None:
-        return [[None] * len(s) for s in segments]
-    cores = _segments(word, True)
-    if [len(s) for s in cores] != [len(s) for s in segments]:
-        raise ProtocolError("the cores %s are not the shape of the segments" % word)
-    return cores
-
-
 class Protocol:
     """plugin-hostd's protocol as its installed files declare it.
 
@@ -250,6 +225,9 @@ class Protocol:
         self.commands = {c["verb"]: c for c in t["commands"]}
         self.feedback = {f["line"]: f for f in t["feedback"]}
         self.protocol_errors = {e["message"]: e for e in t["protocol_errors"]}
+        # the types of the named arguments of feedback lines and replies (plugin-hostd-protocol 0.5.6 and 0.5.7): a leaf
+        # a pattern, a list its items and separator, a record its fields; a table before 0.5.6 has none
+        self.types = t.get("arg_types") or {}
         self.names = {r["resp"]: r["code"] for r in t["reply_codes"]}
         self.codes = {v: k for k, v in self.names.items()}
         if contract_dirs is None:
@@ -371,6 +349,19 @@ class Protocol:
         if error is not None:
             return {"kind": "protocol_error", "tag": tag, "seq": seq, "code": error["code"], "name": error["name"]}
         fb = self.feedback.get(w[0])
+        if fb is not None and fb.get("forms") and all(f.get("names") for f in fb["forms"]):
+            # a line of plugin-hostd's own: of its declared forms, the one with the most arguments its words fit first
+            # (instance_verb_dropped's suspect form before the one whose command takes the rest), each word its type
+            why = None
+            for form in sorted(fb["forms"], key=lambda f: -len(f["args"])):
+                try:
+                    fields = self._read_form(form, w[1:])
+                except ProtocolError as e:
+                    why = e
+                    continue
+                return {"kind": "feedback", "tag": tag, "seq": seq, "line": w[0], "args": list(fields.values()),
+                        "fields": fields}
+            raise ProtocolError("no form of %s reads %s: %s" % (w[0], line, why))
         if fb is not None:
             kinds, rest = fb["args"], w[1:]
             if kinds is not None:
@@ -382,56 +373,141 @@ class Protocol:
             return {"kind": "feedback", "tag": tag, "seq": seq, "line": w[0], "args": args}
         raise ProtocolError("no reply the protocol declares: %s" % line)
 
+    # ---- words of a declared type (plugin-hostd-protocol's arg_types)
+
+    def _pattern(self, kind):
+        """the pattern of a type: a declared one's, or literal words a|b spelled out"""
+        t = self.types.get(kind)
+        return t["pattern"] if t is not None else "|".join(re.escape(w) for w in kind.split("|"))
+
+    def _leaf(self, kind, word):
+        """a leaf type's value: a number for the numeric types, None for the none word of a core or an amount, the word
+        otherwise"""
+        if kind in ("core", "amount") and word == NONE:
+            return None
+        if kind in ("int", "uint", "core", "amount"):
+            n = int(word)
+            if abs(n) > _SAFE:
+                raise ProtocolError("%s is past the counts both clients read alike" % word)
+            return n
+        if kind == "hex":
+            return int(word, 16)
+        if kind in ("number", "float"):
+            v = float(word)
+            if not math.isfinite(v):
+                raise ProtocolError("%s is not a finite number" % word)
+            return v
+        return word
+
+    def read_word(self, kind, word):
+        """One word as its declared type: a leaf by its pattern, a list as a list (one of its none words an empty one),
+        a record as {field: value}, its fields found by the record's own pattern, so a field may hold the separator;
+        literal words a|b as the word. ProtocolError when the word is not of the type."""
+        t = self.types.get(kind)
+        if t is None:
+            if kind in ("int", "float", "word"):
+                return self._value(kind, word)
+            if word in kind.split("|"):
+                return word
+            raise ProtocolError("%s is not one of %s" % (word, kind))
+        if "items" in t:
+            items = t["items"]
+            if items.get("none") and word in items["none"].split("|"):
+                return []
+            return [self.read_word(items["type"], w) for w in word.split(items["separator"])]
+        if "fields" in t:
+            f = t["fields"]
+            whole = re.escape(f["separator"]).join("(%s)" % self._pattern(k) for k in f["args"])
+            m = re.fullmatch(whole, word)
+            if not m:
+                raise ProtocolError("%s is not a %s" % (word, kind))
+            return {n: self.read_word(k, v) for n, k, v in zip(f["names"], f["args"], m.groups())}
+        if not re.fullmatch(t["pattern"], word, re.S):
+            raise ProtocolError("%s is not a %s" % (word, kind))
+        return self._leaf(kind, word)
+
+    def _read_form(self, form, words_, code=None):
+        """{name: value} of words by a form (args, names; repeat: the last repeated over the rest; a rest type the rest
+        of the line), or ProtocolError"""
+        args, names = form["args"], form["names"]
+        rest_type = bool(args) and self.types.get(args[-1], {}).get("rest", False)
+        if rest_type:
+            if len(words_) < len(args) - 1:
+                raise ProtocolError("%d words, %d wanted" % (len(words_), len(args)))
+            words_ = words_[:len(args) - 1] + [" ".join(words_[len(args) - 1:])]
+        if form.get("repeat"):
+            head, rest = words_[:len(args) - 1], words_[len(args) - 1:]
+            if len(head) != len(args) - 1:
+                raise ProtocolError("%d words, at least %d wanted" % (len(words_), len(args) - 1))
+            if form.get("resp") == "count" and code is not None and code != len(rest):
+                raise ProtocolError("resp %d counts %d words, and %d follow" % (code, code, len(rest)))
+        elif len(words_) != len(args):
+            raise ProtocolError("%d words, %d wanted" % (len(words_), len(args)))
+        else:
+            head, rest = words_, []
+        out = {n: self.read_word(k, w) for n, k, w in zip(names, args, head)}
+        if form.get("repeat"):
+            out[names[-1]] = [self.read_word(args[-1], w) for w in rest]
+        return out
+
+    def read_reply(self, verb, data, code=None):
+        """A reply's words after resp <code>, by the reply_form with the most arguments they fit: {name: value}, each word
+        as its declared type (read_word). code: resp's number, which a count reply is held to. ProtocolError for a verb
+        with no typed reply, or words no form takes."""
+        cmd = self.commands.get(verb)
+        forms = (cmd or {}).get("reply_forms")
+        if not forms:
+            raise ProtocolError("the protocol types no reply of %s" % verb)
+        why = None
+        for form in sorted(forms, key=lambda f: -len(f["args"])):
+            try:
+                return self._read_form(form, list(data), code)
+            except ProtocolError as e:
+                why = e
+        raise ProtocolError("no reply form of %s reads %s: %s" % (verb, " ".join(data), why))
+
     # ---- the replies with a shape of their own
 
+    def _cores_of(self, segments, cores):
+        """a plan's cores in its segments' shape: each member's core, None for one that is not pinned, and for every
+        member when the daemon answers no cores; ProtocolError when the shapes differ"""
+        if cores is None:
+            return [[None] * len(seg) for seg in segments]
+        if [len(c) for c in cores] != [len(seg) for seg in segments]:
+            raise ProtocolError("the cores %r are not the shape of the segments %r" % (cores, segments))
+        return cores
+
     def read_plan(self, data):
-        """What plan answers after resp 0, as words: the segments in signal order, each the instances that share a
-        worker, and the cores, the same shape with the audio core of each member's worker (None for one that is not
-        pinned, and for every member when the daemon answers no cores)."""
-        if len(data) not in (1, 2):
-            raise ProtocolError("a plan is its segments and its cores: %s" % " ".join(data))
-        segments = _segments(data[0], False)
-        return {"segments": segments, "cores": _cores(data[1] if len(data) > 1 else None, segments)}
+        """What plan answers after resp 0, as words, read by the table's reply_forms: the segments in signal order, each
+        the instances that share a worker, and the cores, the same shape with the audio core of each member's worker
+        (None for one that is not pinned, and for every member when the daemon answers no cores)."""
+        r = self.read_reply("plan", data)
+        return {"segments": r["segments"], "cores": self._cores_of(r["segments"], r.get("cores"))}
 
     def read_plan_get(self, data):
-        """What plan_get answers after resp 0, as words: the plan as read_plan gives it and, between the segments and
-        the cores, the members that have a reason, in the daemon's order: the instance, the reason as it is written,
-        its word (PLUGIN_HOSTD_GROUPING_REASONS), the reply code a plan-refused carries with its name, and retry,
-        whether a later plan may answer otherwise without the chain changing (RETRY_REASONS)."""
-        if len(data) not in (2, 3):
-            raise ProtocolError("a plan read back is its segments, its reasons and its cores: %s" % " ".join(data))
-        segments = _segments(data[0], False)
+        """What plan_get answers after resp 0, as words, read by the table's reply_forms: the plan as read_plan gives it
+        and, between the segments and the cores, the members that have a reason, in the daemon's order: the instance,
+        the reason as it is written, its word (PLUGIN_HOSTD_GROUPING_REASONS), the reply code a plan-refused carries with
+        its name, and retry, whether a later plan may answer otherwise without the chain changing (RETRY_REASONS)."""
+        r = self.read_reply("plan_get", data)
         reasons = []
-        for item in [] if data[1] == NONE else data[1].split(","):
-            instance, colon, reason = item.partition(":")
-            if not reason:
-                raise ProtocolError("%s is not <instance>:<reason>" % item)
-            word, _, detail = reason.partition(":")
+        for item in r["reasons"]:
+            word, _, detail = item["reason"].partition(":")
             code = int(detail) if _INT.match(detail) else None
-            reasons.append({"instance": _count(instance), "reason": reason, "word": word, "code": code,
+            reasons.append({"instance": item["instance"], "reason": item["reason"], "word": word, "code": code,
                             "name": None if code is None else self.names.get(code), "retry": word in RETRY_REASONS})
-        return {"segments": segments, "reasons": reasons,
-                "cores": _cores(data[2] if len(data) > 2 else None, segments)}
+        return {"segments": r["segments"], "reasons": reasons, "cores": self._cores_of(r["segments"], r.get("cores"))}
 
     def read_estimate(self, data):
-        """What estimate answers after resp 0, as words, each figure by the name the protocol gives it; None for one
-        the daemon has no figure for (-), and for the four memory figures a daemon that answers six words leaves out.
-        members: the members no figure could be read for, counted from 0 in the order they were asked, each with the
-        reply code that says why and its name."""
-        if len(data) not in (6, 10):
-            raise ProtocolError("an estimate is six figures, or ten: %s" % " ".join(data))
-        members = []
-        for item in [] if data[5] == NONE else data[5].split(","):
-            member, _, code = item.partition(":")
-            if not _INT.match(code):
-                raise ProtocolError("%s is not <member>:<code>" % item)
-            members.append({"member": _count(member), "code": int(code), "name": self.names.get(int(code))})
-        if not _FLOAT.match(data[1]) or not math.isfinite(float(data[1])):
-            raise ProtocolError("%s is not a finite number" % data[1])
-        out = {"latency_frames": _count(data[0]), "cpu_percent": float(data[1]), "ram_bytes": _count(data[2], True),
-               "workers": _count(data[3]), "unknown_count": _count(data[4]), "members": members}
-        for k, name in enumerate(("ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count")):
-            out[name] = _count(data[6 + k], True) if len(data) == 10 else None
+        """What estimate answers after resp 0, as words, read by the table's reply_forms, each figure by the name the
+        protocol gives it; None for one the daemon has no figure for (-), and for the four memory figures a daemon that
+        answers six words leaves out. members: the members no figure could be read for, counted from 0 in the order
+        they were asked, each with the reply code that says why and its name."""
+        r = self.read_reply("estimate", data)
+        out = {k: r.get(k) for k in ("latency_frames", "cpu_percent", "ram_bytes", "workers", "unknown_count",
+                                    "ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count")}
+        out["members"] = [{"member": u["position"], "code": u["code"], "name": self.names.get(u["code"])}
+                          for u in r["unknown"]]
         return out
 
     # ---- codes
