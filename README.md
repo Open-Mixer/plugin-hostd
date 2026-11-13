@@ -25,7 +25,8 @@ Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
     sudo apt update
     sudo apt install plugin-hostd-full
 
-plugin-hostd-full is the whole plugin host stack: the daemon, omx-clap-host, the OpenMixer plugins, plugin-qualify and
+plugin-hostd-full ([its own repository](https://github.com/Open-Mixer/plugin-hostd-full), released last in each
+wave) is the whole plugin host stack: the daemon, omx-clap-host, the OpenMixer plugins, plugin-qualify and
 the qualification records of your machine's class, with omx-panel. On a machine with no screen, leave the panel out:
 `sudo apt install --no-install-recommends plugin-hostd-full`, or
 `sudo dnf install --setopt=install_weak_deps=False plugin-hostd-full`. `plugin-hostd omx-clap-host` alone is the
