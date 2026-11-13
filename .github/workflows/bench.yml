@@ -55,10 +55,13 @@ jobs:
           done
 
       - name: shellcheck
-        run: shellcheck bench/run.sh bench/validate.sh bench/table.sh bench/gate.sh bench/lib/send.sh bench/tests/sabotage.sh
+        run: shellcheck bench/run.sh bench/validate.sh bench/table.sh bench/matrix.sh bench/gate.sh bench/lib/send.sh bench/tests/sabotage.sh
 
       - name: Unit tests of the harness
         run: python3 -I bench/tests/test_bench.py
+
+      - name: Unit tests of the matrix report
+        run: python3 -I bench/tests/test_matrix.py
 
       - name: The xrun probe against a JACK server that dies or stops answering
         run: python3 -I bench/tests/test_probe_jack.py
