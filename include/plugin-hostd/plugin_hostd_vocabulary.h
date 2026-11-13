@@ -4,7 +4,7 @@
 #define PLUGIN_HOSTD_VOCABULARY_H
 /*
  * GENERATED: DO NOT EDIT BY HAND.
- * Produced by `omx-contract render --target c` from FreeMixer/plugin-hostd's data/: the vocabulary
+ * Produced by `omx-contract render --target c` from Open-Mixer/plugin-hostd's data/: the vocabulary
  * (docs/data-layout.md). A code is OMX_ and the code in upper snake case, and a reply code that carries a resp has it as that name and _RESP; a word is OMX_<ITEM>_<NAME>, each words
  * item with its _COUNT and an _INIT of its words in their order. A consumer writes and compares these, never a
  * literal of its own.

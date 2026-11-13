@@ -73,10 +73,6 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -84,6 +80,15 @@ jobs:
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
       - name: Install the build dependencies from the channel
         run: dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+
+      # an ordinary run builds against the channel: name where each omx package came from, refuse one from staging
+      # (plugin-hostd-protocol#27: a stale staged contract package outranked the channel)
+      - name: Every omx package comes from the channel
+        run: |
+          set -euo pipefail
+          if command -v dnf >/dev/null; then dnf repoquery --installed --qf '%{name} %{version} %{from_repo}\n' 'omx-*' 'plugin-*' | tee /tmp/from-repo
+          else apt-cache policy $(dpkg-query -W -f='${Package}\n' 'omx-*' 'libomx*' 'plugin-*' 'libplugin*' 2>/dev/null) | tee /tmp/from-repo; fi
+          if grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
 
       # the clients' tests read a sentence in Catalan from the installed catalog: from plugin-hostd-protocol 0.5.6 on it
       # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
@@ -197,10 +202,6 @@ jobs:
 
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -312,10 +313,6 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -487,10 +484,6 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -728,10 +721,6 @@ jobs:
 
       - name: The FreeMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
-        with:
-          # the staging channel, above the real one: plugin-hostd-protocol 0.5.7 (the typed replies; 0.5.5 node_metadata) and omx-clap-host 0.32.1,
-          # which sets it (#33), are staged and not yet served
-          staging: 'true'
 
       # the daemon under test is this run's, as the rpm job builds it (which runs on tags and dispatch alone): installed
       # by name, dnf takes the channel's, and with the omx-clap-host floor it does not meet it cannot install at all
