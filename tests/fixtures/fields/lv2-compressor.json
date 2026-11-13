@@ -1,5 +1,5 @@
 {
-  "$schema": "https://github.com/Open-Mixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
+  "$schema": "https://github.com/FreeMixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
   "requires": {"omx-contract-schema": ">= 3.0.0"},
   "origin": "scanned",
   "plugin": {"id": "urn:example:compressor", "format": "lv2", "uri": "urn:example:compressor", "name": "Example Compressor", "vendor": "example", "doc": "A compressor with a side-chain.", "features": ["audio-effect"]},

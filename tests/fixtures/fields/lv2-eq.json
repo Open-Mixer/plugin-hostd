@@ -1,5 +1,5 @@
 {
-  "$schema": "https://github.com/Open-Mixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
+  "$schema": "https://github.com/FreeMixer/omx-contract/raw/v3/schema/omx-contract.schema.json",
   "requires": {"omx-contract-schema": ">= 3.0.0"},
   "origin": "scanned",
   "plugin": {"id": "urn:example:eq", "format": "lv2", "uri": "urn:example:eq", "name": "Example EQ", "features": ["audio-effect"]},
