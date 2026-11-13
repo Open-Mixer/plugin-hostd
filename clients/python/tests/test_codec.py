@@ -79,14 +79,57 @@ class Replies(unittest.TestCase):
         self.assertEqual((e["ram_used_bytes"], e["ram_added_bytes"], e["ram_budget_bytes"], e["ram_unknown_count"]),
                          (0, None, None, 3))
 
-    def test_the_reasons_to_ask_again_are_words_the_daemon_declares(self):
+    def test_the_reasons_to_ask_again_are_the_reasons_the_file_declares_retry(self):
+        # RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
         with open(GROUPING) as f:
-            words = [w["word"] for w in json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].values()]
-        self.assertEqual(RETRY_REASONS, ("no-verdict", "plan-refused"))
-        for word in RETRY_REASONS:
-            self.assertIn(word, words)
+            item = json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]
+        declared = tuple(w["word"] for w in item["words"].values() if w.get("group") == "retry")
+        self.assertTrue(declared)
+        self.assertEqual(RETRY_REASONS, declared)
 
 
+class Constants(unittest.TestCase):
+    """plugin-hostd-protocol#24 and #23 (D22, D23): a client compares what it decoded against the owner's names, never a
+    literal it writes, and asks a refusal's transient of the code, never a list of names it keeps."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.protocol = Protocol()
+        with open(cls.protocol.table_path) as f:
+            cls.table = json.load(f)
+
+    def test_every_declared_verb_has_its_constant_and_every_constant_is_a_declared_verb(self):
+        declared = {c["verb"] for c in self.table["commands"]} | {f["line"] for f in self.table["feedback"]}
+        self.assertIn("output_set", declared)
+        for verb in declared:
+            self.assertEqual(getattr(self.protocol.verb, verb), verb)
+        self.assertEqual(set(self.protocol.verb), declared)
+        with self.assertRaises(AttributeError):
+            self.protocol.verb.no_such_verb
+
+    def test_every_reply_code_has_its_constant_and_every_constant_names_a_declared_code(self):
+        declared = {r["code"] for r in self.table["reply_codes"]}
+        for code in declared:
+            self.assertEqual(getattr(self.protocol.code, code.rsplit(".", 1)[1].replace("-", "_")), code)
+        self.assertEqual({getattr(self.protocol.code, n) for n in self.protocol.code}, declared)
+        self.assertEqual(self.protocol.code.worker_spawn, "reply.plugin-hostd.worker-spawn")
+        with self.assertRaises(AttributeError):
+            self.protocol.code.no_such_code
+        # the code's number by its name, as before
+        self.assertEqual(self.protocol.code("reply.plugin-hostd.worker-spawn"), -503)
+
+    def test_a_code_declared_transient_reads_transient_and_one_not_declared_so_does_not(self):
+        rows = self.table["reply_codes"]
+        self.assertTrue(any(r.get("transient") is True for r in rows), "the table declares a transient code")
+        for r in rows:
+            want = r.get("transient") is True
+            self.assertIs(self.protocol.transient(r["resp"]), want, r["code"])
+            self.assertIs(self.protocol.transient(r["code"]), want, r["code"])
+        self.assertTrue(self.protocol.transient(self.protocol.code.worker_spawn))
+        self.assertFalse(self.protocol.transient(self.protocol.code.pin_refused))
+        self.assertFalse(self.protocol.transient(self.protocol.code.descriptor_absent))
+        with self.assertRaises(ProtocolError):
+            self.protocol.transient(-99999)
 class GroupingReasons(unittest.TestCase):
     """The reasons a plan gives are constants of the reader, written from data/grouping.json (#67)."""
 
@@ -109,6 +152,16 @@ class GroupingReasons(unittest.TestCase):
     def test_no_constant_names_a_reason_the_file_does_not_declare(self):
         self.assertEqual(sorted(set(self.constants().values()) - self.declared()), [])
         self.assertEqual(len(self.constants()), len(self.declared()))
+
+    def test_every_reason_declares_its_retry_property(self):
+        with open(GROUPING) as f:
+            file = json.load(f)
+        groups = {w["word"] for w in file["PLUGIN_HOSTD_GROUPING_REASON_GROUPS"]["words"].values()}
+        self.assertEqual(groups, {"retry", "final"})
+        self.assertEqual(file["PLUGIN_HOSTD_GROUPING_REASONS"]["groups"], "PLUGIN_HOSTD_GROUPING_REASON_GROUPS")
+        for key, row in file["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].items():
+            with self.subTest(reason=key):
+                self.assertIn(row.get("group"), groups)
 
     def test_the_known_reasons_are_the_files(self):
         self.assertEqual(GroupingReason.GROUPING_OFF, "grouping-off")

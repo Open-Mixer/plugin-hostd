@@ -79,16 +79,17 @@ describe('the replies with a shape of their own', () => {
     });
   });
 
-  it('asks again only for words the daemon declares', () => {
-    const declared = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string }> } };
-    const words = Object.values(declared.PLUGIN_HOSTD_GROUPING_REASONS.words).map((w) => w.word);
-    assert.deepEqual([...RETRY_REASONS], ['no-verdict', 'plan-refused']);
-    for (const word of RETRY_REASONS) assert.ok(words.includes(word), word);
+  it('asks again for exactly the reasons the file declares retry', () => {
+    // RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
+    const declared = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string; group?: string }> } };
+    const retry = Object.values(declared.PLUGIN_HOSTD_GROUPING_REASONS.words).filter((w) => w.group === 'retry').map((w) => w.word);
+    assert.ok(retry.length > 0);
+    assert.deepEqual([...RETRY_REASONS], retry);
   });
 });
 
 describe('the grouping reasons are constants of the reader, written from data/grouping.json (#67)', () => {
-  const file = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string }> } };
+  const file = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string; group?: string }> } };
   const declared = Object.entries(file.PLUGIN_HOSTD_GROUPING_REASONS.words);
 
   it('has a constant for every declared reason, named as the file keys it, with the file\'s value', () => {
@@ -98,6 +99,14 @@ describe('the grouping reasons are constants of the reader, written from data/gr
   it('has no constant that names a reason the file does not declare', () => {
     assert.deepEqual(Object.keys(GroupingReason).sort(), declared.map(([key]) => key).sort());
     assert.deepEqual(Object.values(GroupingReason).sort(), declared.map(([, { word }]) => word).sort());
+  });
+
+  it('has every reason declare its retry property', () => {
+    const all = JSON.parse(readFileSync(GROUPING, 'utf8')) as Record<string, { groups?: string; words: Record<string, { word: string; group?: string }> }>;
+    const groups = Object.values(all.PLUGIN_HOSTD_GROUPING_REASON_GROUPS?.words ?? {}).map((w) => w.word).sort();
+    assert.deepEqual(groups, ['final', 'retry']);
+    assert.equal(all.PLUGIN_HOSTD_GROUPING_REASONS!.groups, 'PLUGIN_HOSTD_GROUPING_REASON_GROUPS');
+    for (const [key, row] of declared) assert.ok(row.group !== undefined && groups.includes(row.group), key);
   });
 
   it('spells the two a controller branches on', () => {
@@ -130,5 +139,47 @@ describe('numbers', () => {
 describe('the installed files', () => {
   it('names a missing table', () => {
     assert.throws(() => new Protocol({ table: '/nonexistent/plugin-hostd-protocol.json' }), /\/nonexistent\/plugin-hostd-protocol\.json/);
+  });
+});
+
+// plugin-hostd-protocol#24 and #23 (D22, D23): a client compares what it decoded against the owner's names, never a
+// literal it writes, and asks a refusal's transient of the code, never a list of names it keeps.
+describe('the verbs and the reply codes as constants, and a code transient by its declaration', () => {
+  const protocol = new Protocol();
+  const table = JSON.parse(readFileSync(protocol.tablePath, 'utf8')) as {
+    commands: { verb: string }[];
+    feedback: { line: string }[];
+    reply_codes: { resp: number; code: string; transient?: boolean }[];
+  };
+  const short = (code: string): string => code.slice(code.lastIndexOf('.') + 1).replace(/-/g, '_');
+
+  it('has a constant for every declared verb, and every constant is a declared verb', () => {
+    const declared = new Set([...table.commands.map((c) => c.verb), ...table.feedback.map((f) => f.line)]);
+    assert.ok(declared.has('output_set'));
+    for (const verb of declared) assert.equal(protocol.verb[verb], verb);
+    assert.deepEqual(new Set(Object.keys(protocol.verb)), declared);
+    assert.throws(() => protocol.verb['no_such_verb'], ProtocolError);
+  });
+
+  it('has a constant for every reply code, and every constant names a declared code', () => {
+    const declared = new Set(table.reply_codes.map((r) => r.code));
+    for (const code of declared) assert.equal(protocol.code[short(code)], code);
+    assert.deepEqual(new Set(Object.keys(protocol.code).map((n) => protocol.code[n])), declared);
+    assert.equal(protocol.code['worker_spawn'], 'reply.plugin-hostd.worker-spawn');
+    assert.throws(() => protocol.code['no_such_code'], ProtocolError);
+    // the code's number by its name, as before
+    assert.equal(protocol.code('reply.plugin-hostd.worker-spawn'), -503);
+  });
+
+  it('reads a code declared transient as transient, and one not declared so as not', () => {
+    assert.ok(table.reply_codes.some((r) => r.transient === true), 'the table declares a transient code');
+    for (const r of table.reply_codes) {
+      assert.equal(protocol.transient(r.resp), r.transient === true, r.code);
+      assert.equal(protocol.transient(r.code), r.transient === true, r.code);
+    }
+    assert.equal(protocol.transient(protocol.code['worker_spawn']!), true);
+    assert.equal(protocol.transient(protocol.code['pin_refused']!), false);
+    assert.equal(protocol.transient(protocol.code['descriptor_absent']!), false);
+    assert.throws(() => protocol.transient(-99999), ProtocolError);
   });
 });
