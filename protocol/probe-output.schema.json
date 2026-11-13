@@ -1148,6 +1148,22 @@
               "type": "integer",
               "minimum": 0
             },
+            "ownThreads": {
+              "description": "the threads the plugin started: /proc/self/task after it was instantiated, minus before (D20)",
+              "type": "integer",
+              "minimum": 0
+            },
+            "otherThreads": {
+              "description": "what threads other than the audio thread did while it was armed: a figure, never a verdict (D20)",
+              "type": "object",
+              "required": ["allocations", "locks", "syscalls"],
+              "additionalProperties": false,
+              "properties": {
+                "allocations": {"type": "integer", "minimum": 0},
+                "locks": {"type": "integer", "minimum": 0},
+                "syscalls": {"type": "integer", "minimum": 0}
+              }
+            },
             "processErrors": {
               "type": "integer",
               "minimum": 0
