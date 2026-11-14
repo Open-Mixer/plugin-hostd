@@ -3,13 +3,17 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
 # bounded-install.sh <command> [<arg> ...]: a package manager's command in CI, bounded by inactivity. An attempt ends
-# when the command prints nothing for BOUNDED_INSTALL_IDLE_S seconds (default 120: a mirror that hangs) or runs past
+# when the command prints nothing and makes no progress for BOUNDED_INSTALL_IDLE_S seconds (default 120: a mirror that
+# hangs) or runs past
 # BOUNDED_INSTALL_TOTAL_S (default 900, generous: a slow install that keeps printing, still unpacking, is progress and is
 # never ended for being slow). An attempt so ended is tried again, BOUNDED_INSTALL_RETRIES more times (default 2), after
 # dpkg --configure -a for an apt command (an ended unpack leaves dpkg interrupted); an attempt that fails otherwise (an
 # unmet dependency, a package that is not there) is red at once, since trying it again would answer the same. A red is
 # one ::error:: line naming the command and the mirrors the package manager reads (the apt sources and the dnf
 # repositories, or BOUNDED_INSTALL_SOURCES, files to read instead).
+# Silence is not stillness: dpkg's configure phase prints nothing while it works. At the end of a silent window the
+# attempt goes on when its process tree used CPU (a hundredth of the window at least) or dpkg's status moved
+# (BOUNDED_INSTALL_DPKG_DIR, default /var/lib/dpkg: status, updates/, lock); only a silent and still one is ended.
 idle_s=${BOUNDED_INSTALL_IDLE_S:-120}
 total_s=${BOUNDED_INSTALL_TOTAL_S:-900}
 tries=$((${BOUNDED_INSTALL_RETRIES:-2} + 1))
@@ -21,8 +25,53 @@ mirrors() {
         sort -u | tr '\n' ' '
 }
 
+# the CPU ticks, in clock ticks, of a process and of every descendant, the children it reaped included (apt runs dpkg
+# in a session of its own, and dpkg runs short-lived maintainer scripts; descent is by parent, not by group)
+tree_ticks() {
+    local f line pid rest total=0 todo seen
+    local -A kids=() cpu=()
+    for f in /proc/[0-9]*/stat; do
+        IFS= read -r line <"$f" 2>/dev/null || continue
+        pid=${line%% *}
+        rest=${line##*) }
+        # shellcheck disable=SC2086
+        set -- $rest
+        kids[$2]+=" $pid"
+        cpu[$pid]=$((${12} + ${13} + ${14} + ${15}))
+    done
+    todo=$root_pid
+    seen=" "
+    while [ -n "$todo" ]; do
+        set -- $todo
+        pid=$1
+        shift
+        todo="$* ${kids[$pid]:-}"
+        todo=${todo# }
+        case $seen in *" $pid "*) continue ;; esac
+        seen="$seen$pid "
+        total=$((total + ${cpu[$pid]:-0}))
+    done
+    echo "$total"
+}
+dpkg_dir=${BOUNDED_INSTALL_DPKG_DIR:-/var/lib/dpkg}
+dpkg_mark() { stat -c %Y.%Z "$dpkg_dir/status" "$dpkg_dir/updates" "$dpkg_dir/lock" 2>/dev/null | tr '\n' ' '; }
+# 0 when the attempt moved since the last call: its tree's CPU by a hundredth of the window, or dpkg's status files;
+# says which in $moved
+progressed() {
+    local ticks mark
+    ticks=$(tree_ticks)
+    mark=$(dpkg_mark)
+    moved=
+    if ((ticks - last_ticks >= idle_s * $(getconf CLK_TCK) / 100)); then moved="its processes used $(((ticks - last_ticks) * 100 / $(getconf CLK_TCK))) cs of CPU"
+    elif [ "$mark" != "$last_mark" ]; then moved="dpkg's status moved"; fi
+    last_ticks=$ticks
+    last_mark=$mark
+    [ -n "$moved" ]
+}
+
 # one attempt: the command's output passed on line by line; ended (its whole process group) when no line comes for
-# idle_s or the attempt passes total_s. Sets $ended to idle, total or nothing, and returns the command's status.
+# idle_s and the attempt made no progress in that window, or the attempt passes total_s. Sets $ended to idle, total or
+# nothing, and returns the command's status.
 attempt() {
     local fifo line started=$SECONDS pid status
     ended=
@@ -33,6 +82,9 @@ attempt() {
     local group=-
     if command -v setsid >/dev/null; then setsid "$@" >"$fifo" 2>&1 & else group= ; "$@" >"$fifo" 2>&1 & fi
     pid=$!
+    root_pid=$pid
+    last_ticks=$(tree_ticks)
+    last_mark=$(dpkg_mark)
     exec 3<"$fifo"
     rm -f "$fifo"
     while :; do
@@ -40,6 +92,11 @@ attempt() {
             printf '%s\n' "$line"
             if ((SECONDS - started >= total_s)); then ended=total; break; fi
         elif (($? > 128)); then
+            if ((SECONDS - started >= total_s)); then ended=total; break; fi
+            if progressed; then
+                echo "bounded-install: $1 printed nothing for ${idle_s} s, but $moved: waiting on" >&2
+                continue
+            fi
             ended=idle
             break
         else
