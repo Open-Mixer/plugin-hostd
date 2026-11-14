@@ -6,7 +6,7 @@ import errno, json, os, re, resource, shutil, signal, subprocess, sys, tempfile,
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
 import scan_fixture
-from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
+from harness import Daemon, Fail, alive, check, check_timing, resp, run_tests, wait_for
 from scan_fixture import CLAP_ID, FIELDS, LV2_COMPRESSOR, MANIFEST, PROBE, ROOT, descriptor_name, panel_name, sha, write
 
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", "./plugin-hostd"))
@@ -646,7 +646,7 @@ def a_worker_that_never_listens_is_refused_after_a_bounded_number_of_starts():
     try:
         t0 = time.time()
         d.expect("add fake:a 0", resp("WORKER_SPAWN"))
-        check(time.time() - t0 < 3, "three quick starts, not three ready timeouts (%.1fs)" % (time.time() - t0))
+        check_timing(time.time() - t0 < 3, "three quick starts, not three ready timeouts (%.1fs)" % (time.time() - t0))
     finally:
         d.close()
 
@@ -659,7 +659,7 @@ def a_worker_that_warns_more_than_a_page_before_ready_still_starts():
     try:
         t0 = time.time()
         d.expect("add fake:a 0", "resp 0")
-        check(time.time() - t0 < 3, "the start saw the ready line, it did not wait out the ready timeout (%.1fs)" % (time.time() - t0))
+        check_timing(time.time() - t0 < 3, "the start saw the ready line, it did not wait out the ready timeout (%.1fs)" % (time.time() - t0))
         log = open(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "%s.log" % d.holder(0)[0])).read()
         check(log.index("ready!") > 4096, "positive control: the ready line sits past the first page of the log (%d)" % log.index("ready!"))
     finally:
@@ -748,7 +748,7 @@ def a_value_the_plugin_moved_itself_survives_a_respawn():
         time.sleep(0.8)   # the checkpoint is taken: nothing of the controller's is dirty now
         seen = os.path.getmtime(ck)
         d.expect("param_get 0 moved=0.7500", "resp 0 0")
-        wait_for(lambda: os.path.getmtime(ck) > seen or None, "a checkpoint after the plugin moved its value", timeout=5.0)
+        wait_for(lambda: os.path.getmtime(ck) > seen or None, "a checkpoint after the plugin moved its value", timeout=5.0, timing=True)
         before = d.send("param_get 0 0")
         check(before.startswith("resp 0 "), "the plugin holds the value it moved: %s" % before)
         _, w = d.holder(0)
@@ -927,10 +927,10 @@ def every_member_that_says_abi_clobber_is_isolated_however_many_say_it_at_once()
         # one burst of twenty lines, all before the daemon's next tick
         d.expect("param_set %d abi_clobber_all 1" % ids[0], "resp 0")
         for i in ids:
-            d.wait_event("instance_quarantined %d " % i, since=mark, timeout=30.0)
+            d.wait_event("instance_quarantined %d " % i, since=mark, timeout=30.0, timing=True)
         for i in ids:
             # the last left in the pool is alone where it is: quarantined, not moved
-            _, w = d.wait_up(i, timeout=30.0)
+            _, w = d.wait_up(i, timeout=30.0, timing=True)
             check(w["inst"] == [i], "instance %d runs alone: %s" % (i, w))
     finally:
         d.close()
@@ -5465,7 +5465,8 @@ def a_group_split_by_a_death_with_no_culprit_is_gathered_again_after_history_reg
               "not before its time: %s %s" % (d.workers(), d.events[mark:]))
         d.wait_event("chain_formed 1.0 ", since=mark)
         late = time.monotonic() - t0
-        check(2.0 < late < 8.0, "about 3 s of steady running after the death: %.1f s" % late)
+        check(late > 2.0, "about 3 s of steady running after the death: %.1f s" % late)
+        check_timing(late < 8.0, "about 3 s of steady running after the death: %.1f s" % late)
         check(places(d) == {"chain:1.0": [1, 2, 3]}, "the group runs as one again: %s" % d.workers())
         expect_plan(d, "plan_get 1", "resp 0 1,2,3 1:cost-assumed,2:cost-assumed,3:cost-assumed")
     finally:
@@ -6315,7 +6316,7 @@ def worker_writes_xruns(d, uri, inst, count):
     plugin have closed since: the second began after the line, so the line is inside a window that is folded by then"""
     before = history_windows(d, uri)
     d.expect("param_get %d xruns=%s" % (inst, count), "resp 0 0")
-    wait_for(lambda: history_windows(d, uri) >= before + 2, "two windows after xruns %s" % count, timeout=15.0)
+    wait_for(lambda: history_windows(d, uri) >= before + 2, "two windows after xruns %s" % count, timeout=15.0, timing=True)
 
 
 @test
@@ -6345,7 +6346,7 @@ def a_window_in_which_the_count_of_xruns_rose_is_counted_once_for_the_plugin_alo
         for bad in ("14x", "-5", "abc", "99999999999999999999999"):
             d.expect("param_get 0 xruns=%s" % bad, "resp 0 0")
         before = history_windows(d, p.clap_uri)
-        wait_for(lambda: history_windows(d, p.clap_uri) >= before + 2, "two windows after the lines that are no count", timeout=15.0)
+        wait_for(lambda: history_windows(d, p.clap_uri) >= before + 2, "two windows after the lines that are no count", timeout=15.0, timing=True)
         h = history_of(d, p.clap_uri)
         check(h["xrun_windows_solo"] == "2", "a line that is not a whole number counts nothing: %s" % h)
         worker_writes_xruns(d, p.clap_uri, 0, 12)
@@ -6418,11 +6419,11 @@ def xruns_in_a_window_dropped_because_the_members_changed_are_nobodys():
         worker_writes_xruns(d, p.clap_uri, 0, 1)
         # just after a window closed: the count rises, and the second member comes, inside the next one
         before = history_windows(d, p.clap_uri)
-        wait_for(lambda: history_windows(d, p.clap_uri) > before or None, "the next window to close", timeout=15.0)
+        wait_for(lambda: history_windows(d, p.clap_uri) > before or None, "the next window to close", timeout=15.0, timing=True)
         d.expect("param_get 0 xruns=4", "resp 0 0")
         d.expect("add %s 1 pool:g" % other_uri, "resp 1")
         grouped = int(history_of(d, p.clap_uri)["windows_grouped"])
-        wait_for(lambda: int(history_of(d, p.clap_uri)["windows_grouped"]) >= grouped + 2 or None, "two windows of the two", timeout=15.0)
+        wait_for(lambda: int(history_of(d, p.clap_uri)["windows_grouped"]) >= grouped + 2 or None, "two windows of the two", timeout=15.0, timing=True)
         for uri in (p.clap_uri, other_uri):
             h = history_of(d, uri)
             check(h["xrun_windows_grouped"] == "0" and h["xrun_windows_solo"] == "0",
@@ -6583,12 +6584,12 @@ def a_save_on_a_slow_disk_leaves_every_command_answered_at_once():
     try:
         pin_in_process(p, d)
         d.expect("add %s 0 own" % p.clap_uri, "resp 0")
-        wait_for(lambda: in_flight(mark) or None, "a history save in flight", timeout=20.0)
+        wait_for(lambda: in_flight(mark) or None, "a history save in flight", timeout=20.0, timing=True)
         t0 = time.monotonic()
         workers = d.workers()
         took = time.monotonic() - t0
         busy = in_flight(mark)
-        check(took < 1.0, "worker_list answered in %.2f s while a save waited on the disk" % took)
+        check_timing(took < 1.0, "worker_list answered in %.2f s while a save waited on the disk" % took)
         check(busy, "the save was still in flight when it answered")
         check(len(workers) == 1, "and it answered the workers: %s" % workers)
     finally:
@@ -6606,10 +6607,10 @@ def a_verb_that_promises_its_file_answers_once_the_file_is_on_disk():
     try:
         pin_in_process(p, d)
         d.expect("add %s 0 own" % p.clap_uri, "resp 0")
-        wait_for(lambda: len(history_lines(path)) == 1 or None, "a saved record", timeout=30.0)
+        wait_for(lambda: len(history_lines(path)) == 1 or None, "a saved record", timeout=30.0, timing=True)
         # no more windows: the record the clear removes is the last one
         d.expect("remove 0", "resp 0")
-        wait_for(lambda: not in_flight(mark) or None, "the saves to land", timeout=30.0)
+        wait_for(lambda: not in_flight(mark) or None, "the saves to land", timeout=30.0, timing=True)
         t0 = time.monotonic()
         d.expect("history_clear all", "resp 0")
         took = time.monotonic() - t0
@@ -6635,7 +6636,7 @@ def a_reload_after_a_learned_pin_reads_the_store_that_holds_it():
         # the next learned pin's write holds what the reload left in memory
         d.expect("add %s 1" % other_uri, "resp 1")
         d.expect("quit", "resp 0")
-        wait_for(lambda: d.proc.poll() is not None, "the daemon to exit", timeout=30.0)
+        wait_for(lambda: d.proc.poll() is not None, "the daemon to exit", timeout=30.0, timing=True)
     finally:
         d.close()
     uris = [l[1] for l in store_lines(p) if len(l) > 1]
@@ -6656,7 +6657,7 @@ def quit_with_three_writes_waiting_leaves_all_three_on_disk():
             d.expect("add %s %d" % (uri, n), "resp %d" % n)
         check(in_flight(mark), "positive control: writes wait when the quit comes")
         d.expect("quit", "resp 0")
-        wait_for(lambda: d.proc.poll() is not None, "the daemon to exit", timeout=30.0)
+        wait_for(lambda: d.proc.poll() is not None, "the daemon to exit", timeout=30.0, timing=True)
     finally:
         d.close()
     uris = [l[1] for l in store_lines(p) if len(l) > 1]
@@ -6680,14 +6681,14 @@ def while_a_promised_write_waits_the_daemon_still_supervises_and_reports_at_once
         key, w = d.holder(0)
         since = d.mark()
         d.sock.sendall(b"history_clear all\0")
-        wait_for(lambda: in_flight(mark) or None, "the clear's write in flight", timeout=10.0)
+        wait_for(lambda: in_flight(mark) or None, "the clear's write in flight", timeout=10.0, timing=True)
         t0 = time.monotonic()
         os.kill(w["pid"], signal.SIGKILL)
         d.wait_event("worker_died %s " % key, since=since)
         d.wait_event("instance_restored 0 ", since=since)
         took = time.monotonic() - t0
         busy = in_flight(mark)
-        check(took < 1.0, "the death was said and the worker respawned in %.2f s while the write waited" % took)
+        check_timing(took < 1.0, "the death was said and the worker respawned in %.2f s while the write waited" % took)
         check(busy, "the write was still in flight then")
         d.sock.settimeout(30)
         buf = b""

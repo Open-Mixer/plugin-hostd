@@ -5,7 +5,7 @@ Version: 0.20.6
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
-URL: https://github.com/FreeMixer/plugin-hostd
+URL: https://github.com/Open-Mixer/plugin-hostd
 
 Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
