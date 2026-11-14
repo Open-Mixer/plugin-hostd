@@ -18,6 +18,8 @@ BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
 BuildRequires: (pkgconfig(plugin-db) >= 0.4.1 with pkgconfig(plugin-db) < 0.5)
 BuildRequires: cjson-devel
+# the LV2 vocabulary the daemon reads a bundle's properties with: <lv2/patch/patch.h> and its siblings, headers only
+BuildRequires: lv2-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor

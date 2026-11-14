@@ -240,7 +240,7 @@ jobs:
       - name: Install the build tools
         run: |
           apt-get update -qq
-          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev cmake \
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev lv2-dev cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
@@ -304,7 +304,7 @@ jobs:
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
       - name: Install the build tools
-        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
+        run: dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel lv2-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
 
       - uses: actions/checkout@v4
         with:
