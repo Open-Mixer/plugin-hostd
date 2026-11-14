@@ -147,6 +147,41 @@ def main():
             os.environ["PATH"] = env_path
         check(rc == 0 and os.path.exists(state + ".configured"), "an apt attempt killed by its timeout is followed by "
               "dpkg --configure -a before the next one, which then succeeds: rc %s, %r" % (rc, out[-200:]))
+        # apt runs dpkg in a session of its own (through a pty), so ending the attempt's process group leaves that dpkg
+        # running and holding dpkg's lock: the next step then failed on the lock, and the wrapper took that for a
+        # failure, not a stall (#81's own run, 2026-11-14: "Could not get lock /var/lib/dpkg/lock. It is held by process
+        # 295 (dpkg)"). Stub: the first apt-get starts a dpkg in a new session that holds a lock file, then hangs; a later
+        # apt-get or dpkg --configure -a fails while that holder lives. The wrapper must end the holder first.
+        stubs2 = os.path.join(work, "bin2")
+        os.makedirs(stubs2)
+        st2 = os.path.join(work, "state2")
+        lock = os.path.join(work, "dpkg.lock")
+        open(lock, "w").close()
+        alive = 'h=$(cat %s.pid 2>/dev/null) && [ -n "$h" ] && kill -0 "$h" 2>/dev/null' % st2
+        open(os.path.join(stubs2, "apt-get"), "w").write(
+            "#!/bin/sh\nif [ ! -e %s.hung ]; then touch %s.hung; setsid %s/dpkg --hold </dev/null >/dev/null 2>&1 &\n"
+            "echo Unpacking; sleep 30; fi\nif %s; then echo \"E: Could not get lock %s. It is held by process $h (dpkg)\" "
+            ">&2; exit 100; fi\n[ -e %s.configured ] || { echo \"E: dpkg was interrupted\" >&2; exit 100; }\nexit 0\n"
+            % (st2, st2, stubs2, alive, lock, st2))
+        open(os.path.join(stubs2, "dpkg"), "w").write(
+            "#!/bin/sh\nif [ \"$1\" = --hold ]; then echo $$ > %s.pid; exec 9<%s; sleep 30; exit 0; fi\n"
+            "if %s; then echo \"dpkg: error: lock held by $h\" >&2; exit 2; fi\n"
+            "[ \"$*\" = \"--configure -a\" ] && touch %s.configured\nexit 0\n" % (st2, lock, alive, st2))
+        for f in ("apt-get", "dpkg"):
+            os.chmod(os.path.join(stubs2, f), 0o755)
+        os.environ["PATH"] = stubs2 + ":" + env_path
+        os.environ["BOUNDED_INSTALL_DPKG_LOCK"] = lock
+        try:
+            rc, out, took = run(WRAPPER, ["apt-get", "install", "-y", "x"], sources, 60)
+        finally:
+            os.environ["PATH"] = env_path
+            del os.environ["BOUNDED_INSTALL_DPKG_LOCK"]
+            try:
+                os.kill(int(open(st2 + ".pid").read()), 9)
+            except (OSError, ValueError):
+                pass
+        check(rc == 0 and os.path.exists(st2 + ".configured"), "a dpkg left holding the lock in a session of its own is "
+              "ended before dpkg --configure -a and the next attempt, which then succeeds: rc %s, %r" % (rc, out[-240:]))
         sabotaged = os.path.join(work, "bounded-install.sh")
         text = open(WRAPPER).read()
         check('read -r -t "$idle_s"' in text, "the wrapper reads the command's output with its idle bound")
