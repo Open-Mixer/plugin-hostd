@@ -242,9 +242,14 @@ jobs:
           capeff=$(sed -n 's/^CapEff:[[:space:]]*//p' /proc/self/status)
           test $(( (0x$capeff >> 23) & 1 )) -eq 1 || { echo "this container holds no CAP_SYS_NICE"; exit 1; }
           test $(( (0x$capeff >> 24) & 1 )) -eq 0 || { echo "this container holds CAP_SYS_RESOURCE: the rlimit route would be measured"; exit 1; }
+          # each arm is bounded twice, never a hang to timeout-minutes: its own deadline in probe_test.py (a red naming
+          # the arm and the step it stalled in), and timeout here for a stall that starves the test itself
+          make test-probe-deadline
           for t in with_the_grant_the_measurement_runs_fifo_at_the_highest_priority \
                    a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_with; do
-            ONLY=$t make test-probe 2>&1 | tee "probe-$t.log"
+            rc=0; ONLY=$t PROBE_ARM_DEADLINE_S=180 timeout -k 10 240 make test-probe > "probe-$t.log" 2>&1 || rc=$?
+            cat "probe-$t.log"
+            [ "$rc" != 124 ] && [ "$rc" != 137 ] || { echo "the probe arm $t gave no answer within 240 s"; exit 1; }
             grep -qx "ok   $t" "probe-$t.log" || { echo "the probe arm $t did not run"; exit 1; }
           done
 
