@@ -78,6 +78,9 @@ jobs:
     timeout-minutes: 30
     container:
       image: debian:trixie
+      # jackd's first segment (/dev/shm/jack-0-0) is about 103 MB: with Docker's 64 MB default its metadata DB cannot
+      # open and the private servers of the xrun probe and the smoke run never start (#81's box proof)
+      options: --shm-size=256m
     defaults:
       run:
         shell: bash
