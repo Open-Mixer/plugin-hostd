@@ -31,7 +31,7 @@ tree_ticks() {
     local f line pid rest total=0 todo seen
     local -A kids=() cpu=()
     for f in /proc/[0-9]*/stat; do
-        IFS= read -r line <"$f" 2>/dev/null || continue
+        { IFS= read -r line <"$f"; } 2>/dev/null || continue  # a process may end between the glob and the read
         pid=${line%% *}
         rest=${line##*) }
         # shellcheck disable=SC2086
@@ -54,6 +54,7 @@ tree_ticks() {
     echo "$total"
 }
 dpkg_dir=${BOUNDED_INSTALL_DPKG_DIR:-/var/lib/dpkg}
+hz=$(getconf CLK_TCK)
 dpkg_mark() { stat -c %Y.%Z "$dpkg_dir/status" "$dpkg_dir/updates" "$dpkg_dir/lock" 2>/dev/null | tr '\n' ' '; }
 # 0 when the attempt moved since the last call: its tree's CPU by a hundredth of the window, or dpkg's status files;
 # says which in $moved
@@ -62,7 +63,8 @@ progressed() {
     ticks=$(tree_ticks)
     mark=$(dpkg_mark)
     moved=
-    if ((ticks - last_ticks >= idle_s * $(getconf CLK_TCK) / 100)); then moved="its processes used $(((ticks - last_ticks) * 100 / $(getconf CLK_TCK))) cs of CPU"
+    if ((ticks - last_ticks >= idle_s * hz / 100)); then
+        moved="its processes used $(((ticks - last_ticks) * 100 / hz)) cs of CPU"
     elif [ "$mark" != "$last_mark" ]; then moved="dpkg's status moved"; fi
     last_ticks=$ticks
     last_mark=$mark
