@@ -113,7 +113,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        # ruling D25: the suites the deb job built for this tag, through OMX_RELEASE_MATRIX as build-deb.yml reads it
+        # for a release: trixie alone while the variable is quick, bookworm too when it is full or unset
+        suite: ${{ fromJSON(vars.OMX_RELEASE_MATRIX == 'quick' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: [amd64, arm64]
         mode: [default, headless]
     steps:
@@ -134,7 +136,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        # ruling D25: the architectures the rpm job built for this tag, through OMX_RELEASE_MATRIX as build-rpm.yml reads
+        # it for a release: x86_64 alone while the variable is quick (the quick set has no aarch64 rpm), both when it is
+        # full or unset
+        arch: ${{ fromJSON(vars.OMX_RELEASE_MATRIX == 'quick' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
         mode: [default, headless]
     steps:
       - uses: actions/checkout@v4
