@@ -1260,7 +1260,10 @@ char *lv2_remote_page_get(int id, int index)
  * of the property's URI. */
 
 #define LV2_PARAMETER LV2_CORE_PREFIX "Parameter"
-/* how long a property_get waits for the patch_set line mod-host relays from the plugin's answer to its patch_get */
+/* how long a property_get waits for the patch_set line mod-host relays from the plugin's answer to its patch_get. The
+ * plugin answers in its next run() and mod-host writes the line from its output thread, so a running instance answers
+ * within a few periods; a second is many hundreds of periods at any rate and quantum the daemon is run with, and it is
+ * the longest the daemon's dispatch is held for one read. Past it the value cannot be told: -902 */
 #define PROPERTY_GET_MS 1000
 
 typedef struct PROPERTY_T {
@@ -1516,6 +1519,9 @@ char *lv2_property_get(int id, const char *symbol)
     }
     else
     {
+        /* mod-host writes no feedback after a data_finish until its controller says output_data_ready; the daemon owns
+         * the mod-host session, so it says it for this read, and a console that never acks reads the value back too */
+        free(sup_call(id, OUTPUT_DATA_READY));
         reply = sup_call_seen(id, line, prefix, PROPERTY_GET_MS, &answered, &seen);
         if (!answered || sup_reply_code(reply) < 0)
             reply = property_reply(reply, answered, 0);
