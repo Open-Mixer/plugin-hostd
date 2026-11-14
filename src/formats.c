@@ -203,6 +203,10 @@ static const format_t g_builtin[] = {
         .param_info = lv2_param_info,
         .remote_pages = lv2_remote_pages,
         .remote_page_get = lv2_remote_page_get,
+        .property_list = lv2_property_list,
+        .property_info = lv2_property_info,
+        .property_get = lv2_property_get,
+        .property_set = lv2_property_set,
     },
     {
         .name = PHD_FORMAT_CLAP,

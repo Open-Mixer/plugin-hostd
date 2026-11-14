@@ -20,6 +20,7 @@ BASED = "http://plugin-hostd.invalid/fixture/based"
 BASE = "http://plugin-hostd.invalid/fixture/"
 HOST_FIXTURE = "urn:openmixer:test:host-fixture"
 REFUSED = "lv2_adapter_refused"
+PROPERTY_FIXTURE = "urn:openmixer:test:property-fixture"   # omx-clap-core's: a path (gainfile) and a text (label)
 TESTS = []
 
 
@@ -264,6 +265,43 @@ def the_real_worker_answers_the_preset_list_as_declared():
         r.d.expect("preset_list 0", resp("NO_PRESET_LIST"))
     finally:
         r.close()
+
+
+@test
+def the_properties_of_an_lv2_plugin_are_one_path_on_mod_host_and_through_the_adapter():
+    """one console path for both LV2 workers: the property verbs present the same properties, and a path and a text
+    read back as set, through mod-host's patch verbs and through the adapter"""
+    world = tempfile.mkdtemp(prefix="plugin-hostd-property.")
+    gainfile = os.path.join(world, "gain -12")
+    with open(gainfile, "w") as f:
+        f.write("-12\n")
+    seen = {}
+    try:
+        for worker in ("omx-clap-host", "mod-host"):
+            r = Run(ADAPTER_BUNDLES, lv2_worker=worker)
+            try:
+                r.d.expect("add lv2:%s 0" % PROPERTY_FIXTURE, "resp 0")
+                check(r.program(0) == worker, "%s runs the plugin: %s" % (worker, r.started()))
+                count = code_of(r.d.send("property_list 0"))
+                check(count, "%s presents properties: %r" % (worker, count))
+                seen[worker] = [r.d.send("property_info 0 %d" % k) for k in range(count)]
+                symbols = [info.split()[2] for info in seen[worker]]
+                check("gainfile" in symbols and "label" in symbols, "%s presents gainfile and label: %s" % (worker, seen[worker]))
+                r.d.expect('property_set 0 gainfile "%s"' % gainfile, "resp 0")
+                r.d.expect('property_set 0 label "Sala A"', "resp 0")
+                # a controller that never says output_data_ready (the console does not): the daemon releases mod-host's
+                # feedback itself for the answer to its patch_get, so the read back needs nothing of the controller
+                def get(symbol):
+                    return r.d.send("property_get 0 %s" % symbol)
+                for symbol, value in (("gainfile", gainfile), ("label", "Sala A")):
+                    want = 'resp 0 "%s"' % value
+                    wait_for(lambda: get(symbol) == want, "%s to read %s back as %r" % (worker, symbol, want))
+            finally:
+                r.close()
+        check(seen["mod-host"] == seen["omx-clap-host"],
+              "the same properties on both workers: %s" % seen)
+    finally:
+        shutil.rmtree(world, ignore_errors=True)
 
 
 sys.exit(run_tests(TESTS))

@@ -79,6 +79,10 @@
  *                               FAKE_PRESET_NEEDS_CLAP_PATH=<dir> set, -104 (ERR_HOST_INVALID_PRESET_URI) unless the
  *                               fake's own CLAP_PATH holds <dir>, as a worker whose preset browsing depends on it does
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   patch_set <n> <uri> <value>   "resp 0", kept as the parameter "patch:<uri>", \" undone as mod-host undoes it; patch_get <n> <uri> "resp 0", then
+ *                               as mod-host relays its plugin's answer, "patch_set <n> <uri> <p|s> <value>" on the feedback
+ *                               port (p for a value starting with '/'), or nothing for a uri never set, as a plugin that
+ *                               does not answer
  *   property_set <n> <symbol> <value>   "resp 0", OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for the symbol "readonly"; the
  *                               fake keeps nothing of it (FAKE_LOG shows what it was sent); property_list <n> "resp 0"
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
@@ -959,11 +963,28 @@ static void receive(msg_t *msg)
         answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
-        char key[80];
+        char key[80], *r, *w;
 
+        /* mod-host's reader undoes \" in a quoted word, and nothing else */
+        for (r = w = tok[3]; *r; r++)
+            if (!(r[0] == '\\' && r[1] == '"'))
+                *w++ = *r;
+        *w = '\0';
         snprintf(key, sizeof(key), "patch:%s", tok[2]);
         set_param(&g_inst[n], key, tok[3]);
         answer(fd, "resp 0");
+    }
+    else if (verb_is(verb, EFFECT_PATCH_GET) && ntok == 3)
+    {
+        char key[80], *event = NULL;
+        const char *value;
+
+        snprintf(key, sizeof(key), "patch:%s", tok[2]);
+        value = get_param(&g_inst[n], key);
+        answer(fd, "resp 0");
+        if (value && asprintf(&event, "patch_set %d %s %c %s", n, tok[2], value[0] == '/' ? 'p' : 's', value) > 0)
+            socket_send_feedback(event);
+        free(event);
     }
     else if (verb_is(verb, STATE_SAVE) && ntok == 2)
     {

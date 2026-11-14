@@ -33,6 +33,9 @@
 #include <unistd.h>
 
 #include <host-errors.h>
+#include <lv2/atom/atom.h>
+#include <lv2/core/lv2.h>
+#include <lv2/patch/patch.h>
 #include <mod-host.h>
 #include <plugin-hostd/protocol.h>
 
@@ -955,29 +958,21 @@ static int port_read(const graph_t *g, const char *node, port_t *p)
     return 0;
 }
 
-/* the control ports of a bundle's plugin, by index: NULL when the plugin's files cannot be found or read, or when they
- * name no control port */
-static ports_t *ports_load(const char *uri, const char *search)
+/* the statements of a bundle's plugin, its manifest's and those of the Turtle files it names, into g: 0, or -1 when the
+ * plugin's bundle cannot be found or its manifest read */
+static int bundle_graph(const char *uri, const char *search, graph_t *g)
 {
     names_t names = { NULL, 0 };
     char *bundle = proc_find_lv2_bundle(search, bare(uri), bundle_version), *manifest = NULL;
     size_t size = 0;
-    ports_t *ports = NULL;
-    int n, k, ok = 0;
+    int n;
 
     if (!bundle || read_manifest(bundle, &manifest, &size) != 0)
     {
         free(bundle);
-        return NULL;
+        return -1;
     }
-    ports = calloc(1, sizeof(*ports));
-    if (ports == NULL)
-    {
-        free(bundle);
-        free(manifest);
-        return NULL;
-    }
-    graph_parse(&ports->g, manifest, size);
+    graph_parse(g, manifest, size);
     manifest_files(manifest, size, bundle, bare(uri), &names, 0);
     free(manifest);
     for (n = 0; n < names.n; n++)
@@ -1003,11 +998,28 @@ static ports_t *ports_load(const char *uri, const char *search)
         while (got < st.st_size && (r = read(fd, bytes + got, st.st_size - got)) > 0)
             got += r;
         close(fd);
-        graph_parse(&ports->g, bytes, got);
+        graph_parse(g, bytes, got);
         free(bytes);
     }
     names_free(&names);
     free(bundle);
+    return 0;
+}
+
+/* the control ports of a bundle's plugin, by index: NULL when the plugin's files cannot be found or read, or when they
+ * name no control port */
+static ports_t *ports_load(const char *uri, const char *search)
+{
+    ports_t *ports = calloc(1, sizeof(*ports));
+    int k, ok = 0;
+
+    if (ports == NULL)
+        return NULL;
+    if (bundle_graph(uri, search, &ports->g) != 0)
+    {
+        free(ports);
+        return NULL;
+    }
     for (k = 0; k < ports->g.n; k++)
     {
         const triple_t *t = &ports->g.t[k];
@@ -1235,6 +1247,319 @@ char *lv2_remote_page_get(int id, int index)
         reply = sup_resp(ERR_INVALID_OPERATION);
     free(page);
     ports_free(ports);
+    return reply;
+}
+
+/* ---------------------------------------------------------------- the file and text properties of a bundle */
+
+/* What omx-clap-host's LV2 adapter presents as the plugin's properties (org.openmixer.properties/1), read from the bundle
+ * so that one console path commands an LV2 instance on either worker: every patch:writable lv2:Parameter whose rdfs:range
+ * is atom:Path (a path) or atom:String (a string), in the order of their URIs; its lv2:symbol, else the URI's text after
+ * the last '#' (else the last '/') with every character outside [A-Za-z0-9_] as '_' and a leading digit prefixed '_'; its
+ * rdfs:label, else its URI; readable too when it is patch:readable. mod-host is given them as its patch_set and patch_get
+ * of the property's URI. */
+
+#define LV2_PARAMETER LV2_CORE_PREFIX "Parameter"
+/* how long a property_get waits for the patch_set line mod-host relays from the plugin's answer to its patch_get. The
+ * plugin answers in its next run() and mod-host writes the line from its output thread, so a running instance answers
+ * within a few periods; a second is many hundreds of periods at any rate and quantum the daemon is run with, and it is
+ * the longest the daemon's dispatch is held for one read. Past it the value cannot be told: -902 */
+#define PROPERTY_GET_MS 1000
+
+typedef struct PROPERTY_T {
+    const char *uri;            /* the graph's */
+    const char *name;           /* the graph's */
+    char *symbol;
+    int path, readable;
+} property_t;
+
+typedef struct PROPERTIES_T {
+    graph_t g;
+    property_t *p;
+    int n;
+} properties_t;
+
+static void properties_free(properties_t *props)
+{
+    for (int n = 0; n < props->n; n++)
+        free(props->p[n].symbol);
+    free(props->p);
+    graph_free(&props->g);
+    free(props);
+}
+
+static char *symbol_of_uri(const char *uri)
+{
+    const char *tail = strrchr(uri, '#'), *slash = strrchr(uri, '/');
+    size_t n, k;
+    char *symbol;
+
+    tail = tail ? tail + 1 : slash ? slash + 1 : uri;
+    n = strlen(tail);
+    symbol = malloc(n + 2);
+    if (!symbol)
+        return NULL;
+    for (k = 0; k < n; k++)
+        symbol[k] = (tail[k] >= 'a' && tail[k] <= 'z') || (tail[k] >= 'A' && tail[k] <= 'Z') ||
+                    (tail[k] >= '0' && tail[k] <= '9') || tail[k] == '_' ? tail[k] : '_';
+    symbol[n] = '\0';
+    if (n == 0 || (symbol[0] >= '0' && symbol[0] <= '9'))
+    {
+        memmove(symbol + 1, symbol, n + 1);
+        symbol[0] = '_';
+    }
+    return symbol;
+}
+
+static int by_uri(const void *a, const void *b)
+{
+    return strcmp(((const property_t *)a)->uri, ((const property_t *)b)->uri);
+}
+
+/* the properties of the instance's bundle; NULL when its files cannot be found or read, or memory runs out */
+static properties_t *properties_of_instance(int id)
+{
+    const char *uri = sup_instance_uri(id), *search = sup_instance_search(id), *plugin;
+    properties_t *props;
+
+    if (!uri || !search || !(props = calloc(1, sizeof(*props))))
+        return NULL;
+    if (bundle_graph(uri, search, &props->g) != 0)
+    {
+        free(props);
+        return NULL;
+    }
+    plugin = bare(uri);
+    for (int k = 0; k < props->g.n; k++)
+    {
+        const triple_t *t = &props->g.t[k];
+        const char *symbol, *name;
+        property_t *grown;
+        int path, seen = 0;
+
+        if (t->literal || strcmp(t->s, plugin) || strcmp(t->p, LV2_PATCH__writable) ||
+            !has_object(&props->g, t->o, RDF_TYPE, LV2_PARAMETER))
+            continue;
+        path = has_object(&props->g, t->o, NS_RDFS "range", LV2_ATOM__Path);
+        if (!path && !has_object(&props->g, t->o, NS_RDFS "range", LV2_ATOM__String))
+            continue;
+        for (int n = 0; n < props->n && !seen; n++)
+            seen = !strcmp(props->p[n].uri, t->o);
+        if (seen)
+            continue;
+        grown = realloc(props->p, (props->n + 1) * sizeof(*grown));
+        if (!grown)
+        {
+            properties_free(props);
+            return NULL;
+        }
+        props->p = grown;
+        symbol = first_object(&props->g, t->o, LV2_CORE__symbol);
+        name = first_object(&props->g, t->o, NS_RDFS "label");
+        grown[props->n].uri = t->o;
+        grown[props->n].name = name ? name : t->o;
+        grown[props->n].symbol = symbol ? strdup(symbol) : symbol_of_uri(t->o);
+        grown[props->n].path = path;
+        grown[props->n].readable = has_object(&props->g, plugin, LV2_PATCH__readable, t->o);
+        if (!grown[props->n].symbol)
+        {
+            properties_free(props);
+            return NULL;
+        }
+        props->n++;
+    }
+    qsort(props->p, props->n, sizeof(*props->p), by_uri);
+    return props;
+}
+
+static const property_t *property_named(const properties_t *props, const char *symbol)
+{
+    for (int n = 0; n < props->n; n++)
+        if (!strcmp(props->p[n].symbol, symbol))
+            return &props->p[n];
+    return NULL;
+}
+
+/* RFC 3629 UTF-8 */
+static int utf8_valid(const char *text)
+{
+    const unsigned char *p = (const unsigned char *)text;
+
+    while (*p)
+    {
+        unsigned cp;
+        int more;
+
+        if (*p < 0x80)
+        {
+            p++;
+            continue;
+        }
+        if (*p >= 0xc2 && *p <= 0xdf)
+            more = 1, cp = *p & 0x1f;
+        else if (*p >= 0xe0 && *p <= 0xef)
+            more = 2, cp = *p & 0x0f;
+        else if (*p >= 0xf0 && *p <= 0xf4)
+            more = 3, cp = *p & 0x07;
+        else
+            return 0;
+        for (int k = 1; k <= more; k++)
+        {
+            if ((p[k] & 0xc0) != 0x80)
+                return 0;
+            cp = (cp << 6) | (p[k] & 0x3f);
+        }
+        if ((more == 2 && (cp < 0x800 || (cp >= 0xd800 && cp <= 0xdfff))) || (more == 3 && (cp < 0x10000 || cp > 0x10ffff)))
+            return 0;
+        p += more + 1;
+    }
+    return 1;
+}
+
+/* mod-host's answer to a patch verb as the property verb's: its refusal of the URI is the symbol's, a ring with no room
+ * for the set is the queue's; a reply that is the daemon's own (the worker was not up, or died on it) as it is */
+static char *property_reply(char *reply, int answered, int full)
+{
+    int code = sup_reply_code(reply);
+
+    if (!answered)
+        return reply;
+    free(reply);
+    if (code >= 0)
+        return sup_resp(SUCCESS);
+    if (code == ERR_INSTANCE_NON_EXISTS)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    if (code == ERR_LV2_INVALID_URI)
+        return sup_resp(OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    if (full && code == ERR_MEMORY_ALLOCATION)
+        return sup_resp(OMX_REPLY_HOST_PROPERTY_QUEUE_FULL_RESP);
+    return sup_resp(ERR_INVALID_OPERATION);
+}
+
+/* property_list of an LV2 instance: 0 for a bundle that cannot be read */
+char *lv2_property_list(int id)
+{
+    properties_t *props = properties_of_instance(id);
+    char *reply = NULL;
+
+    if (props == NULL)
+        return sup_resp(0);
+    if (asprintf(&reply, "resp %d", props->n) < 0)
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    properties_free(props);
+    return reply;
+}
+
+char *lv2_property_info(int id, int index)
+{
+    properties_t *props = properties_of_instance(id);
+    char name[WORD_MAX + 8], *reply = NULL;
+    const property_t *p;
+
+    if (props == NULL || index < 0 || index >= props->n)
+    {
+        if (props)
+            properties_free(props);
+        return sup_resp(OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    }
+    p = &props->p[index];
+    quoted(name, sizeof(name), p->name);
+    if (asprintf(&reply, "resp 0 %s %s %s %s", p->symbol, p->path ? "path" : "string", p->readable ? "rw" : "w", name) < 0)
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    properties_free(props);
+    return reply;
+}
+
+/* property_set of an LV2 instance: mod-host's patch_set of the property's URI, the value one quoted word. mod-host's
+ * reader has no escape for a backslash and none it undoes reliably for a quote, so a value holding either is one its line
+ * cannot carry: -108, and mod-host hears nothing. The set mod-host took is the replace-keyed ledger's, by the URI */
+char *lv2_property_set(int id, const char *symbol, const char *value)
+{
+    properties_t *props = properties_of_instance(id);
+    const property_t *p = props ? property_named(props, symbol) : NULL;
+    char *word = NULL, *line = NULL, *reply;
+    int answered;
+
+    if (p == NULL)
+        reply = sup_resp(OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    else if (!utf8_valid(value) || (p->path && value[0] != '/') || strpbrk(value, "\"\\"))
+        reply = sup_resp(OMX_REPLY_HOST_PROPERTY_VALUE_INVALID_RESP);
+    else if (asprintf(&word, "\"%s\"", value) < 0 || asprintf(&line, EFFECT_PATCH_SET, id, p->uri, word) < 0)
+    {
+        line = NULL;
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    }
+    else
+        reply = property_reply(sup_call_keyed(id, line, &answered), answered, 1);
+    free(word);
+    free(line);
+    if (props)
+        properties_free(props);
+    return reply;
+}
+
+/* property_get of an LV2 instance: mod-host's patch_get of the property's URI; the plugin answers with a patch:Set, which
+ * mod-host writes on its feedback port as "patch_set <instance> <uri> <atom type> <value>", the value to the line's end.
+ * A plugin that does not answer within PROPERTY_GET_MS is -902: the value it holds cannot be told */
+char *lv2_property_get(int id, const char *symbol)
+{
+    properties_t *props = properties_of_instance(id);
+    const property_t *p = props ? property_named(props, symbol) : NULL;
+    char *line = NULL, *prefix = NULL, *seen = NULL, *reply;
+    int answered;
+
+    if (p == NULL)
+        reply = sup_resp(OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    else if (!p->readable)
+        reply = sup_resp(OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
+    else if (asprintf(&line, EFFECT_PATCH_GET, id, p->uri) < 0 || asprintf(&prefix, EFFECT_PATCH_SET, id, p->uri, "") < 0)
+    {
+        line = prefix = NULL;
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    }
+    else
+    {
+        /* mod-host writes no feedback after a data_finish until its controller says output_data_ready; the daemon owns
+         * the mod-host session, so it says it for this read, and a console that never acks reads the value back too */
+        free(sup_call(id, OUTPUT_DATA_READY));
+        reply = sup_call_seen(id, line, prefix, PROPERTY_GET_MS, &answered, &seen);
+        if (!answered || sup_reply_code(reply) < 0)
+            reply = property_reply(reply, answered, 0);
+        else if (!seen)
+        {
+            free(reply);
+            reply = sup_resp(ERR_INVALID_OPERATION);
+        }
+        else
+        {
+            const char *type = seen + strlen(prefix), *value = strchr(type, ' ');
+            size_t size = 16, used;
+
+            value = value ? value + 1 : type + strlen(type);
+            size += 2 * strlen(value);
+            free(reply);
+            reply = malloc(size);
+            if (reply)
+            {
+                used = (size_t)snprintf(reply, size, "resp 0 \"");
+                for (; *value; value++)
+                {
+                    if (*value == '"' || *value == '\\')
+                        reply[used++] = '\\';
+                    reply[used++] = *value;
+                }
+                reply[used++] = '"';
+                reply[used] = '\0';
+            }
+            else
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
+        }
+    }
+    free(line);
+    free(prefix);
+    free(seen);
+    if (props)
+        properties_free(props);
     return reply;
 }
 

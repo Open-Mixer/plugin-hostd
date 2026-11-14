@@ -12,6 +12,7 @@ Build-Depends: debhelper-compat (= 13),
                plugin-hostd-protocol-contract (>= 0.5.8~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
                plugin-db-dev (>= 0.4.1~), plugin-db-dev (<< 0.5~),
                libcjson-dev,
+               lv2-dev,
                pkgconf,
                python3
 Standards-Version: 4.6.2
