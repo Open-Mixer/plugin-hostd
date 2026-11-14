@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Four text properties as omx-clap-host's LV2 adapter presents them, in the order of their URIs: a symbol of their own
+# (gain_file) or the URI's tail (_2nd, title_text), a name of their own or the URI; one writable and not readable. What is
+# no text property is none: a readable one that is not writable, a numeric one, one with no lv2:Parameter type.
+@prefix atom: <http://lv2plug.in/ns/ext/atom#> .
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix patch: <http://lv2plug.in/ns/ext/patch#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fx:   <urn:openmixer:test:props#> .
+
+fx:title-text
+    a lv2:Parameter ;
+    rdfs:range atom:String ;
+    rdfs:label "Title \"T\"" .
+
+fx:gainfile
+    a lv2:Parameter ;
+    lv2:symbol "gain_file" ;
+    rdfs:range atom:Path ;
+    rdfs:label "Gain file" .
+
+fx:note
+    a lv2:Parameter ;
+    rdfs:range atom:String .
+
+fx:2nd
+    a lv2:Parameter ;
+    rdfs:range atom:String ;
+    rdfs:label "Second" .
+
+fx:readonly
+    a lv2:Parameter ;
+    rdfs:range atom:String ;
+    rdfs:label "Read only" .
+
+fx:level
+    a lv2:Parameter ;
+    rdfs:range atom:Float ;
+    rdfs:label "Level" .
+
+fx:untyped
+    rdfs:range atom:String ;
+    rdfs:label "Untyped" .
+
+<urn:openmixer:test:props>
+    a lv2:Plugin ;
+    lv2:name "props" ;
+    patch:writable fx:title-text , fx:gainfile , fx:note , fx:2nd , fx:level , fx:untyped ;
+    patch:readable fx:title-text , fx:gainfile , fx:2nd , fx:readonly , fx:level ;
+    lv2:port [
+        a lv2:AudioPort , lv2:InputPort ; lv2:index 0 ; lv2:symbol "in" ; lv2:name "In"
+    ] , [
+        a lv2:AudioPort , lv2:OutputPort ; lv2:index 1 ; lv2:symbol "out" ; lv2:name "Out"
+    ] .

@@ -1790,7 +1790,7 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         known = {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
                  "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui",
                  "node_label"}
-        check(known <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
+        check((known | set(PROPERTY_VERBS)) <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -1809,9 +1809,14 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         d.expect("param_info 0 :bypass", "resp -103")
         d.expect("remote_pages 9", "resp -3")
         d.expect("param_info 9 gain", "resp -3")
+        # the property verbs are answered from the bundle, and a plugin no bundle holds has no property
+        d.expect("property_list 0", "resp 0")
+        d.expect("property_info 0 0", "resp -106")
+        d.expect("property_get 0 label", "resp -106")
+        d.expect('property_set 0 label "x"', "resp -106")
         # a verb the protocol declares past those: mod-host has no answer of its own, so the daemon refuses it for an
         # LV2 instance as an invalid operation, and the worker never hears it (checked with the rest below)
-        for verb in sorted(set(VERBS) - known):
+        for verb in sorted(set(VERBS) - known - set(PROPERTY_VERBS)):
             d.expect("%s 0" % verb, "resp -902")
         _, w = d.holder(0)
         mark = d.mark()
@@ -1829,6 +1834,111 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
 
 PORTS_URI = "urn:openmixer:test:ports"
 PORTS_DIR = os.path.join(ROOT, "tests", "fixtures")
+PROPS_URI = "urn:openmixer:test:props"
+PROPERTY_VERBS = ("property_list", "property_info", "property_get", "property_set")
+
+
+@test
+def an_lv2_instance_on_mod_host_lists_its_properties_as_the_adapter_presents_them():
+    """the text properties of the bundle, as omx-clap-host's LV2 adapter presents them: patch:writable lv2:Parameters of
+    range atom:Path or atom:String, in the order of their URIs; the property's lv2:symbol, else the URI's tail with every
+    other character '_' and a leading digit prefixed '_'; its rdfs:label, else its URI; rw when also patch:readable, else
+    w. mod-host is never asked"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
+    try:
+        d.expect("add lv2:%s 0" % PROPS_URI, "resp 0")
+        d.expect("property_list 0", "resp 4")
+        d.expect("property_info 0 0", 'resp 0 _2nd string rw "Second"')
+        d.expect("property_info 0 1", 'resp 0 gain_file path rw "Gain file"')
+        d.expect("property_info 0 2", 'resp 0 note string w "%s#note"' % PROPS_URI)
+        d.expect("property_info 0 3", 'resp 0 title_text string rw "Title \\"T\\""')
+        d.expect("property_info 0 4", "resp -106")
+        d.expect("property_info 0 -1", "resp -902")
+        d.expect("property_info 0 x", "resp -902")
+        d.expect("property_list 9", "resp -3")
+        d.expect("property_info 9 0", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS or c.startswith("patch_")]
+        check(got == [], "mod-host is asked nothing: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_property_of_an_lv2_instance_on_mod_host_is_set_and_read_through_its_patch_verbs():
+    """property_set is mod-host's patch_set of the property's URI, the value one quoted word; a value mod-host's line cannot
+    carry (a quote or a backslash), a relative path, a symbol that is none, are refused and mod-host hears nothing.
+    property_get is mod-host's patch_get, its value the one the patch_set line on mod-host's feedback port carries,
+    quoted-escaped; one that is not readable is -107, and a plugin that does not answer is -902"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
+    gain, title = PROPS_URI + "#gainfile", PROPS_URI + "#title-text"
+    try:
+        d.expect("add lv2:%s 0" % PROPS_URI, "resp 0")
+        d.expect('property_set 0 gain_file "/var/lib/a b.wav"', "resp 0")
+        d.expect('property_set 0 title_text "Sala A"', "resp 0")
+        d.expect('property_set 0 note ""', "resp 0")
+        d.expect('property_set 0 title_text "Sala \\"A\\""', "resp -108")
+        d.expect('property_set 0 title_text "a \\\\ b"', "resp -108")
+        d.expect('property_set 0 gain_file "rel/a.wav"', "resp -108")
+        d.expect('property_set 0 nope "x"', "resp -106")
+        d.expect('property_set 0 gain_file', "resp -902")
+        d.expect('property_set 9 gain_file "/a"', "resp -3")
+        d.expect("property_get 0 gain_file", 'resp 0 "/var/lib/a b.wav"')
+        d.expect("property_get 0 title_text", 'resp 0 "Sala A"')
+        # what the plugin holds, whatever set it: mod-host's own patch_set, a quote in it as mod-host reads one, and a backslash
+        d.expect('patch_set 0 %s "Sala \\"B\\" \\ 2"' % title, "resp 0")
+        d.expect("property_get 0 title_text", 'resp 0 "Sala \\"B\\" \\\\ 2"')
+        d.expect("property_get 0 note", "resp -107")
+        d.expect("property_get 0 nope", "resp -106")
+        d.expect("property_get 9 note", "resp -3")
+        d.expect("property_get 0 _2nd", "resp -902")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS or c.startswith("patch_")]
+        check(got == ['patch_set 0 %s "/var/lib/a b.wav"' % gain, 'patch_set 0 %s "Sala A"' % title,
+                      'patch_set 0 %s#note ""' % PROPS_URI, "patch_get 0 %s" % gain, "patch_get 0 %s" % title,
+                      'patch_set 0 %s "Sala \\"B\\" \\ 2"' % title, "patch_get 0 %s" % title,
+                      "patch_get 0 %s#2nd" % PROPS_URI],
+              "mod-host gets the patch verbs, and no property verb, nor a line the daemon refused: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_property_set_on_mod_host_is_replayed_the_latest_per_property_after_the_state():
+    """the patch_set a property_set became is kept per property (replace-keyed): a respawned mod-host gets each property
+    once, its latest value, in the order first set, after the checkpoint's state_load, and the checkpoint drops none"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300, "lv2_path": PORTS_DIR}, env={"FAKE_LOG": log})
+    gain, title = PROPS_URI + "#gainfile", PROPS_URI + "#title-text"
+    try:
+        d.expect("add lv2:%s 0" % PROPS_URI, "resp 0")
+        d.expect('property_set 0 gain_file "/var/lib/a.wav"', "resp 0")
+        d.expect('property_set 0 title_text "Sala A"', "resp 0")
+        d.expect('property_set 0 gain_file "/var/lib/b.wav"', "resp 0")
+        d.expect('property_set 0 gain_file "c.wav"', "resp -108")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        patches = [c for c in sent if c.startswith("patch_set ")]
+        check(patches == ['patch_set 0 %s "/var/lib/b.wav"' % gain, 'patch_set 0 %s "Sala A"' % title],
+              "each property once, its latest value, in the order first set: %s" % patches)
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        check("state_load" in verbs and verbs.index("state_load") < sent.index(patches[0]),
+              "after the checkpoint's state_load: %s" % sent)
+        d.expect("property_get 0 gain_file", 'resp 0 "/var/lib/b.wav"')
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 
 @test
