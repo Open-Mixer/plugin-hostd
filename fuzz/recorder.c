@@ -288,7 +288,8 @@ static char *answer(struct rec_call *c, const char *shape, int changes)
     if (changes)
         g_rec.state = mix_call(g_rec.state, c);
     /* the reply a verb declares fits one line of the protocol
-     * record: answer-fits-one-line */
+     * mutant: include/plugin-hostd/protocol.h:78 `4096` -> `4`
+     * input: mod-host-bypass */
     if (syntax_instantiate(shape, buf, sizeof(buf)) < 0)
         abort();
     return hand_back(buf);
