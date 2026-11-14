@@ -113,7 +113,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
+        # ruling D25: the suites the deb job built for this tag, through OMX_RELEASE_MATRIX as build-deb.yml reads it
+        # for a release: trixie alone while the variable is quick, bookworm too when it is full or unset
+        suite: ${{ fromJSON(vars.OMX_RELEASE_MATRIX == 'quick' && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: [amd64, arm64]
         mode: [default, headless]
     steps:
