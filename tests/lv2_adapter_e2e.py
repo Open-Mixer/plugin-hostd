@@ -289,10 +289,9 @@ def the_properties_of_an_lv2_plugin_are_one_path_on_mod_host_and_through_the_ada
                 check("gainfile" in symbols and "label" in symbols, "%s presents gainfile and label: %s" % (worker, seen[worker]))
                 r.d.expect('property_set 0 gainfile "%s"' % gainfile, "resp 0")
                 r.d.expect('property_set 0 label "Sala A"', "resp 0")
-                # mod-host writes no more feedback after a data_finish until its controller says output_data_ready, as
-                # mod-ui does after each: so does this controller, or the plugin's answer to patch_get never comes
+                # a controller that never says output_data_ready (the console does not): the daemon releases mod-host's
+                # feedback itself for the answer to its patch_get, so the read back needs nothing of the controller
                 def get(symbol):
-                    r.d.send("output_data_ready")
                     return r.d.send("property_get 0 %s" % symbol)
                 for symbol, value in (("gainfile", gainfile), ("label", "Sala A")):
                     want = 'resp 0 "%s"' % value
