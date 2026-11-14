@@ -157,7 +157,10 @@ def main():
         st2 = os.path.join(work, "state2")
         lock = os.path.join(work, "dpkg.lock")
         open(lock, "w").close()
-        alive = 'h=$(cat %s.pid 2>/dev/null) && [ -n "$h" ] && kill -0 "$h" 2>/dev/null' % st2
+        # a holder ended but not reaped is a zombie, which kill -0 still finds and which holds no lock: a CI job container
+        # whose PID 1 is `tail -f /dev/null` never reaps it, so alive means running, not merely present
+        alive = ('h=$(cat %s.pid 2>/dev/null) && [ -n "$h" ] && kill -0 "$h" 2>/dev/null'
+                 ' && ! grep -qs "^State:[[:space:]]*Z" /proc/$h/status' % st2)
         open(os.path.join(stubs2, "apt-get"), "w").write(
             "#!/bin/sh\nif [ ! -e %s.hung ]; then touch %s.hung; setsid %s/dpkg --hold </dev/null >/dev/null 2>&1 &\n"
             "echo Unpacking; sleep 30; fi\nif %s; then echo \"E: Could not get lock %s. It is held by process $h (dpkg)\" "
