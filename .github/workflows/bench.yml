@@ -4,12 +4,9 @@ name: bench
 # the harness goes red when broken, and one small scenario runs under each host the container has, on JACK's dummy
 # driver at 48 kHz. It checks that a valid document comes out, not the numbers.
 
+# Delivery pipeline §12: by workflow_dispatch only (on a box or by hand), never on a push or a pull request.
 on:
-  pull_request:
-    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
-  push:
-    branches: [main]
-    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
+  workflow_dispatch:
 
 permissions:
   contents: read
