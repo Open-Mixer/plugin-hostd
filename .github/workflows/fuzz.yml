@@ -126,3 +126,4 @@ jobs:
           name: fuzz-findings
           path: fuzz/findings/
           if-no-files-found: ignore
+          retention-days: ${{ (startsWith(github.ref, 'refs/tags/')) && 30 || 2 }}
