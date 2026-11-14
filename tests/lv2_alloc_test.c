@@ -101,6 +101,25 @@ char *sup_call(int id, const char *line)
     return NULL;
 }
 
+char *sup_call_keyed(int id, const char *line, int *answered)
+{
+    (void)id;
+    (void)line;
+    *answered = 0;
+    return NULL;
+}
+
+char *sup_call_seen(int id, const char *line, const char *prefix, int ms, int *answered, char **seen)
+{
+    (void)id;
+    (void)line;
+    (void)prefix;
+    (void)ms;
+    *answered = 0;
+    *seen = NULL;
+    return NULL;
+}
+
 int sup_reply_code(const char *reply)
 {
     (void)reply;

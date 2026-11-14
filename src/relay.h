@@ -65,6 +65,13 @@ int relay_abi_clobbers(int fd, int *ids, int max);
  * since the last call, as relay_abi_clobbers gives them: up to max into ids, each once, what did not fit waiting. */
 int relay_param_moves(int fd, int *ids, int max);
 
+/* The first line the worker of this feedback socket writes from now on that starts with prefix: relay_watch arms the one
+ * watch there is (a watch armed before is dropped), and relay_watched waits up to ms for that line, disarms the watch and
+ * gives the line, malloc'd, or NULL when none came; ms 0 only disarms. The line still goes to the controller. -1 when
+ * there is no memory to watch. */
+int relay_watch(int fd, const char *prefix);
+char *relay_watched(int ms);
+
 /* An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on. */
 void relay_instance_gone(int id);
 

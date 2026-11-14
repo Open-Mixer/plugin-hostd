@@ -351,6 +351,20 @@ played through its jack MIDI input with `connect`. omx-clap-host does not answer
 key `preset_get` gives is the one `preset_load` takes. mod-host cannot list presets, so for an LV2 instance on mod-host
 the daemon answers both `-515`. omx-clap-host lists them with `preset_list` and `preset_get`.
 
+The property verbs name a plugin's file and text properties (`org.openmixer.properties/1`). For an LV2 instance on
+mod-host the daemon presents the properties omx-clap-host's LV2 adapter presents, read from the bundle's Turtle: each
+`patch:writable` `lv2:Parameter` whose `rdfs:range` is `atom:Path` (kind `path`) or `atom:String` (kind `string`), in
+the order of their URIs; its `lv2:symbol`, else the URI's text after the last `#` (else the last `/`) with every
+character outside `[A-Za-z0-9_]` as `_` and a leading digit prefixed `_`; its `rdfs:label`, else its URI; `rw` when it
+is also `patch:readable`, else `w`. `property_list` and `property_info` are answered from that, and mod-host never hears
+them. `property_set` becomes mod-host's `patch_set <instance> <uri> "<value>"`. mod-host's reader has no escape for a
+backslash, so a value holding a quote or a backslash is `-108` and mod-host hears nothing, as are a value that is not
+UTF-8 and a relative path for a `path`; a ring with no room for the set is `-109`. The ledger keeps that `patch_set`
+line, the latest per property, and a respawned mod-host gets each after the state. `property_get` becomes mod-host's
+`patch_get`: the plugin answers with a `patch:Set`, which mod-host writes on its feedback port as `patch_set <instance>
+<uri> <type> <value>` (relayed as written), and its value is the reply; a plugin that writes none within a second is
+`-902`. A bundle the daemon cannot find or read has no properties.
+
 A plugin with a window or a surface of its own tells its host when the user takes hold of one of its knobs and lets go,
 moves values by itself, and suggests a remote page. Its worker writes `param_gesture`, mod-host's `param_set` and
 `remote_page_suggest` on its feedback port, and the daemon relays them as written, in order (events below). If the

@@ -71,6 +71,11 @@ typedef struct FORMAT_T {
     /* the daemon's remote_pages and remote_page_get when it answers; NULL for a format with no pages: 0 pages, -902 for a page */
     char *(*remote_pages)(int id);
     char *(*remote_page_get)(int id, int page);
+    /* the daemon's property verbs when it answers (a worker that has none of its own, as mod-host); NULL: -902 for each */
+    char *(*property_list)(int id);
+    char *(*property_info)(int id, int index);
+    char *(*property_get)(int id, const char *symbol);
+    char *(*property_set)(int id, const char *symbol, const char *value);
 } format_t;
 
 /* clap:<path>#<id> with its path decoded, one string that is not a word of a line; 0, or -1 when the uri is not one or its
@@ -106,6 +111,10 @@ char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *u
 char *lv2_param_info(int id, const char *symbol);
 char *lv2_remote_pages(int id);
 char *lv2_remote_page_get(int id, int page);
+char *lv2_property_list(int id);
+char *lv2_property_info(int id, int index);
+char *lv2_property_get(int id, const char *symbol);
+char *lv2_property_set(int id, const char *symbol, const char *value);
 
 /* which LV2 row runs a uri: the lv2_worker_set override of the uri, else the lv2_worker setting. NULL names the lv2 row
  * itself. A plugin the row's worker refuses stays refused: it is never moved to the other row. */

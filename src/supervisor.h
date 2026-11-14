@@ -155,6 +155,12 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
 
 /* a command that names one instance; the ledger sees it when it succeeds */
 char *sup_call(int id, const char *line);
+/* the same, kept out of the verb tail; a command the worker did is kept instead as the latest line of its key, its second
+ * word, and replayed after the state (the replace-keyed ledger). *answered is 1 when the reply is the worker's */
+char *sup_call_keyed(int id, const char *line, int *answered);
+/* the same, the ledger untouched, and the first line the worker writes on its feedback port that starts with prefix,
+ * waited for up to ms once the worker did the command, in *seen (malloc'd), NULL when none came */
+char *sup_call_seen(int id, const char *line, const char *prefix, int ms, int *answered, char **seen);
 char *sup_remove(int id);
 char *sup_remove_all(void);
 char *sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b);
