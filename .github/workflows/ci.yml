@@ -464,7 +464,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
+        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
+        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -537,7 +538,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
+        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
+        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     # nothing but the distribution: a dependency the package forgot to declare is missing here
     defaults:
@@ -635,7 +637,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(github.event_name == 'pull_request' && '["trixie"]' || '["bookworm", "trixie"]') }}
+        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
+        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
     defaults:
       run:
@@ -734,7 +737,7 @@ jobs:
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
             ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \
-            'omx-clap-host >= 0.32.3' 'omx-clap-host < 0.33' \
+            'omx-clap-host >= 0.32.5' 'omx-clap-host < 0.33' \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the daemon installed is the one built above, not a served one
