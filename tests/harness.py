@@ -34,6 +34,33 @@ def check(cond, what):
         raise Fail(what)
 
 
+# A timing proof reads the load (ruling 2026-11-11). A bound on how long something takes holds on a quiet node; on a
+# node loaded past its cores the scheduler, not the daemon, decides it. So a timing proof that misses its bound is a
+# TimingMiss: run_tests reads the node's 1-minute load against the cores this process may use, and on a loaded node
+# prints a warning naming the load (and TIMING-WARN <name>, for the gate to rerun the proof on a quiet node) instead of
+# a failure; on a quiet node it fails as any check does. Only a timing check reads the load: every other check of the
+# same proof fails on any node.
+class TimingMiss(Fail):
+    pass
+
+
+def node_load():
+    """(the 1-minute load average, the cores this process may use); HOSTD_TEST_LOADAVG fakes the load"""
+    fake = os.environ.get("HOSTD_TEST_LOADAVG")
+    if fake:
+        load = float(fake)
+    else:
+        with open("/proc/loadavg") as f:
+            load = float(f.read().split()[0])
+    return load, len(os.sched_getaffinity(0))
+
+
+def check_timing(cond, what):
+    """a bound on time: a TimingMiss when it does not hold"""
+    if not cond:
+        raise TimingMiss(what)
+
+
 def port_pair():
     # PLUGIN_HOSTD_TEST_PORT_BASE (tests/sabotage_pool.py): arms that run side by side each draw from a range of their own
     base = os.environ.get("PLUGIN_HOSTD_TEST_PORT_BASE")
@@ -82,14 +109,16 @@ def alive(pid):
 CEILING = 60.0
 
 
-def wait_for(cond, what, timeout=CEILING, step=0.02):
+def wait_for(cond, what, timeout=CEILING, step=0.02, timing=False):
+    """cond's first true value; past `timeout` a failure, or a TimingMiss when the timeout is the proof's bound
+    (timing=True). What cond raises is its own: a daemon that exited is a failure on any node"""
     end = time.monotonic() + timeout
     while time.monotonic() < end:
         v = cond()
         if v:
             return v
         time.sleep(step)
-    raise Fail("timed out waiting for " + what)
+    raise (TimingMiss if timing else Fail)("timed out waiting for " + what)
 
 
 class Daemon:
@@ -244,7 +273,7 @@ class Daemon:
                 return k, w
         raise Fail("no worker holds instance %d" % inst)
 
-    def wait_event(self, prefix, timeout=CEILING, since=0):
+    def wait_event(self, prefix, timeout=CEILING, since=0, timing=False):
         def find():
             if self.proc.poll() is not None:
                 raise Fail("the daemon exited with %s: %s" % (self.proc.returncode, self.log()[-600:]))
@@ -253,7 +282,7 @@ class Daemon:
                     if i >= since and e.startswith(prefix):
                         return e
             return None
-        return wait_for(find, "event '%s' (have %s)" % (prefix, self.events), timeout)
+        return wait_for(find, "event '%s' (have %s)" % (prefix, self.events), timeout, timing=timing)
 
     def settle(self, since, quiet=0.3, ceiling=CEILING):
         """the feedback lines the daemon wrote about what just happened have all arrived: none came for `quiet` seconds.
@@ -274,8 +303,8 @@ class Daemon:
         with self.lock:
             return len(self.events)
 
-    def wait_up(self, inst, timeout=CEILING):
-        return wait_for(lambda: self._up(inst), "instance %d up" % inst, timeout)
+    def wait_up(self, inst, timeout=CEILING, timing=False):
+        return wait_for(lambda: self._up(inst), "instance %d up" % inst, timeout, timing=timing)
 
     def _up(self, inst):
         for k, w in self.workers().items():
@@ -304,6 +333,7 @@ class Daemon:
 def run_tests(tests):
     only = os.environ.get("ONLY")
     failed = 0
+    warned = []
     for name, fn in tests:
         if only and only != name:
             continue
@@ -311,10 +341,23 @@ def run_tests(tests):
         try:
             fn()
             print("ok   " + name, flush=True)
+        except TimingMiss as e:
+            load, cores = node_load()
+            if load > cores:
+                warned.append(name)
+                print("WARN %s: %s (loaded node: 1-min load %.2f on %d cores)" % (name, e, load, cores), flush=True)
+                print("TIMING-WARN " + name, flush=True)
+            else:
+                failed += 1
+                print("FAIL %s: %s (quiet node: 1-min load %.2f on %d cores)" % (name, e, load, cores), flush=True)
+                for d in DAEMONS:
+                    print("     " + getattr(d, "snap", "daemon not closed"), flush=True)
         except (Fail, Exception) as e:
             failed += 1
             print("FAIL %s: %s" % (name, e if isinstance(e, Fail) else "%s: %s" % (type(e).__name__, e)), flush=True)
             for d in DAEMONS:
                 print("     " + getattr(d, "snap", "daemon not closed"), flush=True)
-    print("%s (%d failed)" % ("plugin-hostd tests FAILED" if failed else "plugin-hostd tests ok", failed))
+    warn = (", %d timing warning%s on a loaded node: rerun %s on a quiet node (ONLY=<name>)"
+            % (len(warned), "" if len(warned) == 1 else "s", "it" if len(warned) == 1 else "them")) if warned else ""
+    print("%s (%d failed%s)" % ("plugin-hostd tests FAILED" if failed else "plugin-hostd tests ok", failed, warn))
     return 1 if failed else 0

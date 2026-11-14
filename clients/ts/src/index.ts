@@ -71,6 +71,11 @@ export const GroupingReason = {
 } as const;
 /** One of the reasons a plan gives. */
 export type GroupingReasonWord = (typeof GroupingReason)[keyof typeof GroupingReason];
+/**
+ * The reasons of a plan that a later plan may not give again with the chain as it is: the reasons the file declares
+ * in the group retry, read from it and chosen nowhere in code.
+ */
+export const RETRY_REASONS: readonly string[] = [GroupingReason.noVerdict, GroupingReason.planRefused];
 // END GENERATED grouping-reasons
 
 /** A member of a plan that has a reason: the word of PLUGIN_HOSTD_GROUPING_REASONS, the code a plan-refused carries. */
@@ -292,7 +297,45 @@ interface Table {
   }[];
   readonly arg_types?: { readonly [name: string]: ArgType };
   readonly protocol_errors: readonly { readonly name: string; readonly code: number; readonly message: string }[];
-  readonly reply_codes: readonly { readonly resp: number; readonly code: string }[];
+  readonly reply_codes: readonly { readonly resp: number; readonly code: string; readonly transient?: boolean }[];
+}
+
+/**
+ * The names a table declares, each a property valued with what it names (plugin-hostd-protocol#24): a client compares
+ * what it decoded against one, never a literal it writes. A name the table does not declare is a ProtocolError, never
+ * undefined; Object.keys gives the names.
+ */
+export type Names = { readonly [name: string]: string };
+/** The reply codes by their constant (code.worker_spawn), and called, a code's number by its name. */
+export type CodeNames = Names & ((name: string) => number);
+
+/** A property every reader may probe for (a thenable, JSON, a class): never a name, so it reads as absent. */
+const PROBED = new Set(['then', 'toJSON', 'constructor']);
+
+function namesOf(what: string, values: ReadonlyMap<string, string>): Names;
+function namesOf(what: string, values: ReadonlyMap<string, string>, call: (name: string) => number): CodeNames;
+function namesOf(what: string, values: ReadonlyMap<string, string>, call?: (name: string) => number): Names | CodeNames {
+  const target = call ? (name: string): number => call(name) : {};
+  return new Proxy(target, {
+    get(t, p) {
+      if (typeof p !== 'string' || PROBED.has(p)) return Reflect.get(t, p);
+      const v = values.get(p);
+      if (v === undefined) throw new ProtocolError(`the protocol declares no ${what} ${p}`);
+      return v;
+    },
+    has: (_t, p) => typeof p === 'string' && values.has(p),
+    ownKeys: () => [...values.keys()].sort(),
+    getOwnPropertyDescriptor: (_t, p) =>
+      typeof p === 'string' && values.has(p) ? { value: values.get(p), enumerable: true, configurable: true, writable: false } : undefined,
+    set: () => {
+      throw new ProtocolError(`the ${what} names are the table's`);
+    },
+  }) as Names | CodeNames;
+}
+
+/** A reply code's constant: its last segment, snake case (reply.plugin-hostd.worker-spawn is worker_spawn). */
+function shortName(code: string): string {
+  return code.slice(code.lastIndexOf('.') + 1).replace(/-/g, '_');
 }
 
 export interface ProtocolOptions {
@@ -310,11 +353,6 @@ function escapeRegExp(s: string): string {
 
 /** A figure or a list the daemon has none for. */
 const NONE = '-';
-/**
- * The reasons of a plan that a later plan may not give again with the chain as it is: the pin may gain a verdict
- * (no-verdict), what refused a segment may pass (plan-refused).
- */
-export const RETRY_REASONS: readonly string[] = [GroupingReason.noVerdict, GroupingReason.planRefused];
 
 /**
  * A plan's cores in its segments' shape: each member's core, null for one that is not pinned, and for every member
@@ -344,6 +382,12 @@ export class Protocol {
   private readonly protocolErrors: Map<string, Table['protocol_errors'][number]>;
   private readonly names: Map<number, string>;
   private readonly codes: Map<string, number>;
+  /** The codes an identical request may pass later with no change by the caller (#23): the table's declaration. */
+  private readonly transientCodes: ReadonlySet<number>;
+  /** Every verb the table declares, a command's or a feedback line's, by its own word (#24). */
+  readonly verb: Names;
+  /** Every reply code by its last segment in snake case, valued with the code; called, a code's number by its name. */
+  readonly code: CodeNames;
   private readonly sentences = new Map<string, string>();
   private readonly owners = new Map<string, string>();
   private readonly catalogs = new Map<string, Record<string, string>>();
@@ -364,6 +408,15 @@ export class Protocol {
     this.types = t.arg_types ?? {};
     this.names = new Map(t.reply_codes.map((r) => [r.resp, r.code]));
     this.codes = new Map(t.reply_codes.map((r) => [r.code, r.resp]));
+    this.transientCodes = new Set(t.reply_codes.filter((r) => r.transient === true).map((r) => r.resp));
+    this.verb = namesOf('verb', new Map([...this.commands.keys(), ...this.feedback.keys()].map((w) => [w, w])));
+    const short = new Map<string, string>();
+    for (const code of this.codes.keys()) {
+      const other = short.get(shortName(code));
+      if (other !== undefined) throw new ProtocolError(`the codes ${other} and ${code} share the constant ${shortName(code)}`);
+      short.set(shortName(code), code);
+    }
+    this.code = namesOf('code', short, (name) => this.codeOf(name));
     const env = process.env['OMX_CONTRACT_PATH'];
     const contractDirs = options.contractDirs ??
       (env ? env.split(':').filter(Boolean) : [pkgConfig('--variable=contractdir', 'omx-contract')].filter((d): d is string => !!d));
@@ -685,10 +738,20 @@ export class Protocol {
   // ---- codes
 
   /** The number of a reply code by its name (reply.<group>.<reason>); ProtocolError for one the table lacks. */
-  code(name: string): number {
+  private codeOf(name: string): number {
     const code = this.codes.get(name);
     if (code === undefined) throw new ProtocolError(`the protocol declares no code ${name}`);
     return code;
+  }
+
+  /**
+   * Whether a refusal is transient, by its number or its name: an identical request may succeed later with no change
+   * by the caller, as the table declares it. ProtocolError for a code the table lacks.
+   */
+  transient(code: number | string): boolean {
+    const resp = typeof code === 'string' ? this.codeOf(code) : code;
+    if (!this.names.has(resp)) throw new ProtocolError(`the protocol declares no code ${code}`);
+    return this.transientCodes.has(resp);
   }
 
   /** The name of a reply code, or null for a number the table gives no name. */

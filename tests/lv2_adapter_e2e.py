@@ -200,7 +200,7 @@ def the_tempo_is_handed_again_to_a_respawned_real_worker():
         if code_of(answer) < 0:
             # omx-clap-host does not take a tempo yet: its refusal of the replayed line is what shows it was handed again
             check("refused 'set_bpm 133': %s" % answer in r.d.log(), "the respawned worker was handed set_bpm 133: %s" % r.d.log()[-600:])
-            print("PENDING FreeMixer/omx-clap-core#88: omx-clap-host answers set_bpm %r; the respawned worker was handed it again" % answer)
+            print("PENDING Open-Mixer/omx-clap-core#88: omx-clap-host answers set_bpm %r; the respawned worker was handed it again" % answer)
     finally:
         r.close()
 
@@ -221,7 +221,7 @@ def notes_through_the_daemon_reach_the_real_workers_as_declared():
             # worker lives on
             note = r.d.send("note_on 0 0 60 100")
             check(answer == note == "not found", "the worker's answers, passed through: %r %r" % (answer, note))
-            print("PENDING FreeMixer/omx-clap-core#122: omx-clap-host answers note_input %r and note_on %r" % (answer, note))
+            print("PENDING Open-Mixer/omx-clap-core#122: omx-clap-host answers note_input %r and note_on %r" % (answer, note))
         check(r.d.holder(0)[1]["pid"] == pid and r.d.holder(0)[1]["state"] == "up", "the worker lives on: %s" % r.d.workers())
     finally:
         r.close()
@@ -250,11 +250,11 @@ def the_real_worker_answers_the_preset_list_as_declared():
         else:
             # omx-clap-host lists no presets yet: its answer is passed through and the worker lives on
             check(answer == "not found", "the worker's answer, passed through: %r" % answer)
-            print("PENDING FreeMixer/omx-clap-core#95: omx-clap-host answers preset_list %r" % answer)
+            print("PENDING Open-Mixer/omx-clap-core#95: omx-clap-host answers preset_list %r" % answer)
         check(r.d.holder(0)[1]["pid"] == pid and r.d.holder(0)[1]["state"] == "up", "the worker lives on: %s" % r.d.workers())
         # gestures, plugin-moved values and suggested pages are written by omx-clap-host from omx-clap-core#87 on; the
         # daemon relays them like any line, which the fake worker's cases prove
-        print("PENDING FreeMixer/omx-clap-core#87: omx-clap-host writes no param_gesture or remote_page_suggest yet")
+        print("PENDING Open-Mixer/omx-clap-core#87: omx-clap-host writes no param_gesture or remote_page_suggest yet")
         r.d.expect("add lv2:%s 1" % GAIN, "resp 1")
     finally:
         r.close()

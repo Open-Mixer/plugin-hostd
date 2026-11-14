@@ -5,7 +5,7 @@ Version: 0.20.7
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
-URL: https://github.com/FreeMixer/plugin-hostd
+URL: https://github.com/Open-Mixer/plugin-hostd
 
 Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
@@ -90,7 +90,7 @@ Summary: The Python client of plugin-hostd's protocol
 BuildArch: noarch
 Requires: python3
 # what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
-# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.7 the newest served; a floor and the
+# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.8 the first that declares a code's transient (#70); a floor and the
 # next minor
 Requires: (plugin-hostd-protocol >= 0.5.9 with plugin-hostd-protocol < 0.6)
 Requires: (plugin-hostd-protocol-contract >= 0.5.9 with plugin-hostd-protocol-contract < 0.6)
