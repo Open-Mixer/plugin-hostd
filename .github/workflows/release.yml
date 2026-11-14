@@ -100,21 +100,45 @@ jobs:
   # install_weak_deps=False) leaves out omx-panel and every X server, Xlib, Wayland and GTK package
   # (tools/full-install-check.sh, which also names the only packages allowed to pull libxcb and nodejs). After the
   # publish of a tag only: the channel is where it installs from. Not on a catch-up, whose cells are not these.
+  # The cells follow the release set (ruling D25, Open-Mixer/.github#59): while the organisation variable
+  # OMX_RELEASE_MATRIX is quick, only the quick cells the release built (check-matrix reads the shared quick set);
+  # full, or unset, every cell below. A cell outside the set is skipped by the variable, never deleted here.
+  checks:
+    name: plugin-hostd-full cells
+    if: ${{ github.ref_type == 'tag' && inputs.catch-up != true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      rpm: ${{ steps.m.outputs.rpm }}
+      rpm-count: ${{ steps.m.outputs.rpm-count }}
+      deb: ${{ steps.m.outputs.deb }}
+      deb-count: ${{ steps.m.outputs.deb-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          rpm-releases: '["44"]'
+          rpm-arches: '["x86_64", "aarch64"]'
+          deb-releases: '["bookworm", "trixie"]'
+          deb-arches: '["amd64", "arm64"]'
+
   full-deb:
-    name: plugin-hostd-full (${{ matrix.suite }}, ${{ matrix.arch }}, ${{ matrix.mode }})
-    needs: deb
-    if: ${{ !cancelled() && needs.deb.result == 'success' && github.ref_type == 'tag' && inputs.catch-up != true }}
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    name: plugin-hostd-full (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}, ${{ matrix.mode }})
+    needs: [deb, checks]
+    if: ${{ !cancelled() && needs.deb.result == 'success' && needs.checks.result == 'success' && needs.checks.outputs.deb-count != '0' && github.ref_type == 'tag' && inputs.catch-up != true }}
+    runs-on: ${{ matrix.cell.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
       contents: read
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     strategy:
       fail-fast: false
       matrix:
-        suite: [bookworm, trixie]
-        arch: [amd64, arm64]
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
         mode: [default, headless]
     steps:
       - uses: actions/checkout@v4
@@ -122,19 +146,19 @@ jobs:
       - run: bash tools/full-install-check.sh deb "$GITHUB_REF_NAME" ${{ matrix.mode }}
 
   full-rpm:
-    name: plugin-hostd-full (Fedora 44, ${{ matrix.arch }}, ${{ matrix.mode }})
-    needs: rpm
-    if: ${{ !cancelled() && needs.rpm.result == 'success' && github.ref_type == 'tag' && inputs.catch-up != true }}
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    name: plugin-hostd-full (Fedora ${{ matrix.cell.fedora }}, ${{ matrix.cell.arch }}, ${{ matrix.mode }})
+    needs: [rpm, checks]
+    if: ${{ !cancelled() && needs.rpm.result == 'success' && needs.checks.result == 'success' && needs.checks.outputs.rpm-count != '0' && github.ref_type == 'tag' && inputs.catch-up != true }}
+    runs-on: ${{ matrix.cell.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
       contents: read
     container:
-      image: fedora:44
+      image: ${{ matrix.cell.image }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        cell: ${{ fromJSON(needs.checks.outputs.rpm) }}
         mode: [default, headless]
     steps:
       - uses: actions/checkout@v4
