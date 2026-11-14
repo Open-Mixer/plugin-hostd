@@ -1113,6 +1113,14 @@ def the_measured_child_locks_its_memory_or_the_record_says_why_not():
     check(ml["locked"] is False and "/nonexistent/lock.so" in ml.get("reason", ""), "memoryLock %s" % ml)
 
 
+# PROBE_TEST_PLANT_STALL=1 adds an arm that waits on a child that never answers, as an arm stalled on a loaded runner
+# does: tests/probe_deadline_test.sh proves that the arm deadline turns it into a named red.
+if os.environ.get("PROBE_TEST_PLANT_STALL") == "1":
+    @test
+    def planted_stall():
+        subprocess.run(["sleep", "100000"])
+
+
 for t in tests:
     if ONLY and t.__name__ != ONLY:
         continue
