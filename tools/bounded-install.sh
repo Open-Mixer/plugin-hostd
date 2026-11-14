@@ -59,6 +59,32 @@ attempt() {
     return "$status"
 }
 
+# apt runs dpkg in a session of its own, which ending the attempt's process group does not reach: the processes that hold
+# dpkg's lock (BOUNDED_INSTALL_DPKG_LOCK) are given the idle bound to finish, then ended. They are found by the lock
+# file among their open files, so a dpkg that holds no lock, or one of another lock file, is never touched
+lock_holders() {
+    local fd
+    for fd in /proc/[0-9]*/fd/*; do
+        [ "$(readlink "$fd" 2>/dev/null)" = "$dpkg_lock" ] && { fd=${fd#/proc/}; echo "${fd%%/*}"; }
+    done | sort -u
+}
+free_dpkg_lock() {
+    local holders waited=0
+    holders=$(lock_holders)
+    while [ -n "$holders" ] && [ "$waited" -lt "$idle_s" ]; do
+        sleep 1
+        waited=$((waited + 1))
+        holders=$(lock_holders)
+    done
+    [ -n "$holders" ] || return 0
+    echo "bounded-install: ending what still holds $dpkg_lock after ${idle_s} s: $(echo $holders)" >&2
+    kill -TERM $holders 2>/dev/null
+    for _ in 1 2 3 4 5 6 7 8 9 10; do [ -z "$(lock_holders)" ] && return 0; sleep 0.5; done
+    kill -KILL $(lock_holders) 2>/dev/null
+    sleep 0.5
+}
+dpkg_lock=${BOUNDED_INSTALL_DPKG_LOCK:-/var/lib/dpkg/lock}
+
 n=1
 while :; do
     attempt "$@"
@@ -72,8 +98,8 @@ while :; do
     echo "bounded-install: attempt $n of $tries: $* $why" >&2
     [ "$n" -ge "$tries" ] && break
     # an apt attempt ended mid-unpack leaves dpkg interrupted, which the next attempt would refuse at once: finish
-    # dpkg's work first, from what was already fetched
-    case $1 in apt | apt-get) dpkg --configure -a ;; esac
+    # dpkg's work first, from what was already fetched, once no dpkg of the ended attempt still holds the lock
+    case $1 in apt | apt-get) free_dpkg_lock; dpkg --configure -a ;; esac
     n=$((n + 1))
 done
 echo "::error::bounded-install: $* $why, $tries attempts; the mirrors it reads: $(mirrors)" >&2
