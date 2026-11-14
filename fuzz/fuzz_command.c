@@ -521,7 +521,7 @@ __attribute__((noinline)) static void check_words_pin_set(const struct rec_call 
             pool = w[k] + pkey;
     }
     /* the verdict and the pool, each the word the controller wrote after its key
-     * mutant: src/pin_words.c:49 `word[k] + key` -> `word[k]`
+     * mutant: src/pin_words.c:48 `word[k] + key` -> `word[k]`
      * input: plugin-hostd-pin_set-full */
     if (call->nargs != 5 || strcmp(call->args[3], verdict) || strcmp(call->args[4], pool))
         abort();
