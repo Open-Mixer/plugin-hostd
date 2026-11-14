@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+name: lint
+
+# The ONE lint workflow of this repository (delivery pipeline §12) and the only file allowed to run on a push or a
+# pull request. It is cheap and does nothing else: the shared trigger gate, which refuses a push or pull-request
+# trigger in every other workflow, and the shared public-sources check (commit messages, private references). The
+# build and the tests are the cluster's verify row (context cluster/verify) on each pull request; ci.yml, bench.yml,
+# fuzz.yml and release.yml run on a tag or by workflow_dispatch. Both checks come from Open-Mixer/.github at
+# openmixer-v1.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  trigger-gate:
+    name: trigger gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/trigger-gate@openmixer-v1
+        with:
+          lint-workflow: lint.yml
+
+  # the checks every OpenMixer repository runs on what it publishes: commit messages, private references, and no
+  # local copy of either (Open-Mixer/.github's public-sources-check)
+  public-sources:
+    uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@openmixer-v1
