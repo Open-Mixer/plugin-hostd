@@ -120,6 +120,29 @@ def main():
         rc, out, took = run(WRAPPER, slow, sources, 60)
         check(rc == 0 and out.count("unpacking") == 5, "a slow command that keeps printing passes, past several idle bounds "
               "(5 s against 2 s): rc %s in %.1f s" % (rc, took))
+        # silence is not stillness: dpkg's configure phase prints nothing while it works (#81's own DEB smoke run on a slow
+        # runner, 2026-11-14: "Setting up python3.13-minimal", then 165 s of silence, ended by the 120 s idle bound twice,
+        # the job's timeout on the third). An attempt that is silent but busy, its process tree using CPU or dpkg's
+        # status moving, is waited for; one that is silent and still is ended, as above.
+        busy = ["sh", "-c", "sh -c 'end=$(($(date +%s)+5)); while [ $(date +%s) -lt $end ]; do :; done'; echo configured"]
+        rc, out, took = run(WRAPPER, busy, sources, 60)
+        check(rc == 0 and "attempt 1 of" not in out and "configured" in out, "a command silent for 5 s against a 2 s idle "
+              "bound while a child of it uses CPU is waited for, in one attempt: rc %s in %.1f s, %r" % (rc, took, out[-200:]))
+        dpkgdir = os.path.join(work, "dpkg")
+        os.makedirs(dpkgdir)
+        open(os.path.join(dpkgdir, "status"), "w").close()
+        moving = ["sh", "-c", "for i in 1 2 3 4 5 6; do sleep 1; touch %s/status; done; echo set up" % dpkgdir]
+        os.environ["BOUNDED_INSTALL_DPKG_DIR"] = dpkgdir
+        try:
+            rc, out, took = run(WRAPPER, moving, sources, 60)
+            still = ["sh", "-c", "sleep 30"]
+            rc2, out2, took2 = run(WRAPPER, still, sources, 60)
+        finally:
+            del os.environ["BOUNDED_INSTALL_DPKG_DIR"]
+        check(rc == 0 and "attempt 1 of" not in out, "a command silent for 6 s whose dpkg status moves each second is waited "
+              "for, in one attempt: rc %s in %.1f s, %r" % (rc, took, out[-200:]))
+        check(rc2 == 1 and took2 < 20 and "3 attempts" in out2, "a command silent AND still (sleep 30) is still ended by the "
+              "idle bound, three attempts: rc %s in %.1f s" % (rc2, took2))
         rc, out, took = run(WRAPPER, ["sh", "-c", "echo nothing provides x >&2; exit 100"], sources, 60)
         check(rc == 1 and took < 5 and "attempt 2" not in out, "a command that fails fast is red at once, not retried: rc %s, "
               "%.1f s" % (rc, took))
