@@ -750,7 +750,7 @@ test-install-schemas: all
 check-ci-guards:
 	python3 tests/ci_guards.py
 
-# ruling D25: no CI matrix names bookworm by hand; the cells follow the organisation variable OMX_RELEASE_MATRIX
+# ruling D25: no CI matrix names bookworm, or lists aarch64, by hand; the cells follow the organisation variable OMX_RELEASE_MATRIX
 # (tests/ci-matrix-follows-set.sh, which also plants a hand cell and expects red). release.yml's tag-time cells too
 .PHONY: check-ci-matrix
 check-ci-matrix:
