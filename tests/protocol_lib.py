@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The two protocol clients plugin-hostd-tests ships (tests/lib/protocol.sh, tests/lib/plugin_hostd_client.py) against a
-# peer that answers in NUL-ended replies, split across writes, then its sabotage: a copy of each client that frames by
-# newline instead of NUL must fail the same checks, so the checks can tell a client that frames wrongly.
+# The shell protocol client plugin-hostd-tests ships (tests/lib/protocol.sh) against a peer that answers in NUL-ended
+# replies, split across writes, then its sabotage: a copy that frames by newline instead of NUL must fail the same
+# checks, so the checks can tell a client that frames wrongly. The Python client, plugin_hostd_client, is the protocol
+# owner's since plugin-hostd-protocol issue 45 (python3-plugin-hostd-client, tested there by tests/client_test.py): this
+# tree holds NO copy of it (tests/lib), and the tests import the installed one, or PLUGIN_HOSTD_CLIENT_DIR's.
 import os, re, socket, subprocess, sys, tempfile, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -67,31 +69,23 @@ def check_shell(lib, port, failures):
             failures.append("a log with the marker was not ready")
 
 
-def check_python(libdir, port, failures):
-    sys.path.insert(0, libdir)
-    sys.modules.pop("plugin_hostd_client", None)
-    import plugin_hostd_client as m
-    c = m.Client.connect(port)
-    if c.send("add x 0") != "resp add x 0":
-        failures.append("python send")
-    if c.expect("ping", "resp ping") != "resp ping":
-        failures.append("python expect")
+def no_copy(failures):
+    """the Python client lives in plugin-hostd-protocol: a copy here would drift from the one every consumer imports"""
+    copy = os.path.join(LIB, "plugin_hostd_client.py")
+    if os.path.exists(copy):
+        failures.append("a copy of the protocol's Python client is still here: " + os.path.relpath(copy, HERE))
     try:
-        c.expect("ping", "resp pong")
-        failures.append("python expect of the wrong reply raised nothing")
-    except AssertionError:
-        pass
-    if c.try_send("mute", 0.2) != (None, "timeout"):
-        failures.append("python timeout")
-    c2 = m.Client.connect(port)
-    if c2.try_send("bye", 1) != (None, "closed"):
-        failures.append("python closed")
-    sys.path.pop(0)
+        d = os.environ.get("PLUGIN_HOSTD_CLIENT_DIR")
+        if d:
+            sys.path.insert(0, d)
+        import plugin_hostd_client  # noqa: F401  python3-plugin-hostd-client
+    except ImportError as e:
+        failures.append("plugin_hostd_client does not import (install python3-plugin-hostd-client, or PLUGIN_HOSTD_CLIENT_DIR): %s" % e)
 
 
-def run(libsh, libpy, port, failures):
+def run(libsh, port, failures):
     check_shell(libsh, port, failures)
-    check_python(libpy, port, failures)
+    no_copy(failures)
 
 
 def main():
@@ -103,28 +97,22 @@ def main():
     for _ in range(8):
         threading.Thread(target=serve, args=(srv, stop), daemon=True).start()
     good = []
-    run(os.path.join(LIB, "protocol.sh"), LIB, port, good)
+    run(os.path.join(LIB, "protocol.sh"), port, good)
     if good:
         print("FAIL the clients:", *good, sep="\n  ")
         return 1
-    print("ok: the shell and the python client frame by NUL, split replies, time out and close")
+    print("ok: the shell client frames by NUL, splits replies, times out and closes; the Python client is the protocol's, no copy here")
     # sabotage: frame by newline, and the same checks must fail
     with tempfile.TemporaryDirectory() as d:
         sh = open(os.path.join(LIB, "protocol.sh")).read().replace("'%s\\0'", "'%s\\n'").replace("-d ''", "-d $'\\n'")
-        py = open(os.path.join(LIB, "plugin_hostd_client.py")).read().replace('b"\\0"', 'b"\\n"')
-        if sh == open(os.path.join(LIB, "protocol.sh")).read() or py == open(os.path.join(LIB, "plugin_hostd_client.py")).read():
+        if sh == open(os.path.join(LIB, "protocol.sh")).read():
             print("FAIL the sabotage changed nothing")
             return 1
         open(os.path.join(d, "protocol.sh"), "w").write(sh)
-        open(os.path.join(d, "plugin_hostd_client.py"), "w").write(py)
-        bad_sh, bad_py = [], []
+        bad_sh = []
         check_shell(os.path.join(d, "protocol.sh"), port, bad_sh)
-        try:
-            check_python(d, port, bad_py)
-        except Exception as e:
-            bad_py.append(repr(e))
-        if not bad_sh or not bad_py:
-            print("FAIL a client that frames by newline passed: shell %r, python %r" % (bad_sh, bad_py))
+        if not bad_sh:
+            print("FAIL a client that frames by newline passed: shell %r" % bad_sh)
             return 1
     print("ok: a client that frames by newline fails the same checks")
     stop.set()
