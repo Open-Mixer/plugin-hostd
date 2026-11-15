@@ -1113,16 +1113,80 @@ def the_measured_child_locks_its_memory_or_the_record_says_why_not():
     check(ml["locked"] is False and "/nonexistent/lock.so" in ml.get("reason", ""), "memoryLock %s" % ml)
 
 
+# PROBE_TEST_PLANT_STALL=1 adds an arm that waits on a child that never answers, as an arm stalled on a loaded runner
+# does: tests/probe_deadline_test.sh proves that the arm deadline turns it into a named red.
+if os.environ.get("PROBE_TEST_PLANT_STALL") == "1":
+    @test
+    def planted_stall():
+        subprocess.run(["sleep", "100000"])
+
+
+# Every arm is bounded by its own deadline (PROBE_ARM_DEADLINE_S, 180 s; 0 turns it off, which only the sabotage of
+# tests/probe_deadline_test.sh does): an arm that stalls, waiting on a child that never answers or starved on a loaded
+# runner, fails naming the arm and the step it stalled in, and every process it started is killed. It never hangs to
+# the job's timeout-minutes. The real-prober arms run up to three 600 s runs and carry a longer deadline.
+ARM_DEADLINE = int(os.environ.get("PROBE_ARM_DEADLINE_S", "180"))
+LONG_ARMS = {
+    "the_real_prober_times_an_instrument_holding_the_probe_notes_at_every_floor_rate": 2400,
+    "the_real_prober_counts_under_the_interposer_beside_it_at_every_floor_rate": 2400,
+    "the_real_lv2_measure_latency_and_cost_reach_the_grid": 900,
+    "the_real_lv2_measure_counts_what_run_does_while_notes_play": 900,
+}
+
+
+class Stalled(Exception):
+    pass
+
+
+def stalled(signum, frame):
+    import traceback
+    stack = traceback.extract_stack(frame)
+    own = [f for f in stack if f.filename == __file__ and f.name != "<module>"][-2:]
+    inner = [f for f in stack if f.filename != __file__][-2:]
+    raise Stalled(" -> ".join("%s:%d %s" % (os.path.basename(f.filename), f.lineno, f.name) for f in own + inner))
+
+
+def kill_descendants():
+    """SIGKILL every process this one started, children first found by /proc's parent links"""
+    parents = {}
+    for d in os.listdir("/proc"):
+        if d.isdigit():
+            try:
+                parents[int(d)] = int(open("/proc/%s/stat" % d).read().rsplit(")", 1)[1].split()[1])
+            except (OSError, ValueError, IndexError):
+                pass
+    mine, grew = {os.getpid()}, True
+    while grew:
+        more = {p for p, pp in parents.items() if pp in mine} - mine
+        grew = bool(more)
+        mine |= more
+    for p in mine - {os.getpid()}:
+        try:
+            os.kill(p, signal.SIGKILL)
+        except OSError:
+            pass
+
+
+signal.signal(signal.SIGALRM, stalled)
 for t in tests:
     if ONLY and t.__name__ != ONLY:
         continue
+    deadline = LONG_ARMS.get(t.__name__, ARM_DEADLINE) if ARM_DEADLINE else 0
+    signal.alarm(deadline)
     try:
         t()
+        signal.alarm(0)
         print("ok   " + t.__name__)
     except Skip as e:
+        signal.alarm(0)
         print("skip %s: %s" % (t.__name__, e))
     except AssertionError as e:
+        signal.alarm(0)
         print("FAIL %s: %s" % (t.__name__, e))
+        failed += 1
+    except Stalled as e:
+        kill_descendants()
+        print("FAIL %s: the arm gave no answer within %d s; stalled in: %s" % (t.__name__, deadline, e), flush=True)
         failed += 1
 print("plugin-hostd probe tests FAILED (%d)" % failed if failed else "plugin-hostd probe tests ok")
 sys.exit(1 if failed else 0)
