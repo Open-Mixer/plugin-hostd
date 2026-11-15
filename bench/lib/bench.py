@@ -78,7 +78,10 @@ class Procs:
         e = dict(self.env)
         e.update(env or {})
         out = open(os.path.join(self.logdir, name + ".log"), "ab")
-        p = subprocess.Popen(argv, stdin=stdin, stdout=out, stderr=subprocess.STDOUT, env=e, start_new_session=True)
+        # a jalv stands in the scratch directory; every other program keeps the bench's
+        cwd = _jalv_scratch().jalv_cwd() if os.path.basename(argv[0]) == "jalv" else None
+        p = subprocess.Popen(argv, stdin=stdin, stdout=out, stderr=subprocess.STDOUT, env=e, start_new_session=True,
+                             cwd=cwd)
         out.close()
         p.name = name
         self.live.append(p)
@@ -976,6 +979,24 @@ def software(plugin_files):
 
 
 # ---------------------------------------------------------------- plugins
+
+
+_JALV_SCRATCH = []
+
+
+def _jalv_scratch():
+    """tools/zynthian/jalv_scratch.py, loaded once: the directory every jalv the bench starts stands in, which goes when
+    the bench ends (jalv makes its state directory with a relative mkdtemp("jalvXXXXXX") and a killed one never removes
+    it)"""
+    if _JALV_SCRATCH:
+        return _JALV_SCRATCH[0]
+    import importlib.util
+    path = os.environ.get("JALV_SCRATCH_TOOL") or os.path.join(HERE, "..", "..", "tools", "zynthian", "jalv_scratch.py")
+    spec = importlib.util.spec_from_file_location("jalv_scratch", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    _JALV_SCRATCH.append(mod)
+    return mod
 
 
 def _search_paths():
