@@ -13,11 +13,9 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
-BuildRequires: python3-devel
 %if %{with check}
 # the tests import the protocol's Python client (plugin-hostd-protocol issue 45)
-BuildRequires: python3-plugin-hostd-client
+BuildRequires: (python3-plugin-hostd-client >= 0.5.10 with python3-plugin-hostd-client < 0.6)
 %endif
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
 BuildRequires: (pkgconfig(plugin-db) >= 0.4.5 with pkgconfig(plugin-db) < 0.5)
@@ -41,6 +39,10 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.10 with plugin-hostd-protocol%{?
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
+# the Python codec of the protocol (docs/clients.md): plugin-hostd-protocol's package since 0.5.10, installed here for the
+# tests that read the daemon's replies through it and for the grouping reasons' check. It carries epoch 1: a package of this
+# name that plugin-hostd built (0.20.x, no epoch) sorts above any 0.5.x, so the range names the epoch
+BuildRequires: (python3-plugin-hostd-protocol >= 1:0.5.10 with python3-plugin-hostd-protocol < 1:0.6)
 BuildRequires: (omx-clap-host-tests >= 0.33.0 with omx-clap-host-tests < 0.34)
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
@@ -88,28 +90,6 @@ controller speaks (the verbs, error codes, feedback events and settings) is
 declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
-
-%package -n python3-plugin-hostd-protocol
-Summary: The Python client of plugin-hostd's protocol
-BuildArch: noarch
-Requires: python3
-# what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
-# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.8 the first that declares a code's transient (#70); a floor and the
-# next minor
-Requires: (plugin-hostd-protocol >= 0.5.10 with plugin-hostd-protocol < 0.6)
-Requires: (plugin-hostd-protocol-contract >= 0.5.10 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.33.0 with omx-clap-core-contract < 0.34)
-Requires: (omx-contract >= 3.19.0 with omx-contract < 4)
-# omx-contract's catalog reader, omx_contract_catalog.py, which reads a catalog entry whatever its shape (#78)
-Requires: (omx-contract-data >= 3.19.0 with omx-contract-data < 4)
-
-%description -n python3-plugin-hostd-protocol
-The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec
-over the files plugin-hostd-protocol installs, which encodes and decodes every
-command the protocol declares, parses the replies, feedback lines and protocol
-errors, and gives each reply code its sentence. A controller speaks the
-protocol through it and restates nothing; the npm package
-@openmixer/plugin-hostd-client is the same codec in TypeScript.
 
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
@@ -192,8 +172,6 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %make_install PREFIX=%{_prefix}
 # the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
-# the Python client, told where pkg-config finds the files it reads (docs/clients.md)
-%make_build install-python DESTDIR=%{buildroot} PREFIX=%{_prefix} PYTHON3_SITELIB=%{python3_sitelib}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -230,11 +208,6 @@ make test-daemon check-generated check-rendered
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
-
-%files -n python3-plugin-hostd-protocol
-%license COPYING
-%doc docs/clients.md
-%{python3_sitelib}/plugin_hostd_protocol/
 
 %files contract
 %license COPYING
