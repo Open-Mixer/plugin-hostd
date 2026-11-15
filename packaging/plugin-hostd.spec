@@ -245,8 +245,46 @@ make test-daemon check-generated check-rendered
   packages (omx-clap-host, omx-clap-core-contract, omx-clap-host-tests) >=
   0.33.0 and below 0.34, the 3.19.0 pass's newest of each, with their ceilings
   (D30). The CI jobs, the pkg-config file and the floor tests state the same.
-- clients: sentence() reads a catalog entry as its text, through omx-contract's
-  reader (#79, #78).
+- 0.20.7 was prepared and never released; its changes ship here, with
+  everything merged since 0.20.6.
+- Every child the daemon starts that runs plugin code runs confined: a daemon
+  worker, the descriptor scan and the probe runner's child, by one
+  proc_confine (src/confine.c): no_new_privs, no descriptor of its parent's
+  past the ones it is given, and a seccomp filter that answers EPERM to
+  ptrace, process_vm_readv/writev, mount, kexec, module loading and the like.
+  A worker reads /dev/null on stdin. A qualification verdict describes the
+  plugin as the console hosts it (#16, #61).
+- proc_confine is the one setter of no_new_privs, checked: a worker, the
+  descriptor scan or the probe child that cannot have it is not run. The
+  sabotage arm for a nice the daemon cannot apply goes red on any host,
+  through a daemon started under RLIMIT_NICE 0 (#68, #74).
+- The probe document carries the rt-safety arm's thread figures: ownThreads,
+  the threads the plugin started, and otherThreads {allocations, locks,
+  syscalls}, what other threads did while the audio thread was armed (a
+  figure, never a verdict); both optional in the schema, and in the schema's
+  source (D20, #63, #64, #66).
+- node_label <instance> [<label word> ...]: a client's label joins its hosted
+  node's pretty-name, and the daemon replays it after a respawn, so it
+  outlives its worker; an LV2 instance answers -902 (#35, #46).
+- The protocol clients read the grouping reasons as constants written from
+  grouping.json, and each reason's retry from its declaration; RETRY_REASONS
+  is read from it (#67, #69, #75). The verbs and reply codes are constants
+  too, and a code's transient comes from the table (#70).
+- clients: sentence() reads a catalog entry as its text, through
+  omx-contract's reader (#79, #78).
+- tests: a sabotage arm for the checkpoint of a value the plugin moved itself
+  (#24, #60); make test-preset-identity, a Surge XT preset the instance saved
+  loads back after a factory patch that renames its parameters (#27, #30); a
+  timing proof reads the load, warning on a loaded node and failing on a quiet
+  one (#80).
+- bench: RSS and PSS from one walk of the process's memory (#90); the smoke
+  run installs this run's DEBs, the channel only for the rest (#76); the facts
+  cite the Zynthian issues under Open-Mixer (#97).
+- The organisation's name: FreeMixer becomes Open-Mixer and OpenMixer (#72).
+- CI and release: an ordinary run builds against the channel, not staging
+  (#73); every package manager call bounded (#81); a catch-up dispatch input
+  (#71); explicit artifact retention (#98); the commit-message stub from the
+  checker's release line (#92).
 
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle
