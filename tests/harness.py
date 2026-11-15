@@ -107,6 +107,10 @@ def alive(pid):
 # The ceilings below are generous on purpose: a wait ends on the thing it waits for (the daemon's reply, its feedback
 # line, a process state), never on a count of milliseconds, so a loaded runner costs time and not a verdict.
 CEILING = 60.0
+# The controller's reply timeout: a prompt answer. A reply that waits on work the daemon bounds itself — a first-run
+# add waits for a worker to come up (ready_timeout_ms) and learns its pin — is waited for up to CEILING, a bound for a
+# hang, by the test that asks for it (plugin-hostd#108: on a host at load 40-53 a first-run answer came after this).
+REPLY_TIMEOUT = 10.0
 
 
 def wait_for(cond, what, timeout=CEILING, step=0.02, timing=False):
@@ -187,7 +191,7 @@ class Daemon:
         self.events = []
         self.lock = threading.Lock()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
-        self.client = plugin_hostd_client.Client(self.sock)
+        self.client = plugin_hostd_client.Client(self.sock, REPLY_TIMEOUT)
         self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10) if feedback else None
         if self.fb:
             self.fb.settimeout(None)   # silence on the feedback port is not an error
@@ -199,7 +203,7 @@ class Daemon:
         if self.fb:
             self.fb.close()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
-        self.client = plugin_hostd_client.Client(self.sock)
+        self.client = plugin_hostd_client.Client(self.sock, REPLY_TIMEOUT)
         if self.fb:
             self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10)
             self.fb.settimeout(None)
