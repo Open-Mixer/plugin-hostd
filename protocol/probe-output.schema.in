@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/FreeMixer/plugin-hostd/protocol/probe-output.schema.json",
+  "$id": "https://github.com/Open-Mixer/plugin-hostd/protocol/probe-output.schema.json",
   "title": "What one probe run of one plugin binary observed",
   "description": "Facts only. A verdict, a rating or a classification is never a field here: plugin-qualify writes those in the qualification record.",
   "type": "object",

@@ -12,7 +12,7 @@
 # MISSING. Exit 1 when any is BEHIND or MISSING. Packages come from the apt channel after the release workflow ends:
 # a release listed here is a tag, pi-packages.sh on the Pi says whether the packages are there.
 set -u
-ORG=${ORG:-FreeMixer}
+ORG=${ORG:-Open-Mixer}
 FLOORS=("$@")
 [ ${#FLOORS[@]} -eq 0 ] && FLOORS=(plugin-hostd=0.15.3 omx-clap-core=0.25.1 omx-panel=0.7.2 plugin-qualify=0.17.5 omx-plugins=0.16.0)
 rc=0

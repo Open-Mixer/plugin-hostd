@@ -5,7 +5,7 @@ Version: 0.20.6
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
-URL: https://github.com/FreeMixer/plugin-hostd
+URL: https://github.com/Open-Mixer/plugin-hostd
 
 Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
@@ -96,6 +96,8 @@ Requires: (plugin-hostd-protocol >= 0.5.8 with plugin-hostd-protocol < 0.6)
 Requires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
 Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
 Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
+# omx-contract's catalog reader, omx_contract_catalog.py, which reads a catalog entry whatever its shape (#78)
+Requires: (omx-contract-data >= 3.16.0 with omx-contract-data < 4)
 
 %description -n python3-plugin-hostd-protocol
 The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec

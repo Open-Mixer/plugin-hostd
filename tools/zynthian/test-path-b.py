@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Path B of the Zynthian spike (FreeMixer/plugin-hostd#124): zynthian_engine_plugind against Zynthian's own engine
+"""Path B of the Zynthian spike (Open-Mixer/plugin-hostd#124): zynthian_engine_plugind against Zynthian's own engine
 classes, with plugin-hostd and JACK running.
 
     test-path-b.py --zui <zynthian-ui checkout with the spike engine applied: spike-engine.sh>

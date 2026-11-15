@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor (>= the lowest
 # version with the API it uses) and a ceiling, the next minor after the release it is tested against (`>= 0.31.0 with
-# < 0.33`; an exact pin or any other ceiling is a pin), installed from the FreeMixer channel by dnf builddep / apt-get
+# < 0.33`; an exact pin or any other ceiling is a pin), installed from the OpenMixer channel by dnf builddep / apt-get
 # build-dep. No pins file,
 # no submodule, no ref or sha a workflow checks a sibling out at, no sibling built from source.
 # omx-clap-core is a build dependency of the check stage only (%if %{with check} in the spec, <!nocheck> in
@@ -9,7 +9,7 @@
 # Usage: no_pins.py [root]. The scan proves it can see a planted pin before it trusts an empty result.
 import os, re, shutil, sys, tempfile
 
-# the organisation the workflows name (Open-Mixer while FreeMixer is restricted): the runner's, never a default
+# the organisation the workflows name (Open-Mixer while OpenMixer is restricted): the runner's, never a default
 ORG = os.environ.get("GITHUB_REPOSITORY_OWNER") or sys.exit("no_pins.py: GITHUB_REPOSITORY_OWNER is unset; it names the organisation the workflows use")
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +17,7 @@ DEP = "omx-clap-host-tests"
 
 # (what it is, file glob test, line regex): a line in a workflow that pins a dependency
 WORKFLOW_PINS = [
-    ("a checkout of a sibling repository", re.compile(r"^\s*repository:\s*(%s|FreeMixer|FreeREAC|linuxnow)/(?!\.github\b)\S+" % re.escape(ORG))),
+    ("a checkout of a sibling repository", re.compile(r"^\s*repository:\s*(%s|Open-Mixer|FreeREAC|linuxnow)/(?!\.github\b)\S+" % re.escape(ORG))),
     ("a ref variable", re.compile(r"\b[A-Z][A-Z0-9_]*_REF\b")),
     ("a tag ref on a checkout", re.compile(r"^\s*ref:\s*\$\{\{|^\s*ref:\s*v\d")),
     ("a pins file", re.compile(r"\bpins\.txt\b")),

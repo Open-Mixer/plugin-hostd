@@ -87,13 +87,13 @@ class Case(unittest.TestCase):
         facts = json.load(open(FACTS))
         for key, items in facts["statements"].items():
             for s in items:
-                self.assertRegex(s["source"], r"^FreeMixer/zynthian-(ui|sys)#[0-9]+$", key)
+                self.assertRegex(s["source"], r"^Open-Mixer/zynthian-(ui|sys)#[0-9]+$", key)
                 self.assertIn("%s (%s)" % (s["text"], s["source"]), md)
 
     def test_facts_cite_only_public_sources(self):
         facts = json.load(open(FACTS))
         self.assertEqual(sorted(k for k in facts if not k.startswith("_")), ["prs", "statements"])
-        public = r"^FreeMixer/(zynthian-ui|zynthian-sys|plugin-hostd)#[0-9]+$"
+        public = r"^Open-Mixer/(zynthian-ui|zynthian-sys|plugin-hostd)#[0-9]+$"
         sources = [s["source"] for items in facts["statements"].values() for s in items]
         sources += ["%s#%d" % (p["repo"], p["number"]) for p in facts["prs"]]
         self.assertTrue(sources)
@@ -110,7 +110,7 @@ class Case(unittest.TestCase):
 
     def test_pr_states_carry_their_fetch_time(self):
         self.write("p.json", {"fetched_at": "2026-10-28T10:00:00Z", "prs": [
-            {"repo": "FreeMixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
+            {"repo": "Open-Mixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
         m.main(["--bench", self.empty, "--results", self.empty, "--earlier", self.empty, "--qualification", self.empty,
                 "--prs", os.path.join(self.d, "p.json"), "--facts", FACTS,
                 "--out", os.path.join(self.d, "o")])
@@ -213,7 +213,7 @@ class Case(unittest.TestCase):
         self.write("q/a.json", {"verdicts": [{"rating": "suitable"}, {"rating": "unsuitable", "deciding": "r1"}]})
         self.write("c.txt", "jalv 1.8.0 (x):\n  hosted 977 of 979 (a)\nmod-host 0.10.6 f:\n  hosted 975 of 979\nomx-clap-core: 979 of 979 on main\n")
         self.write("p.json", {"fetched_at": "2026-10-28T10:00:00Z", "prs": [
-            {"repo": "FreeMixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
+            {"repo": "Open-Mixer/zynthian-ui", "number": 1, "title": "t", "state": "MERGED", "baseRefName": "main"}]})
         for sub in ("e",):
             os.makedirs(os.path.join(self.d, sub), exist_ok=True)
 
