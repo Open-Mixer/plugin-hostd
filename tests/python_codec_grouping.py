@@ -114,7 +114,10 @@ def main():
     except ImportError as e:
         sys.exit("python_codec_grouping: the codec is not installed: %s" % e)
     with open(os.path.join(ROOT, "data", "grouping.json"), encoding="utf-8") as f:
-        bad += problems(json.load(f), codec)
+        try:
+            bad += problems(json.load(f), codec)
+        except AttributeError as e:  # a codec that predates GroupingReason is the old package: the version problem says so
+            bad.append("the installed codec has no %s" % e.name if hasattr(e, "name") else "the installed codec lacks %s" % e)
     if bad:
         sys.exit("python_codec_grouping: " + "\npython_codec_grouping: ".join(bad))
     print("ok   the installed codec (%s) holds the reasons data/grouping.json declares" % codec.__file__)
