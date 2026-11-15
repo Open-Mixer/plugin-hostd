@@ -3,13 +3,13 @@ Section: sound
 Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
 Build-Depends: debhelper-compat (= 13),
-               libplugin-hostd-protocol-dev (>= 0.5.10~), libplugin-hostd-protocol-dev (<< 0.6~),
-               libomx-contract-dev (>= 3.19.0~), libomx-contract-dev (<< 4~),
+               libplugin-hostd-protocol-dev (>= 0.5.11~), libplugin-hostd-protocol-dev (<< 0.6~),
+               libomx-contract-dev (>= 3.20.0~), libomx-contract-dev (<< 4~),
                omx-clap-core-contract (>= 0.33.0~) <!nocheck>, omx-clap-core-contract (<< 0.34~) <!nocheck>,
                omx-clap-host-tests (>= 0.33.0~) <!nocheck>, omx-clap-host-tests (<< 0.34~) <!nocheck>,
                libomxdsp-dev (>= 0.32.0~) <!nocheck>, libomxdsp-dev (<< 0.33~) <!nocheck>,
-               omx-contract (>= 3.19.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
-               plugin-hostd-protocol-contract (>= 0.5.10~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
+               omx-contract (>= 3.20.0~) <!nocheck>, omx-contract (<< 4~) <!nocheck>,
+               plugin-hostd-protocol-contract (>= 0.5.11~) <!nocheck>, plugin-hostd-protocol-contract (<< 0.6~) <!nocheck>,
                plugin-db-dev (>= 0.4.5~), plugin-db-dev (<< 0.5~),
                libcjson-dev,
                pkgconf,
@@ -22,7 +22,7 @@ Rules-Requires-Root: no
 
 Package: plugin-hostd
 Architecture: any
-Depends: libplugin-hostd-protocol0 (>= 0.5.10~), libplugin-hostd-protocol0 (<< 0.6~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
+Depends: libplugin-hostd-protocol0 (>= 0.5.11~), libplugin-hostd-protocol0 (<< 0.6~), plugin-hostd-contract (= ${source:Version}), ${shlibs:Depends},
          ${misc:Depends}
 Recommends: omx-clap-host (>= 0.33.0~), omx-clap-host (<< 0.34~)
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
@@ -58,7 +58,7 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
-Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.5.10~), libplugin-hostd-protocol-dev (<< 0.6~), plugin-db-dev (>= 0.4.5~), plugin-db-dev (<< 0.5~), ${misc:Depends}
+Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.5.11~), libplugin-hostd-protocol-dev (<< 0.6~), plugin-db-dev (>= 0.4.5~), plugin-db-dev (<< 0.5~), ${misc:Depends}
 Description: C headers to drive plugin-hostd from your own controller
  The words of the grouping planner and the running history,
  and the schemas of the probe output and of a preset file. The protocol a
@@ -70,7 +70,7 @@ Description: C headers to drive plugin-hostd from your own controller
 
 Package: plugin-hostd-contract
 Architecture: all
-Depends: omx-clap-core-contract (>= 0.33.0~), omx-clap-core-contract (<< 0.34~), omx-contract (>= 3.19.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.10~), plugin-hostd-protocol-contract (<< 0.6~),
+Depends: omx-clap-core-contract (>= 0.33.0~), omx-clap-core-contract (<< 0.34~), omx-contract (>= 3.20.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.11~), plugin-hostd-protocol-contract (<< 0.6~),
          ${misc:Depends}
 Breaks: plugin-hostd-dev (<< ${source:Version})
 Replaces: plugin-hostd-dev (<< ${source:Version})

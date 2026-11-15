@@ -858,6 +858,13 @@ int pins_changed(void)
     return (*g_cfg_file || *g_cfg_dir) && signature() != g_signature;
 }
 
+/* A refused pin leaves no mark on the plugin: no path that answers OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP writes a
+ * verdict or a history record for it (tests/daemon_test.py holds it). The protocol declares it so since 0.5.11
+ * (_LEAVES_NO_MARK, the pin-refused class); a build against a protocol that does not is refused here, by name. */
+#if !defined(OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_LEAVES_NO_MARK) || OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_LEAVES_NO_MARK != 1
+#error "plugin-hostd-protocol does not declare pin-refused to leave no mark (OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_LEAVES_NO_MARK): it needs 0.5.11 or later"
+#endif
+
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool)
 {
     pin_t pin;
