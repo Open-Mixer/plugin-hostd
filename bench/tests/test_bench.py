@@ -5,6 +5,7 @@ import copy
 import importlib.util
 import json
 import os
+import shutil
 import re
 import subprocess
 import sys
@@ -397,6 +398,28 @@ def run_row(**kw):
 
 class ProcessSet(unittest.TestCase):
     """the per-process memory beside the totals: this process is a real one, so its set is read from /proc"""
+
+    def test_rss_and_pss_come_from_one_walk(self):
+        """/proc/<pid>/stat's RSS is a counter each thread caches and syncs lazily; smaps_rollup walks the mappings.
+        Read from both, a growing process showed a PSS above its RSS (plugin-hostd#81's run 43481819355). RSS and PSS
+        are both smaps_rollup's, so PSS never exceeds RSS; stat's RSS only when smaps_rollup cannot be read"""
+        import tempfile
+        root = tempfile.mkdtemp(prefix="bench-proc.")
+        try:
+            os.makedirs(os.path.join(root, "4242", "task"))
+            fields = ["S"] + ["0"] * 50
+            fields[21] = "100"  # stat's RSS, 100 pages: stale, below what the walk finds
+            with open(os.path.join(root, "4242", "stat"), "w") as f:
+                f.write("4242 (fake) " + " ".join(fields) + "\n")
+            with open(os.path.join(root, "4242", "smaps_rollup"), "w") as f:
+                f.write("00400000-7fff [rollup]\nRss:               9000 kB\nPss:               8000 kB\n")
+            m = bench.proc_sample(4242, proc=root)
+            self.assertEqual((m["rss"], m["pss"]), (9000, 8000), m)
+            os.remove(os.path.join(root, "4242", "smaps_rollup"))
+            m = bench.proc_sample(4242, proc=root)
+            self.assertEqual((m["rss"], m["pss"]), (100 * bench.PAGE_KB, None), m)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
 
     def test_this_process_is_named_with_its_memory(self):
         me = os.getpid()
