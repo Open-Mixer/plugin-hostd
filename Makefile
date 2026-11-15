@@ -249,12 +249,13 @@ test-format-coverage:
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) lv2
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) --self-test
 
-# the fake worker and the protocol clients (lib/protocol.sh, lib/plugin_hostd_client.py), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
+# the fake worker and the shell protocol client (lib/protocol.sh), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance.
+# The Python client is the protocol's, python3-plugin-hostd-client (plugin-hostd-protocol issue 45): no copy here
 install_tests: $(FAKE)
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests
 	install -m 755 $(FAKE) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/fake-host
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
-	install -m 644 tests/lib/protocol.sh tests/lib/plugin_hostd_client.py $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
+	install -m 644 tests/lib/protocol.sh $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
 
 install_man:
 	install -d $(DESTDIR)$(MANDIR)
