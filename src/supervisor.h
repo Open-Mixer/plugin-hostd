@@ -72,6 +72,9 @@ typedef struct INSTANCE_T {
     int pin_refused;            /* the pins read again refuse its files; it keeps running, worker_list marks it */
     char *node_label;           /* the latest node_label with a label it took, replayed after its add (#35) */
     char *track_info;           /* the latest track_info it took, replayed after its add, never to an LV2 worker */
+    entry_t *props;             /* the latest property_set of each symbol, in the order each was first set, replayed
+                                 * after the state; a checkpoint keeps them (R-111) */
+    int nprops, capprops;
     struct CHAIN_T *chain;      /* the chain it is a member of, NULL for none */
 } instance_t;
 
