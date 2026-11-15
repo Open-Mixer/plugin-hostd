@@ -230,6 +230,17 @@ make test-daemon check-generated check-rendered
   (#73); every package manager call bounded (#81); a catch-up dispatch input
   (#71); explicit artifact retention (#98); the commit-message stub from the
   checker's release line (#92).
+- plugin-hostd-full is no longer built here: the meta package is
+  Open-Mixer/plugin-hostd-full's own, released after the layers it installs
+  (#84, #86).
+- python3-plugin-hostd-protocol is no longer built here: the Python codec is
+  plugin-hostd-protocol's package, at epoch 1, and the check stage requires it
+  as >= 1:0.5.10 and below 1:0.6 (#109).
+- The Python client is the protocol's: the tests import
+  python3-plugin-hostd-client (>= 0.5.10, below 0.6), and no copy is kept here
+  (#107).
+- The CLAP default the tests hold is the list plugin-hostd-protocol declares,
+  ~/.clap then /usr/lib/clap first (#102, #118).
 
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle

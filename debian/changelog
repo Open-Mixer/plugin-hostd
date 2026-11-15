@@ -46,6 +46,17 @@ plugin-hostd (0.20.8) unstable; urgency=medium
     (#73); every package manager call bounded (#81); a catch-up dispatch input
     (#71); explicit artifact retention (#98); the commit-message stub from the
     checker's release line (#92).
+  * plugin-hostd-full is no longer built here: the meta package is
+    Open-Mixer/plugin-hostd-full's own, released after the layers it installs
+    (#84, #86).
+  * python3-plugin-hostd-protocol is no longer built here: the Python codec is
+    plugin-hostd-protocol's package, at epoch 1, and the check stage requires
+    it as >= 1:0.5.10 and below 1:0.6 (#109).
+  * The Python client is the protocol's: the tests import
+    python3-plugin-hostd-client (>= 0.5.10, below 0.6), and no copy is kept
+    here (#107).
+  * The CLAP default the tests hold is the list plugin-hostd-protocol
+    declares, ~/.clap then /usr/lib/clap first (#102, #118).
 
  -- Pau Aliagas <linuxnow@gmail.com>  Sun, 15 Nov 2026 16:30:00 +0100
 
