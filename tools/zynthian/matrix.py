@@ -113,8 +113,10 @@ def bench_copy(work, tbl):
 
 
 def bench_env():
-    """what the copy of bench/ needs to find outside itself: bench.py reads the search lists through the repository's tool"""
-    return {"SEARCH_PATHS_TOOL": os.path.join(REPO, "tools", "search-paths.py")}
+    """what the copy of bench/ needs to find outside itself: bench.py reads the search lists through the repository's tool,
+    and starts its jalvs in the directory the repository's jalv_scratch.py gives"""
+    return {"SEARCH_PATHS_TOOL": os.path.join(REPO, "tools", "search-paths.py"),
+            "JALV_SCRATCH_TOOL": os.path.join(REPO, "tools", "zynthian", "jalv_scratch.py")}
 
 
 def cells(tbl, rates, frames, only):

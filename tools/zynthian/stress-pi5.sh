@@ -50,7 +50,7 @@ dpkg-query -W -f '\${Package} \${Version}\n' plugin-hostd plugin-qualify omx-plu
 df -k / > df-before.txt
 pgrep -fa 'mod-host|plugin-hostd|jalv' > processes-before.txt || true" || exit 1
 
-scp -q ${SSH_OPTS:-} "$here/stress-pi5.py" "$target:$dir/stress-pi5.py" || exit 1
+scp -q ${SSH_OPTS:-} "$here/stress-pi5.py" "$here/jalv_scratch.py" "$target:$dir/" || exit 1
 
 # The run outlives the ssh session: it is started detached and waited for by its exit file
 ssh_ "cd $dir && setsid nohup sh -c '/zynthian/venv/bin/python3 -I stress-pi5.py --out $dir --port $PORT \
