@@ -1,0 +1,28 @@
+name: lint
+
+# The ONE workflow of this repository that runs on a pull request (delivery pipeline §12: no heavy Action on a push or a
+# pull request; Open-Mixer/plugin-hostd#106), and never on a push. Seconds-long checks only. The build, the tests, the
+# package matrices and the smoke runs are ci.yml's and bench.yml's, run by workflow_dispatch on the head ref before a
+# merge (gh workflow run ci.yml --ref <branch>); fuzz.yml, publish.yml and release.yml run on a v* tag and by dispatch.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # the shared trigger gate: every other workflow here runs on a v* tag or by workflow_dispatch, never on a push or a
+  # pull request; this file is the one it allows
+  trigger-gate:
+    name: trigger gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/trigger-gate@openmixer-v1
+        with:
+          lint-workflow: lint.yml
