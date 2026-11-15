@@ -181,7 +181,7 @@ describe('the verbs and the reply codes as constants, and a code transient by it
   const table = JSON.parse(readFileSync(protocol.tablePath, 'utf8')) as {
     commands: { verb: string }[];
     feedback: { line: string }[];
-    reply_codes: { resp: number; code: string; transient?: boolean }[];
+    reply_codes: { resp: number; code: string; transient?: boolean; leaves_no_mark?: boolean }[];
   };
   const short = (code: string): string => code.slice(code.lastIndexOf('.') + 1).replace(/-/g, '_');
 
@@ -213,5 +213,19 @@ describe('the verbs and the reply codes as constants, and a code transient by it
     assert.equal(protocol.transient(protocol.code['pin_refused']!), false);
     assert.equal(protocol.transient(protocol.code['descriptor_absent']!), false);
     assert.throws(() => protocol.transient(-99999), ProtocolError);
+  });
+
+  // the second class (plugin-hostd-protocol 0.5.11, ruled 2026-11-15): a refusal that leaves no mark on the plugin, read
+  // from the table's leaves_no_mark as the Python codec's leaves_no_mark() reads it; pin-refused is in it, still not transient
+  it('reads a code declared to leave no mark as leaving none, and pin-refused as one that is still not transient', () => {
+    assert.ok(table.reply_codes.some((r) => r.leaves_no_mark === true), 'the table declares a code that leaves no mark');
+    for (const r of table.reply_codes) {
+      assert.equal(protocol.leavesNoMark(r.resp), r.leaves_no_mark === true, r.code);
+      assert.equal(protocol.leavesNoMark(r.code), r.leaves_no_mark === true, r.code);
+    }
+    assert.equal(protocol.leavesNoMark(protocol.code['pin_refused']!), true);
+    assert.equal(protocol.transient(protocol.code['pin_refused']!), false);
+    assert.equal(protocol.leavesNoMark(protocol.code['descriptor_absent']!), false);
+    assert.throws(() => protocol.leavesNoMark(-99999), ProtocolError);
   });
 });
