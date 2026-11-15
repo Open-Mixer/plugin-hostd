@@ -2,16 +2,14 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 name: lint
 
-# The ONE lint workflow of this repository (delivery pipeline §12) and the only file allowed to run on a push or a
-# pull request. It is cheap and does nothing else: the shared trigger gate, which refuses a push or pull-request
+# The ONE lint workflow of this repository (delivery pipeline §12) and the only file allowed to run on a pull request
+# (never on a push). It is cheap and does nothing else: the shared trigger gate, which refuses a push or pull-request
 # trigger in every other workflow, and the shared public-sources check (commit messages, private references). The
 # build and the tests are the cluster's verify row (context cluster/verify) on each pull request; ci.yml, bench.yml,
 # fuzz.yml and release.yml run on a tag or by workflow_dispatch. Both checks come from Open-Mixer/.github at
 # openmixer-v1.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
