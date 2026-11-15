@@ -71,8 +71,11 @@ package and omx-clap-core's from its package of the contract directory (`omx-cla
 directory of `OMX_CONTRACT_PATH` that holds one.
 
 The words of this tree's own tables (`data/grouping.json`, `data/history.json`) are rendered by `omx-contract render`
-into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make render-verbs` rewrites it and `make
-check-rendered` fails on any drift. `make install-contract` installs `data/` as the package `plugin-hostd` of the
+into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make render-verbs` rewrites it and records
+the omx-contract version that rendered it beside it (`plugin_hostd_vocabulary.h.rendered-with`), and `make
+check-rendered` fails on any drift. The package builds run `make check-rendered RENDERED_COMPARE=recorded`: with
+another omx-contract installed than the recorded one, the header is not compared and the check says so, so a release
+tag builds the same after the channel serves a newer omx-contract. `make install-contract` installs `data/` as the package `plugin-hostd` of the
 contract directory. The noarch package `plugin-hostd-contract` carries those files, and `plugin-hostd` and
 `plugin-hostd-devel` (`plugin-hostd-dev`) require it at the same version.
 
