@@ -2,8 +2,9 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """The working directory every jalv these tools start stands in.
 
-jalv makes its plugin state directory with a relative mkdtemp("jalvXXXXXX") (jalv 1.8.0 src/jalv.c:872; 1.6.8 the
-same template), so in its working directory, and removes it only at a clean exit. The tools end their jalvs with
+jalv 1.8 makes its plugin state directory with a relative mkdtemp("jalvXXXXXX") (jalv 1.8.0 src/jalv.c:872), so in
+its working directory, and removes it only at a clean exit. (jalv 1.6, and Zynthian's asyncli fork of it, uses an
+absolute /tmp/jalv-XXXXXX instead, which no working directory moves.) The tools end their jalvs with
 SIGTERM and then SIGKILL, so a jalv started where the caller stands left one jalvXXXXXX there per run: a user's home
 when the tool was started from it. This directory is made on first use and removed when the tool exits; on SIGINT,
 SIGTERM or SIGHUP left at their default it is removed first and the signal then ends the tool as it would have. A
