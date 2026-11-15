@@ -162,7 +162,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `lv2_worker` | `omx-clap-host` | who runs an LV2 plugin: omx-clap-host (the clap_host program, through its LV2 adapter, a plugin it cannot run refused with a code), mod-host (the mod_host program, only when named here or by lv2_worker_set); a plugin the one in force refuses is never handed to the other; lv2_worker_set overrides it for one plugin |
 | `lv2_path` | `$LV2_PATH`, else `/usr/lib/lv2:/usr/lib/x86_64-linux-gnu/lv2:/usr/lib/aarch64-linux-gnu/lv2:/usr/lib/arm-linux-gnueabihf/lv2:/usr/local/lib/lv2:/usr/local/lib/x86_64-linux-gnu/lv2:/usr/local/lib/aarch64-linux-gnu/lv2:/usr/local/lib/arm-linux-gnueabihf/lv2:/usr/lib64/lv2:/usr/local/lib64/lv2` | where bundles are searched |
 | `lv2_extra` | `` | the site's own bundle folders, searched after lv2_path: the one declaration of them, which plugin-qualify and omx-panel read too |
-| `clap_path` | `~/.clap:/usr/lib/clap` | where .clap files are searched by whoever searches (plugin-qualify, omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it |
+| `clap_path` | `~/.clap:/usr/lib/clap:/usr/local/lib/clap:/usr/lib64/clap:/usr/local/lib64/clap` | where .clap files are searched by whoever searches (plugin-qualify, omx-panel); an add names its file, so the daemon loads none by search; $CLAP_PATH is searched before it |
 | `state_root` | `$XDG_RUNTIME_DIR`, else `/tmp` | the daemon's checkpoints and worker logs |
 | `pin_mode` | `first-use` | strict or first-use, while require_pins is 1: first-use records the pin of a plugin on its first add, strict admits only a plugin a controller, a pin_file or pins_dir pinned |
 | `grouping` | `off` | off or on: whether plan applies its plan (a run of consecutive members that may share a worker is declared as a chain), or only answers it; the default stays off until the benchmark has published a win |
@@ -364,6 +364,10 @@ stays held at the controller. omx-clap-host writes these lines from FreeMixer/om
 | `node_label` | `<instance> [<label word> ...]` | `resp 0` | label the node for graph clients: the worker that holds the instance sets its pretty-name to the labelled form of PHD_NODE_METADATA, the label the words joined by one space; no words clears it, back to the plain form. -545 for a label over PHD_NODE_LABEL_MAX bytes or not UTF-8; the ledger keeps the latest, so a respawned worker is labelled again (plugin-hostd#35) |
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
+| `property_list` | `<instance>` | `resp <count>` | the plugin's file and text properties (org.openmixer.properties/1): how many; 0 for an instance of a worker that has none |
+| `property_info` | `<instance> <index>` | `resp 0 <symbol> <kind> <access> <name>` | one property, 0 to count - 1: its symbol, its kind (path or string), its access (rw, w or r) and its name; (-106) for an index that is not one |
+| `property_get` | `<instance> <symbol>` | `resp 0 <value>` | the value the plugin holds now, one quoted-escaped word; (-107) for a property that is not readable |
+| `property_set` | `<instance> <symbol> <value>` | `resp 0` | set a property to a quoted-escaped value, which reaches the plugin at its next block; the ledger keeps the latest per symbol and replays each to a respawned worker. (-107) for one not writable, (-108) for a value too large, not UTF-8 or a path that is not absolute, (-109) to send again |
 | `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
 | `preset_list` | `<instance>` | `resp <count>` | the plugin's presets, the ones its preset discovery or its bundle lists; (-515) for an instance of a worker that cannot list them |
 | `preset_get` | `<instance> <index>` | `resp 0 <load_key> <name>` | one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one |
@@ -437,6 +441,10 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `remote_pages` | mod-host | optional | optional | optional | optional |
 | `remote_page_get` | mod-host | optional | optional | optional | optional |
 | `param_info` | mod-host | optional | optional | optional | optional |
+| `property_list` | daemon | optional | optional | optional | optional |
+| `property_info` | daemon | optional | optional | optional | optional |
+| `property_get` | daemon | optional | optional | optional | optional |
+| `property_set` | daemon | optional | optional | optional | optional |
 | `preset_list` | daemon | optional | optional | optional | optional |
 | `preset_get` | daemon | optional | optional | optional | optional |
 | `note_input` | daemon | optional | optional | optional | optional |

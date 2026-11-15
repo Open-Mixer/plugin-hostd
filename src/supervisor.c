@@ -340,6 +340,9 @@ static void instance_free(instance_t *i)
     free(i->sus_prev);
     free(i->track_info);
     free(i->node_label);
+    for (int k = 0; k < i->nkeyed; k++)
+        free(i->keyed[k]);
+    free(i->keyed);
     free(i);
 }
 
@@ -1525,6 +1528,18 @@ static int replay_add(worker_t *w, instance_t *i)
 }
 
 /* an instance's verb ledger, after the state; -1 when the worker died on it */
+/* the replace-keyed lines it holds, in the order their keys were first taken: after the state, before the verb tail */
+static int replay_keyed(worker_t *w, instance_t *i)
+{
+    for (int k = 0; k < i->nkeyed; k++)
+        if (replay_line(w, i->keyed[k]) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+    return 0;
+}
+
 static int replay_tail(worker_t *w, instance_t *i)
 {
     int m;
@@ -1616,7 +1631,7 @@ static void replay(worker_t *w, int64_t started)
         }
     }
     for (n = 0; n < w->ninst; n++)
-        if (!w->inst[n]->unreplayed && replay_tail(w, w->inst[n]) < 0)
+        if (!w->inst[n]->unreplayed && (replay_keyed(w, w->inst[n]) < 0 || replay_tail(w, w->inst[n]) < 0))
             return;
     for (n = 0; n < w->ninst; n++)
     {
@@ -2881,6 +2896,54 @@ const char *sup_instance_search(int id)
     return (id >= 0 && id < MAX_INSTANCE && g_inst[id]) ? search_of(g_inst[id]->fmt) : NULL;
 }
 
+/* the second word of a line: the key of a replace-keyed verb (property_set's symbol); NULL when it has none */
+static char *key_of(const char *line)
+{
+    char *copy = strdup(line), **word, *key = NULL;
+    int count;
+
+    if (!copy)
+        return NULL;
+    word = words(copy, &count);
+    if (word && count > 2)
+        key = strdup(word[2]);
+    free(word);
+    free(copy);
+    return key;
+}
+
+/* keep line as the latest of its key: it replaces the line of the same key in place, so the order is the one the keys
+ * were first taken in, or it goes last. SUCCESS, or ERR_MEMORY_ALLOCATION with nothing changed */
+static int keep_keyed(instance_t *i, const char *line, const char *key)
+{
+    char *kept = strdup(line), **grown;
+
+    if (!kept)
+        return ERR_MEMORY_ALLOCATION;
+    for (int k = 0; k < i->nkeyed; k++)
+    {
+        char *had = key_of(i->keyed[k]);
+        const int same = had && !strcmp(had, key);
+
+        free(had);
+        if (same)
+        {
+            free(i->keyed[k]);
+            i->keyed[k] = kept;
+            return SUCCESS;
+        }
+    }
+    grown = realloc(i->keyed, (size_t)(i->nkeyed + 1) * sizeof(*grown));
+    if (!grown)
+    {
+        free(kept);
+        return ERR_MEMORY_ALLOCATION;
+    }
+    i->keyed = grown;
+    i->keyed[i->nkeyed++] = kept;
+    return SUCCESS;
+}
+
 char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
@@ -2927,6 +2990,13 @@ char *sup_instance_verb(const char *line, int ledger)
                 free(reply);
                 reply = sup_resp(ERR_MEMORY_ALLOCATION);
             }
+        }
+        /* a replace-keyed verb (property_set): the latest per first argument, each kept, a refused one not */
+        if (ledger == PHD_LEDGER_REPLACE_KEYED && count > 2 && resp_code(reply) >= 0 && g_inst[id] == i &&
+            keep_keyed(i, line, word[2]) != SUCCESS)
+        {
+            free(reply);
+            reply = sup_resp(ERR_MEMORY_ALLOCATION);
         }
         if (ledger == PHD_LEDGER_REPLACE && !strcmp(word[0], OMX_VERB_TRACK_INFO) && resp_code(reply) >= 0 && g_inst[id] == i)
         {

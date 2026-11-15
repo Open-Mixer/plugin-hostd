@@ -1901,6 +1901,50 @@ def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
 
 
 @test
+def every_property_set_is_replayed_the_latest_per_symbol_after_the_state():
+    """the ledger keeps property_set per instance and symbol (replace-keyed, omx-clap-core#15): a respawned worker gets
+    back every symbol it was given, each its latest value, in the order the symbols were first set, after the
+    checkpoint's state_load, and a checkpoint drops none of them; a refused set is not kept, a removed instance's are
+    gone"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
+    first_file, label, file = ('property_set 0 file "/var/lib/a.wav"', 'property_set 0 label "Sala \\"A\\" \\\\ 1"',
+                               'property_set 0 file "/var/lib/b.wav"')
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect(first_file, "resp 0")
+        d.expect(label, "resp 0")
+        d.expect(file, "resp 0")
+        d.expect('property_set 0 readonly "x"', "resp -107")
+        d.expect("property_list 0", "resp 0")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        props = [c for c in sent if c.startswith("property_")]
+        check(props == [file, label], "each symbol once, its latest value, in the order first set: %s" % props)
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        check("state_load" in verbs and props and verbs.index("state_load") < sent.index(props[0]),
+              "after the checkpoint's state_load: %s" % sent)
+        d.expect("remove 0", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("property_")], "a removed instance's properties are gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def track_info_is_replayed_once_after_the_add_and_before_the_state():
     log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
     d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})

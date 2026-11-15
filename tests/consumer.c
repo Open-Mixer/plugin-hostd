@@ -50,7 +50,8 @@ int main(void)
     PHD_VERBS(X)
 #undef X
 #define X(id, name, args, rep, ledger, meaning) \
-    instance_verbs++; check(*name && *rep && (PHD_LEDGER_##ledger == PHD_LEDGER_NONE || PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE), \
+    instance_verbs++; check(*name && *rep && (PHD_LEDGER_##ledger == PHD_LEDGER_NONE || PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE || \
+                                                PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE_KEYED), \
                             #id " is named, answers and says what the ledger keeps");
     PHD_INSTANCE_VERBS(X)
 #undef X
