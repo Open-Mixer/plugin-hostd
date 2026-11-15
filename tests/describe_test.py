@@ -7,7 +7,9 @@
 # --fields under the runner's limits: its dump gives the same descriptor, and a child that fails gives exit 3. A dump
 # with a panel description (clap-panel.tsv) gives the descriptor without one. plugin-hostd-probe panel over a recorded
 # omx-clap-scan --json (clap-panel-scan.json) writes the plugin's panel object byte for byte, null for a plugin that
-# serves none and for an LV2 plugin, and refuses a scan that states no panel for the plugin.
+# serves none and for an LV2 plugin, and refuses a scan that states no panel for the plugin. Beside it, meters: the
+# clap.meters/1 meters the panel's displays index, each a row of the descriptor's meters[] shape, so the reply resolves
+# every meter id its displays name; a display naming a meter the scan does not carry is refused.
 #   describe_test.py   PROBE is the runner (default ./plugin-hostd-probe); the schema is $OMX_CONTRACT_SCHEMA, or
 #                      omx-contract.schema.json in pkg-config's datadir of omx-contract
 import json, os, stat, subprocess, sys, tempfile
@@ -53,6 +55,23 @@ def describe(target, dump=None, table=None, extra=(), contract_dir=CONTRACT_DIR)
     if dump is not None:
         cmd += ["--fields-from", dump]
     return subprocess.run(cmd + [target], capture_output=True, text=True, timeout=60)
+
+
+def meters_resolved(doc):
+    """the reply's own consistency: every meter id a display of its panel names is the id of one row of its meters,
+    and its meters hold no row no display names. (ok, why)"""
+    if not isinstance(doc, dict) or not isinstance(doc.get("meters"), list):
+        return False, "the reply carries no meters: %s" % sorted(doc) if isinstance(doc, dict) else doc
+    ids = [m.get("id") for m in doc["meters"] if isinstance(m, dict)]
+    if len(ids) != len(doc["meters"]) or len(set(ids)) != len(ids):
+        return False, "the meters are not rows of distinct ids: %s" % doc["meters"]
+    panel = doc.get("panel") or {}
+    named = {i for disp in (panel.get("displays") or []) for i in (disp.get("meterIds") or []) if i is not None}
+    if named - set(ids):
+        return False, "a display names meter ids %s the reply does not carry (it carries %s)" % (sorted(named - set(ids)), ids)
+    if set(ids) - named:
+        return False, "the reply carries meters %s no display names" % sorted(set(ids) - named)
+    return True, ""
 
 
 def panel(target, extra=()):
@@ -250,20 +269,42 @@ def main():
             depth -= c == "}"
             if depth == 0:
                 break
+        # the scan's meters the displays index (100 and 101, never 7), each as the descriptor's meters[] words it
+        rows = ['{"id": 100, "symbol": "outL", "kind": "level", "channels": 1, "unit": "dBFS", "min": -60, "max": 6, '
+                '"scale": "unknown"}',
+                '{"id": 101, "symbol": "gr", "kind": "gain-reduction", "channels": 2, "unit": "dB", "min": -24, "max": 0, '
+                '"scale": "unknown"}']
         r = panel(CASES["clap-controls"], ["--json-from", scan])
-        check(r.returncode == 0 and r.stdout == '{"plugin": {"format": "clap", "id": "%s"}, "panel": %s}\n'
-              % (CASES["clap-controls"].rsplit("#", 1)[1], text[start:end + 1]),
-              "the panel is the scan's bytes, a refused table and an escape as written (%d: %s)" % (r.returncode, r.stderr.strip()))
+        check(r.returncode == 0 and r.stdout == '{"plugin": {"format": "clap", "id": "%s"}, "panel": %s, "meters": [%s]}\n'
+              % (CASES["clap-controls"].rsplit("#", 1)[1], text[start:end + 1], ", ".join(rows)),
+              "the panel is the scan's bytes, a refused table and an escape as written, and the meters its displays "
+              "index are rows of the descriptor's meters[] shape (%d: %s)" % (r.returncode, r.stderr.strip()))
         doc = json.loads(r.stdout or "null") or {}
         check(doc.get("panel", {}).get("roles") == {"refused": "too-many", "count": 5000, "max": 4096},
               "a refused table is passed through as refused")
+        ok, why = meters_resolved(doc)
+        check(ok, "the reply resolves every meter its displays index, with the scan's ids: %s" % why)
+        # the same check refuses a reply that does not resolve its own displays (the check is not decoration)
+        for what, broken in (("no meters", {k: v for k, v in doc.items() if k != "meters"}),
+                             ("a meter dropped", dict(doc, meters=[m for m in doc.get("meters", []) if m.get("id") != 101])),
+                             ("a meter no display names", dict(doc, meters=doc.get("meters", []) + [{"id": 7}]))):
+            check(not meters_resolved(broken)[0], "a reply with %s does not resolve its displays" % what)
         r = panel("clap:controls.clap#org.example.bare", ["--json-from", scan])
-        check(r.returncode == 0 and json.loads(r.stdout or "{}").get("panel", 0) is None,
-              "a plugin that serves no panel: a null panel (%d: %s)" % (r.returncode, r.stderr.strip()))
+        check(r.returncode == 0 and json.loads(r.stdout or "{}").get("panel", 0) is None
+              and json.loads(r.stdout or "{}").get("meters") == [],
+              "a plugin that serves no panel: a null panel, no meters (%d: %s)" % (r.returncode, r.stderr.strip()))
         r = panel(CASES["lv2-compressor"], ["--child", "/nonexistent"])
         check(r.returncode == 0 and json.loads(r.stdout or "{}")
-              == {"plugin": {"format": "lv2", "id": CASES["lv2-compressor"][4:]}, "panel": None},
-              "an LV2 plugin: a null panel, nothing run (%d: %s)" % (r.returncode, r.stderr.strip()))
+              == {"plugin": {"format": "lv2", "id": CASES["lv2-compressor"][4:]}, "panel": None, "meters": []},
+              "an LV2 plugin: a null panel and no meters, nothing run (%d: %s)" % (r.returncode, r.stderr.strip()))
+        # a display that names a meter the scan does not carry: refused, never a reply naming a meter it does not hold
+        for what, broken_text, want in (
+                ("a display naming a meter the scan does not carry", text.replace('"meterIds":[100,101]', '"meterIds":[100,102]'), "102"),
+                ("a scan that prints no meters for a panel that indexes them", text.replace('"version":"1","meters":[', '"version":"1","nometers":['), "100"),
+                ("a meter of a kind the descriptor has no word for", text.replace('"name":"outL","kind":"level"', '"name":"outL","kind":"other"'), "100")):
+            r = panel(CASES["clap-controls"], ["--json-from", scratch(tmp, "meters-scan.json", broken_text)])
+            check(r.returncode == 2 and want in r.stderr and not r.stdout,
+                  "%s: refused, exit 2, naming meter %s (%d: %s)" % (what, want, r.returncode, r.stderr.strip()))
         old = scratch(tmp, "old-scan.json", text.replace('"panel":null', '"name2":null'))
         for what, target, path, want in (
                 ("a plugin the scan failed", "clap:controls.clap#org.example.broken", scan, "plugin failed to create"),

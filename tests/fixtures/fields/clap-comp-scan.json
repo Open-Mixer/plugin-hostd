@@ -1,0 +1,8 @@
+{"scanner":"omx-clap-scan","version":"0.31.2","files":[
+{"path":"omx-comp.clap","plugins":[
+{"id":"org.openmixer.comp","name":"omx-comp","version":"0.19.1","meters":[
+{"id":0,"name":"compGr","kind":"gain-reduction","flags":["coherent"],"channels":1,"min":-60.0,"max":0.0},
+{"id":1,"name":"compIn","kind":"level","flags":["coherent"],"channels":2,"min":-60.0,"max":6.0},
+{"id":2,"name":"compOut","kind":"level","flags":["coherent"],"channels":2,"min":-60.0,"max":6.0},
+{"id":3,"name":"compKey","kind":"level","flags":["coherent"],"channels":1,"min":-60.0,"max":0.0}],"panel":{"family":"dynamics","fingerprint":"5c0e11a2","sections":[{"key":"comp","labelKey":"section.comp","label":"Compressor"}],"controls":[{"paramId":0,"section":0,"widget":"knob","labelKey":"control.threshold","label":"Threshold","visibleParamId":null,"visibleMask":"0"}],"roles":[],"displays":[{"kind":"gain_reduction_bar","section":0,"source":"meters","meterIds":[0,null],"curveIndex":0,"floorParamId":null,"floorDb":-60.0,"labelKey":"display.gr","label":"GR"}],"placementDefaults":[]}}
+]}]}
