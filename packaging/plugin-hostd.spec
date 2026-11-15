@@ -241,6 +241,12 @@ make test-daemon check-generated check-rendered
   (#107).
 - The CLAP default the tests hold is the list plugin-hostd-protocol declares,
   ~/.clap then /usr/lib/clap first (#102, #118).
+- The ledger keeps property_set replace-keyed, as plugin-hostd-protocol 0.5.10
+  declares it (R-111): one entry per instance and symbol, the latest set,
+  kept apart from the verb tail so a checkpoint does not drop it, and replayed
+  to a respawned worker after the state, in the order each symbol was first
+  set. A set the worker refused is not kept. The guide lists the four
+  property verbs (org.openmixer.properties/1).
 
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle
