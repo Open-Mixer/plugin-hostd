@@ -298,7 +298,7 @@ interface Table {
   }[];
   readonly arg_types?: { readonly [name: string]: ArgType };
   readonly protocol_errors: readonly { readonly name: string; readonly code: number; readonly message: string }[];
-  readonly reply_codes: readonly { readonly resp: number; readonly code: string; readonly transient?: boolean }[];
+  readonly reply_codes: readonly { readonly resp: number; readonly code: string; readonly transient?: boolean; readonly leaves_no_mark?: boolean }[];
 }
 
 /**
@@ -385,6 +385,7 @@ export class Protocol {
   private readonly codes: Map<string, number>;
   /** The codes an identical request may pass later with no change by the caller (#23): the table's declaration. */
   private readonly transientCodes: ReadonlySet<number>;
+  private readonly noMarkCodes: ReadonlySet<number>;
   /** Every verb the table declares, a command's or a feedback line's, by its own word (#24). */
   readonly verb: Names;
   /** Every reply code by its last segment in snake case, valued with the code; called, a code's number by its name. */
@@ -410,6 +411,8 @@ export class Protocol {
     this.names = new Map(t.reply_codes.map((r) => [r.resp, r.code]));
     this.codes = new Map(t.reply_codes.map((r) => [r.code, r.resp]));
     this.transientCodes = new Set(t.reply_codes.filter((r) => r.transient === true).map((r) => r.resp));
+    // the codes that leave no mark on the plugin, no verdict and no history (plugin-hostd-protocol 0.5.11): the table's too
+    this.noMarkCodes = new Set(t.reply_codes.filter((r) => r.leaves_no_mark === true).map((r) => r.resp));
     this.verb = namesOf('verb', new Map([...this.commands.keys(), ...this.feedback.keys()].map((w) => [w, w])));
     const short = new Map<string, string>();
     for (const code of this.codes.keys()) {
@@ -753,6 +756,16 @@ export class Protocol {
     const resp = typeof code === 'string' ? this.codeOf(code) : code;
     if (!this.names.has(resp)) throw new ProtocolError(`the protocol declares no code ${code}`);
     return this.transientCodes.has(resp);
+  }
+
+  /**
+   * Whether a refusal leaves no mark on the plugin, by its number or its name: no verdict and no history is written for
+   * it, as the table declares it (a refused pin, which is still not transient). ProtocolError for a code the table lacks.
+   */
+  leavesNoMark(code: number | string): boolean {
+    const resp = typeof code === 'string' ? this.codeOf(code) : code;
+    if (!this.names.has(resp)) throw new ProtocolError(`the protocol declares no code ${code}`);
+    return this.noMarkCodes.has(resp);
   }
 
   /** The name of a reply code, or null for a number the table gives no name. */
