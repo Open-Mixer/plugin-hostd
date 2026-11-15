@@ -229,20 +229,23 @@ class Daemon:
                 with self.lock:
                     self.events.append(line.decode())
 
-    def send(self, msg):
+    def send(self, msg, timeout=None):
+        """the reply; `timeout` is the bound to wait for it, REPLY_TIMEOUT (a prompt answer) when None. A reply that
+        waits on work the daemon bounds itself — a first-run add waits for its worker to come up — names CEILING, a
+        bound for a hang, so a slow host is told apart from a daemon that never answers (plugin-hostd#108)"""
         try:
-            return self.client.send(msg)
+            return self.client.send(msg, timeout)
         except ConnectionError:
             raise Fail("daemon closed on " + msg)
 
-    def ok(self, msg, expect=None):
-        r = self.send(msg)
+    def ok(self, msg, expect=None, timeout=None):
+        r = self.send(msg, timeout)
         check(r == (expect if expect is not None else r) and r.startswith("resp") and
               (expect is not None or not r.startswith("resp -")), "%s -> %r (wanted %r)" % (msg, r, expect or "resp >= 0"))
         return r
 
-    def expect(self, msg, expect):
-        r = self.send(msg)
+    def expect(self, msg, expect, timeout=None):
+        r = self.send(msg, timeout)
         check(r == expect, "%s -> %r, wanted %r" % (msg, r, expect))
 
     def until_ok(self, msg, timeout=30.0):

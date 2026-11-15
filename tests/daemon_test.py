@@ -3327,8 +3327,9 @@ def own_worker_of(d, inst):
 
 def writes_landed(d):
     """descriptor_get answers only once no write of the daemon waits (docs/durable-writes.md): after it, the daemon's
-    files hold what was handed over before it. An add's learned pin is written after its reply"""
-    d.send("descriptor_get clap:/nonexistent.clap#writes.landed")
+    files hold what was handed over before it. An add's learned pin is written after its reply. The answer waits on the
+    daemon's own writes landing, bounded by the daemon: a hang bound, not the prompt reply timeout"""
+    d.send("descriptor_get clap:/nonexistent.clap#writes.landed", timeout=CEILING)
 
 
 def store_lines(p):
@@ -3570,7 +3571,9 @@ def a_missing_store_is_a_first_run_and_says_nothing():
     check(not os.path.exists(p.store), "no store yet")
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
-        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        # the condition is the daemon's first-run answer: it waits for the worker to come up (ready_timeout_ms) and
+        # learns the pin, so its bound is for a hang, not the prompt reply timeout (plugin-hostd#108)
+        d.expect("add %s 0" % p.clap_uri, "resp 0", timeout=CEILING)
         check("not a pin" not in d.log() and "can't" not in d.log() and "NOT" not in d.log(), "a first run is quiet: %s" % d.log())
         writes_landed(d)
         check([l[1] for l in store_lines(p)] == [p.clap_uri], "the pin is saved: %s" % store_lines(p))
@@ -3591,7 +3594,7 @@ def a_first_run_whose_worker_is_slow_to_come_up_is_answered_not_timed_out():
     d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_READY_AFTER_MS": str(late_ms)})
     try:
         t0 = time.monotonic()
-        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0", timeout=CEILING)
         took = time.monotonic() - t0
         check(took >= late_ms / 1000.0, "the answer waited for the worker's ready line (%.1f s, held %d ms): the delay landed" % (took, late_ms))
         writes_landed(d)
