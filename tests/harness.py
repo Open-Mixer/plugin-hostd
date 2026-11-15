@@ -17,6 +17,11 @@ import declared as _declared
 with open(os.environ.get("PLUGIN_HOSTD_PROTOCOL") or _declared.variable("protocoljson")) as f:
     DECLARED = json.load(f)
 CODE = {e["name"]: e["code"] for e in DECLARED["errors"]}
+# the refusals that leave no mark on the plugin (plugin-hostd-protocol 0.5.11, the pin-refused class): the table's
+# leaves_no_mark, read as a consumer reads it, never a list of codes here
+with open(os.environ.get("PLUGIN_HOSTD_PROTOCOL_TABLE") or _declared.variable("table")) as f:
+    TABLE = json.load(f)
+LEAVES_NO_MARK = frozenset(r["resp"] for r in TABLE["reply_codes"] if r.get("leaves_no_mark") is True)
 READY_LINE = DECLARED["readiness"]["daemon_line"]
 
 

@@ -6015,6 +6015,38 @@ def a_pinned_plugin_leaves_a_record_of_its_windows_alone_and_in_a_group():
 
 
 @test
+def a_refusal_the_protocol_declares_to_leave_no_mark_leaves_none_on_the_plugin():
+    """plugin-hostd-protocol 0.5.11 (ruled 2026-11-15): a refusal its table declares leaves_no_mark writes no verdict and
+    no history for the plugin. The class is read from the table, never from the code's number: the daemon's answer to
+    a refused pin must be in it, and the plugin it refused has no record, or keeps the one it had unchanged."""
+    check(harness.CODE["PIN_REFUSED"] in harness.LEAVES_NO_MARK,
+          "the protocol declares a refused pin to leave no mark: %s" % sorted(harness.LEAVES_NO_MARK))
+    p = Plugins()
+    d = p.daemon(conf=history_conf(p))
+    marks = lambda h: {k: v for k, v in h.items() if k.startswith(("crash", "restart", "quarantin"))}
+    try:
+        d.expect(p.clap_pin() + " verdict=refused", "resp 0")
+        r = d.send("add %s 0" % p.clap_uri)
+        check(r.startswith("resp -") and int(r.split()[1]) in harness.LEAVES_NO_MARK,
+              "a refused pin's add answers a code that leaves no mark: %r" % r)
+        check(history_of(d, p.clap_uri) == "-", "the refused plugin has no record: %r" % history_of(d, p.clap_uri))
+        # positive control: the same bytes allowed run and earn a record, so the history is observed here
+        pin_in_process(p, d)
+        d.expect("add %s 1 own" % p.clap_uri, "resp 1")
+        h0 = wait_for(lambda: (lambda r: r if isinstance(r, dict) else None)(history_of(d, p.clap_uri)), "the record of a run")
+        # refused again: the record it has keeps its marks
+        d.expect(p.clap_pin() + " verdict=refused", "resp 0")
+        r = d.send("add %s 2" % p.clap_uri)
+        check(r.startswith("resp -") and int(r.split()[1]) in harness.LEAVES_NO_MARK, "refused again by a code that leaves no mark: %r" % r)
+        h1 = history_of(d, p.clap_uri)
+        check(isinstance(h1, dict) and marks(h1) == marks(h0), "the refusal left no mark: %s then %s" % (marks(h0), h1))
+        check(h1.get("crashed") == "0", "not counted as a crash: %s" % h1)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
 def crashes_restarts_and_quarantines_are_counted_for_the_plugin_that_earned_them():
     p = Plugins()
     other, other_uri = other_clap(p)
