@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """Both protocol clients answer every input the same (docs/clients.md, #29).
 
-The cases are clients/fixtures/codec.json and, from plugin-hostd-protocol's host scenarios (its scenarios variable),
+The cases are plugin-hostd-protocol's codec fixtures (its codecfixtures variable) and, from plugin-hostd-protocol's host scenarios (its scenarios variable),
 every command line decoded and encoded again and every reply the scenarios accept parsed. Each client is run once on
 all of them through its own entry point (`python3 -m plugin_hostd_protocol`, `node clients/ts/dist/cli.js`), which
 reads {"cases": [...]} and prints one answer per case, {"ok": value} or {"error": message}. Red for a case the two
@@ -19,22 +19,26 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-FIXTURES = os.path.join(ROOT, "clients", "fixtures", "codec.json")
 # what the runner of the scenarios substitutes, stood in for by words the codec takes as they are
 STAND_INS = {"$BAD_URI": "lv2:urn:example:missing", "$URI": "lv2:urn:example:gain", "$PARAM": "gain",
              "$DIR": "/tmp/plugin-hostd-presets", "$PORT_A": "system:capture_1", "$PORT_B": "system:playback_1",
              "$REMOVE_TWICE": "resp 0"}
 
 
-def scenarios_file():
-    path = os.environ.get("SCENARIOS")
+def protocol_file(variable, env):
+    """a file plugin-hostd-protocol's development package installs, named by its pkg-config variable (or env)"""
+    path = os.environ.get(env)
     if path:
         return path
-    out = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=scenarios", "plugin-hostd-protocol"],
+    out = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=" + variable, "plugin-hostd-protocol"],
                          capture_output=True, text=True)
     if out.returncode != 0 or not out.stdout.strip():
-        sys.exit("clients_agree: no scenarios: plugin-hostd-protocol-devel is not installed and SCENARIOS is not set")
+        sys.exit("clients_agree: no %s: plugin-hostd-protocol-devel is not installed and %s is not set" % (variable, env))
     return out.stdout.strip()
+
+
+def scenarios_file():
+    return protocol_file("scenarios", "SCENARIOS")
 
 
 def scenario_cases(path):
@@ -94,11 +98,11 @@ def judge(cases, py, ts):
 
 
 def main():
-    with open(FIXTURES) as f:
+    with open(protocol_file("codecfixtures", "CODEC_FIXTURES")) as f:
         cases = json.load(f)["cases"] + scenario_cases(scenarios_file())
     python = [os.environ.get("PYTHON", sys.executable), "-m", "plugin_hostd_protocol"]
     node = [os.environ.get("NODE", "node"), os.path.join("clients", "ts", "dist", "cli.js")]
-    py = run(python, cases, {"PYTHONPATH": os.path.join(ROOT, "clients", "python")})
+    py = run(python, cases)
     ts = run(node, cases)
     if "--self-test" in sys.argv[1:]:
         # a client that answers the first decoded command otherwise: the comparison must see it

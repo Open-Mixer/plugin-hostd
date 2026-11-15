@@ -18,7 +18,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # the paths that moved to plugin-hostd-protocol
 MOVED = [
     "protocol/plugin-hostd.json", "protocol/mod-host.json", "protocol/plugin-hostd.schema.json",
-    "protocol/plugin-hostd-protocol.json", "data/verbs.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
+    "clients/python/plugin_hostd_protocol/__init__.py", "clients/python/plugin_hostd_protocol/__main__.py",
+    "clients/fixtures/codec.json", "protocol/plugin-hostd-protocol.json", "data/verbs.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
     "include/plugin-hostd/protocol.h", "include/plugin-hostd/search_paths.h",
     "include/plugin-hostd/plugin_hostd_host_verbs.h", "include/plugin-hostd/plugin_hostd_protocol_host_verbs.h",
     "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_core_host_verbs.h",

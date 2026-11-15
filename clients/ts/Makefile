@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The TypeScript client (docs/clients.md): build with the locked toolchain, test on clients/fixtures/codec.json.
+# The TypeScript client (docs/clients.md): build with the locked toolchain, test on the codec fixtures plugin-hostd-protocol installs.
 .PHONY: build test clean
 build: node_modules/.package-lock.json
 	npx tsc -p tsconfig.json

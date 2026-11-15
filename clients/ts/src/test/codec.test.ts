@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 /**
- * The TypeScript client on clients/fixtures/codec.json (docs/clients.md), and what JSON cannot carry: a number that
+ * The TypeScript client on the codec fixtures plugin-hostd-protocol installs (docs/clients.md), and what JSON cannot carry: a number that
  * is not finite, a boolean where a number goes.
  */
 import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { answer } from '../cli.js';
 import { formatNumber, GroupingReason, Protocol, ProtocolError, RETRY_REASONS } from '../index.js';
 
-const FIXTURES = new URL('../../../fixtures/codec.json', import.meta.url);
+// the codec's fixtures are plugin-hostd-protocol's: the file its development package installs, named by the codecfixtures
+// variable of its pkg-config file (CODEC_FIXTURES names another one)
+const FIXTURES =
+  process.env.CODEC_FIXTURES ??
+  execFileSync(process.env.PKG_CONFIG ?? 'pkg-config', ['--variable=codecfixtures', 'plugin-hostd-protocol'], { encoding: 'utf8' }).trim();
 const GROUPING = new URL('../../../../data/grouping.json', import.meta.url);
 const { cases } = JSON.parse(readFileSync(FIXTURES, 'utf8')) as { cases: { op: string; in: unknown; expect?: unknown; error?: boolean }[] };
 
