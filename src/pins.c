@@ -166,14 +166,19 @@ static pin_t *pkg_refusal(const char *uri)
     return accepted(uri) ? NULL : pkg_refused(uri);
 }
 
-/* the pin that holds for a uri: a package refusal, else the host's pin, else the package's */
+/* the pin that holds for a uri: a package refusal, else the host's pin, else the package's. A pin the daemon learned
+ * on first use holds no verdict: it is what the daemon hashed for the check it asked for (R-112), so a package pin of
+ * the uri that carries a verdict, the service's answer, holds over it */
 static pin_t *find(const char *uri)
 {
-    pin_t *p = pkg_refusal(uri);
+    pin_t *p = pkg_refusal(uri), *pkg;
 
     if (!p)
         p = find_in(g_pins, g_npins, uri);
-    return p ? p : find_in(g_pkg, g_npkg, uri);
+    pkg = find_in(g_pkg, g_npkg, uri);
+    if (p && p->learned && !*p->verdict && pkg && *pkg->verdict && !accepted(uri))
+        return pkg;
+    return p ? p : pkg;
 }
 
 /* a path of a pin: relative to the bundle, never out of it, none of the separators of pin_set's words, and every
@@ -1333,13 +1338,16 @@ int pins_learn(const format_t *format, const char *uri, const char *search, cons
 int pins_accept(const format_t *format, const char *uri, const char *search)
 {
     const pin_t *p = find(bare(uri));
-    int rc, chosen;
+    int rc, chosen, was_refused;
 
     if (!p)
         return OMX_REPLY_HOST_PIN_ABSENT_RESP;
     /* its qualification refused it: the user's choice, kept, and the files as they are now its pin with no verdict, so
      * it runs in a worker of its own like any plugin not qualified for a shared one */
-    chosen = pkg_refused(bare(uri)) != NULL || refused(p);
+    was_refused = pkg_refused(bare(uri)) != NULL || refused(p);
+    /* under first-use every pin_accept is the operator's choice (R-112): a plugin with no verdict is bypassed until it has
+     * one or the operator accepts it, and the choice is the daemon's alone to write, a verdict never overwrites it */
+    chosen = was_refused || g_accepting;
     if (chosen && (!g_accepting || accepted_add(bare(uri)) != 0))
         return g_accepting ? ERR_MEMORY_ALLOCATION : OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP;
     rc = record(format, uri, search, NULL, 0);
@@ -1348,7 +1356,7 @@ int pins_accept(const format_t *format, const char *uri, const char *search)
     if (chosen)
     {
         accepted_save();
-        if (rc == SUCCESS)
+        if (rc == SUCCESS && was_refused)
             fprintf(stderr, "plugin-hostd: %s: its pin carries " PHD_PIN_VERDICT_KEY PHD_PIN_VERDICT_REFUSED
                             "; the user chose to load it, alone in a worker of its own\n", uri);
     }
@@ -1404,4 +1412,35 @@ int pins_check(const format_t *format, const char *uri, const char *search, cons
     if (rc == SUCCESS)
         *layout = strcmp(p->layout, PHD_PIN_LAYOUT_UNKNOWN) ? p->layout : NULL;
     return rc;
+}
+
+/* ---------------------------------------------------------------- what the qualify request is made of (R-112) */
+
+int pins_accepted(const char *uri)
+{
+    return accepted(bare(uri));
+}
+
+int pins_file_at(const char *uri, int n, const char **path, const char **digest)
+{
+    const pin_t *p = find(bare(uri));
+
+    if (!p || n < 0 || n >= p->nfiles)
+        return -1;
+    *path = p->path[n];
+    *digest = p->digest[n];
+    return 0;
+}
+
+const char *pins_store_dir_of(char *dir, size_t size)
+{
+    char *slash;
+
+    if (!*g_store || snprintf(dir, size, "%s", g_store) >= (int)size)
+        return NULL;
+    slash = strrchr(dir, '/');
+    if (!slash)
+        return NULL;
+    *slash = '\0';
+    return dir;
 }

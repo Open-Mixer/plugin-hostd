@@ -73,6 +73,11 @@ typedef struct INSTANCE_T {
     char *node_label;           /* the latest node_label with a label it took, replayed after its add (#35) */
     char *track_info;           /* the latest track_info it took, replayed after its add, never to an LV2 worker */
     struct CHAIN_T *chain;      /* the chain it is a member of, NULL for none */
+    int bypassed;               /* it has no verdict and no worker: its insert passes dry, its quick check is asked for
+                                 * (R-112); w is NULL until its verdict is a pass or the operator accepted it */
+    char *byp_uri;              /* the uri and the client as the add had them, for the add that makes it live */
+    char *byp_place;
+    char *byp_client;
 } instance_t;
 
 typedef struct WORKER_T {
@@ -179,6 +184,8 @@ char *sup_policy_set(const char *format, const char *place);
  * keep running; one whose files the new pins refuse is logged and marked in worker_list. SUCCESS, or the pin file's
  * refusal with the earlier pins left as they are */
 char *sup_pin_reload(void);
+/* the pins were changed by a verb: the bypassed inserts are looked at again (R-112) */
+void sup_pins_applied(void);
 /* the same when the pin file or a pins_dir file changed since the pins were read; cheap (a stat of each) otherwise */
 void sup_pins_poll(void);
 
