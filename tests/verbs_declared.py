@@ -280,6 +280,9 @@ def setup(s):
     for n in (1, 2):
         d.expect("add %s %d" % (s.clap_uri, n), "resp %d" % n)
     d.expect("add lv2:%s 3" % scan_fixture.LV2_COMPRESSOR, "resp 3")
+    # R-112: a plugin with no verdict is bypassed until its check or the operator's choice: these are the operator's
+    d.expect("pin_accept %s" % s.clap_uri, "resp 0")
+    d.expect("pin_accept lv2:%s" % scan_fixture.LV2_COMPRESSOR, "resp 0")
     wait_for(lambda: d.send("panel_get %s" % s.clap_uri).startswith("resp 0 "), "the scan's descriptor and panel")
     return d, {"uri": s.clap_uri, "layout": lay, "sha": scan_fixture.sha(s.clap)}
 
