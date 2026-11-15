@@ -32,6 +32,14 @@ static int where(const char *list, const char *dir)
     return -1;
 }
 
+/* list starts with the folders of head, a whole folder each: head is followed by the end of list or a ':' */
+static int starts_with_dirs(const char *list, const char *head)
+{
+    const size_t n = strlen(head);
+
+    return !strncmp(list, head, n) && (list[n] == '\0' || list[n] == ':');
+}
+
 int main(void)
 {
     conf_t conf;
@@ -53,7 +61,11 @@ int main(void)
     check(where(conf.lv2_path, "/usr/lib/x86_64-linux-gnu/lv2") >= 0, "the x86_64 multiarch folder");
     check(where(conf.lv2_path, "/usr/lib64/lv2") > where(conf.lv2_path, "/usr/local/lib/aarch64-linux-gnu/lv2"),
           "lib64 folders come after Zynthian's four");
-    check(!strcmp(conf.clap_path, "~/.clap:/usr/lib/clap"), "clap_path defaults to ~/.clap, then /usr/lib/clap");
+    /* the default is the list plugin-hostd-protocol declares, never a copy of it here; it starts at ~/.clap, then
+     * /usr/lib/clap */
+    check(!strcmp(conf.clap_path, PHD_DEFAULT_CLAP_PATH), "clap_path defaults to the declared PHD_DEFAULT_CLAP_PATH");
+    check(starts_with_dirs(conf.clap_path, "~/.clap:/usr/lib/clap"),
+          "clap_path defaults to ~/.clap, then /usr/lib/clap");
     check(!*conf.lv2_extra, "lv2_extra is empty by default");
     check(conf_merge_extra(&conf) == 0 && where(conf.lv2_path, "/usr/lib/lv2") == 0, "no extra leaves lv2_path as it is");
 
@@ -67,7 +79,9 @@ int main(void)
 
     setenv("CLAP_PATH", "/site/clap", 1);
     conf_defaults(&conf);
-    check(!strcmp(conf.clap_path, "/site/clap:~/.clap:/usr/lib/clap"), "$CLAP_PATH is searched before the default");
+    check(starts_with_dirs(conf.clap_path, "/site/clap") &&
+              !strcmp(conf.clap_path + strlen("/site/clap:"), PHD_DEFAULT_CLAP_PATH),
+          "$CLAP_PATH is searched before the default");
     unsetenv("CLAP_PATH");
 
     if (failures)
