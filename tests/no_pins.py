@@ -63,8 +63,8 @@ def declared(root):
     return out
 
 
-# the ceiling of omx-clap-core: the next minor after the release this tree is built and tested against (0.32.0)
-CEILING = "0.33"
+# the ceiling of omx-clap-core: the next minor after the release this tree is built and tested against (0.33.0)
+CEILING = "0.34"
 
 
 def check_declared(root):
