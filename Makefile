@@ -219,16 +219,26 @@ check-contract-dir:
 
 # the words of this tree's tables (data/), rendered by omx-contract as the package installs them, beside the packages of
 # OMX_CONTRACT_PATH and of the installed contract directory: the C names the planner and the history read
-# (plugin_hostd_vocabulary.h). `make render-verbs` writes them, `make check-rendered` fails on any drift. The daemon's
-# verbs are plugin-hostd-protocol's, rendered there.
+# (plugin_hostd_vocabulary.h). `make render-verbs` writes them and records the omx-contract that rendered them
+# (RENDERED_WITH), `make check-rendered` fails on any drift. A package build sets RENDERED_COMPARE=recorded: with
+# another omx-contract than the recorded one installed the render is not compared and the check says so, so a tag
+# builds the same after the channel moves on (#120); the default compares always. The daemon's verbs are
+# plugin-hostd-protocol's, rendered there.
 OMX_CONTRACT ?= omx-contract
+RENDERED_WITH = $(RENDERED).rendered-with
+RENDERED_COMPARE ?= always
 .PHONY: render-verbs check-rendered
 render-verbs check-rendered:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
-	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	@renderer=$$($(PKG_CONFIG) --modversion omx-contract 2>/dev/null); recorded=$$(cat $(RENDERED_WITH) 2>/dev/null || true); \
+	if [ $@ = check-rendered ] && [ "$(RENDERED_COMPARE)" = recorded ] && [ -n "$$recorded" ] && [ "$$renderer" != "$$recorded" ]; then \
+	  echo "$(RENDERED) is rendered with omx-contract $$recorded; $$renderer is installed: not compared"; exit 0; fi; \
+	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
-	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check)
+	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
+	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
+	  echo "$$renderer" > $(RENDERED_WITH); fi
 
 # a release build is reproducible at its tag (#120): tests/rendered_at_tag.sh
 .PHONY: test-rendered-at-tag
