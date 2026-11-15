@@ -5,7 +5,10 @@
  * is not finite, a boolean where a number goes.
  */
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { answer } from '../cli.js';
 import { formatNumber, GroupingReason, Protocol, ProtocolError, RETRY_REASONS } from '../index.js';
@@ -42,6 +45,30 @@ describe('the TypeScript client on the fixtures', () => {
     assert.ok(protocol.sentence(protocol.code('reply.host.param-symbol-invalid'), 'en'));
     assert.ok(protocol.sentence(protocol.code('reply.plugin-hostd.preset-not-applied'), 'ca'));
     assert.equal(protocol.sentence(0, 'en'), null);
+  });
+
+  // #78: omx-contract 3.18.0 stores a catalog entry as an object ({text, by, source}); sentence() is the text, read
+  // through omx-contract's catalog reader, and English for a machine entry made from another source sentence
+  it('reads a catalog entry as its text, whatever its shape', () => {
+    const name = 'reply.plugin-hostd.preset-not-applied';
+    const other = 'reply.plugin-hostd.label-invalid';
+    const owner = 'plugin-hostd-protocol';
+    const dir = mkdtempSync(join(tmpdir(), 'catalog-shape-'));
+    try {
+      mkdirSync(join(dir, owner, 'catalogs'), { recursive: true });
+      writeFileSync(join(dir, owner, 'catalogs', 'ca.json'), JSON.stringify({
+        kind: 'catalog', owner, lang: 'ca', messages: {
+          [name]: { text: "No s'ha aplicat", by: 'human' },
+          [other]: { text: 'Etiqueta antiga', by: 'machine', model: 'm', source: createHash('sha256').update('not its sentence').digest('hex') },
+        },
+      }));
+      const p = new Protocol({ datadir: dir });
+      assert.equal(p.sentence(p.code(name), 'ca'), "No s'ha aplicat");
+      assert.equal(p.sentence(p.code(other), 'ca'), p.sentence(p.code(other), 'en'));
+      assert.equal(typeof p.sentence(p.code(other), 'ca'), 'string');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

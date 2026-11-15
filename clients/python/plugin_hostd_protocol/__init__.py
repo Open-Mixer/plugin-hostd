@@ -22,6 +22,24 @@ __all__ = ["Protocol", "ProtocolError", "words", "quote", "encode_path", "decode
            "format_number", "RETRY_REASONS", "GroupingReason", "Names"]
 
 
+def _catalog_reader():
+    """omx-contract's catalog reader (omx_contract_catalog.py, omx-contract-data): the one reading of a catalog entry,
+    a string or an object {text, by, source}, and of a stale machine entry (#78). It lives in omx-contract's data
+    directory: OMX_CONTRACT_DATADIR, else where pkg-config said it was when the client was installed, else
+    pkg-config's datadir of omx-contract, else /usr/share/omx-contract."""
+    import importlib.util
+    root = os.environ.get("OMX_CONTRACT_DATADIR") or getattr(_installed, "OMX_CONTRACT_DATADIR", None) or \
+        _pkg_config("--variable=datadir", "omx-contract") or "/usr/share/omx-contract"
+    path = os.path.join(root, "omx_contract_catalog.py")
+    spec = importlib.util.spec_from_file_location("omx_contract_catalog", path)
+    if spec is None or not os.path.isfile(path):
+        raise ProtocolError("no catalog reader at %s: omx-contract-data is not installed and OMX_CONTRACT_DATADIR is not set"
+                            % path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class ProtocolError(ValueError):
     """A line the table does not declare, an argument no form takes, a reply that is no reply."""
 
@@ -325,6 +343,7 @@ class Protocol:
                         self.sentences[code] = text
                         self.owners[code] = package
         self._catalogs = {}
+        self._reader = None
 
     # ---- commands
 
@@ -607,18 +626,21 @@ class Protocol:
         return self.names.get(code)
 
     def sentence(self, code, lang="en"):
-        """What a reply code says to an operator, in English from the vocabulary or in `lang` from its owner's
-        catalog; None when neither has it."""
+        """What a reply code says to an operator: in English from the vocabulary, or in `lang` from its owner's catalog
+        as omx-contract's reader reads it, the entry's text whatever its shape, and the English sentence where the
+        catalog has none or only a stale machine one (#78); None for a code with no sentence."""
         name = self.names.get(code)
         if name is None:
             return None
+        english = self.sentences.get(name)
         if lang == "en":
-            return self.sentences.get(name)
+            return english
         owner = self.owners.get(name)
         if owner is None:
-            return None
+            return english
+        if self._reader is None:
+            self._reader = _catalog_reader()
         key = (owner, lang)
         if key not in self._catalogs:
-            path = os.path.join(self.datadir, owner, "catalogs", "%s.json" % lang)
-            self._catalogs[key] = _read(path, "the catalog").get("messages", {}) if os.path.isfile(path) else {}
-        return self._catalogs[key].get(name)
+            self._catalogs[key] = self._reader.load_catalog(owner, lang, root=self.datadir)
+        return self._reader.sentence_of(self._catalogs[key], name, english)
