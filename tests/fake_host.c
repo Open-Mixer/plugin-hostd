@@ -79,6 +79,8 @@
  *                               FAKE_PRESET_NEEDS_CLAP_PATH=<dir> set, -104 (ERR_HOST_INVALID_PRESET_URI) unless the
  *                               fake's own CLAP_PATH holds <dir>, as a worker whose preset browsing depends on it does
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   property_set <n> <symbol> <value>   "resp 0", OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for the symbol "readonly"; the
+ *                               fake keeps nothing of it (FAKE_LOG shows what it was sent); property_list <n> "resp 0"
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
  *                               as omx-clap-host answers for a plugin with no window it can show; hide_external_ui <n>
  *                               "resp 0"; the fake shows nothing (FAKE_LOG shows what it was sent)
@@ -446,7 +448,8 @@ static void receive(msg_t *msg)
     const char *verb, *presets_learn = getenv("FAKE_PRESETS_LEARN");
 
     log_command(line);
-    /* a quoted word is one word, as mod-host's tokenizer reads it */
+    /* a quoted word is one word, as mod-host's tokenizer reads it; inside it \" and \\ are escapes, as the protocol's
+     * splitter reads a quoted-escaped value, so an escaped quote does not end it (the word keeps its escapes) */
     for (t = copy; t && ntok < PHD_LINE_WORDS_MAX;)
     {
         t += strspn(t, " \t\n");
@@ -455,7 +458,10 @@ static void receive(msg_t *msg)
         if (*t == '"')
         {
             tok[ntok++] = ++t;
-            t = strchr(t, '"');
+            while (*t && *t != '"')
+                t += (*t == '\\' && (t[1] == '"' || t[1] == '\\')) ? 2 : 1;
+            if (!*t)
+                t = NULL;
         }
         else
         {
@@ -913,6 +919,10 @@ static void receive(msg_t *msg)
         answer(fd, "resp 0");
     }
     else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
+        answer(fd, "resp 0");
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_SET) && ntok == 4)
+        answer(fd, "resp %d", strcmp(tok[2], "readonly") ? 0 : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_LIST) && ntok == 2)
         answer(fd, "resp 0");
     else if (!strcmp(verb, PHD_VERB_SHOW_EXTERNAL_UI) && ntok == 2)
         answer(fd, g_inst[n].nowindow ? "resp %d hosting.window.unsupported" : "resp 0", ERR_EXTERNAL_UI_UNAVAILABLE);

@@ -364,6 +364,10 @@ stays held at the controller. omx-clap-host writes these lines from FreeMixer/om
 | `node_label` | `<instance> [<label word> ...]` | `resp 0` | label the node for graph clients: the worker that holds the instance sets its pretty-name to the labelled form of PHD_NODE_METADATA, the label the words joined by one space; no words clears it, back to the plain form. -545 for a label over PHD_NODE_LABEL_MAX bytes or not UTF-8; the ledger keeps the latest, so a respawned worker is labelled again (plugin-hostd#35) |
 | `remote_pages` | `<instance>` | `resp <count>` | the plugin's remote-control pages, from clap.remote-controls; 0 for an instance of a format whose worker has none |
 | `remote_page_get` | `<instance> <page>` | `resp 0 <page_id> <section> <page_name> <s1> <s2> <s3> <s4> <s5> <s6> <s7> <s8>` | one page, 0 to count - 1: each slot the symbol param_set takes, - for an empty one; -902 for a page that is not one |
+| `property_list` | `<instance>` | `resp <count>` | the plugin's file and text properties (org.openmixer.properties/1): how many; 0 for an instance of a worker that has none |
+| `property_info` | `<instance> <index>` | `resp 0 <symbol> <kind> <access> <name>` | one property, 0 to count - 1: its symbol, its kind (path or string), its access (rw, w or r) and its name; (-106) for an index that is not one |
+| `property_get` | `<instance> <symbol>` | `resp 0 <value>` | the value the plugin holds now, one quoted-escaped word; (-107) for a property that is not readable |
+| `property_set` | `<instance> <symbol> <value>` | `resp 0` | set a property to a quoted-escaped value, which reaches the plugin at its next block; the ledger keeps the latest per symbol and replays each to a respawned worker. (-107) for one not writable, (-108) for a value too large, not UTF-8 or a path that is not absolute, (-109) to send again |
 | `param_info` | `<instance> <symbol>` | `resp 0 <unit> <scale> <min> <max> <default> <step> <stable_symbol>` | what a parameter's value means: its unit, its scale, and the symbol it keeps across hosts and versions; -103 for a symbol that is not a parameter, the plugin's own bypass and :bypass included; -511 for a parameter whose unit and scale the worker holds no checked contract for |
 | `preset_list` | `<instance>` | `resp <count>` | the plugin's presets, the ones its preset discovery or its bundle lists; (-515) for an instance of a worker that cannot list them |
 | `preset_get` | `<instance> <index>` | `resp 0 <load_key> <name>` | one preset, 0 to count - 1: the key preset_load takes for it, and its name; -902 for an index that is not one |
@@ -437,6 +441,10 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `remote_pages` | mod-host | optional | optional | optional | optional |
 | `remote_page_get` | mod-host | optional | optional | optional | optional |
 | `param_info` | mod-host | optional | optional | optional | optional |
+| `property_list` | daemon | optional | optional | optional | optional |
+| `property_info` | daemon | optional | optional | optional | optional |
+| `property_get` | daemon | optional | optional | optional | optional |
+| `property_set` | daemon | optional | optional | optional | optional |
 | `preset_list` | daemon | optional | optional | optional | optional |
 | `preset_get` | daemon | optional | optional | optional | optional |
 | `note_input` | daemon | optional | optional | optional | optional |
