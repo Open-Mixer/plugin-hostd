@@ -1,0 +1,7 @@
+# Packages other repositories release LATER in this same pass, one per line (release.yml's samepass job): the
+# channel-installability gate reports a breakage they cause or suffer instead of failing on it. Reviewed like code;
+# goes away with this release branch, so it can never excuse a break in a later pass.
+#
+# plugin-hostd-full 0.20.6, as published, requires plugin-hostd = 0.20.6 exactly; plugin-hostd-full 0.20.7 releases
+# after plugin-hostd 0.20.7 in the same pass, from its own release branch.
+plugin-hostd-full

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# plugin-db is a dependency with a floor and a ceiling wherever it is declared: 0.4.1 (plugin_db_constants.h, which
-# src/pins.h includes so the fuzz harnesses need no OpenSSL; a bound below it leaves the build no such header) and 0.5, the
+# plugin-db is a dependency with a floor and a ceiling wherever it is declared: 0.4.4, the release of the same pass
+# (0.4.1 brought plugin_db_constants.h, which src/pins.h includes so the fuzz harnesses need no OpenSSL), and 0.5, the
 # next minor. The spec's two lines, debian/control's two items and the pkg-config file of
 # the development package are read here; a missing line, a floor below FLOOR and a missing or wide ceiling are red.
 # Usage: plugin_db_floor.py [root]. The check proves it sees each fault before it trusts the tree.
 import os, re, sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FLOOR, CEILING = "0.4.1", "0.5"
+FLOOR, CEILING = "0.4.4", "0.5"
 SPEC = re.compile(r"^(?:Build)?Requires:\s*\(\s*(pkgconfig\(plugin-db\)|plugin-db-devel)\s*>=\s*(\S+)\s+with\s+\1\s*<\s*(\S+?)\s*\)\s*$", re.M)
 SPEC_ANY = re.compile(r"^(?:Build)?Requires:.*plugin-db.*$", re.M)
 CONTROL = re.compile(r"plugin-db-dev\s*\(>=\s*([^)\s~]+)~?\),\s*plugin-db-dev\s*\(<<\s*([^)\s~]+)~?\)")
