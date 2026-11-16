@@ -44,6 +44,10 @@ on:
         description: 'With source-ref: build and publish only the cells of the set the served version lacks; never rewrites a file the channel serves'
         type: boolean
         default: false
+      same_pass:
+        description: 'Packages other repositories release later in the same pass, space separated; empty reads .github/release-same-pass at the commit built'
+        type: string
+        default: ''
   workflow_call:
     inputs:
       publish:
@@ -59,6 +63,9 @@ on:
       staged-deps:
         type: string
         default: ''
+      same_pass:
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -66,9 +73,38 @@ permissions:
   actions: read
 
 jobs:
+  # The packages other repositories release LATER in this same pass, for the channel-installability gate's same-pass
+  # (a breakage they cause or suffer is reported, not red): a dispatch's same_pass input, else the tracked
+  # .github/release-same-pass at the very commit this run builds (the tag on a push, source-ref when one is named), one
+  # package per line, # comments allowed. The file is reviewed like code, lives on its release branch and goes with it;
+  # never a repository variable, which is mutable, unversioned and can outlive its pass to excuse a later break.
+  samepass:
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.read.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || github.sha }}
+          sparse-checkout: .github/release-same-pass
+          sparse-checkout-cone-mode: false
+      - id: read
+        run: |
+          f=.github/release-same-pass
+          [ -f "$f" ] || { echo "list=" >>"$GITHUB_OUTPUT"; echo "no $f at this commit: nothing released in the same pass"; exit 0; }
+          names=$(sed -e 's/#.*//' "$f" | tr -s ' \t\r\n' '\n' | sed '/^$/d')
+          for n in $names; do
+            [[ "$n" =~ ^[a-z0-9][a-z0-9.+-]*$ ]] || { echo "::error::$f: '$n' is not a package name"; exit 1; }
+          done
+          list=$(echo $names)
+          echo "list=$list" >>"$GITHUB_OUTPUT"
+          echo "same pass from $f: ${list:-none}"
+
   rpm:
+    needs: samepass
     uses: Open-Mixer/.github/.github/workflows/build-rpm.yml@openmixer-v1
     with:
+      same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
@@ -82,8 +118,10 @@ jobs:
   # or skipped RPM job skips this one, so no DEB is published after a failed RPM.
   # beside the RPMs: the two publish jobs share one concurrency group, so their pushes never race
   deb:
+    needs: samepass
     uses: Open-Mixer/.github/.github/workflows/build-deb.yml@openmixer-v1
     with:
+      same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
