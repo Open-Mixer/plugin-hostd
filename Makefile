@@ -443,6 +443,7 @@ test-timing-load:
 # daemon answers no undeclared word itself, and a verb both hosts owe answers in one shape from both; omx-clap-core's
 # declarations come from OMX_CONTRACT_PATH or the installed contract directory
 test-verbs-declared: $(PROG) $(PROBE) $(FAKE)
+	python3 tests/verbs_ahead.py --self-test
 	PLUGIN_HOSTD=./$(PROG) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/verbs_declared.py
 
 # panel_get on the wire against the installed omx-clap-scan (omx-clap-core 0.20.0 or later) and real plugins: one that
