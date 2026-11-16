@@ -140,7 +140,7 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 # the verb table is checked against mod-host's README, which a build does not have
 %check
 %if %{with check}
-make test-daemon check-generated check-rendered
+make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %endif
 
 %files

@@ -41,5 +41,8 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "dependencies": {
+    "@openmixer/omx-contract": "^3.18.0"
   }
 }

@@ -9,6 +9,7 @@
  * is an error naming it. No transport: a controller opens the socket and sends the lines. The Python client
  * (clients/python) is the same codec, held to this one by tests/clients_agree.py.
  */
+import { loadCatalog, sentenceOf, type Catalog } from '@openmixer/omx-contract/catalog';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -390,7 +391,7 @@ export class Protocol {
   readonly code: CodeNames;
   private readonly sentences = new Map<string, string>();
   private readonly owners = new Map<string, string>();
-  private readonly catalogs = new Map<string, Record<string, string>>();
+  private readonly catalogs = new Map<string, Catalog | undefined>();
   private readonly datadir: string;
 
   constructor(options: ProtocolOptions = {}) {
@@ -759,19 +760,20 @@ export class Protocol {
     return this.names.get(code) ?? null;
   }
 
-  /** What a reply code says to an operator, in English from the vocabulary or in `lang` from its owner's catalog. */
+  /**
+   * What a reply code says to an operator: in English from the vocabulary, or in `lang` from its owner's catalog as
+   * omx-contract's reader reads it, the entry's text whatever its shape, and the English sentence where the catalog has
+   * none or only a stale machine one (#78); null for a code with no sentence.
+   */
   sentence(code: number, lang = 'en'): string | null {
     const name = this.names.get(code);
     if (name === undefined) return null;
-    if (lang === 'en') return this.sentences.get(name) ?? null;
+    const english = this.sentences.get(name);
+    if (lang === 'en') return english ?? null;
     const owner = this.owners.get(name);
-    if (owner === undefined) return null;
+    if (owner === undefined) return english ?? null;
     const key = `${owner}/${lang}`;
-    if (!this.catalogs.has(key)) {
-      const path = join(this.datadir, owner, 'catalogs', `${lang}.json`);
-      const doc = existsSync(path) ? (read(path, 'the catalog') as { messages?: Record<string, string> }) : {};
-      this.catalogs.set(key, doc.messages ?? {});
-    }
-    return this.catalogs.get(key)![name] ?? null;
+    if (!this.catalogs.has(key)) this.catalogs.set(key, loadCatalog(owner, lang, this.datadir));
+    return sentenceOf(this.catalogs.get(key), name, english) ?? null;
   }
 }
