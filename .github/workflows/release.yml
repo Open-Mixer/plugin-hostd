@@ -85,12 +85,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || github.sha }}
           sparse-checkout: .github/release-same-pass
           sparse-checkout-cone-mode: false
       - id: read
+        env:
+          NAMED_SOURCE: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
         run: |
           f=.github/release-same-pass
+          # a named source-ref is fetched and its file read from FETCH_HEAD: no checkout is pinned to a ref (make check-no-pins)
+          if [ -n "$NAMED_SOURCE" ]; then
+            git fetch --quiet --depth=1 origin "$NAMED_SOURCE" || { echo "::error::cannot fetch source-ref $NAMED_SOURCE"; exit 1; }
+            rm -f "$f"
+            git show "FETCH_HEAD:$f" >"$f" 2>/dev/null || rm -f "$f"
+          fi
           [ -f "$f" ] || { echo "list=" >>"$GITHUB_OUTPUT"; echo "no $f at this commit: nothing released in the same pass"; exit 0; }
           names=$(sed -e 's/#.*//' "$f" | tr -s ' \t\r\n' '\n' | sed '/^$/d')
           for n in $names; do
