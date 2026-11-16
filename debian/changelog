@@ -30,6 +30,11 @@ plugin-hostd (0.20.7) unstable; urgency=medium
     loads back after a factory patch that renames its parameters (#27, #30).
   * release: a catch-up dispatch input builds only the cells a served
     version lacks (#71).
+  * plugin-hostd builds no plugin-hostd-full and no
+    python3-plugin-hostd-protocol: the metapackage is
+    Open-Mixer/plugin-hostd-full's own, released after the layers it installs
+    (#84), and the Python codec is plugin-hostd-protocol's package, at epoch
+    1. tests/no_moved_packages.py holds both out.
 
  -- Pau Aliagas <linuxnow@gmail.com>  Sat, 14 Nov 2026 19:00:00 +0100
 

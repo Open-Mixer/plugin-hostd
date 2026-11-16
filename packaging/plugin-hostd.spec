@@ -13,8 +13,6 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
-BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
 BuildRequires: (pkgconfig(plugin-db) >= 0.4.4 with pkgconfig(plugin-db) < 0.5)
 BuildRequires: cjson-devel
@@ -85,26 +83,6 @@ declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
 
-%package -n python3-plugin-hostd-protocol
-Summary: The Python client of plugin-hostd's protocol
-BuildArch: noarch
-Requires: python3
-# what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
-# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.8 the first that declares a code's transient (#70); a floor and the
-# next minor
-Requires: (plugin-hostd-protocol >= 0.5.9 with plugin-hostd-protocol < 0.6)
-Requires: (plugin-hostd-protocol-contract >= 0.5.9 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.32.5 with omx-clap-core-contract < 0.33)
-Requires: (omx-contract >= 3.18.0 with omx-contract < 4)
-
-%description -n python3-plugin-hostd-protocol
-The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec
-over the files plugin-hostd-protocol installs, which encodes and decodes every
-command the protocol declares, parses the replies, feedback lines and protocol
-errors, and gives each reply code its sentence. A controller speaks the
-protocol through it and restates nothing; the npm package
-@openmixer/plugin-hostd-client is the same codec in TypeScript.
-
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
@@ -125,34 +103,6 @@ running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
 %{omx_contract_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
-Its documentation is on openmixer.org.
-
-%package full
-Summary: Whole plugin host stack: daemon, workers, plugins, qualifier
-BuildArch: noarch
-# The whole plugin host stack in one install, on any Fedora (docs/install.md): the daemon at its own version, its
-# CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records (plugin-qualification-records,
-# one package built per architecture: the desk sets on x86_64, the Raspberry Pi 5 set on aarch64). Each a floor at the
-# release this one is tested with and a ceiling below the next minor; the records' dated version (YYYYMMDDXX) below the
-# next year's first (tests/full_ranges.py). The panel is a weak
-# dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
-Requires: %{name} = %{version}-%{release}
-Requires: (omx-clap-host >= 0.32.5 with omx-clap-host < 0.33)
-Requires: (omx-plugins >= 0.19.3 with omx-plugins < 0.20)
-Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)
-Recommends: (omx-panel >= 0.13.0 with omx-panel < 0.14)
-# recommended until the package is in the channel: a hard dependency now would leave plugin-hostd-full uninstallable
-Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)
-
-%description full
-Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
-the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
-plugins, plugin-qualify, which measures each installed plugin before it is
-trusted live, and the qualification records of this machine's class, so the
-plugins measured on a machine like this one are taken from the records.
-
-omx-panel, the plugin panels in a browser, is a weak dependency. Install with
---setopt=install_weak_deps=False for a machine with no screen.
 Its documentation is on openmixer.org.
 
 %package tests
@@ -186,8 +136,6 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %make_install PREFIX=%{_prefix}
 # the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
-# the Python client, told where pkg-config finds the files it reads (docs/clients.md)
-%make_build install-python DESTDIR=%{buildroot} PREFIX=%{_prefix} PYTHON3_SITELIB=%{python3_sitelib}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
@@ -208,9 +156,6 @@ make test-daemon check-generated check-rendered
 # the read-only pins of packages: a package that ships pins co-owns it with %dir
 %dir %{_datadir}/plugin-hostd/pins.d
 
-%files full
-%license COPYING
-
 %files tests
 %license COPYING
 %doc README.md
@@ -225,11 +170,6 @@ make test-daemon check-generated check-rendered
 %{_datadir}/pkgconfig/plugin-hostd.pc
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
-
-%files -n python3-plugin-hostd-protocol
-%license COPYING
-%doc docs/clients.md
-%{python3_sitelib}/plugin_hostd_protocol/
 
 %files contract
 %license COPYING
@@ -268,6 +208,11 @@ make test-daemon check-generated check-rendered
   back after a factory patch that renames its parameters (#27, #30).
 - release: a catch-up dispatch input builds only the cells a served version
   lacks (#71).
+- plugin-hostd builds no plugin-hostd-full and no
+  python3-plugin-hostd-protocol: the metapackage is
+  Open-Mixer/plugin-hostd-full's own, released after the layers it installs
+  (#84), and the Python codec is plugin-hostd-protocol's package, at epoch 1.
+  tests/no_moved_packages.py holds both out.
 
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle
