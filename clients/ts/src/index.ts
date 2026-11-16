@@ -296,7 +296,7 @@ interface Table {
   readonly feedback: readonly {
     readonly line: string; readonly args: readonly string[] | null; readonly tail?: boolean; readonly forms?: readonly NamedForm[];
   }[];
-  readonly arg_types?: { readonly [name: string]: ArgType };
+  readonly arg_types: { readonly [name: string]: ArgType };
   readonly protocol_errors: readonly { readonly name: string; readonly code: number; readonly message: string }[];
   readonly reply_codes: readonly { readonly resp: number; readonly code: string; readonly transient?: boolean }[];
 }
@@ -355,12 +355,8 @@ function escapeRegExp(s: string): string {
 /** A figure or a list the daemon has none for. */
 const NONE = '-';
 
-/**
- * A plan's cores in its segments' shape: each member's core, null for one that is not pinned, and for every member
- * when the daemon answers no cores; ProtocolError when the shapes differ.
- */
-function coresOf(cores: Value | undefined, segments: number[][]): (number | null)[][] {
-  if (cores === undefined) return segments.map((s) => s.map(() => null));
+/** A plan's cores in its segments' shape: each member's core, null for one that is not pinned; ProtocolError when the shapes differ. */
+function coresOf(cores: Value, segments: number[][]): (number | null)[][] {
   const c = cores as (number | null)[][];
   if (c.length !== segments.length || c.some((x, i) => x.length !== segments[i]!.length)) {
     throw new ProtocolError(`the cores ${JSON.stringify(cores)} are not the shape of the segments`);
@@ -405,8 +401,8 @@ export class Protocol {
     this.feedback = new Map(t.feedback.map((f) => [f.line, f]));
     this.protocolErrors = new Map(t.protocol_errors.map((e) => [e.message, e]));
     // the types of the named arguments of feedback lines and replies (plugin-hostd-protocol 0.5.6 and 0.5.7): a leaf a
-    // pattern, a list its items and separator, a record its fields; a table before 0.5.6 has none
-    this.types = t.arg_types ?? {};
+    // pattern, a list its items and separator, a record its fields
+    this.types = t.arg_types;
     this.names = new Map(t.reply_codes.map((r) => [r.resp, r.code]));
     this.codes = new Map(t.reply_codes.map((r) => [r.code, r.resp]));
     this.transientCodes = new Set(t.reply_codes.filter((r) => r.transient === true).map((r) => r.resp));
@@ -680,12 +676,12 @@ export class Protocol {
   /**
    * What plan answers after resp 0, as words, read by the table's reply_forms: the segments in signal order, each the
    * instances that share a worker, and the cores, the same shape with the audio core of each member's worker (null for
-   * one that is not pinned, and for every member when the daemon answers no cores).
+   * one that is not pinned).
    */
   readPlan(data: readonly string[]): Plan {
     const r = this.readReply('plan', data);
     const segments = r['segments'] as number[][];
-    return { segments, cores: coresOf(r['cores'], segments) };
+    return { segments, cores: coresOf(r['cores'] as Value, segments) };
   }
 
   /**
@@ -707,18 +703,18 @@ export class Protocol {
         retry: RETRY_REASONS.includes(word),
       };
     });
-    return { segments, reasons, cores: coresOf(r['cores'], segments) };
+    return { segments, reasons, cores: coresOf(r['cores'] as Value, segments) };
   }
 
   /**
    * What estimate answers after resp 0, as words, read by the table's reply_forms; null for a figure the daemon does
-   * not have (-), and for the four memory figures a daemon that answers six words leaves out. members: the members no
+   * not have (-). members: the members no
    * figure could be read for, counted from 0 in the order they were asked, each with the reply code that says why and
    * its name.
    */
   readEstimate(data: readonly string[]): Estimate {
     const r = this.readReply('estimate', data);
-    const n = (k: string): number | null => (r[k] === undefined ? null : (r[k] as number | null));
+    const n = (k: string): number | null => r[k] as number | null;
     const members = (r['unknown'] as { position: number; code: number }[]).map((u) => ({
       member: u.position, code: u.code, name: this.names.get(u.code) ?? null,
     }));

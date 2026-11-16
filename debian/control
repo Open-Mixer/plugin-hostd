@@ -70,8 +70,6 @@ Package: plugin-hostd-contract
 Architecture: all
 Depends: omx-clap-core-contract (>= 0.32.5~), omx-clap-core-contract (<< 0.33~), omx-contract (>= 3.18.0~), omx-contract (<< 4~), plugin-hostd-protocol-contract (>= 0.5.9~), plugin-hostd-protocol-contract (<< 0.6~),
          ${misc:Depends}
-Breaks: plugin-hostd-dev (<< ${source:Version})
-Replaces: plugin-hostd-dev (<< ${source:Version})
 Description: plugin-hostd's format tables, read at run time
  plugin-hostd's package of omx-contract's contract directory: the format
  tables a scan maps a CLAP or LV2 plugin through (formats/clap.json,

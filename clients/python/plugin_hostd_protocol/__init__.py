@@ -54,10 +54,19 @@ ESCAPE = "%"
 EXCLUDED = ",= \t\r\n"
 
 
+def _no_nul(text):
+    """text itself; ProtocolError when it holds a NUL: the protocol's line end, so one command would be two and every
+    reply after it would answer the wrong one"""
+    if "\0" in text:
+        raise ProtocolError("a NUL is the end of a line, it is in no word")
+    return text
+
+
 def words(line):
     """The words of a line as the daemon reads them: split at whitespace; a word that starts with a quotation mark
     runs to the next one no backslash escapes, \\" in it is a quote, the marks are not part of it; a quoted word that
-    never closes runs to the end of the line."""
+    never closes runs to the end of the line. ProtocolError for a line that holds a NUL."""
+    _no_nul(line)
     out, i, n = [], 0, len(line)
     while i < n:
         if line[i] in SPACE:
@@ -83,11 +92,12 @@ def words(line):
 
 def quote(value):
     """A value as one quoted word: in quotation marks, \\" for a quote (the grammar's only escape)."""
-    return '"' + value.replace('"', '\\"') + '"'
+    return '"' + _no_nul(value).replace('"', '\\"') + '"'
 
 
 def _word(value):
     """A string as one word: bare when it can be, quoted when it is empty or holds whitespace or a quote."""
+    _no_nul(value)
     if value and not any(c in SPACE or c == '"' for c in value):
         return value
     return quote(value)
@@ -307,8 +317,8 @@ class Protocol:
         self.feedback = {f["line"]: f for f in t["feedback"]}
         self.protocol_errors = {e["message"]: e for e in t["protocol_errors"]}
         # the types of the named arguments of feedback lines and replies (plugin-hostd-protocol 0.5.6 and 0.5.7): a leaf
-        # a pattern, a list its items and separator, a record its fields; a table before 0.5.6 has none
-        self.types = t.get("arg_types") or {}
+        # a pattern, a list its items and separator, a record its fields
+        self.types = t["arg_types"]
         self.names = {r["resp"]: r["code"] for r in t["reply_codes"]}
         self.codes = {v: k for k, v in self.names.items()}
         # the codes an identical request may pass later with no change by the caller (#23, D22, D23): the table's
@@ -562,10 +572,8 @@ class Protocol:
     # ---- the replies with a shape of their own
 
     def _cores_of(self, segments, cores):
-        """a plan's cores in its segments' shape: each member's core, None for one that is not pinned, and for every
-        member when the daemon answers no cores; ProtocolError when the shapes differ"""
-        if cores is None:
-            return [[None] * len(seg) for seg in segments]
+        """a plan's cores in its segments' shape: each member's core, None for one that is not pinned; ProtocolError
+        when the shapes differ"""
         if [len(c) for c in cores] != [len(seg) for seg in segments]:
             raise ProtocolError("the cores %r are not the shape of the segments %r" % (cores, segments))
         return cores
@@ -573,9 +581,9 @@ class Protocol:
     def read_plan(self, data):
         """What plan answers after resp 0, as words, read by the table's reply_forms: the segments in signal order, each
         the instances that share a worker, and the cores, the same shape with the audio core of each member's worker
-        (None for one that is not pinned, and for every member when the daemon answers no cores)."""
+        (None for one that is not pinned)."""
         r = self.read_reply("plan", data)
-        return {"segments": r["segments"], "cores": self._cores_of(r["segments"], r.get("cores"))}
+        return {"segments": r["segments"], "cores": self._cores_of(r["segments"], r["cores"])}
 
     def read_plan_get(self, data):
         """What plan_get answers after resp 0, as words, read by the table's reply_forms: the plan as read_plan gives it
@@ -589,15 +597,14 @@ class Protocol:
             code = int(detail) if _INT.match(detail) else None
             reasons.append({"instance": item["instance"], "reason": item["reason"], "word": word, "code": code,
                             "name": None if code is None else self.names.get(code), "retry": word in RETRY_REASONS})
-        return {"segments": r["segments"], "reasons": reasons, "cores": self._cores_of(r["segments"], r.get("cores"))}
+        return {"segments": r["segments"], "reasons": reasons, "cores": self._cores_of(r["segments"], r["cores"])}
 
     def read_estimate(self, data):
         """What estimate answers after resp 0, as words, read by the table's reply_forms, each figure by the name the
-        protocol gives it; None for one the daemon has no figure for (-), and for the four memory figures a daemon that
-        answers six words leaves out. members: the members no figure could be read for, counted from 0 in the order
+        protocol gives it; None for one the daemon has no figure for (-). members: the members no figure could be read for, counted from 0 in the order
         they were asked, each with the reply code that says why and its name."""
         r = self.read_reply("estimate", data)
-        out = {k: r.get(k) for k in ("latency_frames", "cpu_percent", "ram_bytes", "workers", "unknown_count",
+        out = {k: r[k] for k in ("latency_frames", "cpu_percent", "ram_bytes", "workers", "unknown_count",
                                     "ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count")}
         out["members"] = [{"member": u["position"], "code": u["code"], "name": self.names.get(u["code"])}
                           for u in r["unknown"]]
