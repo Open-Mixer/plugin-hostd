@@ -578,9 +578,9 @@ JACK_SERVER ?= pipewire
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 # the reply curve_points must give, from omx-dsp's omx_curve_points (header only): the real instances' curves are held
 # to it in tests/jack_e2e.py
-OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= 0.32.0' 'omxdsp < 0.33' 2>/dev/null)
+OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= 0.32.0' 2>/dev/null)
 tests/curve_reply: tests/curve_reply.c
-	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel >= 0.32.0 and < 0.33" >&2; exit 1; }
+	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel >= 0.32.0" >&2; exit 1; }
 	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) -o $@ $< -lm
 
 test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply

@@ -11,7 +11,7 @@ spec=${1:-$(dirname "$0")/../packaging/plugin-hostd.spec}
 floor=$(sed -n 's/^BuildRequires:[[:space:]]*(\{0,1\}plugin-hostd-protocol-devel[[:space:]]*>=[[:space:]]*\([^[:space:]]*\).*/\1/p' "$spec")
 case $floor in
 '' | *[!0-9.]*)
-    echo "protocol-floor.sh: no one 'BuildRequires: (plugin-hostd-protocol-devel >= x.y.z with ... < x.y)' in $spec" >&2
+    echo "protocol-floor.sh: no one 'BuildRequires: plugin-hostd-protocol-devel >= x.y.z' in $spec" >&2
     exit 1
     ;;
 esac
