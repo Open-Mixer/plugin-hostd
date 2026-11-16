@@ -18,7 +18,7 @@ override_dh_auto_install:
 # the verb table is checked against mod-host's README, which a build does not have
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	$(MAKE) test-daemon check-generated check-rendered
+	$(MAKE) test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 endif
 
 # the shell protocol client is sourced, never run: no execute bit

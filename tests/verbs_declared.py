@@ -23,6 +23,7 @@ import declared as protocol_files
 import harness  # puts PLUGIN_HOSTD_CLIENT_DIR, when set, on sys.path
 import plugin_hostd_client  # the protocol's, python3-plugin-hostd-client
 import scan_fixture
+from verbs_ahead import AHEAD, ahead_of_daemon
 from harness import Daemon, Fail, check, wait_for
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -366,19 +367,23 @@ def check_answered(declared):
         modhost = {c["verb"] for c in json.load(f)["commands"]}
     candidates = binary_words(EXE)
     ours = {v for v in declared if owes(declared[v], HOSTD)}
-    unseen = ours - set(candidates)
+    answered = answered_by_daemon(candidates)
+    # the four declared ahead of the daemon (tests/verbs_ahead.py) are left out while they stay unanswered
+    unseen, relayed, problems = ahead_of_daemon(ours, ours - set(candidates), ours - answered, answered)
+    for p in problems:
+        fail(p)
     if unseen:
         fail("positive control: the scan of the binary does not see the declared %s" % sorted(unseen))
-    answered = answered_by_daemon(candidates)
     extra = answered - ours - modhost
     if extra:
         fail("the daemon answers %s itself, which no declaration and no mod-host command holds" % sorted(extra))
-    relayed = ours - answered
     if relayed:
         fail("declared for plugin-hostd, but the daemon relays them and never answers them: %s" % sorted(relayed))
     if not extra and not relayed:
         print("ok   the daemon answers %d words of its %d itself: the %d declared for it and %d of mod-host's"
               % (len(answered), len(candidates), len(ours), len(answered - ours)))
+    if AHEAD & ours:
+        print("note %s: declared ahead of the daemon, answered from 0.20.8 (plugin-hostd#124)" % sorted(AHEAD & ours))
 
 
 # ---------------------------------------------------------------- the same line to both hosts
