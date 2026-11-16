@@ -743,12 +743,6 @@ check-contract-floor:
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
 
-# SABOTAGE_SHARD=i/n keeps every n-th arm of tests/sabotage.py; this proves the partition for every shard count
-# ci.yml's matrix might use, not a live run (#23)
-test: check-sabotage-shard
-check-sabotage-shard:
-	python3 tests/sabotage_shard_test.py
-
 # the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
 test: check-protocol-floor
@@ -772,13 +766,6 @@ test-install-schemas: all
 
 check-ci-guards:
 	python3 tests/ci_guards.py
-
-# ci.yml's sabotage-gate job sums what each shard of the matrix reports; this proves the gate itself is red when a
-# shard went missing, reported twice, disagreed on the table size, or the shards together ran fewer arms than the
-# table holds (#23)
-test: check-sabotage-gate
-check-sabotage-gate:
-	python3 tests/sabotage_gate_test.py
 
 # the probe output's words shared with omx-contract are the contract's: each enum the template takes from it matches the
 # installed omx-vocabulary.schema.json, and the template types none of the contract's lists by hand

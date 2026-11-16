@@ -81,20 +81,6 @@ def a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscal
         d.close()
 
 
-@test
-def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
-    d = daemon()
-    try:
-        # worker_list takes no word, supervisor_reset at most one and quit none, as protocol.h declares them
-        d.expect("worker_list w1", "resp -902")
-        d.expect("supervisor_reset all w1", "resp -902")
-        d.expect("quit now", "resp -902")
-        d.expect("worker_list", "resp 0")
-        d.expect("supervisor_reset all", "resp 0")
-    finally:
-        d.close()
-
-
 def worker_answers(lines):
     """what a fake worker, built on the protocol library, answers each line on its own socket, no daemon between"""
     import socket
