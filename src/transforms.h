@@ -13,6 +13,10 @@
  * returns TRANSFORMS_OK with the result in out, TRANSFORMS_NONE when the value gives nothing (a lookup with no entry
  * for it, a flag that is false), or TRANSFORMS_REFUSED (a value the transform cannot read, or out too small). */
 
+/** @file transforms.h
+ * @brief The declarations of transforms.h.
+ */
+
 #ifndef PLUGIN_HOSTD_TRANSFORMS_H
 #define PLUGIN_HOSTD_TRANSFORMS_H
 

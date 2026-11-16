@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file supervisor.h
+ * @brief The declarations of supervisor.h.
+ */
+
 #ifndef SUPERVISOR_H
 #define SUPERVISOR_H
 

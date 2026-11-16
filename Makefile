@@ -395,7 +395,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: check-doc-gate test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -770,18 +770,17 @@ test-install-schemas: all
 	done; \
 	echo "install carries the two schemas"
 
-# every public function and struct of the module headers has a comment before it (tools/doc_gate.py); the ones that lack
-# one today are tools/doc-gate.baseline, and the list only shrinks
-.PHONY: check-doc-gate
-check-doc-gate:
-	python3 tools/doc_gate.py --self-test
-	python3 tools/doc_gate.py --baseline tools/doc-gate.baseline src/*.h include/plugin-hostd/*.h
+# the C documentation gate is doxygen (tools/Doxyfile over the headers): a warning that tools/doxygen.baseline does not
+# list fails, and so does a listed one that is gone; the baseline only shrinks. Needs doxygen.
+.PHONY: check-doxygen
+check-doxygen:
+	sh tools/doxygen_gate.sh
 
-# ruff's D1 rules (a public item without a docstring) on the Python clients, a ratchet over tools/ruff-d.baseline; needs ruff
-.PHONY: check-ruff-d
-check-ruff-d:
-	python3 tools/ruff_d_gate.py --self-test
-	python3 tools/ruff_d_gate.py --baseline tools/ruff-d.baseline clients/python tests/lib/plugin_hostd_client.py
+# ruff's own ratchet on the Python clients: D and the default rules (ruff.toml), today's findings carried by `# noqa`
+# comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff.
+.PHONY: check-ruff
+check-ruff:
+	ruff check clients/python tests/lib/plugin_hostd_client.py
 
 check-ci-guards:
 	python3 tests/ci_guards.py

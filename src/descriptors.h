@@ -9,6 +9,10 @@
  * in a child of its own, and descriptor_get; the panel the same scan files under the descriptor's name, and panel_get.
  * A descriptor describes a plugin; it gates no load, so no add waits for its scan or is refused by it. */
 
+/** @file descriptors.h
+ * @brief The declarations of descriptors.h.
+ */
+
 #ifndef PLUGIN_HOSTD_DESCRIPTORS_H
 #define PLUGIN_HOSTD_DESCRIPTORS_H
 

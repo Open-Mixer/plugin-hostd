@@ -22,6 +22,10 @@
  * measured child takes its own, in the constructor of a library the runner preloads into it and into nothing else.
  * The runner names a pipe in PROBE_LOCK_FD_ENV; the preload writes one probe_lock_report_t on it and closes it. */
 
+/** @file probe_lock.h
+ * @brief The declarations of probe_lock.h.
+ */
+
 #ifndef PLUGIN_HOSTD_PROBE_LOCK_H
 #define PLUGIN_HOSTD_PROBE_LOCK_H
 

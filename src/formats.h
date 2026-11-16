@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file formats.h
+ * @brief The declarations of formats.h.
+ */
+
 #ifndef FORMATS_H
 #define FORMATS_H
 

@@ -2,14 +2,14 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """python3 -m plugin_hostd_protocol: the client asked a batch of cases on stdin, {"cases": [{"op", "in"}...]}, each
 answered on stdout as {"ok": value} or {"error": message}, in order (docs/clients.md; tests/clients_agree.py reads
-it beside the TypeScript client's cli.js)."""
+it beside the TypeScript client's cli.js)."""  # noqa: D205, D209
 import json
 import sys
 
 from . import Protocol, ProtocolError, decode_path, encode_path, pin_key, quote, uri_word, words
 
 
-def answer(protocol, op, arg):
+def answer(protocol, op, arg):  # noqa: D103
     if op == "encode":
         return protocol.encode(*arg)
     if op == "decode":
@@ -39,7 +39,7 @@ def answer(protocol, op, arg):
     raise ProtocolError("no operation %s" % op)
 
 
-def main():
+def main():  # noqa: D103
     protocol = Protocol()
     out = []
     for case in json.load(sys.stdin)["cases"]:
