@@ -51,6 +51,16 @@ jobs:
   public-sources:
     uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@openmixer-v1
 
+  # the Python clients' docstrings: ruff D1 over tools/ruff-d.baseline, a ratchet (the C headers' comments are in make test)
+  ruff-d:
+    name: no new public Python item without a docstring
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install ruff==0.17.5
+      - run: make check-ruff-d
+
   test:
     name: build and test
     runs-on: ubuntu-latest

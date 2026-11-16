@@ -1,0 +1,13 @@
+# ruff's D1 rules (missing docstrings) on the Python clients; the files below are the baseline of today,
+# tools/ruff-d.baseline counts them and tools/ruff_d_gate.py refuses a new one (make check-ruff-d).
+line-length = 120
+
+[lint]
+select = ["D1"]
+
+[lint.per-file-ignores]
+"clients/python/plugin_hostd_protocol/__init__.py" = ["D102", "D105", "D107"]
+"clients/python/plugin_hostd_protocol/__main__.py" = ["D103"]
+"clients/python/tests/__init__.py" = ["D104"]
+"clients/python/tests/test_codec.py" = ["D101", "D102", "D103"]
+"tests/lib/plugin_hostd_client.py" = ["D101", "D102", "D107"]

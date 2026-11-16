@@ -1,0 +1,5 @@
+clients/python/plugin_hostd_protocol/__init__.py 7
+clients/python/plugin_hostd_protocol/__main__.py 2
+clients/python/tests/__init__.py 1
+clients/python/tests/test_codec.py 27
+tests/lib/plugin_hostd_client.py 7
