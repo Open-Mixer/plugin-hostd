@@ -15,6 +15,10 @@ BuildRequires: diffutils
 BuildRequires: python3
 # %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
 BuildRequires: python3-devel
+%if %{with check}
+# the tests import the protocol's Python client (plugin-hostd-protocol issue 45)
+BuildRequires: python3-plugin-hostd-client
+%endif
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
 BuildRequires: (pkgconfig(plugin-db) >= 0.4.1 with pkgconfig(plugin-db) < 0.5)
 BuildRequires: cjson-devel
@@ -218,7 +222,6 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %doc README.md
 %{_libexecdir}/plugin-hostd/tests/fake-host
 %{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
-%{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING
