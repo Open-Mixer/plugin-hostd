@@ -1,9 +1,9 @@
 The protocol clients
 ====================
 
-plugin-hostd ships the clients of its protocol, one per language a controller is written in: Python
-(`clients/python`, the package `plugin_hostd_protocol`, shipped as python3-plugin-hostd-protocol) and
-TypeScript (`clients/ts`, the npm package `@openmixer/plugin-hostd-client`). A controller speaks the
+plugin-hostd-protocol ships the Python codec of its protocol (the package `plugin_hostd_protocol`, python3-plugin-hostd-protocol,
+versioned with the protocol since 0.5.10) and plugin-hostd the TypeScript one (`clients/ts`, the npm package
+`@openmixer/plugin-hostd-client`). A controller speaks the
 protocol through one of them and restates nothing: openmixer's server drops its own speaker for the
 TypeScript client, Zynthian's fork drops its own for the Python one
 (Open-Mixer/zynthian-ui#4). Ruled in #29 (owner, 2026-11-01, thin integration and one project; widened
@@ -66,10 +66,11 @@ TypeScript):
 - **GroupingReason**: the reasons a plan gives as constants, one for every word of
   `PLUGIN_HOSTD_GROUPING_REASONS` (`GroupingReason.GROUPING_OFF` in Python, `GroupingReason.groupingOff`
   in TypeScript, the key the file gives it), so a controller compares against them and writes no reason
-  word. They are written from `data/grouping.json` by `tools/grouping-reasons.py` (`make
-  render-grouping-reasons`), never by hand; `make check-grouping-reasons` fails on any drift, and the
-  tests of both clients hold each declared reason to its constant and each constant to a declared reason
-  (#67).
+  word. The TypeScript ones are written from `data/grouping.json` by `tools/grouping-reasons.py` (`make
+  render-grouping-reasons`), never by hand; `make check-grouping-reasons` fails on any drift. The Python
+  ones are plugin-hostd-protocol's, held to the same file by `tests/python_codec_grouping.py` (each declared
+  reason has its constant and each constant a declared reason), and the tests of the TypeScript client do
+  the same (#67).
 - the words of a line (`words`, `quote`), the percent-encoded path of a `clap:` uri (`encode_path`,
   `decode_path`, `uri_word`, `pin_key`), as the grammar and the pin section of plugin-hostd-protocol's
   documentation write them.
@@ -94,8 +95,10 @@ The clients carry no transport: a controller opens the socket and sends the line
 How they are held to each other
 -------------------------------
 
-`clients/fixtures/codec.json` holds the requests and the replies both clients are tested on: each an
-operation, its input and what it gives. `make test-clients` runs each client's own tests on them, then
+plugin-hostd-protocol's codec fixtures (`pkg-config --variable=codecfixtures plugin-hostd-protocol`) hold the requests and
+the replies both clients are tested on: each an operation, its input and what it gives. The Python codec runs them in
+plugin-hostd-protocol's `make test`; `make test-clients` runs the TypeScript client on them, holds the installed Python
+codec's grouping reasons to `data/grouping.json` (`tests/python_codec_grouping.py`), then
 `tests/clients_agree.py`, which hands both clients every fixture, every command line of
 plugin-hostd-protocol's host scenarios (decoded and encoded again) and every reply those scenarios accept,
 and is red for any input the two answer differently. Its self-test feeds it a client that answers one

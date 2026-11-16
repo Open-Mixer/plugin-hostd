@@ -7,7 +7,7 @@
  * error and reply code), the vocabulary of omx-contract's contract directory (each reply code's English sentence) and
  * the catalogs (its sentence in another language). Nothing of the protocol is written here; a file that is not there
  * is an error naming it. No transport: a controller opens the socket and sends the lines. The Python client
- * (clients/python) is the same codec, held to this one by tests/clients_agree.py.
+ * (plugin-hostd-protocol's python3-plugin-hostd-protocol) is the same codec, held to this one by tests/clients_agree.py.
  */
 import { loadCatalog, sentenceOf, type Catalog } from '@openmixer/omx-contract/catalog';
 import { execFileSync } from 'node:child_process';
