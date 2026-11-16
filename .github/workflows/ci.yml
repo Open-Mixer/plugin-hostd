@@ -79,6 +79,9 @@ jobs:
             pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
 
       - uses: actions/checkout@v4
+      # the floors packaging/deps.txt declares are the ones the spec and debian/control state, with no ceiling
+      - uses: Open-Mixer/.github/.github/actions/deps-render@openmixer-v1
+
 
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
