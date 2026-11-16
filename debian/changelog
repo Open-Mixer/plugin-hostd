@@ -3,8 +3,8 @@ plugin-hostd (0.20.8) unstable; urgency=medium
   * Built against omx-contract >= 3.19.0 and below 4, plugin-hostd-protocol >=
     0.5.10 and below 0.6, plugin-db >= 0.4.5 and below 0.5, and
     omx-clap-core's packages (omx-clap-host, omx-clap-core-contract,
-    omx-clap-host-tests) >= 0.33.0 and below 0.34, the 3.19.0 pass's newest of
-    each, with their ceilings (D30). The CI jobs, the pkg-config file and the
+    omx-clap-host-tests) >= 0.32.5 (the property work shipped there), the 3.19.0 pass's floor of
+    each (D30). The CI jobs, the pkg-config file and the
     floor tests state the same.
   * 0.20.7 was prepared and never released; its changes ship here, with
     everything merged since 0.20.6.

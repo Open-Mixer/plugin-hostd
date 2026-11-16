@@ -8,7 +8,7 @@ import os, re, sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # package: (floor, declarations in the spec, declarations in debian/control)
-WANT = {"omx-clap-core-contract": ("0.33.0", 2, 2), "omx-clap-host-tests": ("0.33.0", 1, 1), "omx-clap-host": ("0.33.0", 1, 1)}
+WANT = {"omx-clap-core-contract": ("0.32.5", 2, 2), "omx-clap-host-tests": ("0.32.5", 1, 1), "omx-clap-host": ("0.32.5", 1, 1)}
 
 
 def problems(spec, control):
@@ -44,9 +44,9 @@ def main():
     spec, ctl = fixture()
     arms = [
         ("the tree as written", spec, ctl, 0),
-        ("a ceiling in the spec", spec.replace("Requires: omx-clap-host >= 0.33.0", "Requires: (omx-clap-host >= 0.33.0 with omx-clap-host < 0.34)"), ctl, 2),
-        ("a floor of 0.1.0 in the spec", spec.replace("0.33.0", "0.1.0", 1), ctl, 1),
-        ("a ceiling in debian/control", spec, ctl.replace("omx-clap-host-tests (>= 0.33.0~)", "omx-clap-host-tests (>= 0.33.0~), omx-clap-host-tests (<< 0.34~)"), 1),
+        ("a ceiling in the spec", spec.replace("Requires: omx-clap-host >= 0.32.5", "Requires: (omx-clap-host >= 0.32.5 with omx-clap-host < 0.34)"), ctl, 2),
+        ("a floor of 0.1.0 in the spec", spec.replace("0.32.5", "0.1.0", 1), ctl, 1),
+        ("a ceiling in debian/control", spec, ctl.replace("omx-clap-host-tests (>= 0.32.5~)", "omx-clap-host-tests (>= 0.32.5~), omx-clap-host-tests (<< 0.34~)"), 1),
     ]
     for what, s, c, want in arms:
         got = problems(s, c)
