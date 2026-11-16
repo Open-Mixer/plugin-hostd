@@ -524,10 +524,13 @@ def an_lv2_instrument_whose_note_did_not_sound_keeps_the_latency_it_declares():
 
 
 @test
-def an_lv2_child_that_prints_no_latency_gets_no_latency_step():
-    code, doc, _, _, err = run_lv2()
+def an_lv2_child_that_prints_no_latency_or_cost_map_is_a_child_protocol_step_each():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_NO_FIGURES": "1"})
     check(doc is not None, "no document: exit %d %s" % (code, err))
-    check("latency" not in [s["step"] for s in doc["steps"]] and "latency" not in doc["grid"][0], "steps %s" % doc["steps"])
+    steps = {s["step"]: s for s in doc["steps"]}
+    check(steps.get("latency", {}).get("outcome") == "probe.child-protocol"
+          and steps.get("cost", {}).get("outcome") == "probe.child-protocol",
+          "a missing map is a refusal, not silence: %s" % doc["steps"])
 
 
 @test

@@ -7,7 +7,7 @@ import math
 import os
 import unittest
 
-from plugin_hostd_protocol import RETRY_REASONS, GroupingReason, Protocol, ProtocolError, format_number
+from plugin_hostd_protocol import RETRY_REASONS, GroupingReason, Protocol, ProtocolError, format_number, quote, words
 from plugin_hostd_protocol.__main__ import answer
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "codec.json")
@@ -215,6 +215,18 @@ class Files(unittest.TestCase):
         with self.assertRaises(ProtocolError) as e:
             Protocol(table="/nonexistent/plugin-hostd-protocol.json")
         self.assertIn("/nonexistent/plugin-hostd-protocol.json", str(e.exception))
+
+
+class NulDoor(unittest.TestCase):
+    """a NUL is the protocol's line end: a word or a line that holds one is refused, never one command made two"""
+
+    def test_a_value_with_a_nul_is_not_quoted(self):
+        with self.assertRaises(ProtocolError):
+            quote("a\0b")
+
+    def test_a_line_with_a_nul_is_not_split(self):
+        with self.assertRaises(ProtocolError):
+            words("add a\0b")
 
 
 if __name__ == "__main__":
