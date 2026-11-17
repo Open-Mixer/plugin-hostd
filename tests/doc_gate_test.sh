@@ -8,7 +8,11 @@
 #   doc_shrink.sh: the tree as the base ok; a baseline line added, a noqa added: each red; a line removed ok; a base
 #     the tree cannot read red, by name; a base without the gate (the change that brings it) ok;
 #   doxygen_gate.sh --update: refused, the baseline untouched, when a warning is not in it; it lowers the baseline when
-#     a listed warning is gone.
+#     a listed warning is gone;
+#   doxygen_gate.sh: the tree as the base ok; a tracked header of the Doxyfile's INPUT with no @file in a doc comment
+#     red, by name (doxygen reports a file's undocumented members only when the file has @file); a doxygen that writes
+#     no warning log red, by name; a header doxygen wrote no page for (it did not read it) red, by name; a doxygen of
+#     another version than tools/doxygen.version pins red, both versions named.
 # Last, the repository's own tools/Doxyfile under the real doxygen (DOXYGEN_REAL, doxygen by default; the doc-gates job
 # installs it, and its absence is red, by name): a header whose one function documents its parameters and its return
 # gives no warning, so a fully documented header can empty the baseline; with its @return dropped it warns (doxygen did
@@ -24,13 +28,24 @@ t=$work/tree
 mkdir -p "$t/tools" "$t/src" "$t/clients"
 cp "$here/tools/doxygen_gate.sh" "$t/tools/"
 [ -f "$here/tools/doc_shrink.sh" ] && cp "$here/tools/doc_shrink.sh" "$t/tools/"
-# the stand-in doxygen: each line of tools/warnings is a warning at line 1 of its file
+# the stand-in doxygen: each line of tools/warnings is a warning at line 1 of its file, and each src/*.h gets its HTML
+# page, named as doxygen names it (a.h: a_8h.html). An arm's file changes it: tools/standin-version (the version it
+# answers, 1.9.8 without), tools/standin-nolog (it writes no log), tools/standin-nopage (the headers it gives no page)
 cat > "$work/doxygen" <<'SH'
 #!/bin/sh
-sed 's/^\([^:]*\): /\1:1: warning: /' tools/warnings > "$DOXYGEN_LOG"
+if [ "${1:-}" = "--version" ]; then cat tools/standin-version 2>/dev/null || echo 1.9.8; exit 0; fi
+[ -f tools/standin-nolog ] || sed 's/^\([^:]*\): /\1:1: warning: /' tools/warnings > "$DOXYGEN_LOG"
+mkdir -p "$DOXYGEN_OUT/html"
+for h in src/*.h; do
+    [ -f "$h" ] || continue
+    grep -qx "$h" tools/standin-nopage 2>/dev/null && continue
+    : > "$DOXYGEN_OUT/html/$(basename "$h" .h | sed 's/_/__/g')_8h.html"
+done
 SH
 chmod +x "$work/doxygen"
-printf 'INPUT = src\n' > "$t/tools/Doxyfile"
+printf 'INPUT = src\nFILE_PATTERNS = *.h\n' > "$t/tools/Doxyfile"
+echo 1.9.8 > "$t/tools/doxygen.version"
+printf '/** @file\n * @brief A header.\n */\nint A;\nint B;\n' > "$t/src/a.h"
 printf 'src/a.h: Member A is not documented.\nsrc/a.h: Member B is not documented.\n' > "$t/tools/warnings"
 cp "$t/tools/warnings" "$t/tools/doxygen.baseline"
 printf '[lint]\nselect = ["D"]\n' > "$t/ruff.toml"
@@ -41,7 +56,7 @@ export DOXYGEN="$work/doxygen" DOC_GATE_BASE=main DOC_GATE_PY=clients
 shrink() { (cd "$t" && sh tools/doc_shrink.sh) > "$work/out" 2>&1; }
 # red_by <text> <command...>: the command fails and its output names <text>
 red_by() { want=$1; shift; if "$@"; then return 1; fi; grep -q -- "$want" "$work/out"; }
-reset() { (cd "$t" && git checkout -q -- . && git clean -qfd); }
+reset() { (cd "$t" && git reset -q --hard && git clean -qfd); }
 
 shrink; check $? "doc_shrink: the tree as the base"
 echo "src/a.h: Member C is not documented." >> "$t/tools/doxygen.baseline"
@@ -66,13 +81,36 @@ sed -i '1d' "$t/tools/warnings"
 update && [ "$(wc -l < "$t/tools/doxygen.baseline")" = 1 ]; check $? "--update lowers the baseline when a listed warning is gone"
 reset
 
+gate() { (cd "$t" && sh tools/doxygen_gate.sh) > "$work/out" 2>&1; }
+gate; check $? "doxygen_gate: the tree as the base"
+printf 'int C;\n' > "$t/src/b.h"
+(cd "$t" && git add src/b.h)
+red_by "src/b.h has no @file" gate; check $? "doxygen_gate: a tracked header with no @file is red, by name"
+reset
+printf '/* @file not a doc comment */\nint C;\n' > "$t/src/b.h"
+(cd "$t" && git add src/b.h)
+red_by "src/b.h has no @file" gate; check $? "doxygen_gate: an @file outside a /** doc comment is red, by name"
+reset
+: > "$t/tools/standin-nolog"
+red_by "wrote no warning log" gate; check $? "doxygen_gate: a doxygen that writes no warning log is red, by name"
+reset
+echo src/a.h > "$t/tools/standin-nopage"
+red_by "no page for src/a.h" gate; check $? "doxygen_gate: a header doxygen wrote no page for is red, by name"
+reset
+echo 1.18.0 > "$t/tools/standin-version"
+red_by "doxygen is 1.18.0, tools/doxygen.version pins 1.9.8" gate
+check $? "doxygen_gate: a doxygen of another version is red, both versions named"
+reset
+
 r=$work/real
 mkdir -p "$r/tools" "$r/src"
-cp "$here/tools/doxygen_gate.sh" "$r/tools/"
+cp "$here/tools/doxygen_gate.sh" "$here/tools/doxygen.version" "$r/tools/"
 # every setting of the repository's Doxyfile, read where this tree's header is
 printf '@INCLUDE = %s/tools/Doxyfile\nINPUT = src\n' "$here" > "$r/tools/Doxyfile"
 : > "$r/tools/doxygen.baseline"
 printf '/** @file\n * @brief A header.\n */\n\n/**\n * @brief The sum.\n * @param a One addend.\n * @param b The other.\n * @return a + b.\n */\nint add(int a, int b);\n' > "$r/src/a.h"
+# the gate reads the tracked headers
+(cd "$r" && git init -q -b main && git add -A) || exit 1
 real=${DOXYGEN_REAL:-doxygen}
 if command -v "$real" >/dev/null 2>&1; then
     (cd "$r" && DOXYGEN=$real sh tools/doxygen_gate.sh) > "$work/out" 2>&1
