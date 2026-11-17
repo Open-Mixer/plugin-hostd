@@ -185,11 +185,11 @@ make test-daemon check-generated check-rendered
 
 %changelog
 * Sun Nov 15 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.8-1
-- Built against omx-contract >= 3.19.0 and below 4, plugin-hostd-protocol >=
-  0.5.10 and below 0.6, plugin-db >= 0.4.5 and below 0.5, and omx-clap-core's
-  packages (omx-clap-host, omx-clap-core-contract, omx-clap-host-tests) >=
-  0.32.5, the 3.19.0 pass's floor of each
-  (D30). The CI jobs, the pkg-config file and the floor tests state the same.
+- Built against omx-contract >= 3.19.0, plugin-hostd-protocol >= 0.5.10,
+  plugin-db >= 0.4.5 and omx-clap-core's packages (omx-clap-host,
+  omx-clap-core-contract, omx-clap-host-tests) >= 0.32.6, the newest of each in
+  the 3.19.0 pass (D30): floors only, no ceilings. The CI jobs, the pkg-config
+  file and the floor tests state the same.
 - 0.20.7 was prepared and never released; its changes ship here, with
   everything merged since 0.20.6.
 - Every child the daemon starts that runs plugin code runs confined: a daemon
@@ -235,9 +235,9 @@ make test-daemon check-generated check-rendered
   (#84, #86).
 - python3-plugin-hostd-protocol is no longer built here: the Python codec is
   plugin-hostd-protocol's package, at epoch 1, and the check stage requires it
-  as >= 1:0.5.10 and below 1:0.6 (#109).
+  as >= 1:0.5.10 (#109).
 - The Python client is the protocol's: the tests import
-  python3-plugin-hostd-client (>= 0.5.10, below 0.6), and no copy is kept here
+  python3-plugin-hostd-client (>= 0.5.10), and no copy is kept here
   (#107).
 - The CLAP default the tests hold is the list plugin-hostd-protocol declares,
   ~/.clap then /usr/lib/clap first (#102, #118).
