@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file fsutil.h
+ * @brief The declarations of fsutil.h.
+ */
+
 #ifndef FSUTIL_H
 #define FSUTIL_H
 

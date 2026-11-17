@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file writer.h
+ * @brief The declarations of writer.h.
+ */
+
 #ifndef WRITER_H
 #define WRITER_H
 

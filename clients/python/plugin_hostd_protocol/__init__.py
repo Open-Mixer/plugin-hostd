@@ -26,7 +26,7 @@ def _catalog_reader():
     """omx-contract's catalog reader (omx_contract_catalog.py, omx-contract-data): the one reading of a catalog entry,
     a string or an object {text, by, source}, and of a stale machine entry (#78). It lives in omx-contract's data
     directory: OMX_CONTRACT_DATADIR, else where pkg-config said it was when the client was installed, else
-    pkg-config's datadir of omx-contract, else /usr/share/omx-contract."""
+    pkg-config's datadir of omx-contract, else /usr/share/omx-contract."""  # noqa: D205, D209
     import importlib.util
     root = os.environ.get("OMX_CONTRACT_DATADIR") or getattr(_installed, "OMX_CONTRACT_DATADIR", None) or \
         _pkg_config("--variable=datadir", "omx-contract") or "/usr/share/omx-contract"
@@ -57,7 +57,7 @@ EXCLUDED = ",= \t\r\n"
 def words(line):
     """The words of a line as the daemon reads them: split at whitespace; a word that starts with a quotation mark
     runs to the next one no backslash escapes, \\" in it is a quote, the marks are not part of it; a quoted word that
-    never closes runs to the end of the line."""
+    never closes runs to the end of the line."""  # noqa: D205, D209, D301
     out, i, n = [], 0, len(line)
     while i < n:
         if line[i] in SPACE:
@@ -82,7 +82,7 @@ def words(line):
 
 
 def quote(value):
-    """A value as one quoted word: in quotation marks, \\" for a quote (the grammar's only escape)."""
+    """A value as one quoted word: in quotation marks, \\" for a quote (the grammar's only escape)."""  # noqa: D301
     return '"' + value.replace('"', '\\"') + '"'
 
 
@@ -99,7 +99,7 @@ def _escaped(c):
 
 def encode_path(path):
     """A path as the word of a pin: every separator of pin_set's words, whitespace, the escape, a quote, a backslash and
-    a control byte as %XX (uppercase hex) of its UTF-8 bytes, the rest as it is."""
+    a control byte as %XX (uppercase hex) of its UTF-8 bytes, the rest as it is."""  # noqa: D205, D209
     return "".join("".join("%%%02X" % b for b in c.encode()) if _escaped(c) else c for c in path)
 
 
@@ -128,7 +128,7 @@ def _split_uri(uri):
 
 def uri_word(uri):
     """A plugin uri as the daemon takes it: a clap: uri's path percent-encoded, so any file name is one bare word; any
-    other uri as it is."""
+    other uri as it is."""  # noqa: D205, D209
     parts = _split_uri(uri)
     return uri if parts is None else "%s%s#%s" % (CLAP_PREFIX, encode_path(parts[0]), parts[1])
 
@@ -154,7 +154,7 @@ def _is_number(value):
 def format_number(value):
     """A finite number as a word: its shortest digits that read back to the same double, laid out as ECMAScript's
     Number.prototype.toString lays them out, so both clients write one spelling: an integral value with no fraction,
-    0.000001 in full, 1e-7 and 1e+21 with an exponent and no leading zero."""
+    0.000001 in full, 1e-7 and 1e+21 with an exponent and no leading zero."""  # noqa: D205, D209
     if not _is_number(value):
         raise ProtocolError("%r is not a finite number" % (value,))
     x = float(value)
@@ -223,9 +223,11 @@ _SAFE = 2 ** 53 - 1
 # the reasons a plan gives, written from data/grouping.json (tools/grouping-reasons.py, #67)
 # BEGIN GENERATED grouping-reasons (tools/grouping-reasons.py, from data/grouping.json): do not edit
 class GroupingReason:
-    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS): a controller compares against these and writes no
-    reason word of its own. plan_get answers them as instance:reason; a plan-refused is followed by a colon and the
-    number of the refusal."""
+    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS).
+
+    A controller compares against these and writes no reason word of its own. plan_get answers them as
+    instance:reason; a plan-refused is followed by a colon and the number of the refusal.
+    """
 
     REFUSED = "refused"
     NO_PIN = "no-pin"
@@ -254,29 +256,29 @@ RETRY_REASONS = (GroupingReason.NO_VERDICT, GroupingReason.PLAN_REFUSED)
 class Names:
     """The names a table declares, each an attribute valued with what it names (plugin-hostd-protocol#24): a client
     compares what it decoded against one, never a literal it writes. A name the table does not declare is an
-    AttributeError, never a silent string; iterating gives the names. Calling it, where one is given, is `lookup`."""
+    AttributeError, never a silent string; iterating gives the names. Calling it, where one is given, is `lookup`."""  # noqa: D205, D209
 
-    def __init__(self, what, values, lookup=None):
+    def __init__(self, what, values, lookup=None):  # noqa: D107
         object.__setattr__(self, "_what", what)
         object.__setattr__(self, "_values", dict(values))
         object.__setattr__(self, "_lookup", lookup)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name):  # noqa: D105
         try:
             return self._values[name]
         except KeyError:
             raise AttributeError("the protocol declares no %s %s" % (self._what, name)) from None
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name, value):  # noqa: D105
         raise AttributeError("the %s names are the table's" % self._what)
 
-    def __iter__(self):
+    def __iter__(self):  # noqa: D105
         return iter(sorted(self._values))
 
-    def __dir__(self):
+    def __dir__(self):  # noqa: D105
         return sorted(self._values)
 
-    def __call__(self, *args):
+    def __call__(self, *args):  # noqa: D102
         if self._lookup is None:
             raise TypeError("the %s names are not callable" % self._what)
         return self._lookup(*args)
@@ -293,9 +295,9 @@ class Protocol:
     table: the protocol table (PLUGIN_HOSTD_PROTOCOL_TABLE, else where the installed package was told it is, else
     pkg-config's table variable of plugin-hostd-protocol);
     contract_dirs: omx-contract's contract directories (OMX_CONTRACT_PATH, else its contractdir variable), read for the
-    sentences; datadir: where each package's catalogs/<lang>.json is (pkg-config's datadir of plugin-hostd-protocol)."""
+    sentences; datadir: where each package's catalogs/<lang>.json is (pkg-config's datadir of plugin-hostd-protocol)."""  # noqa: D209
 
-    def __init__(self, table=None, contract_dirs=None, datadir=None):
+    def __init__(self, table=None, contract_dirs=None, datadir=None):  # noqa: D107
         table = table or os.environ.get("PLUGIN_HOSTD_PROTOCOL_TABLE") or getattr(_installed, "TABLE", None) or \
             _pkg_config("--variable=table", "plugin-hostd-protocol")
         if not table:
@@ -362,7 +364,7 @@ class Protocol:
 
     def encode(self, verb, args, tag=None):
         """The line of a command the table declares: the first form whose arguments fit, after @<tag> when a request
-        tag is given (the tags extension: the answer carries the same tag)."""
+        tag is given (the tags extension: the answer carries the same tag)."""  # noqa: D205, D209
         command = self.commands.get(verb)
         if command is None:
             raise ProtocolError("the protocol declares no command %s" % verb)
@@ -382,7 +384,7 @@ class Protocol:
 
     def decode(self, line):
         """A command line back into {"verb", "args"} and its request tag ("tag", when it starts with @<tag>): the first
-        form its words fit, each argument as its type."""
+        form its words fit, each argument as its type."""  # noqa: D205, D209
         w = words(line)
         tag = None
         if w and w[0].startswith("@"):
@@ -424,7 +426,7 @@ class Protocol:
 
     def parse(self, line):
         """What the host or the daemon answered: a tag (@<tag>) and a sequence number (#<n>) first when the line carries
-        them, then resp <code> [data], a protocol error, or a feedback line by its declared arguments."""
+        them, then resp <code> [data], a protocol error, or a feedback line by its declared arguments."""  # noqa: D205, D209
         w = words(line)
         tag = seq = None
         if w and w[0].startswith("@") and len(w[0]) > 1:
@@ -469,13 +471,13 @@ class Protocol:
     # ---- words of a declared type (plugin-hostd-protocol's arg_types)
 
     def _pattern(self, kind):
-        """the pattern of a type: a declared one's, or literal words a|b spelled out"""
+        """the pattern of a type: a declared one's, or literal words a|b spelled out"""  # noqa: D403, D415
         t = self.types.get(kind)
         return t["pattern"] if t is not None else "|".join(re.escape(w) for w in kind.split("|"))
 
     def _leaf(self, kind, word):
         """a leaf type's value: a number for the numeric types, None for the none word of a core or an amount, the word
-        otherwise"""
+        otherwise"""  # noqa: D205, D209, D403, D415
         if kind in ("core", "amount") and word == NONE:
             return None
         if kind in ("int", "uint", "core", "amount"):
@@ -495,7 +497,7 @@ class Protocol:
     def read_word(self, kind, word):
         """One word as its declared type: a leaf by its pattern, a list as a list (one of its none words an empty one),
         a record as {field: value}, its fields found by the record's own pattern, so a field may hold the separator;
-        literal words a|b as the word. ProtocolError when the word is not of the type."""
+        literal words a|b as the word. ProtocolError when the word is not of the type."""  # noqa: D205, D209
         t = self.types.get(kind)
         if t is None:
             if kind in ("int", "float", "word"):
@@ -521,7 +523,7 @@ class Protocol:
 
     def _read_form(self, form, words_, code=None):
         """{name: value} of words by a form (args, names; repeat: the last repeated over the rest; a rest type the rest
-        of the line), or ProtocolError"""
+        of the line), or ProtocolError"""  # noqa: D205, D209, D415
         args, names = form["args"], form["names"]
         rest_type = bool(args) and self.types.get(args[-1], {}).get("rest", False)
         if rest_type:
@@ -546,7 +548,7 @@ class Protocol:
     def read_reply(self, verb, data, code=None):
         """A reply's words after resp <code>, by the reply_form with the most arguments they fit: {name: value}, each word
         as its declared type (read_word). code: resp's number, which a count reply is held to. ProtocolError for a verb
-        with no typed reply, or words no form takes."""
+        with no typed reply, or words no form takes."""  # noqa: D205, D209
         cmd = self.commands.get(verb)
         forms = (cmd or {}).get("reply_forms")
         if not forms:
@@ -563,7 +565,7 @@ class Protocol:
 
     def _cores_of(self, segments, cores):
         """a plan's cores in its segments' shape: each member's core, None for one that is not pinned, and for every
-        member when the daemon answers no cores; ProtocolError when the shapes differ"""
+        member when the daemon answers no cores; ProtocolError when the shapes differ"""  # noqa: D205, D209, D403, D415
         if cores is None:
             return [[None] * len(seg) for seg in segments]
         if [len(c) for c in cores] != [len(seg) for seg in segments]:
@@ -573,7 +575,7 @@ class Protocol:
     def read_plan(self, data):
         """What plan answers after resp 0, as words, read by the table's reply_forms: the segments in signal order, each
         the instances that share a worker, and the cores, the same shape with the audio core of each member's worker
-        (None for one that is not pinned, and for every member when the daemon answers no cores)."""
+        (None for one that is not pinned, and for every member when the daemon answers no cores)."""  # noqa: D205, D209
         r = self.read_reply("plan", data)
         return {"segments": r["segments"], "cores": self._cores_of(r["segments"], r.get("cores"))}
 
@@ -581,7 +583,7 @@ class Protocol:
         """What plan_get answers after resp 0, as words, read by the table's reply_forms: the plan as read_plan gives it
         and, between the segments and the cores, the members that have a reason, in the daemon's order: the instance,
         the reason as it is written, its word (PLUGIN_HOSTD_GROUPING_REASONS), the reply code a plan-refused carries with
-        its name, and retry, whether a later plan may answer otherwise without the chain changing (RETRY_REASONS)."""
+        its name, and retry, whether a later plan may answer otherwise without the chain changing (RETRY_REASONS)."""  # noqa: D205, D209
         r = self.read_reply("plan_get", data)
         reasons = []
         for item in r["reasons"]:
@@ -595,7 +597,7 @@ class Protocol:
         """What estimate answers after resp 0, as words, read by the table's reply_forms, each figure by the name the
         protocol gives it; None for one the daemon has no figure for (-), and for the four memory figures a daemon that
         answers six words leaves out. members: the members no figure could be read for, counted from 0 in the order
-        they were asked, each with the reply code that says why and its name."""
+        they were asked, each with the reply code that says why and its name."""  # noqa: D205, D209
         r = self.read_reply("estimate", data)
         out = {k: r.get(k) for k in ("latency_frames", "cpu_percent", "ram_bytes", "workers", "unknown_count",
                                     "ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count")}
@@ -615,7 +617,7 @@ class Protocol:
 
     def transient(self, code):
         """Whether a refusal is transient, by its number or its name: an identical request may succeed later with no
-        change by the caller, as the table declares it. ProtocolError for a code the table lacks."""
+        change by the caller, as the table declares it. ProtocolError for a code the table lacks."""  # noqa: D205, D209
         resp = self._code(code) if isinstance(code, str) else code
         if resp not in self.names:
             raise ProtocolError("the protocol declares no code %s" % code)
@@ -628,7 +630,7 @@ class Protocol:
     def sentence(self, code, lang="en"):
         """What a reply code says to an operator: in English from the vocabulary, or in `lang` from its owner's catalog
         as omx-contract's reader reads it, the entry's text whatever its shape, and the English sentence where the
-        catalog has none or only a stale machine one (#78); None for a code with no sentence."""
+        catalog has none or only a stale machine one (#78); None for a code with no sentence."""  # noqa: D205, D209
         name = self.names.get(code)
         if name is None:
             return None

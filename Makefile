@@ -775,6 +775,26 @@ test-install-schemas: all
 	done; \
 	echo "install carries the two schemas"
 
+# the C documentation gate is doxygen (tools/Doxyfile over the headers): a warning that tools/doxygen.baseline does not
+# list fails, and so does a listed one that is gone; the baseline only shrinks. Needs doxygen.
+.PHONY: check-doxygen
+check-doxygen:
+	sh tools/doxygen_gate.sh
+
+# ruff's own ratchet on the Python clients: D and the default rules (ruff.toml), today's findings carried by `# noqa`
+# comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff.
+.PHONY: check-ruff
+check-ruff:
+	ruff check clients/python tests/lib/plugin_hostd_client.py
+
+# the two gates only shrink, by mechanism (tools/doc_shrink.sh against the base branch: DOC_GATE_BASE, origin/main by
+# default); tests/doc_gate_test.sh proves it, and that doxygen_gate.sh --update only lowers the baseline
+.PHONY: check-doc-shrink test-doc-gates
+check-doc-shrink:
+	sh tools/doc_shrink.sh
+test-doc-gates:
+	sh tests/doc_gate_test.sh
+
 check-ci-guards:
 	python3 tests/ci_guards.py
 

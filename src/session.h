@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file session.h
+ * @brief The declarations of session.h.
+ */
+
 #ifndef SESSION_H
 #define SESSION_H
 

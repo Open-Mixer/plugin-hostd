@@ -23,6 +23,10 @@
  * byte; it reads no clock, no file, no pin store and no global, and allocates nothing. What it is given is gathered
  * by the supervisor (src/supervisor.c), what it answers is applied there. */
 
+/** @file planner.h
+ * @brief The declarations of planner.h.
+ */
+
 #ifndef PLANNER_H
 #define PLANNER_H
 
