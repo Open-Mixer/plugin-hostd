@@ -11,8 +11,9 @@
 set -eu
 cd "$(dirname "$0")/.."
 LOG=$(mktemp)
-trap 'rm -f "$LOG" "$LOG.now"' EXIT
-DOXYGEN_LOG=$LOG "${DOXYGEN:-doxygen}" tools/Doxyfile >/dev/null
+OUT=$(mktemp -d)
+trap 'rm -rf "$LOG" "$LOG.now" "$OUT"' EXIT
+DOXYGEN_LOG=$LOG DOXYGEN_OUT=$OUT "${DOXYGEN:-doxygen}" tools/Doxyfile >/dev/null
 # a warning is `file:line: warning: text`; the line number moves with every edit, so the key is file + text
 sed -n 's/^\(.*\):[0-9][0-9]*: warning: /\1: /p' "$LOG" | sed 's|^.*/src/|src/|' | LC_ALL=C sort -u > "$LOG.now"
 new=$(LC_ALL=C comm -13 tools/doxygen.baseline "$LOG.now")

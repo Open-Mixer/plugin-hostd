@@ -11,7 +11,14 @@ WARN_NO_PARAMDOC       = YES
 WARN_AS_ERROR          = NO
 WARN_FORMAT            = "$file:$line: warning: $text"
 WARN_LOGFILE           = $(DOXYGEN_LOG)
-GENERATE_HTML          = NO
+# doxygen records a function's @param and @return only while it writes an output: with none it warns that every
+# function's parameters and return are undocumented. So it writes HTML, plain, into the gate's scratch directory
+# (DOXYGEN_OUT, which tools/doxygen_gate.sh makes and removes); the HTML is thrown away.
+GENERATE_HTML          = YES
+OUTPUT_DIRECTORY       = $(DOXYGEN_OUT)
+HTML_OUTPUT            = html
+SEARCHENGINE           = NO
+HAVE_DOT               = NO
 GENERATE_LATEX         = NO
 GENERATE_XML           = NO
 QUIET                  = YES
