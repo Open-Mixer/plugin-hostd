@@ -19,7 +19,11 @@
  */
 
 /** @file session.h
- * @brief The declarations of session.h.
+ * @brief The controller's session: what its last hello granted of the extensions tags, errors and seq.
+ *
+ * As plugin-hostd-protocol's doc/protocol.md, Sessions. A controller that never sends hello is answered as mod-host
+ * answers it. What is granted and the feedback sequence number are read and written atomically, so the relay's thread
+ * may number the feedback lines while the main thread answers.
  */
 
 #ifndef SESSION_H
@@ -27,24 +31,56 @@
 
 #include <stddef.h>
 
-/* The controller's session (plugin-hostd-protocol, doc/protocol.md, Sessions): what its last hello granted of the
- * extensions tags, errors and seq. A controller that never sends hello is answered as mod-host answers it. */
-
-/* a new controller: nothing is granted */
+/** @brief Starts the session of a new controller: nothing is granted, and the feedback sequence starts again. */
 void session_reset(void);
 
-/* hello <version> [<extension> ...]: the answer, malloc'd; NULL when there is no memory */
+/**
+ * @brief Answers hello \<version\> [\<extension\> ...] and records what the session is granted.
+ *
+ * Each word after the version that names an extension of the protocol grants it, and an extension not named is no
+ * longer granted; the feedback sequence starts again. A refused hello changes nothing.
+ *
+ * @param tok the words of the line, the verb first
+ * @param ntok the number of words
+ * @return "resp 0 \<protocol version\>" and the extensions granted, or "resp -902" (invalid-operation) for a version
+ *         that is not a number of 1 or above; malloc'd; NULL when there is no memory, nothing changed
+ * @pre tok is not NULL and ntok is at least 2.
+ */
 char *session_hello(char **tok, int ntok);
 
-/* the length of the request tag a line starts with ("@" and tag characters, then a space or the end), 0 when the line
- * has none or the session was not granted tags */
+/**
+ * @brief The length of the request tag a line starts with ("@" and tag characters, then a space or the end).
+ *
+ * @param line the request line
+ * @return the length, 0 when the line has none or the session was not granted tags
+ * @pre line is not NULL.
+ */
 size_t session_tag_len(const char *line);
 
-/* the text of an answer, taken and freed, as the session sends it: a refusal alone followed by its error word under
- * errors, after the tag (its first tag_len bytes) and one space under tags. NULL when there is no memory. */
+/**
+ * @brief The text of an answer as the session sends it.
+ *
+ * Under errors, a refusal that is "resp \<code\>" alone is followed by the error word the protocol declares for the
+ * code. Under tags, the answer goes after the tag (its first tag_len bytes) and one space. With no memory for the word
+ * or the tag the answer goes out without it.
+ *
+ * @param text the answer, malloc'd, or NULL; the call takes it
+ * @param tag the request's tag, or NULL for none
+ * @param tag_len the length of the tag
+ * @return the line, malloc'd, the caller frees it; NULL when text is NULL
+ */
 char *session_answer(char *text, const char *tag, size_t tag_len);
 
-/* what a feedback line starts with, "#<n> " under seq, else nothing; written NUL-terminated in buf, its length */
+/**
+ * @brief Writes what a feedback line starts with: "#\<n\> " under seq, else nothing.
+ *
+ * Each call under seq takes the next number, from 1 after a hello or a reset.
+ *
+ * @param[out] buf where it is written, NUL-terminated
+ * @param size the room in buf
+ * @return its length, as snprintf counts it: 0 when seq is not granted
+ * @pre buf is not NULL and size is at least 1.
+ */
 size_t session_feedback_prefix(char *buf, size_t size);
 
 #endif
