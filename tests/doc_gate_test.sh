@@ -69,6 +69,8 @@ sed -i '1d' "$t/tools/doxygen.baseline"
 shrink; check $? "doc_shrink: a baseline line removed"
 reset
 DOC_GATE_BASE=no-such-base red_by "no-such-base" shrink; check $? "doc_shrink: a base it cannot read is red, by name"
+DOC_GATE_BASE='' red_by "DOC_GATE_BASE is empty" shrink; check $? "doc_shrink: an empty base is red, by name, never a default"
+DOC_GATE_BASE=origin/ red_by "origin/" shrink; check $? "doc_shrink: a base with no branch (origin/) is red, by name"
 (cd "$t" && git checkout -q -b bare main && git rm -q tools/doxygen.baseline ruff.toml && git -c user.name=t -c user.email=t@t commit -qm bare && git checkout -q main)
 DOC_GATE_BASE=bare shrink; check $? "doc_shrink: a base without the gate (the change that brings it)"
 
