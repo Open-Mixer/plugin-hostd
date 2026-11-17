@@ -827,10 +827,15 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         kind = "\"choice\"";
     if (kind == NULL)
         kind = "\"travel\"";
-    /* CLAP's boolean (docs/formats.md, what the tables leave to describe): a stepped parameter from 0 to 1 that is no
-     * enumeration is a toggle; CLAP_PARAM_IS_STEPPED alone, through the table, made it a stepped travel */
-    if (!strcmp(format, "clap") && !strcmp(kind, "\"travel\"") && min && max && (v = scale_of(e)) != NULL
-        && !strcmp(v, "\"stepped\"") && strtod(min, NULL) == 0 && strtod(max, NULL) == 1)
+    /* a scanned parameter's kind by omx-contract's one rule (its docs/descriptors.md, "A scanned CLAP parameter's
+     * kind", held by share/omx-contract/clap-kind-vectors.json: tests/describe_clap_kind_vectors_test.py): the table's
+     * words give an enumeration (a choice) and the toggle or trigger a format states; else a parameter whose merged scale
+     * is stepped (the contract entry's word, else the stepped flag's), from 0 to 1, with a step of 1 (the contract's when
+     * it states one; stepped means whole positions, so 1 is implied) is a toggle; else a travel. Through the table alone
+     * CLAP_PARAM_IS_STEPPED made it a stepped travel, and a plugin's switch was refused as drawn over a travel */
+    if (!strcmp(kind, "\"travel\"") && min && max && (v = scale_of(e)) != NULL && !strcmp(v, "\"stepped\"")
+        && strtod(min, NULL) == 0 && strtod(max, NULL) == 1
+        && ((v = get(e, "controls[].travel.step")) == NULL || strtod(v, NULL) == 1))
         kind = "\"toggle\"";
     sb_printf(b, "%s\n    {\"id\": %s, \"name\": ", first ? "" : ",", id);
     if (name)
@@ -884,7 +889,8 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, "], \"default\": \"%s\"", ids[d]);
     }
     else if (!strcmp(kind, "\"toggle\""))
-        sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) != 0 ? "true" : "false");
+        /* the nearer of its two positions: on from 0.5 up (the rule's toggle-default-at-half vector) */
+        sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) >= 0.5 ? "true" : "false");
     else if (!strcmp(kind, "\"travel\""))
     {
         const char *unit = get(e, "controls[].travel.unit"), *scale = scale_of(e);
