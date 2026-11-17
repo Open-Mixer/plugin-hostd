@@ -397,7 +397,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -835,14 +835,22 @@ test-perturbation: $(PROG) $(FAKE) $(GEN)
 	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
 
 # a consumer compiles against the installed header alone, through pkg-config, as plain C
+# each step names itself when it fails; pkg-config prints its own reason (an unmet Requires: of plugin-hostd.pc)
 test-consumer:
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR=; \
+	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR= \
+	  || { echo "FAIL test-consumer: make install_protocol into a scratch prefix"; exit 1; }; \
 	export PKG_CONFIG_PATH=$$tmp/share/pkgconfig$${PKG_CONFIG_PATH:+:$$PKG_CONFIG_PATH}; \
-	$(PKG_CONFIG) --exists plugin-hostd; \
+	$(PKG_CONFIG) --print-errors --exists plugin-hostd \
+	  || { echo "FAIL test-consumer: pkg-config --exists plugin-hostd: the installed plugin-hostd.pc's Requires: are not met (pkg-config's reason above)"; exit 1; }; \
 	$(CC) $$($(PKG_CONFIG) --cflags plugin-hostd) -std=c99 -Wall -Wextra -Werror \
-	  -o $$tmp/consumer tests/consumer.c $$($(PKG_CONFIG) --libs plugin-hostd); \
-	$$tmp/consumer
+	  -o $$tmp/consumer tests/consumer.c $$($(PKG_CONFIG) --libs plugin-hostd) \
+	  || { echo "FAIL test-consumer: tests/consumer.c against the installed headers and library"; exit 1; }; \
+	$$tmp/consumer || { echo "FAIL test-consumer: the consumer built against the installed package"; exit 1; }
+
+# test-consumer's own failure names its step and pkg-config's reason (tests/consumer_errors_test.sh)
+test-consumer-errors:
+	MAKE="$(MAKE)" sh tests/consumer_errors_test.sh
 
 # --pin-files: the files a pin holds as an add collects them, the list plugin-qualify takes (plugin-qualify#228)
 test-pin-files: $(PROG)
