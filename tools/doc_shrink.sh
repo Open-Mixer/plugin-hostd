@@ -16,6 +16,14 @@ if [ -z "$base" ]; then
     exit 1
 fi
 py=${DOC_GATE_PY:-clients/python tests/lib/plugin_hostd_client.py}
+# a remote-tracking base is a copy from the last fetch: fetch it now, and a fetch that fails is no base
+remote=${base%%/*}
+if [ "$remote" != "$base" ] && git remote | grep -qx -- "$remote"; then
+    if ! git fetch -q --no-tags "$remote" "+refs/heads/${base#*/}:refs/remotes/$base"; then
+        echo "doc-shrink: could not fetch $base from $remote: a stale $base is no base, never compared"
+        exit 1
+    fi
+fi
 if ! git rev-parse --verify -q "$base^{commit}" >/dev/null; then
     echo "doc-shrink: the base $base is not in this clone; fetch it (actions/checkout with fetch-depth: 0)"
     exit 1
