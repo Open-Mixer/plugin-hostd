@@ -214,34 +214,6 @@ src/probe_lock.h: warning: Member PROBE_LOCK_FD (macro definition) of file probe
 src/probe_lock.h: warning: Member PROBE_LOCK_FD_ENV (macro definition) of file probe_lock.h is not documented.
 src/probe_lock.h: warning: Member error (variable) of struct probe_lock_report_t is not documented.
 src/probe_lock.h: warning: Member locked (variable) of struct probe_lock_report_t is not documented.
-src/proc.h: warning: Compound WORKER_ENV_T is not documented.
-src/proc.h: warning: Member PROC_EXITED (macro definition) of file proc.h is not documented.
-src/proc.h: warning: Member RPC_DIED (macro definition) of file proc.h is not documented.
-src/proc.h: warning: Member RPC_OK (macro definition) of file proc.h is not documented.
-src/proc.h: warning: Member RPC_WAS_DEAD (macro definition) of file proc.h is not documented.
-src/proc.h: warning: Member cpus[128] (variable) of struct WORKER_ENV_T is not documented.
-src/proc.h: warning: Member nice (variable) of struct WORKER_ENV_T is not documented.
-src/proc.h: warning: Member proc_apply_env(pid_t pid, const worker_env_t *env) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const char *logfile, int *fb_fd) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_cpu_seconds(pid_t pid, double *seconds) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_dead(pid_t pid) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_env_clear(worker_env_t *env) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_env_report(pid_t pid, const worker_env_t *env) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_exited(pid_t pid, int *status) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_find_lv2_bundle(const char *lv2_path, const char *uri, proc_lv2_version_fn version) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_have_binary(const char *bin) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int(*fn)(void *ctx, const char *bundle), void *ctx) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_lv2_version_fn)(const char *bundle, const char *uri, long *minor, long *micro) (typedef) of file proc.h is not documented.
-src/proc.h: warning: Member proc_manifest_reads (variable) of file proc.h is not documented.
-src/proc.h: warning: Member proc_now_ms(void) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_parse_pss(const char *text, long long *kb) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_parse_stat(const char *text, long long *utime, long long *stime) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_pss_kb(pid_t pid, long long *kb) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **reply) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const char *world, const worker_env_t *env, const char *logfile, pid_t *pid, int *port, int *fb_port) (function) of file proc.h is not documented.
-src/proc.h: warning: Member proc_stop(pid_t pid) (function) of file proc.h is not documented.
-src/proc.h: warning: Member thread_pool (variable) of struct WORKER_ENV_T is not documented.
-src/proc.h: warning: Member worker_env_t (typedef) of file proc.h is not documented.
 src/qualcost.h: warning: Compound QUALCOST_CELL_T is not documented.
 src/qualcost.h: warning: Compound QUALCOST_MEMORY_T is not documented.
 src/qualcost.h: warning: Member first_kb (variable) of struct QUALCOST_MEMORY_T is not documented.
