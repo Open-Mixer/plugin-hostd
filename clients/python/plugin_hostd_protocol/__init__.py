@@ -223,9 +223,11 @@ _SAFE = 2 ** 53 - 1
 # the reasons a plan gives, written from data/grouping.json (tools/grouping-reasons.py, #67)
 # BEGIN GENERATED grouping-reasons (tools/grouping-reasons.py, from data/grouping.json): do not edit
 class GroupingReason:
-    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS): a controller compares against these and writes no
-    reason word of its own. plan_get answers them as instance:reason; a plan-refused is followed by a colon and the
-    number of the refusal."""  # noqa: D205, D209
+    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS).
+
+    A controller compares against these and writes no reason word of its own. plan_get answers them as
+    instance:reason; a plan-refused is followed by a colon and the number of the refusal.
+    """
 
     REFUSED = "refused"
     NO_PIN = "no-pin"
