@@ -33,6 +33,13 @@ def problems(spec, control, workflows=None):
             bad.append("debian/control: %s: %d with a floor and a ceiling, %d have a floor; there must be %d" % (pkg, len(pairs), named, n_ctl))
         bad += ["debian/control: %s (>= %s~) (<< %s~), they are %s and %s" % (pkg, f, c, floor, CEILING)
                 for f, c in pairs if (f, c) != (floor, CEILING)]
+        # a workflow that installs a package with a typed bound: 'pkg >= x' is the floor, 'pkg < y' the ceiling
+        for name, wtext in sorted((workflows or {}).items()):
+            for n, wline in enumerate(wtext.splitlines(), 1):
+                for op, v in re.findall(r"\b%s(?![\w-])\s*(>=|<)\s*([0-9][0-9.]*)" % q, wline):
+                    want = floor if op == ">=" else CEILING
+                    if v != want:
+                        bad.append(".github/workflows/%s:%d: %s %s %s, it is %s" % (name, n, pkg, op, v, want))
     return bad
 
 
