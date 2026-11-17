@@ -827,6 +827,11 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         kind = "\"choice\"";
     if (kind == NULL)
         kind = "\"travel\"";
+    /* CLAP's boolean (docs/formats.md, what the tables leave to describe): a stepped parameter from 0 to 1 that is no
+     * enumeration is a toggle; CLAP_PARAM_IS_STEPPED alone, through the table, made it a stepped travel */
+    if (!strcmp(format, "clap") && !strcmp(kind, "\"travel\"") && min && max && (v = scale_of(e)) != NULL
+        && !strcmp(v, "\"stepped\"") && strtod(min, NULL) == 0 && strtod(max, NULL) == 1)
+        kind = "\"toggle\"";
     sb_printf(b, "%s\n    {\"id\": %s, \"name\": ", first ? "" : ",", id);
     if (name)
         sb_printf(b, "%s", name);
