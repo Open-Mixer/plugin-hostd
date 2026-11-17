@@ -32,6 +32,15 @@ def problems(spec, control, workflows=None):
         if len(pairs) != n_ctl or named != n_ctl:
             bad.append("debian/control: %s: %d with a floor, %d have a floor; there must be %d" % (pkg, len(pairs), named, n_ctl))
         bad += ["debian/control: %s (>= %s~), it is %s" % (pkg, f, floor) for f in pairs if f != floor]
+        # a workflow that installs a package with a typed bound: 'pkg >= x' is the floor; this release floors only, so a
+        # typed 'pkg < y' is a ceiling it must not carry
+        for name, wtext in sorted((workflows or {}).items()):
+            for n, wline in enumerate(wtext.splitlines(), 1):
+                for op, v in re.findall(r"\b%s(?![\w-])\s*(>=|<)\s*([0-9][0-9.]*)" % q, wline):
+                    if op == "<":
+                        bad.append(".github/workflows/%s:%d: a ceiling on %s, floors only: < %s" % (name, n, pkg, v))
+                    elif v != floor:
+                        bad.append(".github/workflows/%s:%d: %s >= %s, it is %s" % (name, n, pkg, v, floor))
     return bad
 
 
