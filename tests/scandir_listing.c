@@ -79,9 +79,11 @@ __attribute__((visibility("default"))) int scandir(const char *dir, struct diren
                 goto fail;
             list = grown;
         }
-        if (!(copy = malloc(sizeof *copy)))
+        /* an entry is d_reclen bytes, its name's length and no more, as glibc's scandir copies it: a whole struct dirent
+         * would read past the end of a short one; the rest of the copy is zero */
+        if (!(copy = calloc(1, sizeof *copy)))
             goto fail;
-        memcpy(copy, e, sizeof *copy);
+        memcpy(copy, e, e->d_reclen < sizeof *copy ? e->d_reclen : sizeof *copy);
         list[n++] = copy;
     }
     closedir(d);
