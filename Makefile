@@ -7,6 +7,8 @@ VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 # LD_PRELOAD into the daemon under test: fsync as slow as a disk under contention (tests/slow_fsync.c)
 SLOW_FSYNC = tests/slow-fsync.so
+# LD_PRELOAD into the daemon under test: scandir lists in the order the bundle rule's test sets (tests/scandir_listing.c)
+SCANDIR_LISTING = tests/scandir-listing.so
 FORMAT_TEST = tests/format-test
 HISTORY_TEST = tests/history-test
 PROC_TEST = tests/proc-test
@@ -379,7 +381,7 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(SLOW_FSYNC) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(SLOW_FSYNC) $(SCANDIR_LISTING) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
 	@rm -rf build tests/alloc-fail-objs tests/plan-refused-objs
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
@@ -456,6 +458,9 @@ $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 
 $(SLOW_FSYNC): tests/slow_fsync.c
 	$(CC) $(CFLAGS) -Werror -shared -o $@ $< -ldl
+
+$(SCANDIR_LISTING): tests/scandir_listing.c
+	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
 
 # the command socket's framing, by omx-clap-core's socket_conformance.py. Which copy runs, in this order: the one
 # SOCKET_CONFORMANCE names; ../omx-clap-core/tests/socket_conformance.py when an omx-clap-core checkout sits beside
@@ -845,8 +850,8 @@ test-pin-files: $(PROG)
 
 # which bundle an LV2 uri is when several name it: plugin-db's declared rule, newest version then search path and byte
 # order (#57)
-test-bundle-rule: $(PROG)
-	sh tests/bundle_rule_test.sh ./$(PROG)
+test-bundle-rule: $(PROG) $(SCANDIR_LISTING)
+	sh tests/bundle_rule_test.sh ./$(PROG) ./$(SCANDIR_LISTING)
 
 # --search-path: the LV2 and CLAP directories the daemon searches and their sources, the lists plugin-qualify scans
 # (plugin-qualify#9)
