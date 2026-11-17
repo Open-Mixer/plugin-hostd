@@ -11,6 +11,9 @@
 #              pkg-config does; everything else goes to the real one;
 #   build      a CC that fails on tests/consumer.c and compiles everything else;
 #   run        a CC that builds tests/consumer.c as a program that exits 3.
+# The build and run arms also take a pkg-config that answers plugin-hostd's --exists, --cflags and --libs with nothing
+# and 0, so the step before theirs passes whatever is installed (a release whose plugin-hostd.pc requires a protocol or a
+# plugin-db not installed yet fails its real pkg-config step first); their CC stand-ins read none of those flags.
 # MAKE is the make that runs this (the Makefile passes $(MAKE)).
 set -u
 make=${MAKE:-make}
@@ -34,6 +37,11 @@ case " \$* " in
 esac
 exec "$real_pc" "\$@"
 SH
+cat > "$work/pkg-config-pass" <<SH
+#!/bin/sh
+case " \$* " in *" plugin-hostd "*) exit 0 ;; esac
+exec "$real_pc" "\$@"
+SH
 # the CC stand-ins: anything but tests/consumer.c goes to the real compiler
 for mode in build run; do
 cat > "$work/cc-$mode" <<SH
@@ -45,7 +53,7 @@ while [ \$# -gt 0 ]; do [ "\$1" = -o ] && out=\$2; shift; done
 printf 'int main(void) { return 3; }\n' | "$real_cc" -x c - -o "\$out"
 SH
 done
-chmod +x "$work/bin/install" "$work/pkg-config" "$work/cc-build" "$work/cc-run"
+chmod +x "$work/bin/install" "$work/pkg-config" "$work/pkg-config-pass" "$work/cc-build" "$work/cc-run"
 
 failed=0
 check() { if [ "$1" = 0 ]; then echo "ok   $2"; else echo "FAIL $2"; failed=1; fi; }
@@ -59,7 +67,7 @@ arm() {
 arm install "make install_protocol into a scratch prefix" env PATH="$work/bin:$PATH" "$make" -s test-consumer
 arm pkg-config "pkg-config --exists plugin-hostd" "$make" -s test-consumer PKG_CONFIG="$work/pkg-config"
 printf '%s\n' "$out" | grep -qF "required version is '>= 99.0'"; check $? "pkg-config: it prints pkg-config's own reason"
-arm build "tests/consumer.c against the installed headers and library" "$make" -s test-consumer CC="$work/cc-build"
-arm run "the consumer built against the installed package" "$make" -s test-consumer CC="$work/cc-run"
+arm build "tests/consumer.c against the installed headers and library" "$make" -s test-consumer PKG_CONFIG="$work/pkg-config-pass" CC="$work/cc-build"
+arm run "the consumer built against the installed package" "$make" -s test-consumer PKG_CONFIG="$work/pkg-config-pass" CC="$work/cc-run"
 [ "$failed" = 0 ] || exit 1
 echo "ok   test-consumer names each failing step, and pkg-config's reason"
