@@ -101,10 +101,9 @@ OBJ = $(SRC:.c=.o)
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
 # the words of the machine domain (contract.d/machine/, owned here), rendered from it by omx-contract's domain render
 RENDERED_MACHINE = include/plugin-hostd/machine_vocabulary.h
-# the words the probe output shares with a qualification are plugin-qualify's domain (its contract directory, installed by
-# plugin-qualify-contract, QUALIFICATION_CONTRACTDIR=<dir> for a checkout's contract.d): rendered here, never installed
+# the words the probe output shares with a qualification are plugin-qualify's domain, read from the contract directory
+# it installs into (CONTRACTDIR, or OMX_CONTRACT_PATH): rendered here, never installed
 RENDERED_QUALIFICATION = include/plugin-hostd/qualification_vocabulary.h
-QUALIFICATION_CONTRACTDIR ?= $(CONTRACTDIR)
 
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
 # from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
@@ -248,7 +247,7 @@ render-verbs check-rendered:
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
-	$(OMX_CONTRACT) render --target c --package qualification --contract-dir $(QUALIFICATION_CONTRACTDIR) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
+	$(OMX_CONTRACT) render --target c --package qualification --contract-dir $(CONTRACTDIR) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 

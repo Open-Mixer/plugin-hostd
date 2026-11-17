@@ -112,17 +112,20 @@
 #define OMX_MEASUREMENT_UNMEASURED_REASONS_NOT_ATTEMPTED "not-attempted" ///< The run did not cover this plugin for this dimension.
 /** The source sentence (English) of OMX_MEASUREMENT_UNMEASURED_REASONS_NOT_ATTEMPTED. */
 #define OMX_MEASUREMENT_UNMEASURED_REASONS_NOT_ATTEMPTED_TEXT_EN "The run did not cover this plugin for this dimension."
+#define OMX_MEASUREMENT_UNMEASURED_REASONS_MEMORY_BOUND "memory-bound" ///< A measurement pass did not fit the memory bound the run set: that pass alone is unmeasured, and the passes after it are measured.
+/** The source sentence (English) of OMX_MEASUREMENT_UNMEASURED_REASONS_MEMORY_BOUND. */
+#define OMX_MEASUREMENT_UNMEASURED_REASONS_MEMORY_BOUND_TEXT_EN "A measurement pass did not fit the memory bound the run set: that pass alone is unmeasured, and the passes after it are measured."
 /** The number of words of MEASUREMENT_UNMEASURED_REASONS. */
-#define OMX_MEASUREMENT_UNMEASURED_REASONS_COUNT 18u
+#define OMX_MEASUREMENT_UNMEASURED_REASONS_COUNT 19u
 /** The words of MEASUREMENT_UNMEASURED_REASONS in their declared order, as a C initializer list. */
-#define OMX_MEASUREMENT_UNMEASURED_REASONS_INIT { "no-audio-in", "no-audio-out", "silent-output", "needs-carrier", "needs-impulse-response", "needs-content", "unpinnable", "no-voices", "notes-unplayable", "voices-unknown", "refused-instantiation", "probe-crashed", "probe-timeout", "non-finite-output", "not-installed", "worker-nonconforming", "probe-error", "not-attempted" }
+#define OMX_MEASUREMENT_UNMEASURED_REASONS_INIT { "no-audio-in", "no-audio-out", "silent-output", "needs-carrier", "needs-impulse-response", "needs-content", "unpinnable", "no-voices", "notes-unplayable", "voices-unknown", "refused-instantiation", "probe-crashed", "probe-timeout", "non-finite-output", "not-installed", "worker-nonconforming", "probe-error", "not-attempted", "memory-bound" }
 /** Expands `X(code, "word", NAME)` once per word of MEASUREMENT_UNMEASURED_REASONS, in order, the code being its place in the order. Every reason a figure may be absent, each of its kind: an outcome a sweep produced, never a hypothetical. A reader that meets a reason it does not know treats it as probe-failed. */
 #define OMX_MEASUREMENT_UNMEASURED_REASONS(X) \
     X(0u, "no-audio-in", NO_AUDIO_IN) X(1u, "no-audio-out", NO_AUDIO_OUT) X(2u, "silent-output", SILENT_OUTPUT) X(3u, "needs-carrier", NEEDS_CARRIER) \
     X(4u, "needs-impulse-response", NEEDS_IMPULSE_RESPONSE) X(5u, "needs-content", NEEDS_CONTENT) X(6u, "unpinnable", UNPINNABLE) X(7u, "no-voices", NO_VOICES) \
     X(8u, "notes-unplayable", NOTES_UNPLAYABLE) X(9u, "voices-unknown", VOICES_UNKNOWN) X(10u, "refused-instantiation", REFUSED_INSTANTIATION) X(11u, "probe-crashed", PROBE_CRASHED) \
     X(12u, "probe-timeout", PROBE_TIMEOUT) X(13u, "non-finite-output", NON_FINITE_OUTPUT) X(14u, "not-installed", NOT_INSTALLED) X(15u, "worker-nonconforming", WORKER_NONCONFORMING) \
-    X(16u, "probe-error", PROBE_ERROR) X(17u, "not-attempted", NOT_ATTEMPTED)
+    X(16u, "probe-error", PROBE_ERROR) X(17u, "not-attempted", NOT_ATTEMPTED) X(18u, "memory-bound", MEMORY_BOUND)
 
 /* MEASUREMENT_LATENCY_METHODS (qualification/qualification.json) */
 #define OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET "impulse-onset" ///< The delay from a unit impulse to the first output sample above the residual floor: what the plugin does.
