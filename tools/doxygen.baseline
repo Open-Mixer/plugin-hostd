@@ -94,26 +94,6 @@ src/qualcost.h: warning: Member qualcost_memory(const char *dir, const char *id,
 src/qualcost.h: warning: Member qualcost_memory_t (typedef) of file qualcost.h is not documented.
 src/qualcost.h: warning: Member qualcost_read(const char *dir, const char *id, int rate, int quantum) (function) of file qualcost.h is not documented.
 src/qualcost.h: warning: Member qualcost_record_parses (variable) of file qualcost.h is not documented.
-src/transforms.h: warning: Compound transforms_data_t is not documented.
-src/transforms.h: warning: Compound transforms_entry_t is not documented.
-src/transforms.h: warning: Member TRANSFORMS(X) (macro definition) of file transforms.h is not documented.
-src/transforms.h: warning: Member TRANSFORMS_DECLARE(name, in, inverse) (macro definition) of file transforms.h is not documented.
-src/transforms.h: warning: Member TRANSFORMS_NONE (macro definition) of file transforms.h is not documented.
-src/transforms.h: warning: Member TRANSFORMS_OK (macro definition) of file transforms.h is not documented.
-src/transforms.h: warning: Member TRANSFORMS_REFUSED (macro definition) of file transforms.h is not documented.
-src/transforms.h: warning: Member factor (variable) of struct transforms_data_t is not documented.
-src/transforms.h: warning: Member from (variable) of struct transforms_data_t is not documented.
-src/transforms.h: warning: Member inbound (variable) of struct transforms_entry_t is not documented.
-src/transforms.h: warning: Member inverse (variable) of struct transforms_entry_t is not documented.
-src/transforms.h: warning: Member key (variable) of struct transforms_data_t is not documented.
-src/transforms.h: warning: Member n (variable) of struct transforms_data_t is not documented.
-src/transforms.h: warning: Member name (variable) of struct transforms_entry_t is not documented.
-src/transforms.h: warning: Member to (variable) of struct transforms_data_t is not documented.
-src/transforms.h: warning: Member transforms_count (variable) of file transforms.h is not documented.
-src/transforms.h: warning: Member transforms_find(const char *name) (function) of file transforms.h is not documented.
-src/transforms.h: warning: Member transforms_fn_t)(const transforms_data_t *d, const char *in, char *out, size_t size) (typedef) of file transforms.h is not documented.
-src/transforms.h: warning: Member transforms_list[] (variable) of file transforms.h is not documented.
-src/transforms.h: warning: Member transforms_lookup_check(const transforms_data_t *d) (function) of file transforms.h is not documented.
 src/words.h: warning: Member words_need_quotes(const char *word) (function) of file words.h is not documented.
 src/words.h: warning: Member words_read(char *line, char **tok, int max) (function) of file words.h is not documented.
 src/words.h: warning: Member words_write(const char *word, char *buf, size_t size) (function) of file words.h is not documented.
