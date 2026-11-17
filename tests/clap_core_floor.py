@@ -8,7 +8,10 @@ import os, re, sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # package: (floor, declarations in the spec, declarations in debian/control)
-WANT = {"omx-clap-core-contract": ("0.32.5", 2, 2), "omx-clap-host-tests": ("0.32.5", 1, 1), "omx-clap-host": ("0.32.5", 1, 1)}
+# the floor is omx-clap-core's release of the same pass (0.32.6, which releases before this tree's): outward requires
+# the latest of each lower layer
+FLOOR = "0.32.6"
+WANT = {"omx-clap-core-contract": (FLOOR, 2, 2), "omx-clap-host-tests": (FLOOR, 1, 1), "omx-clap-host": (FLOOR, 1, 1)}
 
 
 def problems(spec, control):
@@ -44,9 +47,9 @@ def main():
     spec, ctl = fixture()
     arms = [
         ("the tree as written", spec, ctl, 0),
-        ("a ceiling in the spec", spec.replace("Requires: omx-clap-host >= 0.32.5", "Requires: (omx-clap-host >= 0.32.5 with omx-clap-host < 0.34)"), ctl, 2),
-        ("a floor of 0.1.0 in the spec", spec.replace("0.32.5", "0.1.0", 1), ctl, 1),
-        ("a ceiling in debian/control", spec, ctl.replace("omx-clap-host-tests (>= 0.32.5~)", "omx-clap-host-tests (>= 0.32.5~), omx-clap-host-tests (<< 0.34~)"), 1),
+        ("a ceiling in the spec", spec.replace("Requires: omx-clap-host >= %s" % FLOOR, "Requires: (omx-clap-host >= %s with omx-clap-host < 0.34)" % FLOOR), ctl, 2),
+        ("a floor of 0.1.0 in the spec", spec.replace(FLOOR, "0.1.0", 1), ctl, 1),
+        ("a ceiling in debian/control", spec, ctl.replace("omx-clap-host-tests (>= %s~)" % FLOOR, "omx-clap-host-tests (>= %s~), omx-clap-host-tests (<< 0.34~)" % FLOOR), 1),
     ]
     for what, s, c, want in arms:
         got = problems(s, c)
