@@ -144,6 +144,16 @@ int proc_exited(pid_t pid, int *status);
 void proc_term_wait(pid_t pid);
 
 /**
+ * @brief Whether proc_term_wait sent this process a signal: the daemon ended it, it did not die of its own. A worker
+ * that exits on SIGTERM leaves with status 0, which looks like no crash at all, so the supervisor asks this before it
+ * reads the death as one that blames the last verb. Asking clears the answer, and the process is reaped after.
+ *
+ * @param pid the process
+ * @return 1 when the daemon stopped it, 0 when not
+ */
+int proc_stopped_by_us(pid_t pid);
+
+/**
  * @brief Stops a worker as proc_term_wait does, and reaps it.
  *
  * @param pid the process; 0 or below does nothing

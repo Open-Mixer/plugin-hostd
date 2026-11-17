@@ -331,12 +331,35 @@ int proc_exited(pid_t pid, int *status)
     return r == pid || (r < 0 && errno == ECHILD);
 }
 
+/* the workers the daemon has sent a signal to and not yet reaped: a worker that exits on SIGTERM leaves as one that
+ * exited, which says nothing about the last verb it was sent */
+#define STOPPED_MAX 64
+static pid_t g_stopped[STOPPED_MAX];
+static int g_nstopped;
+
+int proc_stopped_by_us(pid_t pid)
+{
+    int n;
+
+    for (n = 0; n < g_nstopped; n++)
+        if (g_stopped[n] == pid)
+        {
+            g_stopped[n] = g_stopped[--g_nstopped];
+            return 1;
+        }
+    return 0;
+}
+
 void proc_term_wait(pid_t pid)
 {
     int i;
 
     if (proc_dead(pid))
         return;
+    /* the oldest entry goes when the table is full: a pid that was never reaped by on_death is not coming back */
+    if (g_nstopped == STOPPED_MAX)
+        memmove(g_stopped, g_stopped + 1, --g_nstopped * sizeof(pid_t));
+    g_stopped[g_nstopped++] = pid;
     kill(pid, SIGTERM);
     for (i = 0; i < PROC_TERM_GRACE_MS / 10 && !proc_dead(pid); i++)
         usleep(10000);
@@ -352,6 +375,7 @@ void proc_stop(pid_t pid)
         return;
     proc_term_wait(pid);
     waitpid(pid, &status, 0);
+    proc_stopped_by_us(pid); /* reaped here, no on_death follows: the entry must not outlive the pid */
 }
 
 /* one thread as the kernel sees it: its id, its state letter, what it waits in (wchan), and the top of its kernel stack
@@ -413,7 +437,7 @@ static void say_threads(char *out, size_t size, const char *task)
         out[used - 1] = '\0';
 }
 
-/* a worker that did not answer in rpc_timeout_ms is said before it is killed: the command, how long it waited, how much
+/* a worker that did not answer in rpc_timeout_ms is said before it is sent SIGTERM (and SIGKILL if it stays): the command, how long it waited, how much
  * of the command it had not read, where each of its threads was, and the daemon's own threads, so a slow machine and a
  * worker stuck behind something each say which */
 static void say_unanswered(pid_t pid, int fd, const char *msg, int64_t waited)
@@ -426,7 +450,7 @@ static void say_unanswered(pid_t pid, int fd, const char *msg, int64_t waited)
     say_threads(daemon, sizeof(daemon), "/proc/self/task");
     if (ioctl(fd, SIOCOUTQ, &unread) != 0)
         unread = -1;
-    fprintf(stderr, "plugin-hostd: worker %d did not answer '%.80s' in %lld ms, %d bytes of it unread; killed. its threads:%s; "
+    fprintf(stderr, "plugin-hostd: worker %d did not answer '%.80s' in %lld ms, %d bytes of it unread; stopped. its threads:%s; "
                     "the daemon's:%s\n", (int)pid, msg, (long long)waited, unread, worker, daemon);
 }
 
