@@ -69,6 +69,20 @@ sed -i '1d' "$t/tools/doxygen.baseline"
 shrink; check $? "doc_shrink: a baseline line removed"
 reset
 DOC_GATE_BASE=no-such-base red_by "no-such-base" shrink; check $? "doc_shrink: a base it cannot read is red, by name"
+DOC_GATE_BASE='' red_by "DOC_GATE_BASE is empty" shrink; check $? "doc_shrink: an empty base is red, by name, never a default"
+DOC_GATE_BASE=origin/ red_by "origin/" shrink; check $? "doc_shrink: a base with no branch (origin/) is red, by name"
+# A remote base is fetched before it is read: a remote-tracking ref is a copy from the last fetch, and a stale one can
+# already hold the rows this change grows. The upstream here holds the base; origin/main in the clone is stale and
+# carries one more baseline line, as the tree does.
+up="$work/up"; git clone -q --bare "$t" "$up"
+(cd "$t" && git remote add origin "$up" && git checkout -q -b stale main && echo "src/a.h: Member D is not documented." >> tools/doxygen.baseline \
+    && git -c user.name=t -c user.email=t@t commit -qam stale && git update-ref refs/remotes/origin/main stale && git checkout -q main && git branch -qD stale)
+echo "src/a.h: Member D is not documented." >> "$t/tools/doxygen.baseline"
+DOC_GATE_BASE=origin/main red_by "tools/doxygen.baseline grew" shrink; check $? "doc_shrink: a remote base is fetched, never read stale (the stale ref holds the grown line)"
+reset
+(cd "$t" && git update-ref refs/remotes/origin/main main && git remote set-url origin "$work/gone")
+DOC_GATE_BASE=origin/main red_by "could not fetch origin/main" shrink; check $? "doc_shrink: a remote base it cannot fetch is red, by name, never the stale ref"
+(cd "$t" && git remote remove origin)
 (cd "$t" && git checkout -q -b bare main && git rm -q tools/doxygen.baseline ruff.toml && git -c user.name=t -c user.email=t@t commit -qm bare && git checkout -q main)
 DOC_GATE_BASE=bare shrink; check $? "doc_shrink: a base without the gate (the change that brings it)"
 
