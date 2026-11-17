@@ -100,38 +100,6 @@ src/placement.h: warning: Member placement_capacities(const char *dir, const cpu
 src/placement.h: warning: Member placement_cores(const cpu_set_t *allowed, const char *audio_cores, const long *capacity, cpu_set_t *audio, cpu_set_t *reserved) (function) of file placement.h is not documented.
 src/placement.h: warning: Member placement_list_text(const cpu_set_t *set, char *buf, size_t size) (function) of file placement.h is not documented.
 src/placement.h: warning: Member placement_parse(const char *list, cpu_set_t *set) (function) of file placement.h is not documented.
-src/planner.h: warning: Compound PLANNER_HISTORY_T is not documented.
-src/planner.h: warning: Compound PLANNER_MEMBER_T is not documented.
-src/planner.h: warning: Compound PLANNER_PLAN_T is not documented.
-src/planner.h: warning: Compound PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member PLANNER_COST_UNKNOWN (macro definition) of file planner.h is not documented.
-src/planner.h: warning: Member PLANNER_MEMBERS_MAX (macro definition) of file planner.h is not documented.
-src/planner.h: warning: Member cost (variable) of struct PLANNER_MEMBER_T is not documented.
-src/planner.h: warning: Member cpu_p95_solo (variable) of struct PLANNER_HISTORY_T is not documented.
-src/planner.h: warning: Member crashed (variable) of struct PLANNER_HISTORY_T is not documented.
-src/planner.h: warning: Member group_cost_max (variable) of struct PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member group_max (variable) of struct PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member grouping_on (variable) of struct PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member history (variable) of struct PLANNER_MEMBER_T is not documented.
-src/planner.h: warning: Member history_unavailable (variable) of struct PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member id (variable) of struct PLANNER_MEMBER_T is not documented.
-src/planner.h: warning: Member klass (variable) of struct PLANNER_MEMBER_T is not documented.
-src/planner.h: warning: Member nseg (variable) of struct PLANNER_PLAN_T is not documented.
-src/planner.h: warning: Member pin (variable) of struct PLANNER_MEMBER_T is not documented.
-src/planner.h: warning: Member pins_first_use (variable) of struct PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member planner_format_reasons(const planner_member_t *m, const planner_plan_t *p, int refused_code, char *buf, size_t size) (function) of file planner.h is not documented.
-src/planner.h: warning: Member planner_format_segments(const planner_member_t *m, const planner_plan_t *p, char *buf, size_t size) (function) of file planner.h is not documented.
-src/planner.h: warning: Member planner_history_t (typedef) of file planner.h is not documented.
-src/planner.h: warning: Member planner_member_t (typedef) of file planner.h is not documented.
-src/planner.h: warning: Member planner_plan(const planner_settings_t *s, const planner_member_t *m, int n, planner_plan_t *out) (function) of file planner.h is not documented.
-src/planner.h: warning: Member planner_plan_t (typedef) of file planner.h is not documented.
-src/planner.h: warning: Member planner_reason_word(int reason) (function) of file planner.h is not documented.
-src/planner.h: warning: Member planner_settings_t (typedef) of file planner.h is not documented.
-src/planner.h: warning: Member raises_xruns (variable) of struct PLANNER_HISTORY_T is not documented.
-src/planner.h: warning: Member reason[PLANNER_MEMBERS_MAX] (variable) of struct PLANNER_PLAN_T is not documented.
-src/planner.h: warning: Member require_pins (variable) of struct PLANNER_SETTINGS_T is not documented.
-src/planner.h: warning: Member seg_len[PLANNER_MEMBERS_MAX] (variable) of struct PLANNER_PLAN_T is not documented.
-src/planner.h: warning: Member world_ok (variable) of struct PLANNER_MEMBER_T is not documented.
 src/probe_cgroup.h: warning: Compound PROBE_CGROUP_T is not documented.
 src/probe_cgroup.h: warning: Member PROBE_CGROUP_ROOT (macro definition) of file probe_cgroup.h is not documented.
 src/probe_cgroup.h: warning: Member dir[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
