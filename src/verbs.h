@@ -29,13 +29,23 @@
 
 #include <utils.h>
 
-/* mod-host.h declares each command as a format; its verb is the first word of the format */
+/**
+ * @brief The length of the verb of a command format: mod-host.h declares each command as a format; its verb is the first
+ * word of the format.
+ * @param format the format
+ * @return the length of its first word
+ */
 static inline int verb_len(const char *format)
 {
     return (int)strcspn(format, " ");
 }
 
-/* whether the first word of text, a token or a whole command line, is the verb of format */
+/**
+ * @brief Whether the first word of text, a token or a whole command line, is the verb of format.
+ * @param text the token or the line
+ * @param format the command format
+ * @return non-zero when it is
+ */
 static inline int verb_is(const char *text, const char *format)
 {
     size_t n = strcspn(format, " ");
@@ -43,19 +53,31 @@ static inline int verb_is(const char *text, const char *format)
     return strcspn(text, " \t") == n && !strncmp(text, format, n);
 }
 
-/* the socket's receive callback: one message in, one reply out */
+/**
+ * @brief The socket's receive callback: one message in, one reply out.
+ *
+ * While an answer waits, the command is queued behind it, or refused in its place when too many wait.
+ * @param msg the message; its sender and data are read
+ */
 void verbs_receive(msg_t *msg);
 
-/* set by QUIT: the main loop stops */
+/** @brief Set by QUIT: the main loop stops. */
 extern volatile int g_quitting;
 
-/* the answers that wait, sent as far as they can go: a reply whose writes landed, then the commands queued behind it */
+/**
+ * @brief The answers that wait, sent as far as they can go: a reply whose writes landed, then the commands queued behind it.
+ */
 void verbs_flush(void);
 
-/* whether an answer waits */
+/**
+ * @brief Whether an answer waits.
+ * @return non-zero when one does
+ */
 int verbs_waiting(void);
 
-/* the controller is gone: what waited for it is forgotten */
+/**
+ * @brief The controller is gone: what waited for it is forgotten.
+ */
 void verbs_drop(void);
 
 #endif
