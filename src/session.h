@@ -30,21 +30,42 @@
 /* The controller's session (plugin-hostd-protocol, doc/protocol.md, Sessions): what its last hello granted of the
  * extensions tags, errors and seq. A controller that never sends hello is answered as mod-host answers it. */
 
-/* a new controller: nothing is granted */
+/**
+ * @brief A new controller: nothing is granted, and the feedback sequence starts again.
+ */
 void session_reset(void);
 
-/* hello <version> [<extension> ...]: the answer, malloc'd; NULL when there is no memory */
+/**
+ * @brief hello \<version> [\<extension> ...]: records what the session is granted.
+ * @param tok the words of the line, the verb first
+ * @param ntok the number of words
+ * @return the answer, malloc'd; NULL when there is no memory
+ */
 char *session_hello(char **tok, int ntok);
 
-/* the length of the request tag a line starts with ("@" and tag characters, then a space or the end), 0 when the line
- * has none or the session was not granted tags */
+/**
+ * @brief The length of the request tag a line starts with ("@" and tag characters, then a space or the end).
+ * @param line the request line
+ * @return the length, 0 when the line has none or the session was not granted tags
+ */
 size_t session_tag_len(const char *line);
 
-/* the text of an answer, taken and freed, as the session sends it: a refusal alone followed by its error word under
- * errors, after the tag (its first tag_len bytes) and one space under tags. NULL when there is no memory. */
+/**
+ * @brief The text of an answer, taken and freed, as the session sends it: a refusal alone followed by its error word
+ * under errors, after the tag (its first tag_len bytes) and one space under tags.
+ * @param text the answer, malloc'd; the call takes it
+ * @param tag the request's tag, or NULL for none
+ * @param tag_len the length of the tag
+ * @return the line, malloc'd; NULL when text is NULL. With no memory for the tag the answer goes out without it.
+ */
 char *session_answer(char *text, const char *tag, size_t tag_len);
 
-/* what a feedback line starts with, "#<n> " under seq, else nothing; written NUL-terminated in buf, its length */
+/**
+ * @brief What a feedback line starts with: "#\<n> " under seq, else nothing.
+ * @param buf where it is written, NUL-terminated
+ * @param size the room in buf
+ * @return its length
+ */
 size_t session_feedback_prefix(char *buf, size_t size);
 
 #endif

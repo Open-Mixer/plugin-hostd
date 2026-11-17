@@ -18,7 +18,6 @@ src/conf.h: warning: Member conf_spread(const conf_t *conf) (function) of file c
 src/conf.h: warning: Member conf_string_key (enumeration) of file conf.h is not documented.
 src/conf.h: warning: Member conf_t (typedef) of file conf.h is not documented.
 src/conf.h: warning: Member from_file[CONF_STRINGS_N] (variable) of struct CONF_T is not documented.
-src/confine.h: warning: Member proc_confine(const int *keep, int nkeep) (function) of file confine.h is not documented.
 src/describe.h: warning: Member describe_dump(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
 src/describe.h: warning: Member describe_format(const char *target) (function) of file describe.h is not documented.
 src/describe.h: warning: Member describe_id(const char *target) (function) of file describe.h is not documented.
@@ -227,23 +226,6 @@ src/qualcost.h: warning: Member qualcost_memory(const char *dir, const char *id,
 src/qualcost.h: warning: Member qualcost_memory_t (typedef) of file qualcost.h is not documented.
 src/qualcost.h: warning: Member qualcost_read(const char *dir, const char *id, int rate, int quantum) (function) of file qualcost.h is not documented.
 src/qualcost.h: warning: Member qualcost_record_parses (variable) of file qualcost.h is not documented.
-src/relay.h: warning: Member relay_abi_clobbers(int fd, int *ids, int max) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_add(int fd) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_await_controller(volatile int *running) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_controller_gone(void) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_event(const char *line) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_finish(void) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_instance_gone(int id) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_param_moves(int fd, int *ids, int max) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_remove(int fd) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_set_prefix(size_t(*prefix)(char *buf, size_t size)) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_start(int port, const char *address) (function) of file relay.h is not documented.
-src/relay.h: warning: Member relay_xruns(int fd, unsigned long long *count) (function) of file relay.h is not documented.
-src/session.h: warning: Member session_answer(char *text, const char *tag, size_t tag_len) (function) of file session.h is not documented.
-src/session.h: warning: Member session_feedback_prefix(char *buf, size_t size) (function) of file session.h is not documented.
-src/session.h: warning: Member session_hello(char **tok, int ntok) (function) of file session.h is not documented.
-src/session.h: warning: Member session_reset(void) (function) of file session.h is not documented.
-src/session.h: warning: Member session_tag_len(const char *line) (function) of file session.h is not documented.
 src/transforms.h: warning: Compound transforms_data_t is not documented.
 src/transforms.h: warning: Compound transforms_entry_t is not documented.
 src/transforms.h: warning: Member TRANSFORMS(X) (macro definition) of file transforms.h is not documented.
@@ -264,13 +246,6 @@ src/transforms.h: warning: Member transforms_find(const char *name) (function) o
 src/transforms.h: warning: Member transforms_fn_t)(const transforms_data_t *d, const char *in, char *out, size_t size) (typedef) of file transforms.h is not documented.
 src/transforms.h: warning: Member transforms_list[] (variable) of file transforms.h is not documented.
 src/transforms.h: warning: Member transforms_lookup_check(const transforms_data_t *d) (function) of file transforms.h is not documented.
-src/verbs.h: warning: Member g_quitting (variable) of file verbs.h is not documented.
-src/verbs.h: warning: Member verb_is(const char *text, const char *format) (function) of file verbs.h is not documented.
-src/verbs.h: warning: Member verb_len(const char *format) (function) of file verbs.h is not documented.
-src/verbs.h: warning: Member verbs_drop(void) (function) of file verbs.h is not documented.
-src/verbs.h: warning: Member verbs_flush(void) (function) of file verbs.h is not documented.
-src/verbs.h: warning: Member verbs_receive(msg_t *msg) (function) of file verbs.h is not documented.
-src/verbs.h: warning: Member verbs_waiting(void) (function) of file verbs.h is not documented.
 src/words.h: warning: Member words_need_quotes(const char *word) (function) of file words.h is not documented.
 src/words.h: warning: Member words_read(char *line, char **tok, int max) (function) of file words.h is not documented.
 src/words.h: warning: Member words_write(const char *word, char *buf, size_t size) (function) of file words.h is not documented.
