@@ -34,6 +34,7 @@
 
 #include <omxcontract/omx_contract_limits.h>
 #include <omxcontract/omx_vocabulary.h>
+#include <plugin-hostd/machine_vocabulary.h>
 #include <plugin-hostd/protocol.h>
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same

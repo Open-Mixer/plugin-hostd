@@ -27,7 +27,7 @@
 
 #include <stddef.h>
 
-/* The machine class the daemon's probe writes (omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS): the band of
+/* The machine class the daemon's probe writes (plugin-hostd's machine domain, MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS): the band of
  * `ncpu` cores and of `khz` kHz, the highest clock the first core states (0 when it states none). The words are the
  * contract's. */
 void machine_bands(long ncpu, long khz, const char **core_band, const char **clock_band);

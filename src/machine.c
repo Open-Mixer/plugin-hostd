@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <omxcontract/omx_vocabulary.h>
+#include <plugin-hostd/machine_vocabulary.h>
 
 #include "machine.h"
 

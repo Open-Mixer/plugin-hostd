@@ -99,6 +99,8 @@ OBJ = $(SRC:.c=.o)
 # the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
 # (render-verbs below); the daemon's verbs and reply codes are rendered in plugin-hostd-protocol, beside protocol.h
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
+# the words of the machine domain (contract.d/machine/, owned here), rendered from it by omx-contract's domain render
+RENDERED_MACHINE = include/plugin-hostd/machine_vocabulary.h
 
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
 # from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
@@ -132,7 +134,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
+$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(REPLY_WORDS)
 
 # the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
 # daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
@@ -171,7 +173,7 @@ install_protocol:
 	install -m 644 protocol/preset.schema.json $(DESTDIR)$(DATADIR)/plugin-hostd/preset.schema.json
 	install -d $(DESTDIR)$(DATADIR)/plugin-hostd/pins.d
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
-	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
+	install -m 644 $(RENDERED) $(RENDERED_MACHINE) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
@@ -207,6 +209,8 @@ install-python:
 install-contract:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
+	install -D -m 644 contract.d/machine/machine.json $(DESTDIR)$(CONTRACTDIR)/machine/machine.json
+	install -D -m 644 contract.d/machine/catalogs/*.json -t $(DESTDIR)$(CONTRACTDIR)/machine/catalogs
 
 # the contract directory as a reader of it sees it: install-contract into a staging directory, then omx-contract validate
 # of the staged package together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
@@ -239,6 +243,7 @@ render-verbs check-rendered:
 	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
+	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 
@@ -693,7 +698,7 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED)
+$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE)
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(PIN_LIBS)
 
 gen: $(GEN)

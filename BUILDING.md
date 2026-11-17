@@ -30,7 +30,8 @@ to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`. The probe output schema takes the words it shares with the
 contract (`MEASUREMENT_LATENCY_METHODS`, `MEASUREMENT_VOICE_BASES`,
 `MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `RESOURCE_THREAD_SCHEDULING`) from
-the vocabulary header: `protocol/probe-output.schema.in` names each as an
+the vocabulary headers (the machine words are this package's own domain, `contract.d/machine/`, rendered to
+`include/plugin-hostd/machine_vocabulary.h`; `tests/vocabulary_derived.py` reads that document itself): `protocol/probe-output.schema.in` names each as an
 `@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
 each of those enums of the generated schema to the installed contract's
 `omx-vocabulary.schema.json`, word for word and in order. `make

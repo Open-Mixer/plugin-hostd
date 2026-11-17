@@ -12,7 +12,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TREE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
 TOKEN = re.compile(r"@((?:OMX|PHD)_[A-Z0-9_]+)@")
-# the items the probe output must take from the contract (#115); any other @OMX_<ITEM>@ the template names is held to
+# the items the probe output must take from the contract (#115), the machine's from this package's own domain (contract.d/machine); any other @OMX_<ITEM>@ the template names is held to
 # the contract all the same
 REQUIRED = ("MEASUREMENT_LATENCY_METHODS", "MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS",
             "RESOURCE_THREAD_SCHEDULING")
@@ -85,8 +85,21 @@ def differences(generated, places, core):
     return out
 
 
+def domains(tree):
+    """{ITEM: {"enum": [...]}} of every words schema of the domain documents under contract.d/ (this package's own
+    domains: the contract's json fragment carries only what omx-contract owns)"""
+    out = {}
+    base = os.path.join(tree, "contract.d")
+    for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+        doc = json.load(open(os.path.join(base, name, name + ".json")))
+        for item, schema in doc["components"]["schemas"].items():
+            out[item] = {"enum": [e["const"] for e in schema["oneOf"]]}
+    return out
+
+
 def main():
     core = json.load(open(vocabulary_path()))["$defs"]
+    core.update(domains(TREE))
     tmpl = template(os.path.join(TREE, "protocol", "probe-output.schema.in"))
     generated = json.load(open(os.path.join(TREE, "protocol", "probe-output.schema.json")))
     places = derived(tmpl)
