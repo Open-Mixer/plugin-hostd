@@ -266,6 +266,19 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
     return entries_add(&i->tail, &i->ntail, &i->captail, line, key, kind, replaced);
 }
 
+/* an instance's property_set lines, all of them: a preset load replaces the plugin's state, the properties with it */
+static void props_drop(instance_t *i)
+{
+    int n;
+
+    for (n = 0; n < i->nprops; n++)
+    {
+        free(i->props[n].line);
+        free(i->props[n].key);
+    }
+    i->nprops = 0;
+}
+
 static void tail_drop_state(instance_t *i)
 {
     int n, kept = 0;
@@ -343,11 +356,7 @@ static void instance_free(instance_t *i)
     free(i->client);
     free(i->sus_line);
     free(i->sus_prev);
-    for (n = 0; n < i->nprops; n++)
-    {
-        free(i->props[n].line);
-        free(i->props[n].key);
-    }
+    props_drop(i);
     free(i->props);
     free(i->track_info);
     free(i->node_label);
@@ -1535,20 +1544,21 @@ static int replay_add(worker_t *w, instance_t *i)
     return 1;
 }
 
-/* an instance's verb ledger, after the state: the latest property_set of each symbol, in the order each was first set
- * (R-111), then the verb tail; -1 when the worker died on it */
+/* an instance's verb ledger, after the state: the verb tail, then the latest property_set of each symbol, in the order
+ * each was first set (R-111). The properties go last: each was set after the last preset load, which drops the ones
+ * before it, so after a preset load the tail still holds (an instance that writes no state); -1 when the worker died */
 static int replay_tail(worker_t *w, instance_t *i)
 {
     int m;
 
-    for (m = 0; m < i->nprops; m++)
-        if (replay_line(w, i->props[m].line) != RPC_OK)
+    for (m = 0; m < i->ntail; m++)
+        if (replay_line(w, i->tail[m].line) != RPC_OK)
         {
             on_death(w, i->id);
             return -1;
         }
-    for (m = 0; m < i->ntail; m++)
-        if (replay_line(w, i->tail[m].line) != RPC_OK)
+    for (m = 0; m < i->nprops; m++)
+        if (replay_line(w, i->props[m].line) != RPC_OK)
         {
             on_death(w, i->id);
             return -1;
@@ -2435,8 +2445,12 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
             }
             else if (g_recorded[v].key_arg)
                 return 0;
+            /* a preset is the plugin's whole state: the state verbs and the properties set before it are superseded */
             if (verb_is(tok[0], EFFECT_PRESET_LOAD))
+            {
                 tail_drop_state(i);
+                props_drop(i);
+            }
             if (tail_add(i, line, key, g_recorded[v].kind, &prev) != 0)
                 return -1;
             free(i->sus_line);
