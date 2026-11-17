@@ -79,6 +79,10 @@
  *                               FAKE_PRESET_NEEDS_CLAP_PATH=<dir> set, -104 (ERR_HOST_INVALID_PRESET_URI) unless the
  *                               fake's own CLAP_PATH holds <dir>, as a worker whose preset browsing depends on it does
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   property_list <n>           "resp 1": one property, file, a path the controller may read and write
+ *   property_info <n> <i>       "resp 0 file path rw "File"" for 0, OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for any other index
+ *   property_get <n> <s>        "resp 0 "/tmp/fake.wav"" for file, OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for a symbol that starts
+ *                               with "writeonly", OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for any other
  *   property_set <n> <s> <v>    "resp 0", or OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for a symbol that starts with "readonly",
  *                               as a worker answers a property that is not writable; the fake keeps nothing of it
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
@@ -916,6 +920,18 @@ static void receive(msg_t *msg)
     }
     else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
         answer(fd, "resp 0");
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_LIST) && ntok == 2)
+        answer(fd, "resp 1");
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_INFO) && ntok == 3)
+        answer(fd, strcmp(tok[2], "0") ? "resp %d" : "resp 0 file path rw \"File\"", OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_GET) && ntok == 3)
+    {
+        if (!strcmp(tok[2], "file"))
+            answer(fd, "resp 0 \"/tmp/fake.wav\"");
+        else
+            answer(fd, "resp %d", strncmp(tok[2], "writeonly", 9) ? OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP
+                                                                   : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
+    }
     else if (!strcmp(verb, OMX_VERB_PROPERTY_SET) && ntok >= 4)
         answer(fd, "resp %d", strncmp(tok[2], "readonly", 8) ? 0 : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
     else if (!strcmp(verb, PHD_VERB_SHOW_EXTERNAL_UI) && ntok == 2)
