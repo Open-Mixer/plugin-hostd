@@ -29,51 +29,6 @@ src/descriptors.h: warning: Member descriptors_get(const char *uri) (function) o
 src/descriptors.h: warning: Member descriptors_init(conf_t *conf) (function) of file descriptors.h is not documented.
 src/descriptors.h: warning: Member descriptors_panel_get(const char *uri) (function) of file descriptors.h is not documented.
 src/descriptors.h: warning: Member descriptors_tick(void) (function) of file descriptors.h is not documented.
-src/formats.h: warning: Compound FORMAT_T is not documented.
-src/formats.h: warning: Member FORMATS_MAX (macro definition) of file formats.h is not documented.
-src/formats.h: warning: Member adapter (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member binary)(const char *uri, const char *search, char *path, size_t size) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member clap_binary(const char *uri, const char *search, char *path, size_t size) (function) of file formats.h is not documented.
-src/formats.h: warning: Member clap_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files) (function) of file formats.h is not documented.
-src/formats.h: warning: Member clap_plain_target(const char *uri, char *out, size_t size) (function) of file formats.h is not documented.
-src/formats.h: warning: Member declared)(const conf_t *conf) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member fallback (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member format_at(int index) (function) of file formats.h is not documented.
-src/formats.h: warning: Member format_by_name(const char *name) (function) of file formats.h is not documented.
-src/formats.h: warning: Member format_of_uri(const char *uri, const char **worker_uri) (function) of file formats.h is not documented.
-src/formats.h: warning: Member format_route(const conf_t *conf, int format, const char *uri) (function) of file formats.h is not documented.
-src/formats.h: warning: Member format_t (typedef) of file formats.h is not documented.
-src/formats.h: warning: Member formats_count(void) (function) of file formats.h is not documented.
-src/formats.h: warning: Member formats_register(const format_t *format) (function) of file formats.h is not documented.
-src/formats.h: warning: Member layout_check (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member lv2_binary(const char *uri, const char *search, char *path, size_t size) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_param_info(int id, const char *symbol) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_refusal_reason(const char *reply, char *buf, size_t size) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_remote_page_get(int id, int page) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_remote_pages(int id) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_route(const conf_t *conf, const char *uri) (function) of file formats.h is not documented.
-src/formats.h: warning: Member lv2_worker_pick(const char *uri, const char *worker) (function) of file formats.h is not documented.
-src/formats.h: warning: Member name (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member narrow_world)(const conf_t *conf, const char *dir, const char *const *uris, int n) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member native_chain (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member native_instance_verbs (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member param_info)(int id, const char *symbol) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member pin_collect)(const char *uri, const char *search, char *root, size_t size, names_t *files) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member pinned_own_only (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member prefix (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member remote_page_get)(int id, int page) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member remote_pages)(int id) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member route)(const conf_t *conf, const char *uri) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member routed (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member search)(const conf_t *conf) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member strip_prefix (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member thread_pool (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member worker)(const conf_t *conf) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member worker_prefix (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member worker_word)(const char *uri, char *out, size_t size) (variable) of struct FORMAT_T is not documented.
-src/formats.h: warning: Member world_env (variable) of struct FORMAT_T is not documented.
 src/fsutil.h: warning: Member fs_into_place(const char *tmp, const char *final) (function) of file fsutil.h is not documented.
 src/fsutil.h: warning: Member fs_mkdir_parents(char *path) (function) of file fsutil.h is not documented.
 src/fsutil.h: warning: Member fs_sync_dir(const char *path) (function) of file fsutil.h is not documented.
