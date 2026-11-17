@@ -76,6 +76,22 @@ def problems(floor, spec, control, workflows, sources, since, pc=None):
     return bad
 
 
+# BUILDING.md names the protocol it builds against in one sentence: its floor, and its ceiling where the spec has one
+BUILDING_LINE = re.compile(r"\(Open-Mixer/plugin-hostd-protocol, ([0-9][0-9.]*) or later(?:, before ([0-9][0-9.]*))?\)")
+
+
+def building_problems(floor, ceiling, text):
+    """BUILDING.md's protocol sentence: the floor the spec states, and the ceiling it states (none where it states none)"""
+    found = BUILDING_LINE.findall(re.sub(r"\s+", " ", text))
+    if len(found) != 1:
+        return ["BUILDING.md: %d sentences '(Open-Mixer/plugin-hostd-protocol, <floor> or later...)', want one" % len(found)]
+    f, c = found[0]
+    bad = ["BUILDING.md: the protocol from %s, the floor is %s" % (f, floor)] if f != floor else []
+    if (c or None) != ceiling:
+        bad.append("BUILDING.md: the protocol before %s, the ceiling is %s" % (c or "(none)", ceiling or "(none)"))
+    return bad
+
+
 def text_of(path):
     with open(path) as f:
         return f.read()
@@ -124,6 +140,19 @@ def main():
             print("FAIL the floor check on %s: want %d findings, got %s" % (what, want, got))
             return 1
     print("ok   the floor check sees a low, a missing and a typed protocol floor, any ceiling, and a verb past the floor")
+    building = "library of its own (Open-Mixer/plugin-hostd-protocol, 0.3.0 or later, before\n0.4), with the"
+    for what, text, ceiling, want in [
+        ("BUILDING.md as written", building, "0.4", 0),
+        ("BUILDING.md naming an old floor", building.replace("0.3.0", "0.2.0"), "0.4", 1),
+        ("BUILDING.md naming an old ceiling", building.replace("0.4)", "0.3)"), "0.4", 1),
+        ("BUILDING.md with no protocol sentence", "library of its own, with the", "0.4", 1),
+        ("BUILDING.md naming a ceiling the spec does not state", building, None, 1),
+    ]:
+        got = building_problems("0.3.0", ceiling, text)
+        if len(got) != want:
+            print("FAIL the BUILDING.md check on %s: want %d findings, got %s" % (what, want, got))
+            return 1
+    print("ok   the BUILDING.md check sees an old floor, an old or extra ceiling and a missing sentence")
 
     spec_path = os.path.join(ROOT, "packaging", "plugin-hostd.spec")
     p = subprocess.run([os.path.join(ROOT, "tools", "protocol-floor.sh"), spec_path], capture_output=True, text=True)
@@ -136,6 +165,8 @@ def main():
     bad = problems(floor, text_of(spec_path), text_of(os.path.join(ROOT, "debian", "control")),
                    tree_files(os.path.join(".github", "workflows"), (".yml",)), sources, since,
                    text_of(os.path.join(ROOT, "protocol", "plugin-hostd.pc.in")))
+    # the release floors only: BUILDING.md names the floor and no ceiling
+    bad += building_problems(floor, None, text_of(os.path.join(ROOT, "BUILDING.md")))
     for b in bad:
         print("FAIL %s" % b)
     if bad:
