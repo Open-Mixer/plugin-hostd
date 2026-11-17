@@ -47,10 +47,17 @@ FLOOR = subprocess.run(["sh", os.path.join(ROOT, "tools", "protocol-floor.sh")],
                        check=True).stdout.strip()
 
 
-def newer_than_floor(since):
-    """whether a verb's own since names a protocol release past the floor; a verb with none is the tree's"""
+# the omx-clap-core release this tree is written against: the spec's floor of omx-clap-core-contract, whose verbs.json
+# declares the verbs both hosts owe; their since is an omx-clap-core version, never a protocol one
+CLAP_CORE_FLOOR = re.search(r"^BuildRequires:\s*\(?omx-clap-core-contract\s*>=\s*([0-9.]+)",
+                            open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M).group(1)
+
+
+def newer_than_floor(since, floor):
+    """whether a verb's own since names a release past floor, that of the package that declares it; a verb with none is
+    the tree's"""
     as_tuple = lambda v: tuple(int(x) for x in v.split("."))
-    return bool(since) and as_tuple(since) > as_tuple(FLOOR)
+    return bool(since) and as_tuple(since) > as_tuple(floor)
 
 
 # ---------------------------------------------------------------- the declarations
@@ -249,6 +256,10 @@ LINES = {
     "note_off": ("1 0 60 0", "1 0 60", ("99 0 60 0",)),
     "all_notes_off": ("1", "", ("99",)),
     "hide_external_ui": ("1", "1 x", ("99",)),
+    "property_list": ("1", "1 x", ("99",)),
+    "property_info": ("1 0", "1", ("99 0", "1 5")),
+    "property_get": ("1 file", "1", ("99 file", "1 nope", "1 writeonly_key")),
+    "property_set": ('1 file "/tmp/take.wav"', "1 file", ("99 file x", "1 readonly_mode x")),
     "curve_bind": ("1 0 transfer_curve dynamics threshold=0:db ratio=1:ratio", "1 x transfer_curve", ("99 0 transfer_curve dynamics threshold=0:db",)),
     "curve_points": ("1 0 9", "1 x 9", ("99 0 9",)),
     "monitor_output_off": ("1 out", "1", ()),
@@ -284,17 +295,19 @@ def setup(s):
     return d, {"uri": s.clap_uri, "layout": lay, "sha": scan_fixture.sha(s.clap)}
 
 
-def check_verbs(declared):
+def check_verbs(declared, shared):
     s = scan_fixture.Scan(lambda **kw: Daemon(EXE, FAKE, **kw))
     d = None
     try:
         d, ctx = setup(s)
         owed = [v for v in declared if owes(declared[v], HOSTD)]
-        # a verb a protocol release past this tree's floor added (its own since) is not this tree's: said, not owed
-        later = [v for v in owed if v not in LINES and newer_than_floor(declared[v].get("since"))]
+        # a verb a release past this tree's floor of the package declaring it added (its own since) is not this tree's:
+        # said, not owed. omx-clap-core's verbs (shared) carry an omx-clap-core since, plugin-hostd's a protocol one
+        floor = lambda v: CLAP_CORE_FLOOR if v in shared else FLOOR
+        later = [v for v in owed if v not in LINES and newer_than_floor(declared[v].get("since"), floor(v))]
         if later:
-            print("note %s: declared by a plugin-hostd-protocol release past this tree's floor %s, not checked here"
-                  % (sorted(later), FLOOR))
+            print("note %s: declared by a release past this tree's floor of its package (%s), not checked here"
+                  % (sorted(later), ", ".join("%s %s" % (v, floor(v)) for v in sorted(later))))
         missing = [v for v in owed if v not in LINES and v not in later]
         if missing:
             fail("no well-formed line for %s, which the declarations give plugin-hostd" % missing)
@@ -503,7 +516,7 @@ def main():
     print("plugin-hostd declares %d verbs, %d of them owed by plugin-hostd" %
           (len(own), len([v for v in own if owes(own[v], HOSTD)])))
 
-    check_verbs(declared_verbs)
+    check_verbs(declared_verbs, set(shared))
     check_answered(dict(shared, **declared_verbs))
     check_both(declared_verbs)
 
