@@ -1,3 +1,7 @@
+# ruff on the Python clients (make check-ruff): the default rules and pydocstyle's D, google convention. D1 (a missing
+# docstring) holds what is public as pydocstyle decides it: in a module that defines __all__, the names it lists, and
+# every name outside __all__ is private; in one that does not, every name without a leading underscore. Today's
+# findings are carried by `# noqa` comments, which only fall (tools/doc_shrink.sh).
 line-length = 120
 
 [lint]
