@@ -1043,6 +1043,11 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n",
      '    if (!strcmp(verb, "verb_sabotage"))\n        return sup_resp(SUCCESS);\n'
      "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n", "verbs_declared", "verbs"),
+    ("the daemon answers property_set with a code it does not declare", "src/verbs.c",
+     "    for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)\n",
+     "    if (!strcmp(verb, OMX_VERB_PROPERTY_SET))\n        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);\n"
+     "    for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)\n",
+     "verbs_declared", "verbs"),
     ("a declared verb is typed by hand in the daemon", "src/verbs.c",
      "if (!strcmp(verb, OMX_VERB_CHAIN_GET))", 'if (!strcmp(verb, "chain_get"))', "verbs_contract", "verbs"),
     ('the history file is left readable by others', 'src/fsutil.c',
