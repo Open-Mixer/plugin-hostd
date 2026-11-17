@@ -61,7 +61,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends doxygen && python3 -m pip install ruff==0.17.5
+      # bounded like every package manager call here (tools/bounded-install.sh): a hung mirror is a fast red
+      - run: sudo tools/bounded-install.sh apt-get update && sudo tools/bounded-install.sh apt-get install -y --no-install-recommends doxygen && python3 -m pip install ruff==0.17.5
       # the base the gates may not grow past: the pull request's base branch, else the default branch
       - run: make check-ruff check-doxygen check-doc-shrink test-doc-gates
         env:
