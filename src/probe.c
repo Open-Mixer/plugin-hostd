@@ -78,6 +78,7 @@
 
 #include <omxcontract/omx_contract_limits.h>
 #include <omxcontract/omx_vocabulary.h>
+#include <plugin-hostd/qualification_vocabulary.h>
 #include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
 

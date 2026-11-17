@@ -101,6 +101,10 @@ OBJ = $(SRC:.c=.o)
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
 # the words of the machine domain (contract.d/machine/, owned here), rendered from it by omx-contract's domain render
 RENDERED_MACHINE = include/plugin-hostd/machine_vocabulary.h
+# the words the probe output shares with a qualification are plugin-qualify's domain (its contract directory, installed by
+# plugin-qualify-contract, QUALIFICATION_CONTRACTDIR=<dir> for a checkout's contract.d): rendered here, never installed
+RENDERED_QUALIFICATION = include/plugin-hostd/qualification_vocabulary.h
+QUALIFICATION_CONTRACTDIR ?= $(CONTRACTDIR)
 
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
 # from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
@@ -134,7 +138,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(REPLY_WORDS)
+$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(RENDERED_QUALIFICATION) $(REPLY_WORDS)
 
 # the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
 # daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
@@ -244,6 +248,7 @@ render-verbs check-rendered:
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
+	$(OMX_CONTRACT) render --target c --package qualification --contract-dir $(QUALIFICATION_CONTRACTDIR) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 
@@ -698,7 +703,7 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE)
+$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(RENDERED_QUALIFICATION)
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(PIN_LIBS)
 
 gen: $(GEN)

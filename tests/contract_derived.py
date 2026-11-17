@@ -186,12 +186,14 @@ def main():
         vocab = os.path.join(tmp, "vocab")
         os.makedirs(os.path.join(vocab, "omxcontract"))
         shutil.copy(header(), os.path.join(vocab, "omxcontract"))
-        vtext = open(header("omx_vocabulary.h")).read()
+        # the latency methods are plugin-qualify's qualification domain, rendered here (include/plugin-hostd)
+        os.makedirs(os.path.join(vocab, "plugin-hostd"))
+        vtext = open(os.path.join(ROOT, "include", "plugin-hostd", "qualification_vocabulary.h")).read()
         grown = re.sub(r'(#define OMX_MEASUREMENT_LATENCY_METHODS_INIT \{[^}]*)\s\}', r'\1, "x-onset" }', vtext)
         check(grown != vtext, "positive control: the scratch vocabulary's latency methods were changed")
         counted = re.sub(r"(#define OMX_MEASUREMENT_LATENCY_METHODS_COUNT )([0-9]+)u",
                          lambda m: "%s%du" % (m.group(1), int(m.group(2)) + 1), grown)
-        with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
+        with open(os.path.join(vocab, "plugin-hostd", "qualification_vocabulary.h"), "w") as f:
             f.write(counted)
         built = build_gen(vocab, os.path.join(tmp, "gen-vocab"), OWN_GEN)
         check(built.returncode == 0, "the generator builds against the scratch vocabulary: %s" % built.stderr[-400:])
@@ -199,7 +201,7 @@ def main():
             methods = gen_methods(os.path.join(tmp, "gen-vocab"))
             check(methods is not None and methods[-1:] == ["x-onset"],
                   "a word the contract adds to the latency methods is in the probe schema: %s" % methods)
-        with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
+        with open(os.path.join(vocab, "plugin-hostd", "qualification_vocabulary.h"), "w") as f:
             f.write(grown)
         built = build_gen(vocab, os.path.join(tmp, "gen-vocab-uncounted"), OWN_GEN)
         check(built.returncode != 0 and "MEASUREMENT_LATENCY_METHODS" in built.stderr,

@@ -89,11 +89,17 @@ def domains(tree):
     """{ITEM: {"enum": [...]}} of every words schema of the domain documents under contract.d/ (this package's own
     domains: the contract's json fragment carries only what omx-contract owns)"""
     out = {}
-    base = os.path.join(tree, "contract.d")
-    for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
-        doc = json.load(open(os.path.join(base, name, name + ".json")))
-        for item, schema in doc["components"]["schemas"].items():
-            out[item] = {"enum": [e["const"] for e in schema["oneOf"]]}
+    # beside this tree's own domains, plugin-qualify's (the measurement and resource words): $QUALIFICATION_CONTRACTDIR,
+    # else the installed contract directory
+    bases = [os.path.join(tree, "contract.d"), os.environ.get("QUALIFICATION_CONTRACTDIR") or subprocess.run(
+        [PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()]
+    for base in bases:
+        for name in sorted(os.listdir(base)) if base and os.path.isdir(base) else []:
+            path = os.path.join(base, name, name + ".json")
+            if not os.path.exists(path):
+                continue
+            for item, schema in json.load(open(path))["components"]["schemas"].items():
+                out.setdefault(item, {"enum": [e["const"] for e in schema["oneOf"]]})
     return out
 
 
