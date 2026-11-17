@@ -92,6 +92,23 @@ def building_problems(floor, ceiling, text):
     return bad
 
 
+# the release floors only: its newest changelog entries (debian/changelog's first, the spec's first under %changelog)
+# name no ceiling, no "below <version>" and no "< <version>"
+CEILING_WORDS = re.compile(r"\bbelow\s+[0-9]|<\s*[0-9]")
+
+
+def newest_entries_problems(debian, spec):
+    """the ceilings the newest changelog entries still name"""
+    bad = []
+    first = debian.split("\n -- ", 1)[0]
+    log = spec.split("%changelog", 1)[1] if "%changelog" in spec else ""
+    entry = log.split("\n* ", 2)[1] if log.count("\n* ") >= 1 else ""
+    for name, text in (("debian/changelog", first), ("packaging/plugin-hostd.spec", entry)):
+        bad += ["%s: the newest entry names a ceiling: %s" % (name, m.group(0))
+                for m in CEILING_WORDS.finditer(re.sub(r"\s+", " ", text))]
+    return bad
+
+
 def text_of(path):
     with open(path) as f:
         return f.read()
@@ -153,6 +170,18 @@ def main():
             print("FAIL the BUILDING.md check on %s: want %d findings, got %s" % (what, want, got))
             return 1
     print("ok   the BUILDING.md check sees an old floor, an old or extra ceiling and a missing sentence")
+    deb = "plugin-hostd (9.9.9) unstable\n\n  * Built against x >= 1.0 and\n    y >= 2.0.\n\n -- A <a@b>  date\n\nplugin-hostd (9.9.8)\n  * below 3\n"
+    spc = "Name: x\n%changelog\n* date A - 9.9.9-1\n- Built against x >= 1.0.\n\n* date A - 9.9.8-1\n- y below 3\n"
+    for what, d, sp, want in [
+        ("entries with floors only", deb, spc, 0),
+        ("a 'below' in the newest debian entry", deb.replace("y >= 2.0.", "y >= 2.0 and below\n    3."), spc, 1),
+        ("a '<' in the newest spec entry", deb, spc.replace("x >= 1.0.", "x >= 1.0 and < 2."), 1),
+    ]:
+        got = newest_entries_problems(d, sp)
+        if len(got) != want:
+            print("FAIL the changelog check on %s: want %d findings, got %s" % (what, want, got))
+            return 1
+    print("ok   the changelog check sees a ceiling named in the newest entries, and none in older ones")
 
     spec_path = os.path.join(ROOT, "packaging", "plugin-hostd.spec")
     p = subprocess.run([os.path.join(ROOT, "tools", "protocol-floor.sh"), spec_path], capture_output=True, text=True)
@@ -167,6 +196,7 @@ def main():
                    text_of(os.path.join(ROOT, "protocol", "plugin-hostd.pc.in")))
     # the release floors only: BUILDING.md names the floor and no ceiling
     bad += building_problems(floor, None, text_of(os.path.join(ROOT, "BUILDING.md")))
+    bad += newest_entries_problems(text_of(os.path.join(ROOT, "debian", "changelog")), text_of(spec_path))
     for b in bad:
         print("FAIL %s" % b)
     if bad:
