@@ -183,18 +183,3 @@ src/transforms.h: warning: Member transforms_lookup_check(const transforms_data_
 src/words.h: warning: Member words_need_quotes(const char *word) (function) of file words.h is not documented.
 src/words.h: warning: Member words_read(char *line, char **tok, int max) (function) of file words.h is not documented.
 src/words.h: warning: Member words_write(const char *word, char *buf, size_t size) (function) of file words.h is not documented.
-src/writer.h: warning: Member WRITER_BYTES_MAX (macro definition) of file writer.h is not documented.
-src/writer.h: warning: Member WRITER_COALESCE (macro definition) of file writer.h is not documented.
-src/writer.h: warning: Member WRITER_JOBS_MAX (macro definition) of file writer.h is not documented.
-src/writer.h: warning: Member writer_busy(void) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_done_fn)(void *arg, int err) (typedef) of file writer.h is not documented.
-src/writer.h: warning: Member writer_drain(void) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_finish(void) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_forget(int group) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_group(int group, int *err) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_place(const char *tmp, const char *final, writer_done_fn done, void *arg, const char *what) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_poll(void) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_put(const char *path, char *bytes, size_t len, int flags, writer_done_fn done, void *arg, const char *what) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_start(void) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_verb_begin(int promises) (function) of file writer.h is not documented.
-src/writer.h: warning: Member writer_verb_end(void) (function) of file writer.h is not documented.
