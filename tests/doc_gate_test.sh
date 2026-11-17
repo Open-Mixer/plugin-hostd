@@ -11,7 +11,8 @@
 #     a listed warning is gone.
 # Last, the repository's own tools/Doxyfile under the real doxygen (DOXYGEN_REAL, doxygen by default; the doc-gates job
 # installs it, and its absence is red, by name): a header whose one function documents its parameters and its return
-# gives no warning, so a fully documented header can empty the baseline. No ruff needed.
+# gives no warning, so a fully documented header can empty the baseline; with its @return dropped it warns (doxygen did
+# read it). No ruff needed.
 set -u
 here=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
@@ -67,13 +68,20 @@ reset
 
 r=$work/real
 mkdir -p "$r/tools" "$r/src"
-cp "$here/tools/doxygen_gate.sh" "$here/tools/Doxyfile" "$r/tools/"
+cp "$here/tools/doxygen_gate.sh" "$r/tools/"
+# every setting of the repository's Doxyfile, read where this tree's header is
+printf '@INCLUDE = %s/tools/Doxyfile\nINPUT = src\n' "$here" > "$r/tools/Doxyfile"
 : > "$r/tools/doxygen.baseline"
 printf '/** @file\n * @brief A header.\n */\n\n/**\n * @brief The sum.\n * @param a One addend.\n * @param b The other.\n * @return a + b.\n */\nint add(int a, int b);\n' > "$r/src/a.h"
 real=${DOXYGEN_REAL:-doxygen}
 if command -v "$real" >/dev/null 2>&1; then
     (cd "$r" && DOXYGEN=$real sh tools/doxygen_gate.sh) > "$work/out" 2>&1
     check $? "the real doxygen with tools/Doxyfile: a fully documented function gives no warning"
+    # and doxygen read it: the same header with its @return dropped warns, by the function's name
+    sed -i '/@return/d' "$r/src/a.h"
+    # shellcheck disable=SC2016 # the inner sh expands them
+    red_by "return type of member add" sh -c 'cd "$1" && DOXYGEN=$2 sh tools/doxygen_gate.sh > "$3" 2>&1' sh "$r" "$real" "$work/out"
+    check $? "the real doxygen reads the header: its @return dropped warns, by name"
 else
     echo "doxygen ($real) is not installed" > "$work/out"
     check 1 "the real doxygen with tools/Doxyfile: $real is not installed"
