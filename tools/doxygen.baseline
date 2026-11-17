@@ -67,27 +67,6 @@ src/history.h: warning: Member windows_grouped (variable) of struct HISTORY_REC_
 src/history.h: warning: Member windows_solo (variable) of struct HISTORY_REC_T is not documented.
 src/history.h: warning: Member xrun_windows_grouped (variable) of struct HISTORY_REC_T is not documented.
 src/history.h: warning: Member xrun_windows_solo (variable) of struct HISTORY_REC_T is not documented.
-src/json.h: warning: Compound jstep_t is not documented.
-src/json.h: warning: Compound sb_t is not documented.
-src/json.h: warning: Member cap (variable) of struct sb_t is not documented.
-src/json.h: warning: Member failed (variable) of struct sb_t is not documented.
-src/json.h: warning: Member index (variable) of struct jstep_t is not documented.
-src/json.h: warning: Member jbool(const cJSON *o, const char *key, int def) (function) of file json.h is not documented.
-src/json.h: warning: Member jcount(const cJSON *o) (function) of file json.h is not documented.
-src/json.h: warning: Member jget(const cJSON *o, const char *key) (function) of file json.h is not documented.
-src/json.h: warning: Member jkey(const cJSON *o, size_t k) (function) of file json.h is not documented.
-src/json.h: warning: Member jkid(const cJSON *o, size_t k) (function) of file json.h is not documented.
-src/json.h: warning: Member jnum(const cJSON *o, const char *key, double *out) (function) of file json.h is not documented.
-src/json.h: warning: Member jparse(const char *text) (function) of file json.h is not documented.
-src/json.h: warning: Member jraw(const char *text, const jstep_t *path, size_t steps, size_t *len) (function) of file json.h is not documented.
-src/json.h: warning: Member jstr(const cJSON *o, const char *key) (function) of file json.h is not documented.
-src/json.h: warning: Member keep_going (variable) of struct sb_t is not documented.
-src/json.h: warning: Member key (variable) of struct jstep_t is not documented.
-src/json.h: warning: Member len (variable) of struct sb_t is not documented.
-src/json.h: warning: Member s (variable) of struct sb_t is not documented.
-src/json.h: warning: Member sb_printf(sb_t *b, const char *fmt,...) __attribute__((format(printf (function) of file json.h is not documented.
-src/json.h: warning: Member sb_put(sb_t *b, const char *data, size_t n) (function) of file json.h is not documented.
-src/json.h: warning: Member sb_str(sb_t *b, const char *s) (function) of file json.h is not documented.
 src/machine.h: warning: Member machine_bands(long ncpu, long khz, const char **core_band, const char **clock_band) (function) of file machine.h is not documented.
 src/machine.h: warning: Member machine_class(char *out, size_t size) (function) of file machine.h is not documented.
 src/names.h: warning: Compound NAMES_T is not documented.
