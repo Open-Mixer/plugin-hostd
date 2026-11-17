@@ -56,9 +56,11 @@ def banner(comment):
 
 def python_region(rs):
     o = [banner("#"), "class GroupingReason:",
-         '    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS): a controller compares against these and writes no',
-         '    reason word of its own. plan_get answers them as instance:reason; a plan-refused is followed by a colon and the',
-         '    number of the refusal."""', ""]
+         '    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS).',
+         '',
+         '    A controller compares against these and writes no reason word of its own. plan_get answers them as',
+         '    instance:reason; a plan-refused is followed by a colon and the number of the refusal.',
+         '    """', ""]
     o += [f'    {w.upper().replace("-", "_")} = "{w}"' for _, w, _r in rs]
     names = ", ".join(f"GroupingReason.{w.upper().replace('-', '_')}" for _, w, r in rs if r)
     o += ["", "", "# the reasons of a plan that a later plan may not give again with the chain as it is: the reasons that declare",
