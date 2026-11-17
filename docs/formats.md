@@ -188,6 +188,10 @@ What the tables leave to `describe`:
   on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
   `toggle` defaults to its default being non-zero;
+- a CLAP parameter that is stepped (`CLAP_PARAM_IS_STEPPED`), no enumeration, from 0 to 1 is a `toggle`: CLAP states a
+  boolean in no other way (omx-plugins' CLAP face flags its toggles so and nothing more, `lib/omx_clap_face.c`), and a
+  panel that draws it as a switch is right to; its default is true when the parameter's default is non-zero. A
+  stepped parameter over a wider range, or one flagged an enumeration, is not a toggle;
 - a CLAP parameter's contract entry (`org.openmixer.param-contract/1`) gives its `symbol`, its unit (a contract unit
   `none` is the plugin stating none: `unknown`), its scale, and its `step` when the step is not 0 (0 is a continuous
   travel, written as no step);
