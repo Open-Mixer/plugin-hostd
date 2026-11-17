@@ -31,45 +31,97 @@
  * <plugin-hostd/protocol.h>). The daemon's own events and the workers' lines share one writer, so no two lines
  * are ever cut into each other. */
 
-/* What every feedback line starts with, written NUL-terminated in buf (the session's "#<n> " under seq); none until set. */
+/**
+ * @brief Sets what every feedback line starts with, written NUL-terminated in buf (the session's "#\<n> " under seq); none
+ * until set.
+ * @param prefix writes the prefix into buf, of room size, and returns its length
+ */
 void relay_set_prefix(size_t (*prefix)(char *buf, size_t size));
 
-/* Listen on `port`, 0 for none, and start the thread that reads the workers. */
+/**
+ * @brief Listens on `port`, 0 for none, and starts the thread that reads the workers.
+ * @param port the feedback port, or 0 for none
+ * @param address the IPv4 address to listen on; read when port is not 0
+ * @return 0, or -1 when the pipe, the socket, the address, the bind or the thread fails
+ */
 int relay_start(int port, const char *address);
+/**
+ * @brief Stops the thread and closes every worker's feedback socket, the controller's and the listening socket.
+ */
 void relay_finish(void);
 
-/* Before the first command of a controller: wait for it to open the feedback port, as mod-host does, until *running
- * goes to 0. Returns at once when there is no feedback port or a controller is on it already. */
+/**
+ * @brief Before the first command of a controller: waits for it to open the feedback port, as mod-host does, until
+ * *running goes to 0.
+ *
+ * Returns at once when there is no feedback port or a controller is on it already.
+ * @param running the daemon's running flag
+ */
 void relay_await_controller(volatile int *running);
 
-/* The controller went away: its feedback connection is closed, and the next controller opens its own. */
+/**
+ * @brief The controller went away: its feedback connection is closed, and the next controller opens its own.
+ */
 void relay_controller_gone(void);
 
-/* One line of the daemon's own, an event, to the controller. */
+/**
+ * @brief One line of the daemon's own, an event, to the controller.
+ * @param line the line
+ */
 void relay_event(const char *line);
 
-/* A worker's feedback socket: read from now on. -1 when there is no memory to follow it: the socket is closed then,
- * so the worker's writes fail instead of blocking, and the caller no longer holds it. */
+/**
+ * @brief Takes a worker's feedback socket: read from now on.
+ * @param fd the socket
+ * @return 0, or -1 when there is no memory to follow it: the socket is closed then, so the worker's writes fail instead
+ *         of blocking, and the caller no longer holds it
+ */
 int relay_add(int fd);
 
-/* A worker's feedback socket, closed: what the worker wrote before it is read and sent first. */
+/**
+ * @brief Closes a worker's feedback socket: what the worker wrote before it is read and sent first.
+ * @param fd the socket
+ */
 void relay_remove(int fd);
 
-/* The last xruns count (PHD_EVENT_XRUNS) the worker of this feedback socket wrote, read up to now: 1 and *count, or 0 when
- * it has written none since the socket was added (a worker that counted no xrun writes none). The count is the worker's
- * own, cumulative since it started. */
+/**
+ * @brief The last xruns count (PHD_EVENT_XRUNS) the worker of this feedback socket wrote, read up to now.
+ *
+ * The count is the worker's own, cumulative since it started.
+ * @param fd the worker's feedback socket
+ * @param[out] count the count
+ * @return 1 and *count, or 0 when it has written none since the socket was added (a worker that counted no xrun writes
+ *         none)
+ */
 int relay_xruns(int fd, unsigned long long *count);
 
-/* The instances the worker of this feedback socket said abi_clobber of (PHD_EVENT_ABI_CLOBBER) since the last call, read
- * up to now: up to max into ids, their count returned; each is given once, and what did not fit waits for the next call.
- * An instance removed meanwhile (relay_instance_gone) is not given. */
+/**
+ * @brief The instances the worker of this feedback socket said abi_clobber of (PHD_EVENT_ABI_CLOBBER) since the last
+ * call, read up to now.
+ *
+ * Each is given once, and what did not fit waits for the next call. An instance removed meanwhile (relay_instance_gone)
+ * is not given.
+ * @param fd the worker's feedback socket
+ * @param[out] ids up to max instance ids
+ * @param max the room in ids
+ * @return the number written to ids
+ */
 int relay_abi_clobbers(int fd, int *ids, int max);
 
-/* The instances whose plugin moved a value of its own (a PHD_EVENT_PARAM_SET line the worker of this feedback socket wrote)
- * since the last call, as relay_abi_clobbers gives them: up to max into ids, each once, what did not fit waiting. */
+/**
+ * @brief The instances whose plugin moved a value of its own (a PHD_EVENT_PARAM_SET line the worker of this feedback
+ * socket wrote) since the last call, as relay_abi_clobbers gives them.
+ * @param fd the worker's feedback socket
+ * @param[out] ids up to max instance ids, each once; what did not fit waits for the next call
+ * @param max the room in ids
+ * @return the number written to ids
+ */
 int relay_param_moves(int fd, int *ids, int max);
 
-/* An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on. */
+/**
+ * @brief An instance removed: every gesture it held is ended at the controller, once, whichever worker the instance was on.
+ * @param id the instance
+ */
 void relay_instance_gone(int id);
 
 #endif
