@@ -1936,6 +1936,85 @@ def track_info_is_replayed_once_after_the_add_and_before_the_state():
             os.unlink(log)
 
 
+
+@test
+def a_preset_load_supersedes_the_properties_set_before_it_and_a_later_one_replays_after_it():
+    """R-111 with a preset: a preset load replaces the plugin's state, so the property_set lines before it are dropped
+    from the ledger, as the state verbs before it are; one set after it replays after it. Instance 0 checkpoints after
+    its preset load (the state holds what the preset left), instance 1 ("nostate") never writes state, so its preset
+    load stays in the verb tail: a respawned worker is given its preset load first, then the property set after it"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#nostate 1", "resp 1")
+        d.expect('property_set 0 sample "/a/before.wav"', "resp 0")
+        d.expect("preset_load 0 file:///presets/one.lv2", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "the checkpoint after instance 0's preset load")
+        d.expect('property_set 1 sample "/b/before.wav"', "resp 0")
+        d.expect("preset_load 1 file:///presets/two.lv2", "resp 0")
+        d.expect('property_set 1 sample "/b/after.wav"', "resp 0")
+        # each instance has a worker of its own: each is killed, and what its respawned worker is given is read
+        mark = d.mark()
+        for n in (0, 1):
+            os.kill(d.holder(n)[1]["pid"], signal.SIGKILL)
+        for n in (0, 1):
+            d.wait_event("instance_restored %d " % n, since=mark)
+        of = lambda n: [c for c in sent_to(log, d.holder(n)[1]["pid"]) if c.split(" ")[1:2] == [str(n)]]
+        check(not [c for c in of(0) if c.startswith("property_set ")],
+              "instance 0: the property set before its preset load is not replayed over the state: %s" % of(0))
+        one = [c for c in of(1) if c.startswith(("preset_load ", "property_set "))]
+        check(one == ["preset_load 1 file:///presets/two.lv2", 'property_set 1 sample "/b/after.wav"'],
+              "instance 1: its preset load, then only the property set after it: %s" % of(1))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def property_set_keeps_the_latest_of_each_symbol_and_replays_them_after_the_state():
+    """R-111: the ledger keeps one property_set per instance and symbol, the latest; a checkpoint does not drop it, and a
+    respawned worker is given each after the state, in the order its symbol was first set; a set the worker refused is
+    not kept, and a removed instance's are gone"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#b 1", "resp 1")
+        d.expect('property_set 0 sample "/a/one.wav"', "resp 0")
+        d.expect('property_set 0 title "first"', "resp 0")
+        d.expect('property_set 1 sample "/b/one.wav"', "resp 0")
+        d.expect('property_set 0 sample "/a/two.wav"', "resp 0")
+        d.expect('property_set 0 readonly_path "/a/x.wav"', "resp -107")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        props = [c for c in sent if c.startswith("property_set ")]
+        check(props == ['property_set 0 sample "/a/two.wav"', 'property_set 0 title "first"'],
+              "the latest of each symbol, once, in the order each was first set, and no other instance's: %s" % sent)
+        check("state_load" in verbs and "property_set" in verbs and verbs.index("state_load") < verbs.index("property_set"),
+              "the properties after the state: %s" % sent)
+        d.expect("remove 0", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("property_set")], "a removed instance's properties are gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
 # a display session the daemon's workers would put a window on; the fake shows nothing, it only answers
 DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
 

@@ -42,6 +42,8 @@ def group_since(verbs):
     """{macro of a verb of the group: the protocol release that first declares it}"""
     out = {macro(v["verb"]): v["since"] for v in verbs[GROUP]["verbs"].values()}
     out.update({macro(v["verb"]): v["since"] for v in verbs["PLUGIN_HOSTD_VERBS"]["verbs"].values() if v.get("since")})
+    # the ledger kind of property_set (R-111) is a name of the protocol's header, not a verb: first in 0.5.10
+    out["PHD_LEDGER_REPLACE_KEYED"] = "0.5.10"
     return out
 
 
