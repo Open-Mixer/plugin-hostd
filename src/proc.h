@@ -97,8 +97,9 @@ int proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const cha
 /**
  * @brief Sends one command and reads one reply.
  *
- * A worker that does not answer within the timeout, or whose reply there is no memory for, is sent SIGKILL and counts
- * as having died with the command on the wire.
+ * A worker that does not answer within the timeout, or whose reply there is no memory for, is stopped as proc_term_wait
+ * stops it (SIGTERM, then SIGKILL after PROC_TERM_GRACE_MS) and counts as having died with the command on the wire; it
+ * is not reaped here.
  *
  * @param conf the configuration (rpc_timeout_ms, the timeout)
  * @param pid the worker's process
@@ -128,8 +129,22 @@ int proc_dead(pid_t pid);
  */
 int proc_exited(pid_t pid, int *status);
 
+/** How long a worker has to leave on SIGTERM before it is sent SIGKILL. Every worker holds a JACK client, and one that is
+ * killed without closing it strands the mutexes of its metadata environment in jackd for good (a pool of a few hundred,
+ * nine to a client), so the worker is always asked first and closes the client in its own SIGTERM path. A worker that
+ * has not left in two seconds is wedged, and killing it is all that is left. */
+#define PROC_TERM_GRACE_MS 2000
+
 /**
- * @brief Stops a worker: SIGTERM, then SIGKILL after two seconds; the process is reaped.
+ * @brief Ends a worker the way it can close its JACK client: SIGTERM, then SIGKILL once PROC_TERM_GRACE_MS has passed
+ * with the process still there. The process is not reaped: its status stays for proc_exited.
+ *
+ * @param pid the process; 0 or below, or one that has already exited, does nothing
+ */
+void proc_term_wait(pid_t pid);
+
+/**
+ * @brief Stops a worker as proc_term_wait does, and reaps it.
  *
  * @param pid the process; 0 or below does nothing
  */

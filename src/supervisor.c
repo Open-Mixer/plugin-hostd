@@ -1217,7 +1217,8 @@ static void on_death(worker_t *w, int in_flight)
         usleep(10000);
     if (!done)
     {
-        kill(w->pid, SIGKILL);
+        /* still there after it went quiet: asked to leave before it is killed, so that it closes its JACK client */
+        proc_term_wait(w->pid);
         waitpid(w->pid, &status, 0);
     }
     if (WIFSIGNALED(status))
@@ -1502,7 +1503,7 @@ static int replay_add(worker_t *w, instance_t *i)
         if (code != SUCCESS)
         {
             replay_refused(w, i, "pin", code);
-            kill(w->pid, SIGKILL);
+            proc_term_wait(w->pid);
             on_death(w, -1);
             return -1;
         }
@@ -2294,7 +2295,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
                 worker_retire(w);
             else
             {
-                kill(w->pid, SIGKILL);
+                proc_term_wait(w->pid);
                 on_death(w, -1);
             }
             return sup_resp(loaded);

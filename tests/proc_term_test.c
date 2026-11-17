@@ -22,7 +22,7 @@
  * jack_client_close strands the mutexes of its metadata environment in jackd for good (the pool is fixed, a handful of
  * unclean deaths exhaust it). So proc_rpc, which gives up on a worker that does not answer, sends SIGTERM and waits
  * for it to exit before any SIGKILL: a worker that closes on SIGTERM leaves as a process that exited (here with status
- * 42, the way a worker closes its client and returns), and one that ignores SIGTERM is killed once GRACE_MS
+ * 42, the way a worker closes its client and returns), and one that ignores SIGTERM is killed once PROC_TERM_GRACE_MS
  * has passed, not before and not much after. The workers here are forked children that never answer. */
 
 #include <errno.h>
@@ -36,9 +36,6 @@
 
 #include "conf.h"
 #include "proc.h"
-
-/* the two seconds a worker has to leave on SIGTERM (proc_stop's own) */
-#define GRACE_MS 2000
 
 static int failures;
 
@@ -116,12 +113,12 @@ int main(void)
     check(result == RPC_DIED, "a worker that does not answer counts as died");
     check(WIFEXITED(status) && WEXITSTATUS(status) == 42,
           "a worker that does not answer got SIGTERM and left on its own, not a SIGKILL with no SIGTERM first");
-    check(took < GRACE_MS, "a worker that leaves on SIGTERM is not waited for the whole grace");
+    check(took < PROC_TERM_GRACE_MS, "a worker that leaves on SIGTERM is not waited for the whole grace");
 
     rpc_to_mute(0, &status, &took, &result);
     check(result == RPC_DIED, "a worker that ignores SIGTERM counts as died");
     check(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL, "a worker that ignores SIGTERM is killed after the grace");
-    check(took >= 200 + GRACE_MS - 50 && took < 200 + GRACE_MS + 1500,
+    check(took >= 200 + PROC_TERM_GRACE_MS - 50 && took < 200 + PROC_TERM_GRACE_MS + 1500,
           "and the wait is the grace, bounded: not before it, and not long after");
 
     if (failures)

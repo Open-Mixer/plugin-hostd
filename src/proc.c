@@ -331,20 +331,26 @@ int proc_exited(pid_t pid, int *status)
     return r == pid || (r < 0 && errno == ECHILD);
 }
 
+void proc_term_wait(pid_t pid)
+{
+    int i;
+
+    if (proc_dead(pid))
+        return;
+    kill(pid, SIGTERM);
+    for (i = 0; i < PROC_TERM_GRACE_MS / 10 && !proc_dead(pid); i++)
+        usleep(10000);
+    if (!proc_dead(pid))
+        kill(pid, SIGKILL);
+}
+
 void proc_stop(pid_t pid)
 {
-    int status, i;
+    int status;
 
     if (pid <= 0)
         return;
-    kill(pid, SIGTERM);
-    for (i = 0; i < 200; i++)
-    {
-        if (proc_exited(pid, &status))
-            return;
-        usleep(10000);
-    }
-    kill(pid, SIGKILL);
+    proc_term_wait(pid);
     waitpid(pid, &status, 0);
 }
 
@@ -437,7 +443,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
     buffer = malloc(cap);
     if (buffer == NULL)
     {
-        kill(pid, SIGKILL);
+        proc_term_wait(pid);
         return RPC_DIED;
     }
     start = proc_now_ms();
@@ -451,7 +457,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
         {
             free(buffer);
             say_unanswered(pid, fd, msg, proc_now_ms() - start);
-            kill(pid, SIGKILL);
+            proc_term_wait(pid);
             return RPC_DIED;
         }
         if (used + 1024 > cap)
@@ -462,7 +468,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
             {
                 /* no memory for the rest of the reply: the worker cannot be followed any more, as on a timeout */
                 free(buffer);
-                kill(pid, SIGKILL);
+                proc_term_wait(pid);
                 return RPC_DIED;
             }
             buffer = bigger;

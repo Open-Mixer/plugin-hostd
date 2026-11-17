@@ -178,7 +178,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `history_file` | `` | the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear |
 | `host_class` | `` | the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
-| `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is killed |
+| `rpc_timeout_ms` | 5000 ms | a worker that does not answer in this long is sent SIGTERM, so it closes its JACK client, and SIGKILL if it has not left two seconds later |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
 | `backoff_max_ms` | 5000 ms | the most a respawn backoff grows to |
 | `storm_deaths` | 5 deaths | deaths inside the window that end respawning of a placement |
