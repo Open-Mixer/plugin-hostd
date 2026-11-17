@@ -33,40 +33,6 @@ src/fsutil.h: warning: Member fs_into_place(const char *tmp, const char *final) 
 src/fsutil.h: warning: Member fs_mkdir_parents(char *path) (function) of file fsutil.h is not documented.
 src/fsutil.h: warning: Member fs_sync_dir(const char *path) (function) of file fsutil.h is not documented.
 src/fsutil.h: warning: Member fs_write_atomic(const char *path, const char *bytes, size_t len) (function) of file fsutil.h is not documented.
-src/history.h: warning: Compound HISTORY_REC_T is not documented.
-src/history.h: warning: Member cpu_max_solo (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member cpu_p95_solo (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member crashes_grouped (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member crashes_solo (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member digest[PHD_SHA256_HEX_LEN+1] (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member first (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member history_available(void) (function) of file history.h is not documented.
-src/history.h: warning: Member history_clear(const char *uri) (function) of file history.h is not documented.
-src/history.h: warning: Member history_crash(const char *uri, const char *digest, int grouped, long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member history_crashed(const history_rec_t *rec, long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member history_find(const char *uri, const char *digest) (function) of file history.h is not documented.
-src/history.h: warning: Member history_finish(void) (function) of file history.h is not documented.
-src/history.h: warning: Member history_init(const char *file, const char *klass, int save_s) (function) of file history.h is not documented.
-src/history.h: warning: Member history_line(const history_rec_t *rec) (function) of file history.h is not documented.
-src/history.h: warning: Member history_quarantine(const char *uri, const char *digest, long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member history_raises_xruns(const history_rec_t *rec) (function) of file history.h is not documented.
-src/history.h: warning: Member history_rec_t (typedef) of file history.h is not documented.
-src/history.h: warning: Member history_restart(const char *uri, const char *digest, int grouped, long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member history_summary(const char *uri, const char *digest, long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member history_tick(long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member history_window(const char *uri, const char *digest, int grouped, double cpu_pct, double pss_mb, long xruns, long long now) (function) of file history.h is not documented.
-src/history.h: warning: Member klass (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member last (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member last_crash (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member last_crash_grouped (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member pss_mb_solo (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member quarantines (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member restarts_grouped (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member uri (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member windows_grouped (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member windows_solo (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member xrun_windows_grouped (variable) of struct HISTORY_REC_T is not documented.
-src/history.h: warning: Member xrun_windows_solo (variable) of struct HISTORY_REC_T is not documented.
 src/machine.h: warning: Member machine_bands(long ncpu, long khz, const char **core_band, const char **clock_band) (function) of file machine.h is not documented.
 src/machine.h: warning: Member machine_class(char *out, size_t size) (function) of file machine.h is not documented.
 src/names.h: warning: Compound NAMES_T is not documented.
