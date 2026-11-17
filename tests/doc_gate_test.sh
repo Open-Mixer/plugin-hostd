@@ -9,7 +9,9 @@
 #     the tree cannot read red, by name; a base without the gate (the change that brings it) ok;
 #   doxygen_gate.sh --update: refused, the baseline untouched, when a warning is not in it; it lowers the baseline when
 #     a listed warning is gone.
-# Needs git and sh only; no doxygen, no ruff.
+# Last, the repository's own tools/Doxyfile under the real doxygen (DOXYGEN_REAL, doxygen by default; the doc-gates job
+# installs it, and its absence is red, by name): a header whose one function documents its parameters and its return
+# gives no warning, so a fully documented header can empty the baseline. No ruff needed.
 set -u
 here=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
@@ -62,6 +64,20 @@ reset
 sed -i '1d' "$t/tools/warnings"
 update && [ "$(wc -l < "$t/tools/doxygen.baseline")" = 1 ]; check $? "--update lowers the baseline when a listed warning is gone"
 reset
+
+r=$work/real
+mkdir -p "$r/tools" "$r/src"
+cp "$here/tools/doxygen_gate.sh" "$here/tools/Doxyfile" "$r/tools/"
+: > "$r/tools/doxygen.baseline"
+printf '/** @file\n * @brief A header.\n */\n\n/**\n * @brief The sum.\n * @param a One addend.\n * @param b The other.\n * @return a + b.\n */\nint add(int a, int b);\n' > "$r/src/a.h"
+real=${DOXYGEN_REAL:-doxygen}
+if command -v "$real" >/dev/null 2>&1; then
+    (cd "$r" && DOXYGEN=$real sh tools/doxygen_gate.sh) > "$work/out" 2>&1
+    check $? "the real doxygen with tools/Doxyfile: a fully documented function gives no warning"
+else
+    echo "doxygen ($real) is not installed" > "$work/out"
+    check 1 "the real doxygen with tools/Doxyfile: $real is not installed"
+fi
 
 [ "$failed" = 0 ] || { echo "--- last output:"; cat "$work/out"; exit 1; }
 echo "ok   the documentation gates only shrink"
