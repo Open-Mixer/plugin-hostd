@@ -830,14 +830,18 @@ test-perturbation: $(PROG) $(FAKE) $(GEN)
 	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
 
 # a consumer compiles against the installed header alone, through pkg-config, as plain C
+# each step names itself when it fails; pkg-config prints its own reason (an unmet Requires: of plugin-hostd.pc)
 test-consumer:
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR=; \
+	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR= \
+	  || { echo "FAIL test-consumer: make install_protocol into a scratch prefix"; exit 1; }; \
 	export PKG_CONFIG_PATH=$$tmp/share/pkgconfig$${PKG_CONFIG_PATH:+:$$PKG_CONFIG_PATH}; \
-	$(PKG_CONFIG) --exists plugin-hostd; \
+	$(PKG_CONFIG) --print-errors --exists plugin-hostd \
+	  || { echo "FAIL test-consumer: pkg-config --exists plugin-hostd: the installed plugin-hostd.pc's Requires: are not met (pkg-config's reason above)"; exit 1; }; \
 	$(CC) $$($(PKG_CONFIG) --cflags plugin-hostd) -std=c99 -Wall -Wextra -Werror \
-	  -o $$tmp/consumer tests/consumer.c $$($(PKG_CONFIG) --libs plugin-hostd); \
-	$$tmp/consumer
+	  -o $$tmp/consumer tests/consumer.c $$($(PKG_CONFIG) --libs plugin-hostd) \
+	  || { echo "FAIL test-consumer: tests/consumer.c against the installed headers and library"; exit 1; }; \
+	$$tmp/consumer || { echo "FAIL test-consumer: the consumer built against the installed package"; exit 1; }
 
 # test-consumer's own failure names its step and pkg-config's reason (tests/consumer_errors_test.sh)
 test-consumer-errors:
