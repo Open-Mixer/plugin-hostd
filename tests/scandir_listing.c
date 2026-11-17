@@ -35,10 +35,12 @@
 
 typedef int (*order_fn)(const void *, const void *);
 
-/* the listing order: byte order of the names (most filesystems list a small directory sorted) */
+/* the listing order: the REVERSE of byte order, so a pair of bundles is never listed in the order the rule wants; a
+ * filesystem that lists a small directory sorted (most do) would hand the daemon byte order already, and the rule's arm
+ * would pass whether the daemon sorts or not */
 static int listing_order(const void *a, const void *b)
 {
-    return strcmp((*(const struct dirent *const *)a)->d_name, (*(const struct dirent *const *)b)->d_name);
+    return strcmp((*(const struct dirent *const *)b)->d_name, (*(const struct dirent *const *)a)->d_name);
 }
 
 static void mark(const char *dir)
