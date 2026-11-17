@@ -782,6 +782,14 @@ check-doxygen:
 check-ruff:
 	ruff check clients/python tests/lib/plugin_hostd_client.py
 
+# the two gates only shrink, by mechanism (tools/doc_shrink.sh against the base branch: DOC_GATE_BASE, origin/main by
+# default); tests/doc_gate_test.sh proves it, and that doxygen_gate.sh --update only lowers the baseline
+.PHONY: check-doc-shrink test-doc-gates
+check-doc-shrink:
+	sh tools/doc_shrink.sh
+test-doc-gates:
+	sh tests/doc_gate_test.sh
+
 check-ci-guards:
 	python3 tests/ci_guards.py
 
