@@ -845,7 +845,7 @@ test-consumer:
 
 # test-consumer's own failure names its step and pkg-config's reason (tests/consumer_errors_test.sh)
 test-consumer-errors:
-	sh tests/consumer_errors_test.sh
+	MAKE="$(MAKE)" sh tests/consumer_errors_test.sh
 
 # --pin-files: the files a pin holds as an add collects them, the list plugin-qualify takes (plugin-qualify#228)
 test-pin-files: $(PROG)
