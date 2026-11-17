@@ -14,7 +14,7 @@ FLOOR = "0.32.6"
 WANT = {"omx-clap-core-contract": (FLOOR, 2, 2), "omx-clap-host-tests": (FLOOR, 1, 1), "omx-clap-host": (FLOOR, 1, 1)}
 
 
-def problems(spec, control):
+def problems(spec, control, workflows=None):
     bad = []
     for pkg, (floor, n_spec, n_ctl) in WANT.items():
         q = re.escape(pkg)
@@ -35,6 +35,9 @@ def problems(spec, control):
     return bad
 
 
+WORKFLOW_OK = {"ci.yml": "          bounded-install dnf install -y \\\n            'omx-clap-host >= %s' \\\n" % FLOOR}
+
+
 def fixture():
     spec, ctl = [], []
     for pkg, (floor, n_spec, n_ctl) in WANT.items():
@@ -52,16 +55,28 @@ def main():
         ("a ceiling in debian/control", spec, ctl.replace("omx-clap-host-tests (>= %s~)" % FLOOR, "omx-clap-host-tests (>= %s~), omx-clap-host-tests (<< 0.34~)" % FLOOR), 1),
     ]
     for what, s, c, want in arms:
-        got = problems(s, c)
+        got = problems(s, c, WORKFLOW_OK)
         if len(got) != want:
             print("FAIL the omx-clap-core check on %s: want %d findings, got %s" % (what, want, got))
             return 1
-    print("ok   the omx-clap-core check sees a missing and a low floor and any ceiling in the spec and debian/control")
+    # a floor or a ceiling typed in a workflow (ci.yml's dnf install of omx-clap-host) is one more declaration
+    for what, wf, want in [
+        ("a workflow at the floor", WORKFLOW_OK, 0),
+        ("a low floor typed in a workflow", {"ci.yml": WORKFLOW_OK["ci.yml"].replace(">= %s" % FLOOR, ">= 0.32.5")}, 1),
+        ("a ceiling typed in a workflow", {"ci.yml": WORKFLOW_OK["ci.yml"].replace("'omx-clap-host >= %s'" % FLOOR, "'omx-clap-host >= %s' 'omx-clap-host < 0.34'" % FLOOR)}, 1),
+    ]:
+        got = problems(spec, ctl, wf)
+        if len(got) != want:
+            print("FAIL the omx-clap-core check on %s: want %d findings, got %s" % (what, want, got))
+            return 1
+    print("ok   the omx-clap-core check sees a missing and a low floor and any ceiling in the spec, debian/control and a workflow")
 
     def text(*path):
         with open(os.path.join(ROOT, *path)) as f:
             return f.read()
-    bad = problems(text("packaging", "plugin-hostd.spec"), text("debian", "control"))
+    wfdir = os.path.join(ROOT, ".github", "workflows")
+    workflows = {f: text(".github", "workflows", f) for f in sorted(os.listdir(wfdir)) if f.endswith((".yml", ".yaml"))}
+    bad = problems(text("packaging", "plugin-hostd.spec"), text("debian", "control"), workflows)
     for b in bad:
         print("FAIL %s" % b)
     if bad:
