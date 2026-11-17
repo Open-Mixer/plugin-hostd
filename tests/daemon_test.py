@@ -1938,6 +1938,42 @@ def track_info_is_replayed_once_after_the_add_and_before_the_state():
 
 
 @test
+def a_preset_load_supersedes_the_properties_set_before_it_and_a_later_one_replays_after_it():
+    """R-111 with a preset: a preset load replaces the plugin's state, so the property_set lines before it are dropped
+    from the ledger, as the state verbs before it are; one set after it replays after it. Instance 0 checkpoints after
+    its preset load (the state holds what the preset left), instance 1 ("nostate") never writes state, so its preset
+    load stays in the verb tail: a respawned worker is given its preset load first, then the property set after it"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#nostate 1", "resp 1")
+        d.expect('property_set 0 sample "/a/before.wav"', "resp 0")
+        d.expect("preset_load 0 file:///presets/one.lv2", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "the checkpoint after instance 0's preset load")
+        d.expect('property_set 1 sample "/b/before.wav"', "resp 0")
+        d.expect("preset_load 1 file:///presets/two.lv2", "resp 0")
+        d.expect('property_set 1 sample "/b/after.wav"', "resp 0")
+        # each instance has a worker of its own: each is killed, and what its respawned worker is given is read
+        mark = d.mark()
+        for n in (0, 1):
+            os.kill(d.holder(n)[1]["pid"], signal.SIGKILL)
+        for n in (0, 1):
+            d.wait_event("instance_restored %d " % n, since=mark)
+        of = lambda n: [c for c in sent_to(log, d.holder(n)[1]["pid"]) if c.split(" ")[1:2] == [str(n)]]
+        check(not [c for c in of(0) if c.startswith("property_set ")],
+              "instance 0: the property set before its preset load is not replayed over the state: %s" % of(0))
+        one = [c for c in of(1) if c.startswith(("preset_load ", "property_set "))]
+        check(one == ["preset_load 1 file:///presets/two.lv2", 'property_set 1 sample "/b/after.wav"'],
+              "instance 1: its preset load, then only the property set after it: %s" % of(1))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def property_set_keeps_the_latest_of_each_symbol_and_replays_them_after_the_state():
     """R-111: the ledger keeps one property_set per instance and symbol, the latest; a checkpoint does not drop it, and a
     respawned worker is given each after the state, in the order its symbol was first set; a set the worker refused is
