@@ -8,6 +8,10 @@
 /* Strings that grow (json.c), which the probe runner writes its documents with, and the lookups of the JSON
  * the probe runner reads of its child and describe reads of the format tables. Out of memory, the program says so and exits 2. */
 
+/** @file json.h
+ * @brief The declarations of json.h.
+ */
+
 #ifndef PLUGIN_HOSTD_JSON_H
 #define PLUGIN_HOSTD_JSON_H
 

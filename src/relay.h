@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file relay.h
+ * @brief The declarations of relay.h.
+ */
+
 #ifndef RELAY_H
 #define RELAY_H
 

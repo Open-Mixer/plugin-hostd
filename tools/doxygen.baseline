@@ -1,0 +1,445 @@
+src/conf.h: warning: Compound CONF_T is not documented.
+src/conf.h: warning: Member CONF_SIZE_path (macro definition) of file conf.h is not documented.
+src/conf.h: warning: Member CONF_SIZE_pathlist (macro definition) of file conf.h is not documented.
+src/conf.h: warning: Member CONF_SIZE_word (macro definition) of file conf.h is not documented.
+src/conf.h: warning: Member X(key, def, unit, meaning) (macro definition) of file conf.h is not documented.
+src/conf.h: warning: Member X(key, size, def, env, meaning) (macro definition) of file conf.h is not documented.
+src/conf.h: warning: Member conf_check(const conf_t *conf) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_defaults(conf_t *conf) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_grouping_on(const conf_t *conf) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_load(conf_t *conf, const char *path, int required) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_lv2_worker_valid(const char *word) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_lv2_workers[] (variable) of file conf.h is not documented.
+src/conf.h: warning: Member conf_lv2_workers_print(FILE *out) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_merge_extra(conf_t *conf) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_pins_first_use(const conf_t *conf) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_source(const conf_t *conf, enum conf_string_key key) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_spread(const conf_t *conf) (function) of file conf.h is not documented.
+src/conf.h: warning: Member conf_string_key (enumeration) of file conf.h is not documented.
+src/conf.h: warning: Member conf_t (typedef) of file conf.h is not documented.
+src/conf.h: warning: Member from_file[CONF_STRINGS_N] (variable) of struct CONF_T is not documented.
+src/confine.h: warning: Member proc_confine(const int *keep, int nkeep) (function) of file confine.h is not documented.
+src/describe.h: warning: Member describe_dump(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
+src/describe.h: warning: Member describe_format(const char *target) (function) of file describe.h is not documented.
+src/describe.h: warning: Member describe_id(const char *target) (function) of file describe.h is not documented.
+src/describe.h: warning: Member describe_pages(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
+src/describe.h: warning: Member describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
+src/descriptors.h: warning: Member descriptors_add(const char *uri) (function) of file descriptors.h is not documented.
+src/descriptors.h: warning: Member descriptors_finish(void) (function) of file descriptors.h is not documented.
+src/descriptors.h: warning: Member descriptors_get(const char *uri) (function) of file descriptors.h is not documented.
+src/descriptors.h: warning: Member descriptors_init(conf_t *conf) (function) of file descriptors.h is not documented.
+src/descriptors.h: warning: Member descriptors_panel_get(const char *uri) (function) of file descriptors.h is not documented.
+src/descriptors.h: warning: Member descriptors_tick(void) (function) of file descriptors.h is not documented.
+src/formats.h: warning: Compound FORMAT_T is not documented.
+src/formats.h: warning: Member FORMATS_MAX (macro definition) of file formats.h is not documented.
+src/formats.h: warning: Member adapter (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member binary)(const char *uri, const char *search, char *path, size_t size) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member clap_binary(const char *uri, const char *search, char *path, size_t size) (function) of file formats.h is not documented.
+src/formats.h: warning: Member clap_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files) (function) of file formats.h is not documented.
+src/formats.h: warning: Member clap_plain_target(const char *uri, char *out, size_t size) (function) of file formats.h is not documented.
+src/formats.h: warning: Member declared)(const conf_t *conf) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member fallback (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member format_at(int index) (function) of file formats.h is not documented.
+src/formats.h: warning: Member format_by_name(const char *name) (function) of file formats.h is not documented.
+src/formats.h: warning: Member format_of_uri(const char *uri, const char **worker_uri) (function) of file formats.h is not documented.
+src/formats.h: warning: Member format_route(const conf_t *conf, int format, const char *uri) (function) of file formats.h is not documented.
+src/formats.h: warning: Member format_t (typedef) of file formats.h is not documented.
+src/formats.h: warning: Member formats_count(void) (function) of file formats.h is not documented.
+src/formats.h: warning: Member formats_register(const format_t *format) (function) of file formats.h is not documented.
+src/formats.h: warning: Member layout_check (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member lv2_binary(const char *uri, const char *search, char *path, size_t size) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *uris, int n) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_param_info(int id, const char *symbol) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_refusal_reason(const char *reply, char *buf, size_t size) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_remote_page_get(int id, int page) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_remote_pages(int id) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_route(const conf_t *conf, const char *uri) (function) of file formats.h is not documented.
+src/formats.h: warning: Member lv2_worker_pick(const char *uri, const char *worker) (function) of file formats.h is not documented.
+src/formats.h: warning: Member name (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member narrow_world)(const conf_t *conf, const char *dir, const char *const *uris, int n) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member native_chain (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member native_instance_verbs (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member param_info)(int id, const char *symbol) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member pin_collect)(const char *uri, const char *search, char *root, size_t size, names_t *files) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member pinned_own_only (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member prefix (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member remote_page_get)(int id, int page) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member remote_pages)(int id) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member route)(const conf_t *conf, const char *uri) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member routed (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member search)(const conf_t *conf) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member strip_prefix (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member thread_pool (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member worker)(const conf_t *conf) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member worker_prefix (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member worker_word)(const char *uri, char *out, size_t size) (variable) of struct FORMAT_T is not documented.
+src/formats.h: warning: Member world_env (variable) of struct FORMAT_T is not documented.
+src/fsutil.h: warning: Member fs_into_place(const char *tmp, const char *final) (function) of file fsutil.h is not documented.
+src/fsutil.h: warning: Member fs_mkdir_parents(char *path) (function) of file fsutil.h is not documented.
+src/fsutil.h: warning: Member fs_sync_dir(const char *path) (function) of file fsutil.h is not documented.
+src/fsutil.h: warning: Member fs_write_atomic(const char *path, const char *bytes, size_t len) (function) of file fsutil.h is not documented.
+src/history.h: warning: Compound HISTORY_REC_T is not documented.
+src/history.h: warning: Member cpu_max_solo (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member cpu_p95_solo (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member crashes_grouped (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member crashes_solo (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member digest[PHD_SHA256_HEX_LEN+1] (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member first (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member history_available(void) (function) of file history.h is not documented.
+src/history.h: warning: Member history_clear(const char *uri) (function) of file history.h is not documented.
+src/history.h: warning: Member history_crash(const char *uri, const char *digest, int grouped, long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member history_crashed(const history_rec_t *rec, long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member history_find(const char *uri, const char *digest) (function) of file history.h is not documented.
+src/history.h: warning: Member history_finish(void) (function) of file history.h is not documented.
+src/history.h: warning: Member history_init(const char *file, const char *klass, int save_s) (function) of file history.h is not documented.
+src/history.h: warning: Member history_line(const history_rec_t *rec) (function) of file history.h is not documented.
+src/history.h: warning: Member history_quarantine(const char *uri, const char *digest, long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member history_raises_xruns(const history_rec_t *rec) (function) of file history.h is not documented.
+src/history.h: warning: Member history_rec_t (typedef) of file history.h is not documented.
+src/history.h: warning: Member history_restart(const char *uri, const char *digest, int grouped, long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member history_summary(const char *uri, const char *digest, long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member history_tick(long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member history_window(const char *uri, const char *digest, int grouped, double cpu_pct, double pss_mb, long xruns, long long now) (function) of file history.h is not documented.
+src/history.h: warning: Member klass (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member last (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member last_crash (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member last_crash_grouped (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member pss_mb_solo (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member quarantines (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member restarts_grouped (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member uri (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member windows_grouped (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member windows_solo (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member xrun_windows_grouped (variable) of struct HISTORY_REC_T is not documented.
+src/history.h: warning: Member xrun_windows_solo (variable) of struct HISTORY_REC_T is not documented.
+src/json.h: warning: Compound jstep_t is not documented.
+src/json.h: warning: Compound sb_t is not documented.
+src/json.h: warning: Member cap (variable) of struct sb_t is not documented.
+src/json.h: warning: Member failed (variable) of struct sb_t is not documented.
+src/json.h: warning: Member index (variable) of struct jstep_t is not documented.
+src/json.h: warning: Member jbool(const cJSON *o, const char *key, int def) (function) of file json.h is not documented.
+src/json.h: warning: Member jcount(const cJSON *o) (function) of file json.h is not documented.
+src/json.h: warning: Member jget(const cJSON *o, const char *key) (function) of file json.h is not documented.
+src/json.h: warning: Member jkey(const cJSON *o, size_t k) (function) of file json.h is not documented.
+src/json.h: warning: Member jkid(const cJSON *o, size_t k) (function) of file json.h is not documented.
+src/json.h: warning: Member jnum(const cJSON *o, const char *key, double *out) (function) of file json.h is not documented.
+src/json.h: warning: Member jparse(const char *text) (function) of file json.h is not documented.
+src/json.h: warning: Member jraw(const char *text, const jstep_t *path, size_t steps, size_t *len) (function) of file json.h is not documented.
+src/json.h: warning: Member jstr(const cJSON *o, const char *key) (function) of file json.h is not documented.
+src/json.h: warning: Member keep_going (variable) of struct sb_t is not documented.
+src/json.h: warning: Member key (variable) of struct jstep_t is not documented.
+src/json.h: warning: Member len (variable) of struct sb_t is not documented.
+src/json.h: warning: Member s (variable) of struct sb_t is not documented.
+src/json.h: warning: Member sb_printf(sb_t *b, const char *fmt,...) __attribute__((format(printf (function) of file json.h is not documented.
+src/json.h: warning: Member sb_put(sb_t *b, const char *data, size_t n) (function) of file json.h is not documented.
+src/json.h: warning: Member sb_str(sb_t *b, const char *s) (function) of file json.h is not documented.
+src/machine.h: warning: Member machine_bands(long ncpu, long khz, const char **core_band, const char **clock_band) (function) of file machine.h is not documented.
+src/machine.h: warning: Member machine_class(char *out, size_t size) (function) of file machine.h is not documented.
+src/names.h: warning: Compound NAMES_T is not documented.
+src/names.h: warning: Member n (variable) of struct NAMES_T is not documented.
+src/names.h: warning: Member name (variable) of struct NAMES_T is not documented.
+src/names.h: warning: Member names_add(names_t *names, const char *name) (function) of file names.h is not documented.
+src/names.h: warning: Member names_free(names_t *names) (function) of file names.h is not documented.
+src/names.h: warning: Member names_has(const names_t *names, const char *name) (function) of file names.h is not documented.
+src/names.h: warning: Member names_t (typedef) of file names.h is not documented.
+src/pages.h: warning: Member PAGE_SLOTS (macro definition) of file pages.h is not documented.
+src/pins.h: warning: Member pin_refuse(const char *uri, const char *path, const char *why) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_accept(const format_t *format, const char *uri, const char *search) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_accepting(int on) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_changed(void) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_check(const format_t *format, const char *uri, const char *search, const char **layout) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_clear(const char *uri) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_digest(const char *uri, char hex[OMX_PLUGIN_DB_PIN_SHA256_HEX_LEN+1]) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_finish(void) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_in_process(const char *uri) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_init(const char *store, const char *file, const char *dir) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_known(const char *uri) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_learn(const format_t *format, const char *uri, const char *search, const char *declared) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_loaded(const char *uri, pid_t worker, const char *binary) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_pool_cores(const char *uri) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_reload(void) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_set_layout(const char *uri, const char *layout) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_verdict(const char *uri) (function) of file pins.h is not documented.
+src/pins.h: warning: Member pins_words(char **word, int n, const char **verdict, const char **pool) (function) of file pins.h is not documented.
+src/placement.h: warning: Member placement_capacities(const char *dir, const cpu_set_t *allowed, long *capacity) (function) of file placement.h is not documented.
+src/placement.h: warning: Member placement_cores(const cpu_set_t *allowed, const char *audio_cores, const long *capacity, cpu_set_t *audio, cpu_set_t *reserved) (function) of file placement.h is not documented.
+src/placement.h: warning: Member placement_list_text(const cpu_set_t *set, char *buf, size_t size) (function) of file placement.h is not documented.
+src/placement.h: warning: Member placement_parse(const char *list, cpu_set_t *set) (function) of file placement.h is not documented.
+src/planner.h: warning: Compound PLANNER_HISTORY_T is not documented.
+src/planner.h: warning: Compound PLANNER_MEMBER_T is not documented.
+src/planner.h: warning: Compound PLANNER_PLAN_T is not documented.
+src/planner.h: warning: Compound PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member PLANNER_COST_UNKNOWN (macro definition) of file planner.h is not documented.
+src/planner.h: warning: Member PLANNER_MEMBERS_MAX (macro definition) of file planner.h is not documented.
+src/planner.h: warning: Member cost (variable) of struct PLANNER_MEMBER_T is not documented.
+src/planner.h: warning: Member cpu_p95_solo (variable) of struct PLANNER_HISTORY_T is not documented.
+src/planner.h: warning: Member crashed (variable) of struct PLANNER_HISTORY_T is not documented.
+src/planner.h: warning: Member group_cost_max (variable) of struct PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member group_max (variable) of struct PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member grouping_on (variable) of struct PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member history (variable) of struct PLANNER_MEMBER_T is not documented.
+src/planner.h: warning: Member history_unavailable (variable) of struct PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member id (variable) of struct PLANNER_MEMBER_T is not documented.
+src/planner.h: warning: Member klass (variable) of struct PLANNER_MEMBER_T is not documented.
+src/planner.h: warning: Member nseg (variable) of struct PLANNER_PLAN_T is not documented.
+src/planner.h: warning: Member pin (variable) of struct PLANNER_MEMBER_T is not documented.
+src/planner.h: warning: Member pins_first_use (variable) of struct PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member planner_format_reasons(const planner_member_t *m, const planner_plan_t *p, int refused_code, char *buf, size_t size) (function) of file planner.h is not documented.
+src/planner.h: warning: Member planner_format_segments(const planner_member_t *m, const planner_plan_t *p, char *buf, size_t size) (function) of file planner.h is not documented.
+src/planner.h: warning: Member planner_history_t (typedef) of file planner.h is not documented.
+src/planner.h: warning: Member planner_member_t (typedef) of file planner.h is not documented.
+src/planner.h: warning: Member planner_plan(const planner_settings_t *s, const planner_member_t *m, int n, planner_plan_t *out) (function) of file planner.h is not documented.
+src/planner.h: warning: Member planner_plan_t (typedef) of file planner.h is not documented.
+src/planner.h: warning: Member planner_reason_word(int reason) (function) of file planner.h is not documented.
+src/planner.h: warning: Member planner_settings_t (typedef) of file planner.h is not documented.
+src/planner.h: warning: Member raises_xruns (variable) of struct PLANNER_HISTORY_T is not documented.
+src/planner.h: warning: Member reason[PLANNER_MEMBERS_MAX] (variable) of struct PLANNER_PLAN_T is not documented.
+src/planner.h: warning: Member require_pins (variable) of struct PLANNER_SETTINGS_T is not documented.
+src/planner.h: warning: Member seg_len[PLANNER_MEMBERS_MAX] (variable) of struct PLANNER_PLAN_T is not documented.
+src/planner.h: warning: Member world_ok (variable) of struct PLANNER_MEMBER_T is not documented.
+src/probe_cgroup.h: warning: Compound PROBE_CGROUP_T is not documented.
+src/probe_cgroup.h: warning: Member PROBE_CGROUP_ROOT (macro definition) of file probe_cgroup.h is not documented.
+src/probe_cgroup.h: warning: Member dir[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
+src/probe_cgroup.h: warning: Member own[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
+src/probe_cgroup.h: warning: Member probe_cgroup_close(probe_cgroup_t *cg) (function) of file probe_cgroup.h is not documented.
+src/probe_cgroup.h: warning: Member probe_cgroup_enter(const probe_cgroup_t *cg) (function) of file probe_cgroup.h is not documented.
+src/probe_cgroup.h: warning: Member probe_cgroup_oom_kills(const probe_cgroup_t *cg) (function) of file probe_cgroup.h is not documented.
+src/probe_cgroup.h: warning: Member probe_cgroup_open(probe_cgroup_t *cg, const char *root, long long max_bytes) (function) of file probe_cgroup.h is not documented.
+src/probe_cgroup.h: warning: Member probe_cgroup_t (typedef) of file probe_cgroup.h is not documented.
+src/probe_cgroup.h: warning: Member self_leaf[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
+src/probe_lock.h: warning: Compound probe_lock_report_t is not documented.
+src/probe_lock.h: warning: Member PROBE_LOCK_FD (macro definition) of file probe_lock.h is not documented.
+src/probe_lock.h: warning: Member PROBE_LOCK_FD_ENV (macro definition) of file probe_lock.h is not documented.
+src/probe_lock.h: warning: Member error (variable) of struct probe_lock_report_t is not documented.
+src/probe_lock.h: warning: Member locked (variable) of struct probe_lock_report_t is not documented.
+src/proc.h: warning: Compound WORKER_ENV_T is not documented.
+src/proc.h: warning: Member PROC_EXITED (macro definition) of file proc.h is not documented.
+src/proc.h: warning: Member RPC_DIED (macro definition) of file proc.h is not documented.
+src/proc.h: warning: Member RPC_OK (macro definition) of file proc.h is not documented.
+src/proc.h: warning: Member RPC_WAS_DEAD (macro definition) of file proc.h is not documented.
+src/proc.h: warning: Member cpus[128] (variable) of struct WORKER_ENV_T is not documented.
+src/proc.h: warning: Member nice (variable) of struct WORKER_ENV_T is not documented.
+src/proc.h: warning: Member proc_apply_env(pid_t pid, const worker_env_t *env) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const char *logfile, int *fb_fd) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_cpu_seconds(pid_t pid, double *seconds) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_dead(pid_t pid) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_env_clear(worker_env_t *env) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_env_report(pid_t pid, const worker_env_t *env) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_exited(pid_t pid, int *status) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_find_lv2_bundle(const char *lv2_path, const char *uri, proc_lv2_version_fn version) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_have_binary(const char *bin) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int(*fn)(void *ctx, const char *bundle), void *ctx) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_lv2_version_fn)(const char *bundle, const char *uri, long *minor, long *micro) (typedef) of file proc.h is not documented.
+src/proc.h: warning: Member proc_manifest_reads (variable) of file proc.h is not documented.
+src/proc.h: warning: Member proc_now_ms(void) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_parse_pss(const char *text, long long *kb) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_parse_stat(const char *text, long long *utime, long long *stime) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_pss_kb(pid_t pid, long long *kb) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **reply) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_spawn(const conf_t *conf, const char *bin, const char *world_env, const char *world, const worker_env_t *env, const char *logfile, pid_t *pid, int *port, int *fb_port) (function) of file proc.h is not documented.
+src/proc.h: warning: Member proc_stop(pid_t pid) (function) of file proc.h is not documented.
+src/proc.h: warning: Member thread_pool (variable) of struct WORKER_ENV_T is not documented.
+src/proc.h: warning: Member worker_env_t (typedef) of file proc.h is not documented.
+src/qualcost.h: warning: Compound QUALCOST_CELL_T is not documented.
+src/qualcost.h: warning: Compound QUALCOST_MEMORY_T is not documented.
+src/qualcost.h: warning: Member first_kb (variable) of struct QUALCOST_MEMORY_T is not documented.
+src/qualcost.h: warning: Member latency_frames (variable) of struct QUALCOST_CELL_T is not documented.
+src/qualcost.h: warning: Member median_ns (variable) of struct QUALCOST_CELL_T is not documented.
+src/qualcost.h: warning: Member per_instance_kb (variable) of struct QUALCOST_MEMORY_T is not documented.
+src/qualcost.h: warning: Member qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualcost_cell_t *out) (function) of file qualcost.h is not documented.
+src/qualcost.h: warning: Member qualcost_cell_t (typedef) of file qualcost.h is not documented.
+src/qualcost.h: warning: Member qualcost_dir_scans (variable) of file qualcost.h is not documented.
+src/qualcost.h: warning: Member qualcost_memory(const char *dir, const char *id, int rate, int quantum, qualcost_memory_t *out) (function) of file qualcost.h is not documented.
+src/qualcost.h: warning: Member qualcost_memory_t (typedef) of file qualcost.h is not documented.
+src/qualcost.h: warning: Member qualcost_read(const char *dir, const char *id, int rate, int quantum) (function) of file qualcost.h is not documented.
+src/qualcost.h: warning: Member qualcost_record_parses (variable) of file qualcost.h is not documented.
+src/relay.h: warning: Member relay_abi_clobbers(int fd, int *ids, int max) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_add(int fd) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_await_controller(volatile int *running) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_controller_gone(void) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_event(const char *line) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_finish(void) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_instance_gone(int id) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_param_moves(int fd, int *ids, int max) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_remove(int fd) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_set_prefix(size_t(*prefix)(char *buf, size_t size)) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_start(int port, const char *address) (function) of file relay.h is not documented.
+src/relay.h: warning: Member relay_xruns(int fd, unsigned long long *count) (function) of file relay.h is not documented.
+src/session.h: warning: Member session_answer(char *text, const char *tag, size_t tag_len) (function) of file session.h is not documented.
+src/session.h: warning: Member session_feedback_prefix(char *buf, size_t size) (function) of file session.h is not documented.
+src/session.h: warning: Member session_hello(char **tok, int ntok) (function) of file session.h is not documented.
+src/session.h: warning: Member session_reset(void) (function) of file session.h is not documented.
+src/session.h: warning: Member session_tag_len(const char *line) (function) of file session.h is not documented.
+src/supervisor.h: warning: Compound CHAIN_T is not documented.
+src/supervisor.h: warning: Compound ENTRY_T is not documented.
+src/supervisor.h: warning: Compound INSTANCE_T is not documented.
+src/supervisor.h: warning: Compound WORKER_T is not documented.
+src/supervisor.h: warning: Member MAX_INSTANCE (macro definition) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member X(id, name, meaning) (macro definition) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member add_line (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member backoff_ms (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member capconns (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member capinst (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member captail (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member chain (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member chain (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member chain_t (typedef) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member changed_ms (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member client (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member conns (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member deaths[64] (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member dirty (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member entry_t (typedef) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member fb_fd (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member fb_port (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member fd (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member fmt (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member fmt (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member forming_ms (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member from_split (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member has_ckpt (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member hist_cpu0 (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member hist_half_cpu (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member hist_half_ms (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member hist_half_pss_kb (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member hist_ninst (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member hist_pid (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member hist_start_ms (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member id (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member id (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member ids (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member inst (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member instance_t (typedef) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member k (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member key (variable) of struct ENTRY_T is not documented.
+src/supervisor.h: warning: Member kind (variable) of struct ENTRY_T is not documented.
+src/supervisor.h: warning: Member line (variable) of struct ENTRY_T is not documented.
+src/supervisor.h: warning: Member n (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member nconns (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member ndeaths (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member next_try_ms (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member ninst (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member no_chain_expect (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member node_label (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member npend (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member ntail (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member pend (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member pend_until_ms (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member pid (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member pin_refused (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member place[48] (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member planned (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member pool (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member port (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member refused (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member rejoin (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member seg (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member stall_code (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member stall_member (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member stall_said (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member stall_step[8] (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member state (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member sup_add(const char *uri, int id, const char *placement, const char *client) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_after_reply(int id, const char *verb) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_broadcast(const char *line) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_call(int id, const char *line) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_chain(int id, const int *ids, int n) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_chain_clear(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_chain_get(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_connect(const char *verb, const char *line, const char *port_a, const char *port_b) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_estimate(int rate, int quantum, const char *const *uris, int n) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_finish(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_history_clear(const char *uri) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_history_get(const char *uri) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_host_setting(const char *line, char **tok, int ntok) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_init(const conf_t *conf) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_instance_info(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_instance_search(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_instance_uri(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_instance_verb(const char *line, int ledger) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_lv2_worker_set(const char *uri, const char *worker) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_monitor_held(int id, const char *symbol) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_monitors_disconnect(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_pin_accept(const char *uri) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_pin_reload(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_pins_poll(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_placement_init(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_plan(int id, const int *ids, int n) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_plan_clear(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_plan_get(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_policy_set(const char *format, const char *place) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_pool_config(const char *name, int max) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_preset_show(const char *line) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_quarantine_clear(const char *which) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_remove(int id) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_remove_all(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_reply_code(const char *reply) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_reset(const char *which) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_resp(int code) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_root(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_tick(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_worker_count(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_worker_env(const char *format, const char *cpus, const char *nice) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sup_worker_list(void) (function) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member sus_line (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member sus_ms (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member sus_prev (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member sus_seq (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member tail (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member thread_pool (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member track_info (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member unreplayed (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member uri (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member w (variable) of struct CHAIN_T is not documented.
+src/supervisor.h: warning: Member w (variable) of struct INSTANCE_T is not documented.
+src/supervisor.h: warning: Member worker_t (typedef) of file supervisor.h is not documented.
+src/supervisor.h: warning: Member xr_base (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member xr_known (variable) of struct WORKER_T is not documented.
+src/supervisor.h: warning: Member xr_pid (variable) of struct WORKER_T is not documented.
+src/transforms.h: warning: Compound transforms_data_t is not documented.
+src/transforms.h: warning: Compound transforms_entry_t is not documented.
+src/transforms.h: warning: Member TRANSFORMS(X) (macro definition) of file transforms.h is not documented.
+src/transforms.h: warning: Member TRANSFORMS_DECLARE(name, in, inverse) (macro definition) of file transforms.h is not documented.
+src/transforms.h: warning: Member TRANSFORMS_NONE (macro definition) of file transforms.h is not documented.
+src/transforms.h: warning: Member TRANSFORMS_OK (macro definition) of file transforms.h is not documented.
+src/transforms.h: warning: Member TRANSFORMS_REFUSED (macro definition) of file transforms.h is not documented.
+src/transforms.h: warning: Member factor (variable) of struct transforms_data_t is not documented.
+src/transforms.h: warning: Member from (variable) of struct transforms_data_t is not documented.
+src/transforms.h: warning: Member inbound (variable) of struct transforms_entry_t is not documented.
+src/transforms.h: warning: Member inverse (variable) of struct transforms_entry_t is not documented.
+src/transforms.h: warning: Member key (variable) of struct transforms_data_t is not documented.
+src/transforms.h: warning: Member n (variable) of struct transforms_data_t is not documented.
+src/transforms.h: warning: Member name (variable) of struct transforms_entry_t is not documented.
+src/transforms.h: warning: Member to (variable) of struct transforms_data_t is not documented.
+src/transforms.h: warning: Member transforms_count (variable) of file transforms.h is not documented.
+src/transforms.h: warning: Member transforms_find(const char *name) (function) of file transforms.h is not documented.
+src/transforms.h: warning: Member transforms_fn_t)(const transforms_data_t *d, const char *in, char *out, size_t size) (typedef) of file transforms.h is not documented.
+src/transforms.h: warning: Member transforms_list[] (variable) of file transforms.h is not documented.
+src/transforms.h: warning: Member transforms_lookup_check(const transforms_data_t *d) (function) of file transforms.h is not documented.
+src/verbs.h: warning: Member g_quitting (variable) of file verbs.h is not documented.
+src/verbs.h: warning: Member verb_is(const char *text, const char *format) (function) of file verbs.h is not documented.
+src/verbs.h: warning: Member verb_len(const char *format) (function) of file verbs.h is not documented.
+src/verbs.h: warning: Member verbs_drop(void) (function) of file verbs.h is not documented.
+src/verbs.h: warning: Member verbs_flush(void) (function) of file verbs.h is not documented.
+src/verbs.h: warning: Member verbs_receive(msg_t *msg) (function) of file verbs.h is not documented.
+src/verbs.h: warning: Member verbs_waiting(void) (function) of file verbs.h is not documented.
+src/words.h: warning: Member words_need_quotes(const char *word) (function) of file words.h is not documented.
+src/words.h: warning: Member words_read(char *line, char **tok, int max) (function) of file words.h is not documented.
+src/words.h: warning: Member words_write(const char *word, char *buf, size_t size) (function) of file words.h is not documented.
+src/writer.h: warning: Member WRITER_BYTES_MAX (macro definition) of file writer.h is not documented.
+src/writer.h: warning: Member WRITER_COALESCE (macro definition) of file writer.h is not documented.
+src/writer.h: warning: Member WRITER_JOBS_MAX (macro definition) of file writer.h is not documented.
+src/writer.h: warning: Member writer_busy(void) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_done_fn)(void *arg, int err) (typedef) of file writer.h is not documented.
+src/writer.h: warning: Member writer_drain(void) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_finish(void) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_forget(int group) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_group(int group, int *err) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_place(const char *tmp, const char *final, writer_done_fn done, void *arg, const char *what) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_poll(void) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_put(const char *path, char *bytes, size_t len, int flags, writer_done_fn done, void *arg, const char *what) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_start(void) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_verb_begin(int promises) (function) of file writer.h is not documented.
+src/writer.h: warning: Member writer_verb_end(void) (function) of file writer.h is not documented.

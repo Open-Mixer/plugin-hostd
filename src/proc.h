@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file proc.h
+ * @brief The declarations of proc.h.
+ */
+
 #ifndef PROC_H
 #define PROC_H
 

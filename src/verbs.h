@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file verbs.h
+ * @brief The declarations of verbs.h.
+ */
+
 #ifndef VERBS_H
 #define VERBS_H
 

@@ -3,6 +3,10 @@
  *
  * The least privilege of every process the daemon starts that runs plugin code: a worker, the descriptor scan and the
  * probe runner's child (#61). */
+/** @file confine.h
+ * @brief The declarations of confine.h.
+ */
+
 #ifndef CONFINE_H
 #define CONFINE_H
 
