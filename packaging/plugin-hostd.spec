@@ -219,7 +219,7 @@ make test-daemon check-generated check-rendered
   set the worker refused is not kept. The guide lists the four property verbs
   (org.openmixer.properties/1).
 
-* * Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
+* Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
 - Built and run against the 3.18.0 pass's releases, every floor at the chain
   line's needs with its ceiling: omx-contract >= 3.18.0 and < 4,
   plugin-hostd-protocol >= 0.5.9 and < 0.6, omx-clap-host and omx-clap-core
