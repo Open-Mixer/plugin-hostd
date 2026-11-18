@@ -27,17 +27,24 @@ installed). The schema major the contract directory is read under is the pkg-con
 file's `schema_major`, never typed in this tree. The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
-`PARAM_SCALES`. The probe output schema takes the words it shares with the
-contract (`MEASUREMENT_LATENCY_METHODS`, `MEASUREMENT_VOICE_BASES`,
-`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `RESOURCE_THREAD_SCHEDULING`) from
-the vocabulary headers (the machine words are this package's own domain, `contract.d/machine/`, rendered to
-`include/plugin-hostd/machine_vocabulary.h`; `tests/vocabulary_derived.py` reads that document itself): `protocol/probe-output.schema.in` names each as an
-`@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
-each of those enums of the generated schema to the installed contract's
-`omx-vocabulary.schema.json`, word for word and in order. `make
-test-contract` checks both, against the installed contract and against a copy
-of its header with the values changed. Nothing is linked: the header holds
-values only.
+`PARAM_SCALES`.
+
+The qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
+`QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`) are plugin-qualify's
+domain, `contract.d/qualification/qualification.json` there: this tree ships no copy and no render of it.
+The probe runner opens it once at start-up through omx-contract's C loader (`libomx-domain`,
+`pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel` 3.20.0 or later; floor 1.1.0) and ends
+the run with status 78 and the loader's code, naming the domain, when it is absent, invalid or older
+(`--contract-dir DIRS` on `run` points it at another directory, a test entry). The schema generator reads it the same
+way from `OMX_CONTRACT_PATH`, else the installed directory. plugin-qualify's package installs it, so a build
+that runs the tests needs plugin-qualify installed, or a checkout's `contract.d` in `OMX_CONTRACT_PATH`.
+The machine words are this package's own domain, `contract.d/machine/`, rendered to
+`include/plugin-hostd/machine_vocabulary.h`. `protocol/probe-output.schema.in` names each shared word list as an
+`@QUALIFICATION_<ITEM>@` or `@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
+each of those enums of the generated schema to the contract's item, word for word and in order;
+`make test-qualification-domain` holds the probe's words to a changed copy of the domain and its refusals by name.
+`make test-contract` checks the contract's own items, against the installed contract and against a copy
+of its header with the values changed.
 
 Building without omx-clap-core
 ------------------------------

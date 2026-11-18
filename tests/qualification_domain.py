@@ -6,7 +6,8 @@
 #   2. this package ships no qualification document of its own;
 #   3. the words the probe writes are the domain's: a scratch copy of the domain with three words renamed, the probe pointed
 #      at it (--contract-dir, the probe's test entry), writes the renamed words;
-#   4. a domain that is absent, or below the floor, ends the run with the loader's code and the domain's name, and no document.
+#   4. a domain that is absent, below the floor, or without a word the probe writes ends the run with the loader's code and
+#      the domain's name (or the word and the item), and no document.
 #   PROBE=<runner> PROBE_CHILD=<tests/probe-child> STRESS_CLAP=<tests/stress.clap> qualification_domain.py
 import json, os, shutil, subprocess, sys, tempfile
 
@@ -77,7 +78,7 @@ def main():
                 for old, new in pairs.items():
                     qs.rename_word(item, old, new)(doc)
         scratch = qs.fixture(tmp, rename, "renamed")
-        p, doc = run_probe(qs.source_dir(), tmp)
+        p, doc = run_probe(qs.fixture(tmp, None, "as-installed"), tmp)
         check(p.returncode == 0 and doc is not None, "positive control: the probe runs over the domain as installed: rc %d %s" % (p.returncode, p.stderr[-200:]))
         if doc:
             check(doc["run"]["realtime"]["class"] in ("fifo", "none") and doc["grid"][0]["latency"]["method"] == "impulse-onset",
@@ -95,6 +96,12 @@ def main():
 
         def old(doc):
             doc["info"]["version"] = "1.0.0"
+        def lacking(doc):
+            item = doc["components"]["schemas"]["QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]
+            item["oneOf"] = [w for w in item["oneOf"] if w["title"] != "noteOnset"]
+        p, doc = run_probe(qs.fixture(tmp, lacking, "lacking"), tmp)
+        check(p.returncode == 78 and doc is None and "noteOnset" in p.stderr and "QUALIFICATION_MEASUREMENT_LATENCY_METHODS" in p.stderr,
+              "a domain without a word the probe writes is refused by the word and the item: rc %d %r" % (p.returncode, p.stderr[-200:]))
         p, doc = run_probe(qs.fixture(tmp, old, "old"), tmp)
         check(p.returncode == 78 and doc is None and "contract.package.too-old" in p.stderr and FLOOR in p.stderr,
               "a domain below %s is refused with the loader's code and the floor: rc %d %r" % (FLOOR, p.returncode, p.stderr[-200:]))

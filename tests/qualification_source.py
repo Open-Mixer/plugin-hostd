@@ -29,6 +29,14 @@ def document():
         return json.load(f)
 
 
+def complete(doc):
+    """the loader of omx-contract 3.19.1 refuses a word with no "description" (the domain schema allows it): a word that has
+    only its x-text gets it as its description, so that what the tests prove is this package's, not that gap's"""
+    for schema in doc["components"]["schemas"].values():
+        for word in schema.get("oneOf", []):
+            word.setdefault("description", word.get("x-text", word["const"]))
+
+
 def fixture(root, edit=None, name="fixture"):
     """a scratch contract directory root/<name> holding the domain, its catalogs, and edit(document) applied; its path"""
     out = os.path.join(root, name)
@@ -36,6 +44,7 @@ def fixture(root, edit=None, name="fixture"):
     doc = document()
     if edit:
         edit(doc)
+    complete(doc)
     with open(os.path.join(out, DOMAIN, DOMAIN + ".json"), "w") as f:
         json.dump(doc, f, indent=2)
     return out

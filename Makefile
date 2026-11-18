@@ -102,9 +102,10 @@ OBJ = $(SRC:.c=.o)
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
 # the words of the machine domain (contract.d/machine/, owned here), rendered from it by omx-contract's domain render
 RENDERED_MACHINE = include/plugin-hostd/machine_vocabulary.h
-# the words the probe output shares with a qualification are plugin-qualify's domain, read from the contract directory
-# it installs into (CONTRACTDIR, or OMX_CONTRACT_PATH): rendered here, never installed
-RENDERED_QUALIFICATION = include/plugin-hostd/qualification_vocabulary.h
+# the words the probe output shares with a qualification are plugin-qualify's domain (contract.d/qualification/ there):
+# read at start-up through omx-contract's C loader (libomx-domain), never rendered or shipped here (src/qualification_words.c)
+DOMAIN_CFLAGS = $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
+DOMAIN_LIBS = $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
 
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
 # from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
@@ -121,11 +122,11 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/qualification_words.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h src/qualification_words.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
-	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
+	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
 
 # the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
 # its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so
@@ -138,7 +139,7 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(RENDERED_QUALIFICATION) $(REPLY_WORDS)
+$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(REPLY_WORDS)
 
 # the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
 # daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
@@ -248,7 +249,6 @@ render-verbs check-rendered:
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
-	$(OMX_CONTRACT) render --target c --package qualification --contract-dir $(CONTRACTDIR) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 
@@ -711,8 +711,8 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE) $(RENDERED_QUALIFICATION)
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(PIN_LIBS)
+$(GEN): tools/protocol-gen.c src/qualification_words.c src/qualification_words.h $(PROTOCOL_HEADERS) $(RENDERED) $(RENDERED_MACHINE)
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) -o $@ tools/protocol-gen.c src/qualification_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
 
 gen: $(GEN)
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json

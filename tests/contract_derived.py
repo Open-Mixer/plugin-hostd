@@ -42,6 +42,8 @@ def contract_data(name):
     """an item of omx-contract's own data, as the installed package lays it out (contract.d/<major>/omx-contract)"""
     base = pkg("--variable=contractdir")
     for major in sorted(os.listdir(base), reverse=True):
+        if not major.isdigit():
+            continue  # a domain's directory (qualification/), not a schema major
         for f in sorted(os.listdir(os.path.join(base, major, "omx-contract"))):
             if f.endswith(".json") and f != "MANIFEST.json":
                 with open(os.path.join(base, major, "omx-contract", f)) as fh:
@@ -103,7 +105,8 @@ def build_probe(include_first, out):
 
 def build_gen(include_first, out, source=JSON_GEN):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + ["-std=gnu99", "-o", out, source] + PIN_LIBS + DOMAIN_LIBS
+          pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-std=gnu99", "-o", out, source] + \
+          ([os.path.join(ROOT, "src", "qualification_words.c")] if source == OWN_GEN else []) + PIN_LIBS + DOMAIN_LIBS
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -193,7 +196,7 @@ def main():
         if built.returncode == 0:
             item = "QUALIFICATION_MEASUREMENT_LATENCY_METHODS"
             have = qualification_source.words(item)
-            check(gen_methods(os.path.join(tmp, "gen-domain"), qualification_source.source_dir()) == have,
+            check(gen_methods(os.path.join(tmp, "gen-domain"), qualification_source.fixture(tmp, None, "as-installed")) == have,
                   "the probe schema's latency methods are the installed domain's %s" % have)
 
             def grow(doc):
