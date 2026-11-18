@@ -252,10 +252,11 @@ render-verbs check-rendered:
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 
 # the machine domain's codes header (include/plugin-hostd/machine_codes.h) is the render of the items marked x-c-codes,
-# and there is none while no item is marked: validate and render --check
+# and there is none while no item is marked: validate, fmt --check and render --check
 .PHONY: check-machine-codes
 check-machine-codes:
 	$(OMX_CONTRACT) validate --contract-dir contract.d
+	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
 	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd --check
 
 # the machine domain is a valid document, the codes header is its render, and the installed tree opens through the

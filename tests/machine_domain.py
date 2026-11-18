@@ -4,7 +4,7 @@
 """tests/machine_domain.py: plugin-hostd owns the domain `machine` (contract.d/machine/machine.json) ; consumer-move recipe,
 arms 1, 2, 4 and 7 (arms 3, 5 and 6 need the loader in plugin-hostd's own code and follow in part 2).
 
-1. the document conforms: omx-contract validate, $schema, $id, info.x-owner/x-stability, every item MACHINE_-prefixed;
+1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, every item MACHINE_-prefixed;
 2. no machine_vocabulary.h exists or is included;
 4. include/plugin-hostd/machine_codes.h holds exactly the items marked x-c-codes and is the render (--check), or there is none;
 7. make install_machine_domain DESTDIR=<tmp> gives the tree the loader reads: omx_domain_open_at opens it and finds a
@@ -59,6 +59,9 @@ def arm1(doc):
     r = run(OMX + ["validate", "--contract-dir", "contract.d"])
     if r.returncode != 0:
         fail("arm 1: omx-contract validate --contract-dir contract.d: %s" % (r.stderr.strip() or r.stdout.strip()))
+    r = run(OMX + ["fmt", "--check", "--contract-dir", "contract.d"])
+    if r.returncode != 0:
+        fail("arm 1: omx-contract fmt --check --contract-dir contract.d: %s" % (r.stderr.strip() or r.stdout.strip()))
     if doc.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         fail("arm 1: $schema is %r, not the 2020-12 schema" % doc.get("$schema"))
     if doc.get("$id") != "https://openmixer.org/contract/machine":
