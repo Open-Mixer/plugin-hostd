@@ -491,8 +491,13 @@ jobs:
           # the scan an add runs reads the format tables and the recorded field dumps beside the tests
           cp -r data /tmp/clean-root/smoke/data
           # the tests read the declared protocol from the installed library's JSON
-          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/smoke/tests/fake-host \
-            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py
+          # the whole daemon_test.py runs once, in the test job (test-audit 2026-11-16, plugin-hostd row 1); the installed binary
+          # answers the ready line, an add, a crash respawn and a pin refusal, each named, and a name that ran nothing is red
+          for t in ready_line_and_empty_table an_add_that_kills_its_worker_answers_its_code_and_is_named_by_an_event own_crash_respawns_only_that_instance_and_replays_it an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts; do
+            chroot /tmp/clean-root env ONLY=$t PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/smoke/tests/fake-host \
+              PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py | tee smoke.out
+            grep -q "^ok   $t\$" smoke.out
+          done
 
       # the installed fake worker prints its layout and serves the daemon, as plugin-qualify drives it
       - name: The installed fake worker
@@ -503,9 +508,6 @@ jobs:
           # and the protocol clients it ships load
           chroot /tmp/clean-root bash -c '. /usr/libexec/plugin-hostd/tests/lib/protocol.sh && type protocol_send protocol_expect protocol_wait_ready send'
           chroot /tmp/clean-root python3 -c 'import sys; sys.path.insert(0, "/usr/libexec/plugin-hostd/tests/lib"); import plugin_hostd_client'
-          # the slow-disk shim is a fixture of the checkout, not of the package
-          chroot /tmp/clean-root env PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=/usr/libexec/plugin-hostd/tests/fake-host \
-            SLOW_FSYNC=/smoke/tests/slow-fsync.so PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 /smoke/tests/daemon_test.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -698,8 +700,13 @@ jobs:
           set -euo pipefail
           # an artifact does not keep the executable bit
           chmod +x smoke/tests/fake-host
-          PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=$PWD/smoke/tests/fake-host \
-            PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 smoke/tests/daemon_test.py
+          # the whole daemon_test.py runs once, in the test job (test-audit 2026-11-16, plugin-hostd row 1); the installed binary
+          # answers the ready line, an add, a crash respawn and a pin refusal, each named, and a name that ran nothing is red
+          for t in ready_line_and_empty_table an_add_that_kills_its_worker_answers_its_code_and_is_named_by_an_event own_crash_respawns_only_that_instance_and_replays_it an_unpinned_plugin_is_refused_under_strict_and_no_worker_starts; do
+            ONLY=$t PLUGIN_HOSTD=/usr/bin/plugin-hostd PROBE=/usr/bin/plugin-hostd-probe FAKE_HOST=$PWD/smoke/tests/fake-host \
+              PLUGIN_HOSTD_PROTOCOL=/usr/share/plugin-hostd-protocol/plugin-hostd.json python3 smoke/tests/daemon_test.py | tee smoke.out
+            grep -q "^ok   $t\$" smoke.out
+          done
 
   # docs/own-host.md, command by command, as a reader would type it: a clean Debian with nothing but what the page
   # lists, on both architectures (arm64 is a native runner). It tests the release this run builds, so plugin-hostd and
