@@ -29,14 +29,23 @@ default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`. The probe output schema takes the words it shares with the
 contract (`MEASUREMENT_LATENCY_METHODS`, `MEASUREMENT_VOICE_BASES`,
-`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `RESOURCE_THREAD_SCHEDULING`) from
-the vocabulary header: `protocol/probe-output.schema.in` names each as an
-`@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
-each of those enums of the generated schema to the installed contract's
-`omx-vocabulary.schema.json`, word for word and in order. `make
-test-contract` checks both, against the installed contract and against a copy
-of its header with the values changed. Nothing is linked: the header holds
-values only.
+`RESOURCE_THREAD_SCHEDULING`) from the vocabulary header: `protocol/probe-output.schema.in`
+names each as an `@OMX_<ITEM>@` token and holds no list of its own.
+
+The machine band words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`) are this tree's own
+domain, `contract.d/machine/machine.json`, no longer the contract's header. The probe runner
+and the daemon open it once at start-up through omx-contract's C loader (`libomx-domain`,
+`pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel` 3.20.0 or later;
+floor 1.0.0) and end the start-up with status 78 and the loader's code, naming the domain,
+when it is absent, invalid or older. The probe and the schema generator read `OMX_CONTRACT_PATH`
+(a ':' list, the first directory holding the domain wins: their test entry, which the Makefile
+points at this checkout's `contract.d`); the daemon reads the installed contract directory only,
+where `plugin-hostd-contract` installs it. `protocol/probe-output.schema.in` names the two lists
+`@MACHINE_<ITEM>@`. `make test-vocabulary` holds every enum of the generated schema to its
+source, word for word and in order; `make test-machine-domain` holds the probe's and the
+generator's words to a changed copy of the domain and its refusals by name; `make test-contract`
+checks the contract's own items, against the installed contract and against a copy of its header
+with the values changed.
 
 Building without omx-clap-core
 ------------------------------

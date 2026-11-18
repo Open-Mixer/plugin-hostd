@@ -57,20 +57,36 @@ static volatile int running;
 static conf_t g_conf;
 
 /* the running history, unless history_window_s is 0: under the class of this machine, or the one host_class names */
-static void history_start(const conf_t *conf)
+static int history_start(const conf_t *conf)
 {
     char klass[64];
 
     if (conf->history_window_s <= 0)
-        return;
+        return 0;
     if (*conf->host_class)
         snprintf(klass, sizeof(klass), "%s", conf->host_class);
-    else if (machine_class(klass, sizeof(klass)) != 0)
+    else
     {
-        fprintf(stderr, "plugin-hostd: the host class of this machine does not fit; no history is kept\n");
-        return;
+        machine_words words;
+        char why[512];
+
+        /* the band words are the machine domain's, read from the installed contract directory (never from the
+         * environment): refused by name when it is absent, invalid or too old, and the daemon does not start */
+        if (machine_words_open(NULL, &words, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, "plugin-hostd: %s\n", why);
+            return 78;
+        }
+        if (machine_class(&words, klass, sizeof(klass)) != 0)
+        {
+            fprintf(stderr, "plugin-hostd: the host class of this machine does not fit; no history is kept\n");
+            machine_words_close(&words);
+            return 0;
+        }
+        machine_words_close(&words);
     }
     history_init(conf->history_file, klass, conf->history_save_s);
+    return 0;
 }
 
 static void idle_cb(void)
@@ -310,7 +326,8 @@ int main(int argc, char **argv)
     /* the writer before anything is written: the command loop never waits on the disk */
     if (writer_start() != 0)
         return EXIT_FAILURE;
-    history_start(&g_conf);
+    if ((opt = history_start(&g_conf)) != 0)
+        return opt;
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);
     /* the audio cores and the daemon's own: before the sockets and the relay, so every thread starts where it stays */

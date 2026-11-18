@@ -684,15 +684,22 @@ static void test_host_class(void)
         { 4500000, "4.5GHz+" }, { 5800000, "4.5GHz+" },
     };
     const char *core, *clock;
-    char klass[64], want[96];
+    char klass[64], want[96], why[512];
     struct utsname u;
+    machine_words words;
     unsigned n;
+
+    /* the words are the machine domain's: this checkout's document (run from the tree's root), or OMX_CONTRACT_PATH's */
+    check(machine_words_open(getenv("OMX_CONTRACT_PATH") ? getenv("OMX_CONTRACT_PATH") : "contract.d", &words, why, sizeof(why)) == 0,
+          "the machine domain opens");
+    if (words.domain == NULL)
+        return;
 
     for (n = 0; n < sizeof(cores) / sizeof(cores[0]); n++)
     {
         char what[48];
 
-        machine_bands(cores[n].ncpu, 3000000, &core, &clock);
+        machine_bands(&words, cores[n].ncpu, 3000000, &core, &clock);
         snprintf(what, sizeof(what), "%ld cores", cores[n].ncpu);
         check_str(core, cores[n].want, what);
     }
@@ -700,18 +707,19 @@ static void test_host_class(void)
     {
         char what[48];
 
-        machine_bands(4, clocks[n].khz, &core, &clock);
+        machine_bands(&words, 4, clocks[n].khz, &core, &clock);
         snprintf(what, sizeof(what), "%ld kHz", clocks[n].khz);
         check_str(clock, clocks[n].want, what);
     }
-    check(machine_class(klass, sizeof(klass)) == 0, "this machine has a class");
+    check(machine_class(&words, klass, sizeof(klass)) == 0, "this machine has a class");
     uname(&u);
     snprintf(want, sizeof(want), "%s/", u.machine);
     check(!strncmp(klass, want, strlen(want)), "it starts with uname's machine");
     check(strchr(klass, '/') && strchr(strchr(klass, '/') + 1, '/') && !strchr(strchr(strchr(klass, '/') + 1, '/') + 1, '/'),
           "arch/cores/clock: two slashes");
     check(!strpbrk(klass, " \t\n"), "and no white space");
-    check(machine_class(klass, 5) == -1, "a buffer that is too small is refused, not cut");
+    check(machine_class(&words, klass, 5) == -1, "a buffer that is too small is refused, not cut");
+    machine_words_close(&words);
     group("the_host_class_is_arch_cores_clock_with_the_contracts_bands_cut_where_the_contract_cuts_them");
 }
 

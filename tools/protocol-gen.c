@@ -35,6 +35,8 @@
 #include <omxcontract/omx_contract_limits.h>
 #include <omxcontract/omx_vocabulary.h>
 #include <plugin-hostd/protocol.h>
+#include "domain_words.h"
+#include "machine.h"
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
  * ids in the same order, or nothing generated from the header builds. The contract renders an id as its word in
@@ -505,25 +507,68 @@ static const char *const PROBE_SCHED_POLICIES[] = {
     _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract's " #item ": not as many words as its count");
 VOCABULARY(MEASUREMENT_LATENCY_METHODS)
 VOCABULARY(MEASUREMENT_VOICE_BASES)
-VOCABULARY(MACHINE_CORE_BANDS)
-VOCABULARY(MACHINE_CLOCK_BANDS)
 VOCABULARY(RESOURCE_THREAD_SCHEDULING)
 #undef VOCABULARY
 
 #define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
 #define VOCAB_LIST(item) PROBE_LIST("OMX_" #item, VOCAB_##item)
 
-/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header and each
- * @OMX_<ITEM>@ token by the quoted words of that omx-contract item, so the schema's enumerations are the headers' own;
- * a token the template holds and the generator does not know is an error */
+typedef struct
+{
+    const char *token;
+    const char *const *codes;
+    size_t count;
+} probe_list_t;
+
+/* the items of the machine domain (plugin-hostd's own) the probe output shares: the token is the item's own name */
+static const char *const MACHINE_ITEMS[] = {
+    "MACHINE_CORE_BANDS",
+    "MACHINE_CLOCK_BANDS",
+};
+#define N_MACHINE_ITEMS (sizeof(MACHINE_ITEMS) / sizeof(*MACHINE_ITEMS))
+
+/* The words of items of a domain, read through the loader (OMX_CONTRACT_PATH: the generator's test entry, a ':' list whose
+ * first directory holding the domain wins; else the installed directory): out[i] is the list of items[i], its token the
+ * item's own name between '@'. One read for any domain, so another reader of a domain reuses it. Returns 0, or 1 after the
+ * refusal (the domain, or an item it lacks, by name) is on stderr. */
+static int domain_lists(const char *domain, const char *floor, const char *const *items, size_t n, probe_list_t *out,
+                        char (*tokens)[96])
+{
+    omx_domain *d = NULL;
+    char why[512];
+    size_t i;
+
+    if (domain_words_open(domain, floor, getenv("OMX_CONTRACT_PATH"), &d, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, "protocol-gen: %s\n", why);
+        return 1;
+    }
+    for (i = 0; i < n; i++)
+    {
+        const char **words;
+
+        if (domain_words_list(d, items[i], &words, &out[i].count) != 0)
+        {
+            fprintf(stderr, "protocol-gen: %s: the domain %s has no item %s\n",
+                    omx_domain_code(OMX_CONTRACT_CODE_ITEM_UNKNOWN), domain, items[i]);
+            return 1;
+        }
+        snprintf(tokens[i], sizeof(tokens[i]), "@%s@", items[i]);
+        out[i].token = tokens[i];
+        out[i].codes = words;
+    }
+    return 0;
+}
+
+/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, each
+ * @OMX_<ITEM>@ token by the quoted words of that omx-contract item and each @MACHINE_<ITEM>@ token by the quoted words
+ * of that item of the machine domain, so the schema's enumerations are the declarations' own; the domain is read through
+ * the loader from OMX_CONTRACT_PATH (the generator's test entry), else from the installed contract directory, and refused
+ * by name when it is absent, invalid, too old or lacks an item; a token the template holds and the generator does not
+ * know is an error */
 static int probe_schema(const char *path)
 {
-    static const struct
-    {
-        const char *token;
-        const char *const *codes;
-        size_t count;
-    } LISTS[] = {
+    probe_list_t LISTS[] = {
         PROBE_LIST("PHD_PROBE_OUTCOMES", PROBE_OUTCOMES),
         PROBE_LIST("PHD_PROBE_LIMIT_NAMES", PROBE_LIMIT_NAMES),
         PROBE_LIST("PHD_PROBE_LIMIT_MECHANISMS", PROBE_LIMIT_MECHANISMS),
@@ -535,12 +580,17 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
         VOCAB_LIST(MEASUREMENT_LATENCY_METHODS),
         VOCAB_LIST(MEASUREMENT_VOICE_BASES),
-        VOCAB_LIST(MACHINE_CORE_BANDS),
-        VOCAB_LIST(MACHINE_CLOCK_BANDS),
         VOCAB_LIST(RESOURCE_THREAD_SCHEDULING),
+        { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
-    FILE *f = fopen(path, "r");
+    char tokens[N_MACHINE_ITEMS][96];
+    size_t first = sizeof(LISTS) / sizeof(*LISTS) - N_MACHINE_ITEMS;
+    FILE *f;
     char line[512];
+
+    if (domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + first, tokens) != 0)
+        return 1;
+    f = fopen(path, "r");
 
     if (f == NULL)
     {

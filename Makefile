@@ -88,13 +88,21 @@ endif
 # <plugin-db/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-db.pc requires libcrypto)
 PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
-INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
+INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS)
+
+# the machine domain (contract.d/machine/) is read at start-up through omx-contract's C loader (libomx-domain), never
+# rendered here (src/domain_words.c, src/machine.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a
+# ':' list, the first directory holding the domain wins) and the daemon the installed contract directory only; the tests
+# of this tree run the CLIs over this checkout's own document
+DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
+DOMAIN_LIBS ?= $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
+export OMX_CONTRACT_PATH := $(strip $(OMX_CONTRACT_PATH)$(if $(strip $(OMX_CONTRACT_PATH)),:)$(CURDIR)/contract.d)
 
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/confine.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/domain_words.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
@@ -112,15 +120,15 @@ $(REPLY_WORDS): $(dir $(PROTOCOL_JSON))plugin-hostd-protocol.json tools/reply-wo
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
-	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/domain_words.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/domain_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
-	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
+	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
 
 # the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
 # its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so
@@ -135,7 +143,7 @@ endif
 # the declared protocol is compiled into every object
 $(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
 
-# the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
+# the host class of the history is the probe's machine class: the machine domain's band words; the JSON string literals of the
 # daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
 src/machine.o src/json.o src/transforms.o: INCS += $(CONTRACT_CFLAGS)
 
@@ -262,8 +270,9 @@ check-machine-codes:
 # the machine domain is a valid document, the codes header is its render, and the installed tree opens through the
 # loader (tests/machine_domain.py; DOMAIN_CFLAGS and DOMAIN_LIBS name a loader that pkg-config does not find)
 .PHONY: test-machine-domain
-test-machine-domain:
-	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' python3 tests/machine_domain.py
+test-machine-domain: $(PROBE) tools/protocol-gen tests/probe-child tests/stress.clap
+	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' PROBE=./$(PROBE) GEN=./tools/protocol-gen \
+	  DOMAIN_CFLAGS='$(DOMAIN_CFLAGS)' DOMAIN_LIBS='$(DOMAIN_LIBS)' CONTRACT_CFLAGS='$(CONTRACT_CFLAGS)' python3 tests/machine_domain.py
 
 # a release build is reproducible at its tag (#120): tests/rendered_at_tag.sh
 .PHONY: test-rendered-at-tag
@@ -509,8 +518,8 @@ $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)
 
-$(HISTORY_TEST): tests/history_test.c src/history.c src/words.c src/words.h src/history.h src/fsutil.c src/fsutil.h src/writer.c src/writer.h src/machine.c src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/words.c src/fsutil.c src/writer.c src/machine.c $(PROTOCOL_LIBS) $(PIN_LIBS) -lm
+$(HISTORY_TEST): tests/history_test.c src/history.c src/words.c src/words.h src/history.h src/fsutil.c src/fsutil.h src/writer.c src/writer.h src/machine.c src/machine.h src/domain_words.c src/domain_words.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/words.c src/fsutil.c src/writer.c src/machine.c src/domain_words.c $(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) -lm
 
 # tests/own_host_lv2_probe.py closes its JACK client on every exit path: run against a fake libjack whose realtime thread
 # keeps firing the callback, a probe that skips the close dies with SIGSEGV at interpreter teardown
@@ -588,7 +597,7 @@ $(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard s
 	mkdir -p tests/alloc-fail-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
-	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
@@ -597,7 +606,7 @@ $(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/g
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/world_refuse.o tests/world_refuse.c
-	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
+	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
 
 .PHONY: test-plan-refused
 test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
@@ -608,7 +617,7 @@ test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
 .PHONY: test-alloc-sweep
 test-alloc-sweep: $(ALLOC_SWEEP_DAEMON) $(FAKE)
 	ALLOC_SWEEP_DAEMON=./$(ALLOC_SWEEP_DAEMON) FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep.py
-	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
+	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
 
 # the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
 # each is built with its allocation calls renamed, so the test picks the one that fails
@@ -724,8 +733,8 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(PIN_LIBS)
+$(GEN): tools/protocol-gen.c src/domain_words.c src/domain_words.h src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) -o $@ tools/protocol-gen.c src/domain_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
 
 gen: $(GEN)
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
