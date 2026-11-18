@@ -541,7 +541,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 FORMAT_OBJ = $(filter-out src/main.o src/verbs.o,$(OBJ))
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm
 
 
 # the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
@@ -666,7 +666,7 @@ $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
-	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(CJSON_LIBS)
+	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
