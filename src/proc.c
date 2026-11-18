@@ -333,9 +333,27 @@ int proc_exited(pid_t pid, int *status)
 
 /* the workers the daemon has sent a signal to and not yet reaped: a worker that exits on SIGTERM leaves as one that
  * exited, which says nothing about the last verb it was sent */
-#define STOPPED_MAX 64
-static pid_t g_stopped[STOPPED_MAX];
-static int g_nstopped;
+static pid_t *g_stopped;
+static int g_nstopped, g_cstopped;
+
+/* room for one more: the table grows with the workers stopped and not yet reaped, and has no fixed size, because a
+ * dropped entry made a later exit read as a crash. Only an allocation that fails records nothing (the worker is still
+ * stopped; its exit is then judged as any other, which is the cost of having no memory and nothing worse). */
+static int stopped_room(void)
+{
+    pid_t *grown;
+    int cap;
+
+    if (g_nstopped < g_cstopped)
+        return 1;
+    cap = g_cstopped ? g_cstopped * 2 : 16;
+    grown = realloc(g_stopped, (size_t)cap * sizeof(pid_t));
+    if (!grown)
+        return 0;
+    g_stopped = grown;
+    g_cstopped = cap;
+    return 1;
+}
 
 int proc_stopped_by_us(pid_t pid)
 {
@@ -356,10 +374,8 @@ void proc_term_wait(pid_t pid)
 
     if (proc_dead(pid))
         return;
-    /* the oldest entry goes when the table is full: a pid that was never reaped by on_death is not coming back */
-    if (g_nstopped == STOPPED_MAX)
-        memmove(g_stopped, g_stopped + 1, --g_nstopped * sizeof(pid_t));
-    g_stopped[g_nstopped++] = pid;
+    if (stopped_room())
+        g_stopped[g_nstopped++] = pid;
     kill(pid, SIGTERM);
     for (i = 0; i < PROC_TERM_GRACE_MS / 10 && !proc_dead(pid); i++)
         usleep(10000);

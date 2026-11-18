@@ -104,6 +104,30 @@ static void rpc_to_mute(int closes, int *status, int64_t *took_ms, int *result)
     close(fd);
 }
 
+/* more workers stopped at once than any fixed table held (it held 64): every one is still known as stopped by us when it
+ * is reaped, the first as much as the last. The workers close on SIGTERM and are left unreaped, as on_death leaves them. */
+#define MANY 200
+static void many_stopped(void)
+{
+    pid_t pids[MANY];
+    int fds[MANY], n, ours = 0, status;
+
+    for (n = 0; n < MANY; n++)
+        pids[n] = spawn_mute(1, &fds[n]);
+    usleep(200000); /* the handlers are installed before the first SIGTERM */
+    for (n = 0; n < MANY; n++)
+        proc_term_wait(pids[n]);
+    for (n = 0; n < MANY; n++)
+    {
+        while (waitpid(pids[n], &status, 0) < 0 && errno == EINTR)
+            ;
+        ours += proc_stopped_by_us(pids[n]);
+        close(fds[n]);
+    }
+    check(ours == MANY, "every one of 200 workers stopped at once is still known as stopped by us (not just the last 64)");
+    check(proc_stopped_by_us(pids[0]) == 0, "and an entry is consumed once, not kept for a pid that is gone");
+}
+
 int main(void)
 {
     int status = 0, result = 0;
@@ -120,6 +144,8 @@ int main(void)
     check(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL, "a worker that ignores SIGTERM is killed after the grace");
     check(took >= 200 + PROC_TERM_GRACE_MS - 50 && took < 200 + PROC_TERM_GRACE_MS + 1500,
           "and the wait is the grace, bounded: not before it, and not long after");
+
+    many_stopped();
 
     if (failures)
         printf("proc_term: %d failed\n", failures);
