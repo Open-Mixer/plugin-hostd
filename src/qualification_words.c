@@ -25,12 +25,17 @@
 
 int qw_open(const char *dirs, omx_domain **out, char *why, size_t n)
 {
+    return qw_open_domain(QW_DOMAIN, QW_FLOOR, dirs, out, why, n);
+}
+
+int qw_open_domain(const char *domain, const char *floor, const char *dirs, omx_domain **out, char *why, size_t n)
+{
     omx_domain_error err = { 0 };
     int rc;
 
     *out = NULL;
     if (dirs == NULL || *dirs == '\0')
-        rc = omx_domain_open(QW_DOMAIN, QW_FLOOR, out, &err);
+        rc = omx_domain_open(domain, floor, out, &err);
     else
     {
         const char *p = dirs;
@@ -46,14 +51,14 @@ int qw_open(const char *dirs, omx_domain **out, char *why, size_t n)
             {
                 memcpy(dir, p, len);
                 dir[len] = '\0';
-                rc = omx_domain_open_at(dir, QW_DOMAIN, QW_FLOOR, out, &err);
+                rc = omx_domain_open_at(dir, domain, floor, out, &err);
             }
             p += len + (end != NULL);
         }
         if (rc == OMX_CONTRACT_CODE_DIR_ABSENT)
         {
             err.code = omx_domain_code(rc);
-            snprintf(err.message, sizeof(err.message), "The domain " QW_DOMAIN " is in none of %s.", dirs);
+            snprintf(err.message, sizeof(err.message), "The domain %s is in none of %s.", domain, dirs);
         }
     }
     if (rc != 0)
