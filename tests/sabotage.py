@@ -2086,6 +2086,12 @@ def arm(entry, tree):
     return ("ok   sabotage caught: %s -> %s red" % (what, name), 0)
 
 
+def table_name(job):
+    """the name an arm's FAIL line carries: its entry's first field; a module-level function, as the pool's processes
+    are sent it (a lambda does not pickle)"""
+    return job[1][0]
+
+
 def report(job, result):
     global failed
     if isinstance(result, sabotage_pool.Failed):
@@ -2115,7 +2121,7 @@ if __name__ == "__main__":
     try:
         sabotage_pool.run(plan, run_arm, sabotage_pool.jobs_from(os.environ), report,
                           exclusive=lambda job: not job[2] and (job[1][5] if len(job[1]) > 5 else False) in JACK_KINDS,
-                          label=lambda job: job[1][0])
+                          label=table_name)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print("sabotage FAILED (%d)" % failed if failed else "sabotage ok")
