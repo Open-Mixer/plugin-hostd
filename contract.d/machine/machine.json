@@ -16,43 +16,43 @@
           {
             "const": "arch",
             "title": "arch",
-            "x-code": 0,
             "description": "The machine architecture as uname -m names it.",
+            "x-code": 0,
             "x-text": "The machine architecture, as uname -m names it."
           },
           {
             "const": "family",
             "title": "family",
-            "x-code": 1,
             "description": "The CPU family and model.",
+            "x-code": 1,
             "x-text": "The CPU family and model."
           },
           {
             "const": "coreBand",
             "title": "coreBand",
-            "x-code": 2,
             "description": "The cores, as a band of MACHINE_CORE_BANDS.",
+            "x-code": 2,
             "x-text": "The core count, as a band of MACHINE_CORE_BANDS."
           },
           {
             "const": "clockBand",
             "title": "clockBand",
-            "x-code": 3,
             "description": "The clock, as a band of MACHINE_CLOCK_BANDS.",
+            "x-code": 3,
             "x-text": "The clock, as a band of MACHINE_CLOCK_BANDS."
           },
           {
             "const": "preemptRt",
             "title": "preemptRt",
-            "x-code": 4,
             "description": "Whether the kernel is PREEMPT_RT.",
+            "x-code": 4,
             "x-text": "Whether the kernel is PREEMPT_RT."
           },
           {
             "const": "cstatesLimited",
             "title": "cstatesLimited",
-            "x-code": 5,
             "description": "Whether the deep idle states are limited.",
+            "x-code": 5,
             "x-text": "Whether the deep idle states are limited."
           }
         ]
