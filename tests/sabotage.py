@@ -1712,7 +1712,7 @@ def rebuild(tree, jack):
     if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, DAEMON_TEST)):
         build(tree)
     if jack in ("verbs", "probe") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
-        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                        stdout=subprocess.DEVNULL)
 
 
@@ -1732,13 +1732,13 @@ def build(tree):
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     if not os.path.isdir(os.path.join(tree, "contract.d")):
         shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, DAEMON_TEST], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, DAEMON_TEST], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
 
 
 def build_probe(tree):
     # the probe has its own rule in the Makefile (its sources, -Isrc, the contract's flags and defines): build it there
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
 
 
@@ -1755,7 +1755,7 @@ def run_format_test(tree):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/format-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/format-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     env = dict(os.environ, PLUGIN_HOSTD_FORMAT_TEST_DIR=tree)
     p = subprocess.run([os.path.join(tree, "tests", "format-test"), FAKE], env=env, capture_output=True, text=True, timeout=120)
@@ -1766,13 +1766,13 @@ def run_relay_test(tree):
     """tests/relay_test.c against the tree's src/relay.c; it prints "ok   relay_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "relay_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/relay-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/relay-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "relay-test")], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   relay_test\n" if p.returncode == 0 else "")
 def run_contract_test(tree):
     """tests/contract_derived.py against the tree's probe runner and generator; "ok   contract" when it passes"""
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
                        text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
@@ -1781,7 +1781,7 @@ def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
-                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + pin_flags("--cflags") + pin_flags("--libs"), check=True)
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + pin_flags("--cflags") + pin_flags("--libs"), check=True, stderr=subprocess.PIPE, text=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
@@ -1789,7 +1789,7 @@ def run_history_test(tree):
     """tests/history_test.c against the tree's src/history.c; it prints "ok   <group>" for each group that passed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     # the host class's band words are the machine domain's: this checkout's document
     p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120,
@@ -1801,7 +1801,7 @@ def run_proc_test(tree):
     """tests/proc_test.c against the tree's src/proc.c; it prints "ok   proc_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "proc_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/proc-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/proc-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "proc-test")], capture_output=True, text=True, timeout=120)
     return p.returncode, p.stdout
@@ -1812,7 +1812,7 @@ def run_conf_test(tree):
     neither failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "conf_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/conf-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/conf-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
     q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
@@ -1857,7 +1857,7 @@ def run_unit_test(tree, target, source, name):
     "ok   <name>" when it passes"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", source), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, target], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, target], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, target), name], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + p.stderr
@@ -2100,8 +2100,16 @@ def arm(entry, tree):
     return ("ok   sabotage caught: %s -> %s red" % (what, name), 0)
 
 
+def table_name(job):
+    """the name an arm's FAIL line carries: its entry's first field; a module-level function, as the pool's processes
+    are sent it (a lambda does not pickle)"""
+    return job[1][0]
+
+
 def report(job, result):
     global failed
+    if isinstance(result, sabotage_pool.Failed):
+        result = (str(result), 1)
     line, bad = result
     print(line, flush=True)
     failed += bad
@@ -2126,7 +2134,8 @@ if __name__ == "__main__":
     work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
     try:
         sabotage_pool.run(plan, run_arm, sabotage_pool.jobs_from(os.environ), report,
-                          exclusive=lambda job: not job[2] and (job[1][5] if len(job[1]) > 5 else False) in JACK_KINDS)
+                          exclusive=lambda job: not job[2] and (job[1][5] if len(job[1]) > 5 else False) in JACK_KINDS,
+                          label=table_name)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print("sabotage FAILED (%d)" % failed if failed else "sabotage ok")
