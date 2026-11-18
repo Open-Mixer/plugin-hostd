@@ -13,6 +13,7 @@ import json, os, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qualification_source as qs
+from tree_files import tracked as tree_tracked
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
@@ -30,19 +31,6 @@ def check(cond, what):
         failed += 1
 
 
-def tracked():
-    # as tests/no_protocol_copy.py: a CI container may refuse git on a checkout it does not own, so the
-    # tree itself is walked then (without .git)
-    p = subprocess.run(["git", "-C", ROOT, "ls-files", "-z"], capture_output=True, text=True)
-    if p.returncode == 0 and p.stdout:
-        return [f for f in p.stdout.split("\0") if f]
-    out = []
-    for base, dirs, files in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d != ".git"]
-        out += [os.path.relpath(os.path.join(base, f), ROOT) for f in files if f != ".git"]
-    return out
-
-
 def run_probe(contract_dir, tmp):
     out = os.path.join(tmp, "probe.json")
     if os.path.exists(out):
@@ -57,7 +45,7 @@ def run_probe(contract_dir, tmp):
 
 
 def main():
-    files = tracked()
+    files = tree_tracked(ROOT)
     # 1. no render of the domain
     check(not any(os.path.basename(f) == "qualification_vocabulary.h" for f in files),
           "no qualification_vocabulary.h is tracked")

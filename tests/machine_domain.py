@@ -33,6 +33,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qualification_source  # noqa: E402
+from tree_files import tracked as tree_tracked  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "contract.d", "machine", "machine.json")
@@ -97,23 +98,10 @@ def arm1(doc):
         ok("arm 1: the document conforms")
 
 
-def tracked():
-    """the tree's files: git's list of tracked and untracked ones, or, when git answers nothing (a CI container refuses a
-    checkout another user owns), every file under the tree but .git: the walk can only add files, never hide one"""
-    p = run(["git", "ls-files", "-co", "--exclude-standard"])
-    if p.returncode == 0 and p.stdout.strip():
-        return p.stdout.split()
-    out = []
-    for base, dirs, files in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d != ".git"]
-        out += [os.path.relpath(os.path.join(base, f), ROOT) for f in files]
-    return out
-
-
 def arm2():
     before = len(failures)
     skip = {"tests/machine_domain.py"}
-    names = tracked()
+    names = tree_tracked(ROOT, untracked=True)
     for rel in names:
         if rel in skip or not os.path.isfile(os.path.join(ROOT, rel)):
             continue
