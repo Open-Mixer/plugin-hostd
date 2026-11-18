@@ -31,8 +31,16 @@ def check(cond, what):
 
 
 def tracked():
-    out = subprocess.run(["git", "-C", ROOT, "ls-files", "-z"], capture_output=True, text=True, check=True).stdout
-    return [f for f in out.split("\0") if f]
+    # as tests/no_protocol_copy.py: a CI container may refuse git on a checkout it does not own, so the
+    # tree itself is walked then (without .git)
+    p = subprocess.run(["git", "-C", ROOT, "ls-files", "-z"], capture_output=True, text=True)
+    if p.returncode == 0 and p.stdout:
+        return [f for f in p.stdout.split("\0") if f]
+    out = []
+    for base, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d != ".git"]
+        out += [os.path.relpath(os.path.join(base, f), ROOT) for f in files if f != ".git"]
+    return out
 
 
 def run_probe(contract_dir, tmp):
