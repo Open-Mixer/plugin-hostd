@@ -1,65 +1,60 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# plugin-db is a dependency with a floor and a ceiling wherever it is declared: 0.4.4, the release of the same pass
-# (0.4.1 brought plugin_db_constants.h, which src/pins.h includes so the fuzz harnesses need no OpenSSL), and 0.5, the
-# next minor. The spec's two lines, debian/control's two items and the pkg-config file of
-# the development package are read here; a missing line, a floor below FLOOR and a missing or wide ceiling are red.
+# plugin-db is a dependency with a floor and no ceiling wherever it is declared: 0.4.5, the release of the same pass
+# (0.4.1 brought plugin_db_constants.h, which src/pins.h includes so the fuzz harnesses need no OpenSSL). The spec's two
+# lines, debian/control's two items and the pkg-config file of the development package are read here; a missing line,
+# a floor other than FLOOR and any ceiling or exact pin are red.
 # Usage: plugin_db_floor.py [root]. The check proves it sees each fault before it trusts the tree.
 import os, re, sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FLOOR, CEILING = "0.4.4", "0.5"
-SPEC = re.compile(r"^(?:Build)?Requires:\s*\(\s*(pkgconfig\(plugin-db\)|plugin-db-devel)\s*>=\s*(\S+)\s+with\s+\1\s*<\s*(\S+?)\s*\)\s*$", re.M)
-SPEC_ANY = re.compile(r"^(?:Build)?Requires:.*plugin-db.*$", re.M)
-CONTROL = re.compile(r"plugin-db-dev\s*\(>=\s*([^)\s~]+)~?\),\s*plugin-db-dev\s*\(<<\s*([^)\s~]+)~?\)")
-CONTROL_ANY = re.compile(r"plugin-db-dev\s*\(")
-PC = re.compile(r"^Requires:.*\bplugin-db >= (\S+?),\s*plugin-db < (\S+?)(?:,|\s*$)", re.M)
+FLOOR = "0.4.5"
+SPEC = re.compile(r"^(?:Build)?Requires:.*\bplugin-db(?:-devel|\)|\s)[^\n]*$", re.M)
+CONTROL = re.compile(r"plugin-db-dev\s*\(([^)]*)\)")
+PC = re.compile(r"^Requires:.*\bplugin-db\s*(>=|<|=|<=)\s*(\S+?)\s*(?:,|$)", re.M)
 
 
 def problems(spec, control, pc):
     bad = []
-    # (file, the floor-and-ceiling declarations found, the declarations of any shape, how many there must be)
-    for name, found, named, want in (("packaging/plugin-hostd.spec", [(f, c) for _, f, c in SPEC.findall(spec)], len(SPEC_ANY.findall(spec)), 2),
-                                     ("debian/control", CONTROL.findall(control), len(CONTROL_ANY.findall(control)) // 2, 2)):
-        if len(found) != want or named != want:
-            bad.append("%s: %d plugin-db declarations with a floor and a ceiling, %d name plugin-db; there must be %d" % (name, len(found), named, want))
-        bad += ["%s: a floor of %s and a ceiling of %s, they are %s and %s" % (name, f, c, FLOOR, CEILING)
-                for f, c in found if (f, c) != (FLOOR, CEILING)]
-    m = PC.search(pc)
-    if not m:
-        bad.append("protocol/plugin-hostd.pc.in: no 'plugin-db >= floor, plugin-db < ceiling'")
-    elif m.groups() != (FLOOR, CEILING):
-        bad.append("protocol/plugin-hostd.pc.in: %s..%s, they are %s..%s" % (m.group(1), m.group(2), FLOOR, CEILING))
+    lines = SPEC.findall(spec)
+    if len(lines) != 2:
+        bad.append("packaging/plugin-hostd.spec: %d plugin-db declarations, there must be 2" % len(lines))
+    for l in lines:
+        if not re.search(r"(>=|>)\s*%s\b" % re.escape(FLOOR), l) or re.search(r"(<|=)\s*\d", re.sub(r">=", "", l)):
+            bad.append("packaging/plugin-hostd.spec: plugin-db is not >= %s with no ceiling: %s" % (FLOOR, l.strip()))
+    items = CONTROL.findall(control)
+    if len(items) != 2:
+        bad.append("debian/control: %d plugin-db-dev entries, there must be 2" % len(items))
+    bad += ["debian/control: plugin-db-dev (%s), it is (>= %s~) with no ceiling" % (i, FLOOR) for i in items if i != ">= %s~" % FLOOR]
+    ops = PC.findall(pc)
+    if ops != [(">=", FLOOR)]:
+        bad.append("protocol/plugin-hostd.pc.in: plugin-db declared as %s, it is >= %s alone" % (ops, FLOOR))
     return bad
 
 
-# the tree as written, from FLOOR and CEILING
-SPEC_OK = ("BuildRequires: (pkgconfig(plugin-db) >= {f} with pkgconfig(plugin-db) < {c})\n"
-           "Requires: (plugin-db-devel >= {f} with plugin-db-devel < {c})\n").format(f=FLOOR, c=CEILING)
-CTL_OK = ("Build-Depends: plugin-db-dev (>= {f}~), plugin-db-dev (<< {c}~),\n"
-          "Depends: x, plugin-db-dev (>= {f}~), plugin-db-dev (<< {c}~), y\n").format(f=FLOOR, c=CEILING)
-PC_OK = "Requires: plugin-hostd-protocol >= 0.5.0, plugin-db >= {f}, plugin-db < {c}\n".format(f=FLOOR, c=CEILING)
+SPEC_OK = ("BuildRequires: pkgconfig(plugin-db) >= {f}\n"
+           "Requires: plugin-db-devel >= {f}\n").format(f=FLOOR)
+CTL_OK = ("Build-Depends: plugin-db-dev (>= {f}~),\n"
+          "Depends: x, plugin-db-dev (>= {f}~), y\n").format(f=FLOOR)
+PC_OK = "Requires: plugin-hostd-protocol >= 0.6.0, plugin-db >= {f}\n".format(f=FLOOR)
 
 
 def main():
-    # each arm breaks the bound it names, read from FLOOR and CEILING, so a moved bound moves the arms with it
     arms = [
         ("the tree as written", SPEC_OK, CTL_OK, PC_OK, 0),
-        ("no ceiling in the spec", SPEC_OK.replace(" with plugin-db-devel < %s" % CEILING, "")
-         .replace("(plugin-db-devel >= %s)" % FLOOR, "plugin-db-devel >= %s" % FLOOR), CTL_OK, PC_OK, 1),
-        ("a wide ceiling in the spec", SPEC_OK.replace("< %s" % CEILING, "< 1", 1), CTL_OK, PC_OK, 1),
+        ("a ceiling in the spec", SPEC_OK.replace("Requires: plugin-db-devel >= %s" % FLOOR, "Requires: plugin-db-devel >= %s with plugin-db-devel < 1" % FLOOR), CTL_OK, PC_OK, 1),
         ("a low floor in the spec", SPEC_OK.replace(FLOOR, "0.0.1", 1), CTL_OK, PC_OK, 1),
-        ("no ceiling in debian/control", SPEC_OK, CTL_OK.replace(", plugin-db-dev (<< %s~)" % CEILING, "", 1), PC_OK, 1),
-        ("a wide ceiling in debian/control", SPEC_OK, CTL_OK.replace("<< %s~" % CEILING, "<< 1~", 1), PC_OK, 1),
-        ("no ceiling in the pkg-config file", SPEC_OK, CTL_OK, PC_OK.replace(", plugin-db < %s" % CEILING, ""), 1),
-        ("a wide ceiling in the pkg-config file", SPEC_OK, CTL_OK, PC_OK.replace("< %s" % CEILING, "< 1"), 1),
+        ("a ceiling in debian/control", SPEC_OK, CTL_OK.replace("plugin-db-dev (>= %s~)," % FLOOR, "plugin-db-dev (>= %s~), plugin-db-dev (<< 1~)," % FLOOR, 1), PC_OK, 1),
+        ("an exact pin in debian/control", SPEC_OK, CTL_OK.replace("(>= %s~)" % FLOOR, "(= %s)" % FLOOR, 1), PC_OK, 1),
+        ("a ceiling in the pkg-config file", SPEC_OK, CTL_OK, PC_OK.replace(", plugin-db >= %s" % FLOOR, ", plugin-db >= %s, plugin-db < 1" % FLOOR), 1),
+        ("no plugin-db in the pkg-config file", SPEC_OK, CTL_OK, PC_OK.replace(", plugin-db >= %s" % FLOOR, ""), 1),
     ]
     for what, spec, ctl, pc, want in arms:
         got = problems(spec, ctl, pc)
-        if len(got) != want:
-            print("FAIL the plugin-db check on %s: want %d findings, got %s" % (what, want, got))
+        if bool(got) != bool(want):
+            print("FAIL the plugin-db check on %s: want %s, got %s" % (what, "a finding" if want else "none", got))
             return 1
-    print("ok   the plugin-db check sees a low floor and a missing or wide ceiling in the spec, debian/control and the pkg-config file")
+    print("ok   the plugin-db check sees a low floor and a ceiling or pin in the spec, debian/control and the pkg-config file")
 
     def text(*path):
         with open(os.path.join(ROOT, *path)) as f:
@@ -69,7 +64,7 @@ def main():
         print("FAIL %s" % b)
     if bad:
         return 1
-    print("ok   plugin-db is >= %s and < %s everywhere it is declared" % (FLOOR, CEILING))
+    print("ok   plugin-db is >= %s, with no ceiling, everywhere it is declared" % FLOOR)
     return 0
 
 
