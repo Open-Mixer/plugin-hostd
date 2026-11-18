@@ -45,9 +45,8 @@ BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.20.0
 # the qualification domain, plugin-qualify's (contract.d/qualification/), which the tests read from the contract directory
-# it installs into; 0.20.6 the first release that ships it; no run-time requirement of it, plugin-qualify requires this
-# package
-BuildRequires: plugin-qualify >= 0.20.6
+# its data package installs into (0.20.6 the first release that ships it)
+BuildRequires: plugin-qualify-contract >= 0.20.6
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.5.9
@@ -102,8 +101,10 @@ Requires: omx-clap-core-contract >= 0.32.5
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
 Requires: omx-contract >= 3.20.0
-# the probe runner reads the qualification domain through the loader at start-up
+# the probe runner reads the qualification domain through the loader at start-up: the loader, and plugin-qualify's data
+# package that holds the domain (noarch data, so plugin-qualify's own requirement of this package is no cycle)
 Requires: libomx-domain >= 3.20.0
+Requires: plugin-qualify-contract >= 0.20.6
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables

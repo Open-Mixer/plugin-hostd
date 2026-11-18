@@ -36,8 +36,8 @@ The probe runner opens it once at start-up through omx-contract's C loader (`lib
 `pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel` 3.20.0 or later; floor 1.1.0) and ends
 the run with status 78 and the loader's code, naming the domain, when it is absent, invalid or older
 (`OMX_CONTRACT_PATH`, a test entry of the probe and the generator, points it at another directory). The schema generator reads it the same
-way from `OMX_CONTRACT_PATH`, else the installed directory. plugin-qualify's package installs it, so a build
-that runs the tests needs plugin-qualify installed, or a checkout's `contract.d` in `OMX_CONTRACT_PATH`.
+way from `OMX_CONTRACT_PATH`, else the installed directory. plugin-qualify's data package (`plugin-qualify-contract`, 0.20.6 or later) installs it and this package requires it, so a build
+that runs the tests needs it installed, or a checkout's `contract.d` in `OMX_CONTRACT_PATH`.
 `protocol/probe-output.schema.in` names each shared word list as an
 `@QUALIFICATION_<ITEM>@` or `@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
 each of those enums of the generated schema to the contract's item, word for word and in order;

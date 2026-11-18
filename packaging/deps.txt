@@ -11,7 +11,7 @@ omx-contract                      omx-contract                   3.20.0
 omx-contract-devel                libomx-contract-dev            3.20.0
 libomx-domain                     libomx-domain0                 3.20.0
 libomx-domain-devel               libomx-domain-dev              3.20.0
-plugin-qualify                    plugin-qualify                 0.20.6
+plugin-qualify-contract           plugin-qualify-contract        0.20.6
 plugin-hostd-protocol             libplugin-hostd-protocol0      0.5.9
 plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.5.9
 plugin-hostd-protocol-contract    plugin-hostd-protocol-contract 0.5.9
