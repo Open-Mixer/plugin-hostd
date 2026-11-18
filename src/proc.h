@@ -97,8 +97,9 @@ int proc_connect(const conf_t *conf, pid_t pid, int port, int fb_port, const cha
 /**
  * @brief Sends one command and reads one reply.
  *
- * A worker that does not answer within the timeout, or whose reply there is no memory for, is sent SIGKILL and counts
- * as having died with the command on the wire.
+ * A worker that does not answer within the timeout, or whose reply there is no memory for, is stopped as proc_term
+ * stops it (SIGTERM now, SIGKILL from proc_term_poll once PROC_TERM_GRACE_MS has passed) and counts as having died with the
+ * command on the wire. It returns at once: the worker may still be leaving, and it is not reaped here.
  *
  * @param conf the configuration (rpc_timeout_ms, the timeout)
  * @param pid the worker's process
@@ -128,8 +129,49 @@ int proc_dead(pid_t pid);
  */
 int proc_exited(pid_t pid, int *status);
 
+/** How long a worker has to leave on SIGTERM before it is sent SIGKILL. Every worker holds a JACK client, and one that is
+ * killed without closing it strands the mutexes of its metadata environment in jackd for good (a pool of a few hundred,
+ * nine to a client), so the worker is always asked first and closes the client in its own SIGTERM path. A worker that
+ * has not left in two seconds is wedged, and killing it is all that is left. */
+#define PROC_TERM_GRACE_MS 2000
+
 /**
- * @brief Stops a worker: SIGTERM, then SIGKILL after two seconds; the process is reaped.
+ * @brief Asks a worker to leave the way it can close its JACK client: SIGTERM now, and the end of PROC_TERM_GRACE_MS
+ * recorded. It does not wait: the supervisor serves the others while this one leaves, calls proc_term_poll on every tick
+ * (which sends SIGKILL to one still there when its grace has passed) and reaps it once proc_dead says it is gone. The
+ * process is not reaped: its status stays for proc_exited. A process already asked to leave keeps its first deadline.
+ *
+ * @param pid the process; 0 or below, or one that has already exited, does nothing
+ */
+void proc_term(pid_t pid);
+
+/**
+ * @brief Sends SIGKILL to every worker asked to leave by proc_term whose PROC_TERM_GRACE_MS has passed and that is still
+ * there. Called by the supervisor on every tick.
+ */
+void proc_term_poll(void);
+
+/**
+ * @brief Whether proc_term asked this process to leave and it has not been reaped yet; the answer is not cleared.
+ *
+ * @param pid the process
+ * @return 1 when it is leaving, 0 when not
+ */
+int proc_leaving(pid_t pid);
+
+/**
+ * @brief Whether proc_term sent this process a signal: the daemon ended it, it did not die of its own. A worker
+ * that exits on SIGTERM leaves with status 0, which looks like no crash at all, so the supervisor asks this before it
+ * reads the death as one that blames the last verb. Asking clears the answer, and the process is reaped after.
+ *
+ * @param pid the process
+ * @return 1 when the daemon stopped it, 0 when not
+ */
+int proc_stopped_by_us(pid_t pid);
+
+/**
+ * @brief Stops a worker as proc_term does, waiting for it, and reaps it: SIGKILL after PROC_TERM_GRACE_MS. For a worker
+ * nobody serves any more (retired, failed to start, the daemon ending); the supervisor loop never waits like this.
  *
  * @param pid the process; 0 or below does nothing
  */

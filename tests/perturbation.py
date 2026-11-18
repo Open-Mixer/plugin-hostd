@@ -105,6 +105,15 @@ def make(tree, *args):
     return subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR] + list(args), cwd=tree, capture_output=True, text=True)
 
 
+# a line that spells an old value but is a DIFFERENT quantity that happens to equal it, so it is not a copy of the
+# declaration: (what, the exact text of that line, why). Only the exact text is exempt; the pattern stays as it is.
+OLD_COPY_EXEMPT = {
+    "the suspect window default": [
+        ("#define QUIET_EXIT_MS 500",
+         "how long a worker whose socket went quiet has to exit on its own before it is asked to leave; not the suspect window"),
+    ],
+}
+
 # (the definition in the header, the pattern to find it, its replacement, a pattern for an old copy that must be gone)
 EDITS = [
     ("the suspect window default", r"(#define PHD_DEFAULT_SUSPECT_WINDOW_MS )500\b", r"\g<1>731", r"\b500\b"),
@@ -258,7 +267,9 @@ def main():
 
         for what, _, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
-                left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"))
+                exempt = [text for text, _ in OLD_COPY_EXEMPT.get(what, [])]
+                left = [l for l in grep(old, os.path.join(tree, "src"), os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"))
+                        if not any(text in l for text in exempt)]
                 assert not left, "a copy of the old value of %s remains:\n%s" % (what, "\n".join(left))
         for new in (r"\b731\b", r"\(?-595\b", "plugin-hostd is up!", r"\binstance_where\b"):
             assert grep(new, os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"), after), \

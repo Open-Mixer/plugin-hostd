@@ -583,39 +583,39 @@ SABOTAGE = [
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "", "no pin anywhere", "nopins"),
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "", "no pin anywhere", "nopins"),
     ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", "", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< 0.8~) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<= 0.9) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (= 0.9.0) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (< 0.10) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
      "no pin anywhere", "nopins"),
     ("a workflow checks omx-clap-core out again", ".github/workflows/ci.yml",
-     "      - uses: actions/checkout@v4\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n",
-     "      - uses: actions/checkout@v4\n        with:\n          repository: %s/omx-clap-core\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n" % ORG,
+     "      - uses: Open-Mixer/.github/.github/actions/deps-render@openmixer-v1\n",
+     "      - uses: Open-Mixer/.github/.github/actions/deps-render@openmixer-v1\n      - uses: actions/checkout@v4\n        with:\n          repository: %s/omx-clap-core\n" % ORG,
      "no pin anywhere", "nopins"),
     ("the tempo is not handed to a new or a respawned worker", "src/supervisor.c", "    if (host_settings_replay(w) != 0)\n",
      "    if (0)\n", "tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add"),
@@ -1691,13 +1691,12 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
 
-# the omx-clap-host-tests pin cases name the floor and the ceiling the spec declares today, so raising the pin
+# the omx-clap-host-tests pin cases name the floor the spec declares today, so raising the floor
 # never leaves them breaking a line that is no longer there
-_PIN = re.search(r"^BuildRequires: \(omx-clap-host-tests >= ([0-9.]+) with omx-clap-host-tests < ([0-9.]+)\)$",
+_PIN = re.search(r"^BuildRequires: omx-clap-host-tests >= ([0-9.]+)$",
                  open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M) \
-    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor and ceiling")
-SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)).replace("@CEIL", _PIN.group(2)) if isinstance(x, str) else x
-                  for x in case) for case in SABOTAGE]
+    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor")
+SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)) if isinstance(x, str) else x for x in case) for case in SABOTAGE]
 
 
 def rebuild(tree, jack):
@@ -1927,27 +1926,9 @@ def run_test(tree, name, jack=False):
 
 
 
-def in_shard(index):
-    """True when SABOTAGE_SHARD is unset, else when index falls in the i-th of the n shards it names (ci.yml's matrix)"""
-    shard = os.environ.get("SABOTAGE_SHARD")
-    if not shard:
-        return True
-    parts = shard.split("/")
-    try:
-        i, n = int(parts[0]), int(parts[1])
-    except (ValueError, IndexError):
-        i, n = 0, 0
-    if len(parts) != 2 or n < 1 or not (1 <= i <= n):
-        raise SystemExit("SABOTAGE_SHARD must be i/n with 1 <= i <= n, not %r" % shard)
-    return index % n == i - 1
-
-
 def selected(entry, index):
     """None when the arm runs, '' when the filters leave it out, else the line that says why it is skipped"""
     what, path, text, repl, name = entry[:5]
-    # SABOTAGE_SHARD=i/n: every n-th arm, by its position in SABOTAGE, so ci.yml's matrix runs the whole table once
-    if not in_shard(index):
-        return ""
     # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
     if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
         return ""
@@ -2118,11 +2099,6 @@ ROOT_WRITES_READ_ONLY = ("a_read_only_directory_stops_the_daemon_with_its_code_a
 work = None
 
 if __name__ == "__main__":
-    if "--count" in sys.argv[1:]:
-        # how many arms this shard (SABOTAGE_ONLY/SABOTAGE_FILE/SABOTAGE_KIND/SABOTAGE_SHARD, same as a real run)
-        # would run, with no tree copied and nothing built: ci.yml's sabotage-gate job sums this across the matrix
-        print(sum(1 for index, entry in enumerate(SABOTAGE) if selected(entry, index) is None))
-        sys.exit(0)
     # every arm in the order of the table; the arms run SABOTAGE_JOBS at a time (default: the cores, at most 8; 1 is one
     # after the other) and print in that order whichever finishes first
     plan = []
