@@ -39,3 +39,4 @@ tests/qualcost-test
 tests/sched-refuse.so
 tests/slow-fsync.so
 src/reply_words.h
+tests/*.so
