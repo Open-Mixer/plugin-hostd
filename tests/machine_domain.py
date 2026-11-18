@@ -36,6 +36,7 @@ DOC = os.path.join(ROOT, "contract.d", "machine", "machine.json")
 HEADER = os.path.join(ROOT, "include", "plugin-hostd", "machine_codes.h")
 OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
+DAEMON = os.path.abspath(os.environ.get("DAEMON", os.path.join(ROOT, "plugin-hostd")))
 CHILD = os.path.abspath(os.environ.get("PROBE_CHILD", os.path.join(ROOT, "tests", "probe-child")))
 CLAP = os.path.abspath(os.environ.get("STRESS_CLAP", os.path.join(ROOT, "tests", "stress.clap")))
 GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protocol-gen")))
@@ -308,6 +309,22 @@ def arm6(doc, tmp):
         fail("arm 6: a core band short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))
     if "1.0.0" not in run_probe(cases[2][1], tmp)[0].stderr:
         fail("arm 6: the too-old refusal does not name the floor 1.0.0")
+    # the daemon is a program too: with history on and no host_class it reads the domain at start-up from
+    # OMX_CONTRACT_PATH when it is set (a test, or a run over a checkout), else the installed contract directory
+    conf = os.path.join(tmp, "daemon.conf")
+    with open(conf, "w") as f:
+        f.write("pin_mode strict\nclap_path %s\nlv2_path %s\n" % (tmp, tmp))
+    for what, dirs, refused in (("absent", os.path.join(tmp, "nowhere"), True), ("as it is", fixture(tmp, "daemon-ok"), False)):
+        try:
+            d = subprocess.run([DAEMON, "-c", conf], capture_output=True, text=True, timeout=2,
+                               env=dict(os.environ, OMX_CONTRACT_PATH=dirs))
+            rc, err = d.returncode, d.stderr
+        except subprocess.TimeoutExpired as e:
+            rc, err = None, (e.stderr or b"").decode(errors="replace")
+        if refused and not (rc == 78 and "machine" in err):
+            fail("arm 6: a domain %s does not end the daemon's start-up with 78 and the domain's name: rc %s %r" % (what, rc, err[-200:]))
+        if not refused and rc is not None:
+            fail("arm 6: the daemon does not start over the domain %s named by OMX_CONTRACT_PATH: rc %s %r" % (what, rc, err[-200:]))
     if len(failures) == before:
         ok("arm 6: an absent, invalid, too old, short or item-less machine domain is refused by name at start-up")
 
