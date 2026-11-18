@@ -239,10 +239,10 @@
               "type": "string"
             },
             "coreBand": {
-              "enum": [@OMX_MACHINE_CORE_BANDS@]
+              "enum": [@MACHINE_CORE_BANDS@]
             },
             "clockBand": {
-              "enum": [@OMX_MACHINE_CLOCK_BANDS@]
+              "enum": [@MACHINE_CLOCK_BANDS@]
             },
             "preemptRt": {
               "type": "boolean"

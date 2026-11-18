@@ -25,13 +25,15 @@ BuildRequires: plugin-hostd-protocol-devel >= 0.5.9
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
 BuildRequires: omx-contract-devel >= 3.20.0
-# the C loader of the contract's domains: the probe runner and the schema generator read plugin-qualify's qualification
-# domain through it (3.20.0 the first release that ships it); a floor only
+# the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
+# and plugin-qualify's qualification domain through it (3.20.0 the first release that ships it); a floor only
 BuildRequires: libomx-domain-devel >= 3.20.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}
 Requires: plugin-hostd-protocol >= 0.5.9
+# the loader the daemon and the probe runner read the machine domain through, at start-up
+Requires: libomx-domain >= 3.20.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -186,6 +188,9 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %license COPYING
 %doc README.md
 %{omx_contract_dir}/plugin-hostd/
+# the domain machine (contract.d/machine), installed by omx-contract's installer in its domain mode into the contract
+# directory itself, beside the schema major's directory: the loader reads <contractdir>/machine/
+%{omx_contract_domain_dir}/machine/
 
 %changelog
 * Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1

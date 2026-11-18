@@ -19,51 +19,13 @@
  */
 #include "qualification_words.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "domain_words.h"
+
 #include <string.h>
 
 int qw_open(const char *dirs, omx_domain **out, char *why, size_t n)
 {
-    return qw_open_domain(QW_DOMAIN, QW_FLOOR, dirs, out, why, n);
-}
-
-int qw_open_domain(const char *domain, const char *floor, const char *dirs, omx_domain **out, char *why, size_t n)
-{
-    omx_domain_error err = { 0 };
-    int rc;
-
-    *out = NULL;
-    if (dirs == NULL || *dirs == '\0')
-        rc = omx_domain_open(domain, floor, out, &err);
-    else
-    {
-        const char *p = dirs;
-
-        rc = OMX_CONTRACT_CODE_DIR_ABSENT;
-        while (*p != '\0' && rc == OMX_CONTRACT_CODE_DIR_ABSENT)
-        {
-            const char *end = strchr(p, ':');
-            size_t len = end ? (size_t)(end - p) : strlen(p);
-            char dir[4096];
-
-            if (len > 0 && len < sizeof(dir))
-            {
-                memcpy(dir, p, len);
-                dir[len] = '\0';
-                rc = omx_domain_open_at(dir, domain, floor, out, &err);
-            }
-            p += len + (end != NULL);
-        }
-        if (rc == OMX_CONTRACT_CODE_DIR_ABSENT)
-        {
-            err.code = omx_domain_code(rc);
-            snprintf(err.message, sizeof(err.message), "The domain %s is in none of %s.", domain, dirs);
-        }
-    }
-    if (rc != 0)
-        snprintf(why, n, "%s: %s", err.code ? err.code : "contract.file.invalid", err.message);
-    return rc;
+    return domain_words_open(QW_DOMAIN, QW_FLOOR, dirs, out, why, n);
 }
 
 const char *qw_word(const omx_domain *d, const char *item, const char *key)
@@ -78,33 +40,4 @@ const char *qw_word(const omx_domain *d, const char *item, const char *key)
             return w.word;
     }
     return NULL;
-}
-
-int qw_words(const omx_domain *d, const char *item, const char ***out, size_t *count)
-{
-    int i, n = omx_domain_word_count(d, item);
-    const char **list;
-
-    *out = NULL;
-    *count = 0;
-    if (n < 0)
-        return OMX_CONTRACT_CODE_ITEM_UNKNOWN;
-    list = calloc((size_t)n + 1, sizeof(*list));
-    if (list == NULL)
-        return OMX_CONTRACT_CODE_FILE_INVALID;
-    for (i = 0; i < n; i++)
-    {
-        omx_domain_word_info w;
-        int rc = omx_domain_word_at(d, item, i, &w);
-
-        if (rc != 0)
-        {
-            free(list);
-            return rc;
-        }
-        list[i] = w.word;
-    }
-    *out = list;
-    *count = (size_t)n;
-    return 0;
 }

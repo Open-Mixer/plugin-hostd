@@ -24,8 +24,9 @@
  *
  * The qualification domain (contract.d/qualification/qualification.json, items QUALIFICATION_*) is plugin-qualify's:
  * this package ships no copy and no render of it. It is read once at start-up through the C loader of omx-contract
- * (libomx-domain), never in a real-time path, and refused loudly by name when it is absent, invalid or below QW_FLOOR.
+ * (libomx-domain, through domain_words_open), never in a real-time path, and refused loudly by name when it is absent, invalid or below QW_FLOOR.
  */
+#include "domain_words.h"
 #include <omxcontract/omx_domain.h>
 #include <stddef.h>
 
@@ -35,7 +36,7 @@
 #define QW_FLOOR "1.1.0"
 
 /**
- * Open the qualification domain.
+ * Open the qualification domain: domain_words_open with this domain's name and floor.
  *
  * @param dirs  NULL for the installed contract directory; else a ':' list of directories, the first that holds the domain
  *              wins (the test entry: a directory that holds it but is invalid or too old is refused, not skipped)
@@ -47,19 +48,6 @@
 int qw_open(const char *dirs, omx_domain **out, char *why, size_t n);
 
 /**
- * qw_open for any domain and floor: the one read of a domain through the loader that a reader of another domain reuses.
- *
- * @param domain the domain's name
- * @param floor  the lowest info.version the caller reads, "x.y.z"
- * @param dirs   NULL for the installed contract directory; else a ':' list, the first directory that holds the domain wins
- * @param out    receives the handle, which owns every string the lookups return until omx_domain_close()
- * @param why    receives the refusal, "<code>: <message>", when the open fails
- * @param n      the size of why
- * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal
- */
-int qw_open_domain(const char *domain, const char *floor, const char *dirs, omx_domain **out, char *why, size_t n);
-
-/**
  * The word of an item whose key (its `title`) is key: the word as the domain writes it today.
  *
  * @param d    the open handle
@@ -68,16 +56,5 @@ int qw_open_domain(const char *domain, const char *floor, const char *dirs, omx_
  * @return the word, owned by the handle; NULL when the item or the key is not in the domain
  */
 const char *qw_word(const omx_domain *d, const char *item, const char *key);
-
-/**
- * Every word of an item, in the domain's order, in a newly allocated array of pointers into the handle.
- *
- * @param d     the open handle
- * @param item  the item's name
- * @param out   receives the array (free() it), NULL when the item is not in the domain
- * @param count receives the number of words
- * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal
- */
-int qw_words(const omx_domain *d, const char *item, const char ***out, size_t *count);
 
 #endif

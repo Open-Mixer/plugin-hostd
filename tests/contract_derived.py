@@ -23,6 +23,16 @@ CJSON_CFLAGS = os.environ["CJSON_CFLAGS"] if "CJSON_CFLAGS" in os.environ else \
     subprocess.run([PKG_CONFIG, "--cflags", "libcjson"], capture_output=True, text=True, check=True).stdout
 CJSON_LIBS = os.environ["CJSON_LIBS"] if "CJSON_LIBS" in os.environ else \
     subprocess.run([PKG_CONFIG, "--libs", "libcjson"], capture_output=True, text=True, check=True).stdout
+# the machine domain's loader (libomx-domain): the Makefile's DOMAIN_CFLAGS and DOMAIN_LIBS, else pkg-config's
+DOMAIN_CFLAGS = (os.environ["DOMAIN_CFLAGS"] if "DOMAIN_CFLAGS" in os.environ else
+                 subprocess.run([PKG_CONFIG, "--cflags", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
+DOMAIN_LIBS = (os.environ["DOMAIN_LIBS"] if "DOMAIN_LIBS" in os.environ else
+               subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
+# the CLIs read the machine domain from OMX_CONTRACT_PATH: this checkout's own document
+# (then the installed contract directory, where plugin-qualify's qualification domain is)
+MACHINE_ENV = dict(os.environ, OMX_CONTRACT_PATH=":".join(
+    [os.path.join(ROOT, "contract.d")] + [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d] +
+    [subprocess.run([PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()]))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 failures = 0
 
@@ -72,7 +82,7 @@ def child_rates(probe, tmp):
     plugin = os.path.join(tmp, "x.clap")
     open(plugin, "w").close()
     subprocess.run([probe, "run", "--child", child, "--wall-s", "5", "--out", os.path.join(tmp, "doc.json"), plugin],
-                   capture_output=True, text=True, timeout=60)
+                   capture_output=True, text=True, timeout=60, env=MACHINE_ENV)
     args = open(seen).read().split("\n") if os.path.exists(seen) else []
     return args[args.index("--rates") + 1] if "--rates" in args else None
 
@@ -97,16 +107,19 @@ DOMAIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_ou
 
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + CJSON_CFLAGS.split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
-          [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + DOMAIN_LIBS + ["-lm"] + CJSON_LIBS.split()
+          [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + DOMAIN_LIBS + CJSON_LIBS.split()
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def build_gen(include_first, out, source=JSON_GEN):
+    # this tree's generator reads the machine domain through src/domain_words.c
+    own = source == OWN_GEN
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-std=gnu99", "-o", out, source] + \
-          ([os.path.join(ROOT, "src", "qualification_words.c")] if source == OWN_GEN else []) + PIN_LIBS + DOMAIN_LIBS
+          (["-I" + os.path.join(ROOT, "src")] if own else []) + pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + \
+          ["-std=gnu99", "-o", out, source] + \
+          ([os.path.join(ROOT, "src", f) for f in ("domain_words.c", "qualification_words.c")] if own else []) + PIN_LIBS + DOMAIN_LIBS
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -119,7 +132,7 @@ def gen_methods(gen, contract_path):
     """the latency methods of the probe schema the generator writes from this tree's template, the qualification domain
     read from contract_path (OMX_CONTRACT_PATH, the generator's test entry)"""
     p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
-                       text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=contract_path))
+                       text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + contract_path))
     if p.returncode != 0:
         return None
     return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]
@@ -210,7 +223,7 @@ def main():
                 del doc["components"]["schemas"][item]
             bare = qualification_source.fixture(tmp, drop, "bare")
             p = subprocess.run([os.path.join(tmp, "gen-domain"), "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")],
-                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=bare))
+                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + bare))
             check(p.returncode != 0 and p.stdout == "" and item in p.stderr,
                   "the generator refuses a domain that lacks %s, by name: rc %d %r" % (item, p.returncode, p.stderr[-200:]))
     finally:

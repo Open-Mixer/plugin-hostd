@@ -41,8 +41,10 @@ def run_probe(contract_dir, tmp):
         os.unlink(out)
     cmd = [PROBE, "run", "--child", CHILD, "--rates", "48000", "--quantum", "256", "--wall-s", "10", "--grace-ms", "200",
            "--out", out, CLAP, ID]
-    # the test entry: OMX_CONTRACT_PATH, a ':' list whose first directory holding the domain wins
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=dict(os.environ, OMX_CONTRACT_PATH=contract_dir))
+    # the test entry: OMX_CONTRACT_PATH, a ':' list whose first directory holding the domain wins; this checkout's
+    # contract.d holds the machine domain the probe reads too
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
+                       env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + contract_dir))
     return p, (json.load(open(out)) if os.path.exists(out) else None)
 
 

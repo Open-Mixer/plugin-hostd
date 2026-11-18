@@ -414,6 +414,9 @@ static void read_idle(idle_t *rows, int *count, const cpu_set_t *pinned)
 /* the idle state that counts as deep: its exit latency is above this many microseconds */
 #define DEEP_IDLE_US 20
 
+/* the machine domain's band words, read once at start-up (machine_words_open): never in a real-time path */
+static machine_words g_machine;
+
 static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
 {
     struct utsname u;
@@ -449,8 +452,8 @@ static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
         khz = atol(text);
     if (read_text("/sys/kernel/realtime", text, sizeof(text)) == 0)
         preempt_rt = atoi(text) == 1;
-    /* the bands are omx-contract's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS, the daemon's host class too */
-    machine_bands(ncpu, khz, &core_band, &clock_band);
+    /* the bands are the machine domain's MACHINE_CORE_BANDS and MACHINE_CLOCK_BANDS, read at start-up, the daemon's host class too */
+    machine_bands(&g_machine, ncpu, khz, &core_band, &clock_band);
     for (i = 0; i < g_nidle; i++)
     {
         if (g_idle_after[i].latency_us > DEEP_IDLE_US && !g_idle_after[i].disabled)
@@ -2265,7 +2268,8 @@ int main(int argc, char **argv)
                         "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n"
                         "  --lock-preload FILE  the library that locks the measured child's memory (default " PROBE_LOCK_PRELOAD ")\n"
                         "  $OMX_CONTRACT_PATH   test and development only: a ':' list of directories, the first holding the\n"
-                        "                       qualification domain is read instead of the installed contract directory\n"
+                        "                       machine and qualification domain is read instead of the installed contract\n"
+                        "                       directory\n"
                         "  --list-limits        print the limits a run would apply here, one per line, and exit\n", floor_rates());
         return 2;
     }
@@ -2338,6 +2342,17 @@ int main(int argc, char **argv)
     }
     if ((rc = qualification_words_load(getenv("OMX_CONTRACT_PATH"))) != 0)
         return rc;
+    {
+        char why[512];
+
+        /* OMX_CONTRACT_PATH is this CLI's test entry: a ':' list whose first directory holding the domain wins, else the
+         * installed contract directory; a domain that is absent, invalid or too old ends the start-up by name */
+        if (machine_words_open(getenv("OMX_CONTRACT_PATH"), &g_machine, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": %s\n", why);
+            return 78;
+        }
+    }
     o.plugin = argv[a++];
     if (a < argc)
         o.id = argv[a++];

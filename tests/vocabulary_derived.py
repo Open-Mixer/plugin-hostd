@@ -4,16 +4,19 @@
 # generated schema holds at a token's place must be the contract's omx-vocabulary.schema.json $defs.<ITEM>.enum, the
 # same words in the same order. A list of the template that is the whole of a contract item, typed by hand, is refused
 # even when its words are right today: it is the second copy that drifts.
-#   vocabulary_derived.py [tree]   tree holds protocol/ (default: this checkout); the contract's schema is
+# The machine band words are not omx-contract's: they are the domain `machine` (contract.d/machine/machine.json, plugin-hostd's
+# own), the template names them @MACHINE_<ITEM>@ and the generator reads them through the loader; the generated enum must be
+# the document's words in x-code order, which is the index.
+#   vocabulary_derived.py [tree]   tree holds protocol/ and contract.d/ (default: this checkout); the contract's schema is
 #                                  $OMX_VOCABULARY, or omx-vocabulary.schema.json in pkg-config's datadir of omx-contract
 import copy, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TREE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
-TOKEN = re.compile(r"@((?:OMX|PHD|QUALIFICATION)_[A-Z0-9_]+)@")
-# the items the probe output must take from the contract (#115), the qualification's from plugin-qualify's domain (its item
-# names, QUALIFICATION_*, are the tokens); any other @OMX_<ITEM>@ the template names is held to the contract all the same
+TOKEN = re.compile(r"@((?:OMX|PHD|MACHINE|QUALIFICATION)_[A-Z0-9_]+)@")
+# the items the probe output must take from a domain: the machine domain's (this tree's) and the qualification domain's
+# (plugin-qualify's), their item names the tokens; any other @OMX_<ITEM>@ the template names is held to the contract all the same
 REQUIRED = ("QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "QUALIFICATION_MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS",
             "MACHINE_CLOCK_BANDS", "QUALIFICATION_RESOURCE_THREAD_SCHEDULING")
 failed = 0
@@ -62,13 +65,13 @@ def template(path):
 
 
 def derived(tmpl):
-    """{pointer: item} of every enum of the template that is one @OMX_<ITEM>@ token"""
+    """{pointer: item} of every enum of the template that is one @OMX_<ITEM>@ or @MACHINE_<ITEM>@ token"""
     out = {}
     for pointer, values in enums(tmpl):
         m = TOKEN.fullmatch(values[0]) if len(values) == 1 and isinstance(values[0], str) else None
         if m and m.group(1).startswith("OMX_"):
             out[pointer] = m.group(1)[len("OMX_"):]
-        elif m and m.group(1).startswith("QUALIFICATION_"):
+        elif m and m.group(1).startswith(("MACHINE_", "QUALIFICATION_")):
             out[pointer] = m.group(1)
     return out
 
@@ -102,7 +105,8 @@ def domains(tree):
             if not os.path.exists(path):
                 continue
             for item, schema in json.load(open(path))["components"]["schemas"].items():
-                out.setdefault(item, {"enum": [e["const"] for e in schema["oneOf"]]})
+                # the domain's order is its x-code order, which is the index
+                out.setdefault(item, {"enum": [e["const"] for e in sorted(schema["oneOf"], key=lambda e: e.get("x-code", 0))]})
     return out
 
 
@@ -112,6 +116,10 @@ def main():
     tmpl = template(os.path.join(TREE, "protocol", "probe-output.schema.in"))
     generated = json.load(open(os.path.join(TREE, "protocol", "probe-output.schema.json")))
     places = derived(tmpl)
+
+    stale = sorted({t for t in TOKEN.findall(open(os.path.join(TREE, "protocol", "probe-output.schema.in")).read())
+                    if t.startswith("OMX_MACHINE_")})
+    check(not stale, "the template names no omx-contract token for a machine word, they are the domain's (@MACHINE_<ITEM>@): %s" % stale)
 
     for item in REQUIRED:
         check(item in places.values(), "the template takes %s from the contract" % item)
