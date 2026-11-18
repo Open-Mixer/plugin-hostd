@@ -11,11 +11,12 @@ import copy, json, os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TREE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
-TOKEN = re.compile(r"@((?:OMX|PHD)_[A-Z0-9_]+)@")
-# the items the probe output must take from the contract (#115), the machine's from this package's own domain (contract.d/machine); any other @OMX_<ITEM>@ the template names is held to
-# the contract all the same
-REQUIRED = ("MEASUREMENT_LATENCY_METHODS", "MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS",
-            "RESOURCE_THREAD_SCHEDULING")
+TOKEN = re.compile(r"@((?:OMX|PHD|QUALIFICATION)_[A-Z0-9_]+)@")
+# the items the probe output must take from the contract (#115): the machine's from this package's own domain
+# (contract.d/machine), the qualification's from plugin-qualify's (its item names, QUALIFICATION_*, are the tokens); any other
+# @OMX_<ITEM>@ the template names is held to the contract all the same
+REQUIRED = ("QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "QUALIFICATION_MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS",
+            "MACHINE_CLOCK_BANDS", "QUALIFICATION_RESOURCE_THREAD_SCHEDULING")
 failed = 0
 
 
@@ -68,6 +69,8 @@ def derived(tmpl):
         m = TOKEN.fullmatch(values[0]) if len(values) == 1 and isinstance(values[0], str) else None
         if m and m.group(1).startswith("OMX_"):
             out[pointer] = m.group(1)[len("OMX_"):]
+        elif m and m.group(1).startswith("QUALIFICATION_"):
+            out[pointer] = m.group(1)
     return out
 
 
@@ -124,15 +127,15 @@ def main():
         check((pointer, item) not in found, "%s at %s is the contract's%s" % (item, pointer, "" if (pointer, item) not in found
               else ": the schema has %s, the contract %s" % found[(pointer, item)]))
 
-    methods = [at(generated, p)["enum"] for p, i in places.items() if i == "MEASUREMENT_LATENCY_METHODS"]
+    methods = [at(generated, p)["enum"] for p, i in places.items() if i == "QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]
     check(any("note-onset" in m for m in methods), "the latency methods include note-onset: %s" % methods)
 
     # positive control: a contract whose item has one word more, or its words in another order, is told apart
     moved = copy.deepcopy(core)
-    moved["MEASUREMENT_LATENCY_METHODS"]["enum"] = moved["MEASUREMENT_LATENCY_METHODS"]["enum"] + ["x-onset"]
+    moved["QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]["enum"] = moved["QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]["enum"] + ["x-onset"]
     moved["MACHINE_CLOCK_BANDS"]["enum"] = list(reversed(moved["MACHINE_CLOCK_BANDS"]["enum"]))
     told = {i for _, i, _, _ in differences(generated, places, moved)}
-    check(told == {"MEASUREMENT_LATENCY_METHODS", "MACHINE_CLOCK_BANDS"},
+    check(told == {"QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "MACHINE_CLOCK_BANDS"},
           "positive control: a contract with a word more and one in another order differs there only: %s" % sorted(told))
 
     print("vocabulary: %s" % ("FAILED (%d)" % failed if failed else "ok"))
