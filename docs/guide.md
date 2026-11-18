@@ -145,6 +145,11 @@ It prints `plugin-hostd ready!` once both ports accept.
 No worker exists until the first `add`. `quit` or SIGTERM stops every worker and the daemon;
 after a SIGKILL the workers notice the parent gone (`PR_SET_PDEATHSIG`) and exit.
 
+A worker the daemon stops itself (one that does not answer within `rpc_timeout_ms`, or whose plugin a pin refuses) is
+sent SIGTERM so it closes its JACK client, and SIGKILL if it is still there two seconds later. The daemon does not wait
+for it: the other workers are served meanwhile, the stopped one shows as `backoff` while it leaves, and it is respawned
+only once it is gone.
+
 Both ports listen on 127.0.0.1, so only programs on the same machine reach them. To control the daemon from
 another machine, start it with `--bind-address <address>` or set `bind_address` in the settings; `0.0.0.0` is every
 address of the machine. A controller is not authenticated and can load a plugin from any path, so do that only on a
