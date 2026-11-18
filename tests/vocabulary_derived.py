@@ -108,6 +108,7 @@ def domains(tree):
 
 def main():
     core = json.load(open(vocabulary_path()))["$defs"]
+    core.update(domains(TREE))
     tmpl = template(os.path.join(TREE, "protocol", "probe-output.schema.in"))
     generated = json.load(open(os.path.join(TREE, "protocol", "probe-output.schema.json")))
     places = derived(tmpl)

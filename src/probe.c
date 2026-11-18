@@ -95,6 +95,7 @@
 #include "confine.h"
 #include "probe_cgroup.h"
 #include "probe_lock.h"
+#include "qualification_words.h"
 
 #ifndef SCHED_DEADLINE
 #define SCHED_DEADLINE 6
@@ -663,6 +664,48 @@ static memlock_t g_lock;
 /* the lock preload, as --lock-preload names it */
 static const char *g_lock_preload = PROBE_LOCK_PRELOAD;
 
+/* The qualification words a run writes: plugin-qualify's domain (qualification_words.h), read once at start-up, the words
+ * of these keys as the domain writes them, held by the open handle for the life of the process. Never read in a real-time
+ * path. */
+static struct
+{
+    const char *impulse_onset, *note_onset, *declared_port, *fifo, *none;
+} g_qw;
+
+/* open the domain (dirs: the installed directory, or the OMX_CONTRACT_PATH list of this CLI's test entry) and read the words; 0, or the exit status of
+ * a refused start-up (78) after the refusal is on stderr by its code and the domain's name */
+static int qualification_words_load(const char *dirs)
+{
+    static omx_domain *domain;
+    const struct
+    {
+        const char **slot;
+        const char *item, *key;
+    } want[] = {
+        { &g_qw.impulse_onset, "QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "impulseOnset" },
+        { &g_qw.note_onset, "QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "noteOnset" },
+        { &g_qw.declared_port, "QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "declaredPort" },
+        { &g_qw.fifo, "QUALIFICATION_RESOURCE_THREAD_SCHEDULING", "fifo" },
+        { &g_qw.none, "QUALIFICATION_RESOURCE_THREAD_SCHEDULING", "none" },
+    };
+    char why[512];
+    size_t i;
+
+    if (qw_open(dirs, &domain, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, RUNNER_NAME ": %s\n", why);
+        return 78;
+    }
+    for (i = 0; i < sizeof(want) / sizeof(*want); i++)
+        if ((*want[i].slot = qw_word(domain, want[i].item, want[i].key)) == NULL)
+        {
+            fprintf(stderr, RUNNER_NAME ": %s: the domain " QW_DOMAIN " has no word %s in %s\n",
+                    omx_domain_code(OMX_CONTRACT_CODE_WORD_UNKNOWN), want[i].key, want[i].item);
+            return 78;
+        }
+    return 0;
+}
+
 /* whether this process is in the initial user namespace: its uid_map is the identity map of every uid. In another one
  * (rootless podman, unshare -r, PrivateUsers=yes) CapEff can show a capability the kernel does not honour for
  * sched_setscheduler, which checks it against the initial namespace */
@@ -802,7 +845,7 @@ static void put_realtime(sb_t *b)
     int fifo = realtime_fifo();
 
     sb_printf(b, ",\n    \"realtime\": {\"class\": \"%s\", \"priority\": %d, \"requested\": %d, \"grantedBy\": \"%s\"",
-              fifo ? OMX_RESOURCE_THREAD_SCHEDULING_FIFO : OMX_RESOURCE_THREAD_SCHEDULING_NONE, fifo ? g_rt.priority : 0,
+              fifo ? g_qw.fifo : g_qw.none, fifo ? g_rt.priority : 0,
               g_rt.requested, fifo ? g_rt.granted_by : GRANT_NONE);
     if (!fifo)
     {
@@ -1800,11 +1843,11 @@ static void put_lv2_measure(sb_t *b, const cJSON *m, long rate, unsigned quantum
         int from_note = jstr(lat, "from") && !strcmp(jstr(lat, "from"), "note");
 
         sb_printf(b, ", \"latency\": {\"declaredFrames\": %.0f, \"measuredFrames\": %.0f, \"method\": \"%s\"%s}", decl, meas,
-                  from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET,
+                  from_note ? g_qw.note_onset : g_qw.impulse_onset,
                   from_note ? ", \"heard\": true" : "");
     }
     else if (jnum(lat, "declaredFrames", &decl) && jstr(lat, "declaredFrom") && !strcmp(jstr(lat, "declaredFrom"), "port"))
-        sb_printf(b, ", \"latency\": {\"declaredFrames\": %.0f, \"method\": \"%s\"}", decl, OMX_MEASUREMENT_LATENCY_METHODS_DECLARED_PORT);
+        sb_printf(b, ", \"latency\": {\"declaredFrames\": %.0f, \"method\": \"%s\"}", decl, g_qw.declared_port);
     put_cost(b, jget(m, "cost"), key);
     put_memory(b, jget(m, "cost"), key);
     if (rt)
@@ -2221,6 +2264,8 @@ int main(int argc, char **argv)
                         "  --cpus LIST          pin the child to these cpus (\"0-3,8\")\n"
                         "  --require LIMIT      refuse to run unless the limit is applied (repeatable)\n"
                         "  --lock-preload FILE  the library that locks the measured child's memory (default " PROBE_LOCK_PRELOAD ")\n"
+                        "  $OMX_CONTRACT_PATH   test and development only: a ':' list of directories, the first holding the\n"
+                        "                       qualification domain is read instead of the installed contract directory\n"
                         "  --list-limits        print the limits a run would apply here, one per line, and exit\n", floor_rates());
         return 2;
     }
@@ -2291,6 +2336,8 @@ int main(int argc, char **argv)
         fprintf(stderr, RUNNER_NAME ": a plugin file and positive limits are needed\n");
         return 2;
     }
+    if ((rc = qualification_words_load(getenv("OMX_CONTRACT_PATH"))) != 0)
+        return rc;
     o.plugin = argv[a++];
     if (a < argc)
         o.id = argv[a++];
@@ -2593,7 +2640,7 @@ int main(int argc, char **argv)
             sb_printf(&doc, "]");
         }
         sb_printf(&doc, ", \"realtime\": \"%s\"},\n  \"limits\": {\"set\": ",
-                  realtime_fifo() ? OMX_RESOURCE_THREAD_SCHEDULING_FIFO : OMX_RESOURCE_THREAD_SCHEDULING_NONE);
+                  realtime_fifo() ? g_qw.fifo : g_qw.none);
         sb_str(&doc, o.set);
         sb_printf(&doc, ",\n    \"applied\": [");
         for (i = 0; i < g_napplied; i++)
@@ -2638,7 +2685,7 @@ int main(int argc, char **argv)
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
                                 "\"measuredFrames\": %.0f, \"method\": \"%s\"",
                           k ? "," : "", atol(jkey(latency, k)), o.quantum, OUT_OK, decl, meas,
-                          from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);
+                          from_note ? g_qw.note_onset : g_qw.impulse_onset);
                 if (from_note)
                     sb_printf(&doc, ", \"heard\": %s", jbool(jkid(latency, k), "heard", 1) ? "true" : "false");
                 sb_printf(&doc, "}");

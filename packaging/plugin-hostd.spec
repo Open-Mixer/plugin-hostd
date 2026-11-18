@@ -24,7 +24,10 @@ BuildRequires: plugin-hostd-protocol-devel >= 0.5.9
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: omx-contract-devel >= 3.18.0
+BuildRequires: omx-contract-devel >= 3.20.0
+# the C loader of the contract's domains: the probe runner and the schema generator read plugin-qualify's qualification
+# domain through it (3.20.0 the first release that ships it); a floor only
+BuildRequires: libomx-domain-devel >= 3.20.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}
@@ -40,7 +43,11 @@ BuildRequires: omx-clap-host-tests >= 0.32.5
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: omx-contract >= 3.18.0
+BuildRequires: omx-contract >= 3.20.0
+# the qualification domain, plugin-qualify's (contract.d/qualification/), which the tests read from the contract directory
+# it installs into; 0.20.6 the first release that ships it; no run-time requirement of it, plugin-qualify requires this
+# package
+BuildRequires: plugin-qualify >= 0.20.6
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.5.9
@@ -94,7 +101,9 @@ Requires: omx-clap-core-contract >= 0.32.5
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: omx-contract >= 3.18.0
+Requires: omx-contract >= 3.20.0
+# the probe runner reads the qualification domain through the loader at start-up
+Requires: libomx-domain >= 3.20.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
