@@ -16,4 +16,4 @@ plugin-db-devel                   plugin-db-dev                  0.4.4
 omx-clap-core-contract            omx-clap-core-contract         0.32.5
 omx-clap-host-tests               omx-clap-host-tests            0.32.5
 omx-dsp-devel                     libomxdsp-dev                  0.32.0
-omx-clap-host                    omx-clap-host                  0.32.5
+omx-clap-host                     omx-clap-host                  0.32.5
