@@ -2634,6 +2634,66 @@ def a_binary_swapped_between_the_hash_and_the_load_is_refused():
         p.close()
 
 
+def swap_late_env(p):
+    """FAKE_SWAP_ON_ADD for the plugin file with an exchange partner that does not exist yet: the worker's adds swap
+    nothing until the test writes the partner (the returned path), and the next load is then of a swapped file"""
+    evil = os.path.join(p.dir, "clap", "late-evil.clap")
+    return {"FAKE_SWAP_ON_ADD": "%s=%s" % (p.clap, evil)}, evil
+
+
+@test
+def a_worker_the_daemon_stops_on_a_pin_refusal_blames_and_drops_nothing():
+    """a worker the daemon ends itself on a pin refusal (the add of a third member of a pool swapped between the hash and
+    the load) is asked to leave with SIGTERM and exits 0, as the real host does: that is the daemon's own stop, so the
+    verb a member was sent a moment before is not dropped as the suspect, and no member is quarantined"""
+    p = Plugins()
+    env, evil = swap_late_env(p)
+    d = p.daemon(env=env)
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        for i in (0, 1):
+            d.expect("add %s %d pool:p" % (p.clap_uri, i), "resp %d" % i)
+        d.expect("param_set 0 gain 0.7000", "resp 0")
+        write(evil, b"a build nobody hashed")
+        mark = d.mark()
+        d.expect("add %s 2 pool:p" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        died = d.wait_event("worker_died ", since=mark)
+        check(" exit:0 " in died, "the pool's worker left on SIGTERM, not SIGKILL: " + died)
+        d.settle(mark)
+        check(not any(e.startswith("instance_verb_dropped") or e.startswith("instance_quarantined") for e in d.events[mark:]),
+              "no verb was dropped as the suspect and no member quarantined: %s" % d.events[mark:])
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_worker_refused_by_its_pin_at_a_replay_is_stopped_with_sigterm():
+    """the respawned worker whose replayed add loads a swapped file is asked to leave with SIGTERM before it is killed:
+    it exits 0, where a direct SIGKILL would show as signal:9"""
+    p = Plugins()
+    env, evil = swap_late_env(p)
+    d = p.daemon(env=env)
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        _, w = d.holder(0)
+        write(evil, b"a build nobody hashed")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("worker_died ", since=mark)
+        deaths = []
+        deadline = time.time() + 15
+        while time.time() < deadline and len(deaths) < 2:
+            deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+            time.sleep(0.05)
+        check(len(deaths) >= 2, "the worker the replay refused died too: %s" % deaths)
+        check(len(deaths) >= 2 and " exit:0 " in deaths[1], "and it left on SIGTERM, not SIGKILL: %s" % deaths)
+    finally:
+        d.close()
+        p.close()
+
+
 @test
 def a_swapped_clap_binary_is_refused_before_any_worker_sees_add():
     p = Plugins()

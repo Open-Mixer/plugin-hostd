@@ -1201,7 +1201,7 @@ static void clear_suspects(worker_t *w)
 
 static void on_death(worker_t *w, int in_flight)
 {
-    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst;
+    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst, ours;
     char ids[1024], how[32];
     int64_t now = proc_now_ms();
     instance_t **members = NULL, *blamed = NULL;
@@ -1217,9 +1217,12 @@ static void on_death(worker_t *w, int in_flight)
         usleep(10000);
     if (!done)
     {
-        kill(w->pid, SIGKILL);
+        /* still there after it went quiet: asked to leave before it is killed, so that it closes its JACK client */
+        proc_term_wait(w->pid);
         waitpid(w->pid, &status, 0);
     }
+    /* before the pid is forgotten: a worker the daemon asked to leave (and that left on SIGTERM, status 0) is no crash */
+    ours = proc_stopped_by_us(w->pid);
     if (WIFSIGNALED(status))
         snprintf(how, sizeof(how), "signal:%d", WTERMSIG(status));
     else
@@ -1236,8 +1239,9 @@ static void on_death(worker_t *w, int in_flight)
     while (w->npend)
         free(w->pend[--w->npend]);
     note_death(w->deaths, &w->ndeaths, now);
-    /* a kill from outside says nothing about the last verb */
-    if (in_flight == -1 && !(WIFSIGNALED(status) && (WTERMSIG(status) == SIGKILL || WTERMSIG(status) == SIGTERM)))
+    /* a kill from outside, or a stop by the daemon itself, says nothing about the last verb */
+    if (in_flight == -1 && !ours &&
+        !(WIFSIGNALED(status) && (WTERMSIG(status) == SIGKILL || WTERMSIG(status) == SIGTERM)))
         in_flight = drop_suspect(w, now);
     clear_suspects(w);
 
@@ -1502,7 +1506,7 @@ static int replay_add(worker_t *w, instance_t *i)
         if (code != SUCCESS)
         {
             replay_refused(w, i, "pin", code);
-            kill(w->pid, SIGKILL);
+            proc_term_wait(w->pid);
             on_death(w, -1);
             return -1;
         }
@@ -2294,7 +2298,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
                 worker_retire(w);
             else
             {
-                kill(w->pid, SIGKILL);
+                proc_term_wait(w->pid);
                 on_death(w, -1);
             }
             return sup_resp(loaded);
