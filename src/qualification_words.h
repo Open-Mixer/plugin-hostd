@@ -29,8 +29,9 @@
 #include <omxcontract/omx_domain.h>
 #include <stddef.h>
 
-/** the domain's name, and the lowest info.version this package reads */
+/** the domain's name */
 #define QW_DOMAIN "qualification"
+/** the lowest info.version of the domain this package reads */
 #define QW_FLOOR "1.1.0"
 
 /**
@@ -45,13 +46,25 @@
  */
 int qw_open(const char *dirs, omx_domain **out, char *why, size_t n);
 
-/** qw_open for any domain and floor: the one read of a domain through the loader (the first directory of the ':' list
- *  that holds it wins, none given means the installed directory) that a reader of another domain reuses */
+/**
+ * qw_open for any domain and floor: the one read of a domain through the loader that a reader of another domain reuses.
+ *
+ * @param domain the domain's name
+ * @param floor  the lowest info.version the caller reads, "x.y.z"
+ * @param dirs   NULL for the installed contract directory; else a ':' list, the first directory that holds the domain wins
+ * @param out    receives the handle, which owns every string the lookups return until omx_domain_close()
+ * @param why    receives the refusal, "<code>: <message>", when the open fails
+ * @param n      the size of why
+ * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal
+ */
 int qw_open_domain(const char *domain, const char *floor, const char *dirs, omx_domain **out, char *why, size_t n);
 
 /**
  * The word of an item whose key (its `title`) is key: the word as the domain writes it today.
  *
+ * @param d    the open handle
+ * @param item the item's name, e.g. QUALIFICATION_RESOURCE_THREAD_SCHEDULING
+ * @param key  the word's key
  * @return the word, owned by the handle; NULL when the item or the key is not in the domain
  */
 const char *qw_word(const omx_domain *d, const char *item, const char *key);
@@ -59,7 +72,9 @@ const char *qw_word(const omx_domain *d, const char *item, const char *key);
 /**
  * Every word of an item, in the domain's order, in a newly allocated array of pointers into the handle.
  *
- * @param out receives the array (free() it), NULL when the item is not in the domain
+ * @param d     the open handle
+ * @param item  the item's name
+ * @param out   receives the array (free() it), NULL when the item is not in the domain
  * @param count receives the number of words
  * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal
  */
