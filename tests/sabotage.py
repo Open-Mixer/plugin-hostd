@@ -1709,7 +1709,7 @@ def rebuild(tree, jack):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, "plugin-hostd")):
+    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, DAEMON_TEST)):
         build(tree)
     if jack in ("verbs", "probe") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
         subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
@@ -1722,9 +1722,17 @@ def reply_words_generator(tree):
     shutil.copy(os.path.join(ROOT, "tools", "reply-words.py"), os.path.join(tree, "tools"))
 
 
+DAEMON_TEST = os.path.join("tests", "plugin-hostd-test")
+
+
 def build(tree):
+    """the tree's test build of the daemon (the Makefile's PROG_TEST: the packaged daemon reads the installed contract directory
+    only, the test build the tree's copy of contract.d/machine, which the tree holds)"""
     reply_words_generator(tree)
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    if not os.path.isdir(os.path.join(tree, "contract.d")):
+        shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, DAEMON_TEST], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
 
 
@@ -1835,7 +1843,7 @@ def run_verbs_test(tree, name):
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
                            text=True, timeout=60, env=dict(os.environ, PROTOCOL_DIR=PROTOCOL_DIR))
     else:
-        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
+        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE,
                    PROBE=os.path.join(tree, "plugin-hostd-probe"))
         if os.path.exists(os.path.join(tree, PROTOCOL_VERBS)):
             env["PLUGIN_HOSTD_VERBS"] = os.path.join(tree, PROTOCOL_VERBS)
@@ -1861,11 +1869,11 @@ def run_test(tree, name, jack=False):
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
-        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, "plugin-hostd")],
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, DAEMON_TEST)],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "searchpath":
-        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, "plugin-hostd")],
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, DAEMON_TEST)],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "placement":
@@ -1924,7 +1932,7 @@ def run_test(tree, name, jack=False):
         return p.returncode, p.stdout
     # a sabotaged timing proof is judged as on a quiet node: on a loaded runner its miss would warn and pass, and the
     # arm would read as decoration (ruling 2026-11-11; the load is faked to 0 for the arm and its control alike)
-    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
+    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
     cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
     return p.returncode, p.stdout

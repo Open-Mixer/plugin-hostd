@@ -70,11 +70,16 @@ static int history_start(const conf_t *conf)
         machine_words words;
         char why[512];
 
-        /* the band words are the machine domain's, read where OMX_CONTRACT_PATH says (a ':' list, the program's own
-         * choice, as the probe's) or else from the installed contract directory: refused by name when it is absent,
-         * invalid or too old, and the daemon does not start */
-        const char *dirs = getenv("OMX_CONTRACT_PATH");
-        if (machine_words_open(dirs && *dirs ? dirs : NULL, &words, why, sizeof(why)) != 0)
+        /* the band words are the machine domain's, read from the installed contract directory: refused by name when it
+         * is absent, invalid or too old, and the daemon does not start. The daemon reads no path and no environment
+         * variable for the contract: OMX_CONTRACTDIR is the test build's seam (the Makefile's PROG_TEST, never
+         * installed or packaged), a directory the test build was given at compile time */
+#ifdef OMX_CONTRACTDIR
+        const char *dirs = OMX_CONTRACTDIR;
+#else
+        const char *dirs = NULL;
+#endif
+        if (machine_words_open(dirs, &words, why, sizeof(why)) != 0)
         {
             fprintf(stderr, "plugin-hostd: %s\n", why);
             return 78;
@@ -275,9 +280,7 @@ int main(int argc, char **argv)
                        "                                 where each list comes from (file, env, default), and exit\n"
                        "  -n, --nofork                   accepted; the daemon never forks\n"
                        "  -V, --version                  print program version and exit\n"
-                       "  -h, --help                     print this help and exit\n"
-                       "OMX_CONTRACT_PATH, a ':' list of directories, names where the machine domain is read (the first\n"
-                       "that holds it); unset, the installed contract directory\n",
+                       "  -h, --help                     print this help and exit\n",
                        argv[0], SOCKET_DEFAULT_PORT);
                 return opt == 'h' ? EXIT_SUCCESS : EXIT_FAILURE;
         }
