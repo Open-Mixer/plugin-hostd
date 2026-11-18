@@ -39,6 +39,7 @@ tests/qualcost-test
 tests/sched-refuse.so
 tests/slow-fsync.so
 src/reply_words.h
+tests/*.so
 tests/plugin-hostd-test
 tests/plugin-hostd-test-empty
 tests/contract-tree/

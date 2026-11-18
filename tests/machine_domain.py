@@ -31,6 +31,10 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import qualification_source  # noqa: E402
+from tree_files import tracked as tree_tracked  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "contract.d", "machine", "machine.json")
 HEADER = os.path.join(ROOT, "include", "plugin-hostd", "machine_codes.h")
@@ -94,23 +98,10 @@ def arm1(doc):
         ok("arm 1: the document conforms")
 
 
-def tracked():
-    """the tree's files: git's list of tracked and untracked ones, or, when git answers nothing (a CI container refuses a
-    checkout another user owns), every file under the tree but .git: the walk can only add files, never hide one"""
-    p = run(["git", "ls-files", "-co", "--exclude-standard"])
-    if p.returncode == 0 and p.stdout.strip():
-        return p.stdout.split()
-    out = []
-    for base, dirs, files in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d != ".git"]
-        out += [os.path.relpath(os.path.join(base, f), ROOT) for f in files]
-    return out
-
-
 def arm2():
     before = len(failures)
     skip = {"tests/machine_domain.py"}
-    names = tracked()
+    names = tree_tracked(ROOT, untracked=True)
     for rel in names:
         if rel in skip or not os.path.isfile(os.path.join(ROOT, rel)):
             continue
@@ -212,19 +203,25 @@ def renamed(doc):
             w["const"] += "-x"
 
 
+def with_qualification(contract_dir):
+    """the test entry for the probe and the generator, which read plugin-qualify's qualification domain as well: the machine
+    directory under test first, the directory that holds the qualification domain after it"""
+    return contract_dir + ":" + qualification_source.source_dir()
+
+
 def run_probe(contract_dir, tmp):
     out = os.path.join(tmp, "probe.json")
     if os.path.exists(out):
         os.unlink(out)
     cmd = [PROBE, "run", "--child", CHILD, "--rates", "48000", "--quantum", "256", "--wall-s", "10", "--grace-ms", "200",
            "--out", out, CLAP, "org.plugin-hostd.test.stress"]
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=dict(os.environ, OMX_CONTRACT_PATH=contract_dir))
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=dict(os.environ, OMX_CONTRACT_PATH=with_qualification(contract_dir)))
     return p, (json.load(open(out)) if os.path.exists(out) else None)
 
 
 def generate(contract_dir):
     return subprocess.run([GEN, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
-                          text=True, env=dict(os.environ, OMX_CONTRACT_PATH=contract_dir))
+                          text=True, env=dict(os.environ, OMX_CONTRACT_PATH=with_qualification(contract_dir)))
 
 
 def arm3(doc, tmp):

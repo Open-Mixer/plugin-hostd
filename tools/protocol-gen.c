@@ -23,7 +23,7 @@
  *
  *   protocol-gen regions       the name of every region, one per line
  *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header,
- *                              and each @OMX_<ITEM>@ token by the words of omx-contract's <ITEM> (omx_vocabulary.h)
+ *                              and each @MACHINE_<ITEM>@ / @QUALIFICATION_<ITEM>@ token by the words of that item of the domain
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
@@ -33,10 +33,10 @@
 #include <string.h>
 
 #include <omxcontract/omx_contract_limits.h>
-#include <omxcontract/omx_vocabulary.h>
 #include <plugin-hostd/protocol.h>
 #include "domain_words.h"
 #include "machine.h"
+#include "qualification_words.h"
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
  * ids in the same order, or nothing generated from the header builds. The contract renders an id as its word in
@@ -500,18 +500,15 @@ static const char *const PROBE_SCHED_POLICIES[] = {
 #undef X
 };
 
-/* the words of the omx-contract items the probe output shares with the other readers of a measurement: the contract
- * declares them once, and the schema takes them from it, in its order */
-#define VOCABULARY(item) \
-    static const char *const VOCAB_##item[] = OMX_##item##_INIT; \
-    _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract's " #item ": not as many words as its count");
-VOCABULARY(MEASUREMENT_LATENCY_METHODS)
-VOCABULARY(MEASUREMENT_VOICE_BASES)
-VOCABULARY(RESOURCE_THREAD_SCHEDULING)
-#undef VOCABULARY
-
 #define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
-#define VOCAB_LIST(item) PROBE_LIST("OMX_" #item, VOCAB_##item)
+
+/* the items of plugin-qualify's qualification domain the probe output shares: the token is the item's own name */
+static const char *const QUALIFICATION_ITEMS[] = {
+    "QUALIFICATION_MEASUREMENT_LATENCY_METHODS",
+    "QUALIFICATION_MEASUREMENT_VOICE_BASES",
+    "QUALIFICATION_RESOURCE_THREAD_SCHEDULING",
+};
+#define N_QUALIFICATION_ITEMS (sizeof(QUALIFICATION_ITEMS) / sizeof(*QUALIFICATION_ITEMS))
 
 typedef struct
 {
@@ -561,11 +558,11 @@ static int domain_lists(const char *domain, const char *floor, const char *const
 }
 
 /* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, each
- * @OMX_<ITEM>@ token by the quoted words of that omx-contract item and each @MACHINE_<ITEM>@ token by the quoted words
- * of that item of the machine domain, so the schema's enumerations are the declarations' own; the domain is read through
- * the loader from OMX_CONTRACT_PATH (the generator's test entry), else from the installed contract directory, and refused
- * by name when it is absent, invalid, too old or lacks an item; a token the template holds and the generator does not
- * know is an error */
+ * @MACHINE_<ITEM>@ token by the quoted words of that item of the machine domain and each @QUALIFICATION_<ITEM>@ token
+ * by the quoted words of that item of plugin-qualify's qualification domain, so the schema's enumerations are the
+ * declarations' own; each domain is read through the loader from OMX_CONTRACT_PATH (the generator's test entry: a ':'
+ * list, the first directory holding it wins), else from the installed contract directory, and refused by name when it is
+ * absent, invalid, too old or lacks an item; a token the template holds and the generator does not know is an error */
 static int probe_schema(const char *path)
 {
     probe_list_t LISTS[] = {
@@ -578,20 +575,21 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
         PROBE_LIST("PHD_PROBE_RT_GRANTS", PROBE_RT_GRANTS),
         PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
-        VOCAB_LIST(MEASUREMENT_LATENCY_METHODS),
-        VOCAB_LIST(MEASUREMENT_VOICE_BASES),
-        VOCAB_LIST(RESOURCE_THREAD_SCHEDULING),
-        { NULL, NULL, 0 }, { NULL, NULL, 0 },
+        { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
-    char tokens[N_MACHINE_ITEMS][96];
-    size_t first = sizeof(LISTS) / sizeof(*LISTS) - N_MACHINE_ITEMS;
+    char machine_tokens[N_MACHINE_ITEMS][96];
+    char qualification_tokens[N_QUALIFICATION_ITEMS][96];
+    size_t machine_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS;
+    size_t qualification_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS;
     FILE *f;
     char line[512];
 
-    if (domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + first, tokens) != 0)
+    if (domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
+                     machine_tokens) != 0 ||
+        domain_lists(QW_DOMAIN, QW_FLOOR, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + qualification_first,
+                     qualification_tokens) != 0)
         return 1;
     f = fopen(path, "r");
-
     if (f == NULL)
     {
         perror(path);

@@ -90,13 +90,15 @@ PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
 INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS)
 
-# the machine domain (contract.d/machine/) is read at start-up through omx-contract's C loader (libomx-domain), never
-# rendered here (src/domain_words.c, src/machine.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a
-# ':' list, the first directory holding the domain wins) and the daemon the installed contract directory only; the tests
-# of this tree run the CLIs over this checkout's own document
+# the machine domain (contract.d/machine/) and plugin-qualify's qualification domain (contract.d/qualification/ there) are
+# read at start-up through omx-contract's C loader (libomx-domain), never rendered here (src/domain_words.c, src/machine.c,
+# src/qualification_words.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a ':' list, the first
+# directory holding the domain wins) and the daemon the installed contract directory only; the tests of this tree run the
+# CLIs over this checkout's own machine document, the installed contract directory after it for plugin-qualify's
 DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
 DOMAIN_LIBS ?= $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
-export OMX_CONTRACT_PATH := $(strip $(OMX_CONTRACT_PATH)$(if $(strip $(OMX_CONTRACT_PATH)),:)$(CURDIR)/contract.d)
+INSTALLED_CONTRACT_DIR := $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null)
+export OMX_CONTRACT_PATH := $(strip $(OMX_CONTRACT_PATH)$(if $(strip $(OMX_CONTRACT_PATH)),:)$(CURDIR)/contract.d$(if $(INSTALLED_CONTRACT_DIR),:$(INSTALLED_CONTRACT_DIR)))
 
 LDFLAGS += -Wl,--no-undefined
 
@@ -108,7 +110,6 @@ OBJ = $(SRC:.c=.o)
 # the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
 # (render-verbs below); the daemon's verbs and reply codes are rendered in plugin-hostd-protocol, beside protocol.h
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
-
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
 # from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
 .DEFAULT_GOAL := all
@@ -155,8 +156,8 @@ $(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/domain_words.c
-$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/domain_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/domain_words.c src/qualification_words.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/domain_words.h src/qualification_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
@@ -460,7 +461,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-machine-domain check-machine-codes test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-machine-domain check-machine-codes test-qualification-domain test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -764,8 +765,8 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c src/domain_words.c src/domain_words.h src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) -o $@ tools/protocol-gen.c src/domain_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
+$(GEN): tools/protocol-gen.c src/domain_words.c src/domain_words.h src/machine.h src/qualification_words.c src/qualification_words.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) -o $@ tools/protocol-gen.c src/domain_words.c src/qualification_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
 
 gen: $(GEN)
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
@@ -877,6 +878,11 @@ check-ci-guards:
 # installed omx-vocabulary.schema.json, and the template types none of the contract's lists by hand
 test-vocabulary:
 	python3 tests/vocabulary_derived.py
+
+# the qualification words are plugin-qualify's domain, read by the probe through the C loader: no render of it here, the
+# probe's words follow a changed copy, an absent or too old domain is refused by name
+test-qualification-domain: $(PROBE) tests/probe-child tests/stress.clap
+	PROBE=./$(PROBE) python3 tests/qualification_domain.py
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates

@@ -26,7 +26,7 @@ BuildRequires: plugin-hostd-protocol-devel >= 0.5.9
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
 BuildRequires: omx-contract-devel >= 3.20.0
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
-# through it (3.20.0 the first release that ships it); a floor only
+# and plugin-qualify's qualification domain through it (3.20.0 the first release that ships it); a floor only
 BuildRequires: libomx-domain-devel >= 3.20.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
@@ -46,6 +46,9 @@ BuildRequires: omx-clap-host-tests >= 0.32.5
 BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.20.0
+# the qualification domain, plugin-qualify's (contract.d/qualification/), which the tests read from the contract directory
+# its data package installs into (0.20.6 the first release that ships it)
+BuildRequires: plugin-qualify-contract >= 0.20.6
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.5.9
@@ -100,6 +103,10 @@ Requires: omx-clap-core-contract >= 0.32.5
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
 Requires: omx-contract >= 3.20.0
+# the probe runner reads the qualification domain through the loader at start-up: the loader, and plugin-qualify's data
+# package that holds the domain (noarch data, so plugin-qualify's own requirement of this package is no cycle)
+Requires: libomx-domain >= 3.20.0
+Requires: plugin-qualify-contract >= 0.20.6
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
