@@ -174,7 +174,7 @@ install_protocol:
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
-	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
+	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' -e 's,@PROTOCOL_FLOOR@,$(shell tools/dep-floor.sh plugin-hostd-protocol-devel),g' -e 's,@PLUGIN_DB_FLOOR@,$(shell tools/dep-floor.sh plugin-db-devel),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
 # the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
@@ -398,7 +398,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -621,9 +621,9 @@ JACK_SERVER ?= pipewire
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 # the reply curve_points must give, from omx-dsp's omx_curve_points (header only): the real instances' curves are held
 # to it in tests/jack_e2e.py
-OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= 0.32.0' 'omxdsp < 0.33' 2>/dev/null)
+OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= $(shell tools/dep-floor.sh omx-dsp-devel)' 2>/dev/null)
 tests/curve_reply: tests/curve_reply.c
-	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel >= 0.32.0 and < 0.33" >&2; exit 1; }
+	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel (the floor of packaging/deps.txt)" >&2; exit 1; }
 	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) -o $@ $< -lm
 
 test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply
@@ -743,14 +743,24 @@ check-no-pins:
 
 # the package that ships contract.d/<major>/plugin-hostd requires omx-contract 3.2.0 or later at run time, in the spec and
 # debian/control: the first whose schema takes every row key of the tables (#165)
-check-clap-core-floor:
-	python3 tests/clap_core_floor.py
-
-check-plugin-db-floor:
-	python3 tests/plugin_db_floor.py
+# the dependency floors are declared once, in packaging/deps.txt (floors only); the engine is Open-Mixer/.github's
+# deps-render (CI runs it as that action): locally name a checkout of it, make deps-check DOTGITHUB=<dir>;
+# make deps writes the floors into the spec and debian/control
+DOTGITHUB ?=
+.PHONY: deps deps-check
+deps:
+	@test -n "$(DOTGITHUB)" || { echo "$@: name a checkout of Open-Mixer/.github: make $@ DOTGITHUB=<dir>" >&2; exit 2; }
+	$(DOTGITHUB)/.github/actions/deps-render/render.sh --write .
+deps-check:
+	@test -n "$(DOTGITHUB)" || { echo "$@: name a checkout of Open-Mixer/.github: make $@ DOTGITHUB=<dir>" >&2; exit 2; }
+	$(DOTGITHUB)/.github/actions/deps-render/render.sh --check .
 
 check-contract-floor:
 	python3 tests/contract_floor.py
+
+# every dependency deps.txt lists is declared at its floor and no ceiling, in the spec and in debian/control (tests/floors_only.py)
+check-floors-only:
+	python3 tests/floors_only.py
 
 # plugin-hostd builds neither package that moved out: plugin-hostd-full is Open-Mixer/plugin-hostd-full's (#84), the
 # Python codec python3-plugin-hostd-protocol is plugin-hostd-protocol's, at epoch 1 (tests/no_moved_packages.py)
