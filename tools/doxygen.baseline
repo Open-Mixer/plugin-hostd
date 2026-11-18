@@ -33,8 +33,6 @@ src/fsutil.h: warning: Member fs_into_place(const char *tmp, const char *final) 
 src/fsutil.h: warning: Member fs_mkdir_parents(char *path) (function) of file fsutil.h is not documented.
 src/fsutil.h: warning: Member fs_sync_dir(const char *path) (function) of file fsutil.h is not documented.
 src/fsutil.h: warning: Member fs_write_atomic(const char *path, const char *bytes, size_t len) (function) of file fsutil.h is not documented.
-src/machine.h: warning: Member machine_bands(long ncpu, long khz, const char **core_band, const char **clock_band) (function) of file machine.h is not documented.
-src/machine.h: warning: Member machine_class(char *out, size_t size) (function) of file machine.h is not documented.
 src/names.h: warning: Compound NAMES_T is not documented.
 src/names.h: warning: Member n (variable) of struct NAMES_T is not documented.
 src/names.h: warning: Member name (variable) of struct NAMES_T is not documented.
