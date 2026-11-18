@@ -1,3 +1,21 @@
+plugin-hostd (0.20.8) unstable; urgency=medium
+
+  * Built and run against the 3.19.0 pass's releases, every floor at the chain
+    line's needs and no ceiling: plugin-hostd-protocol >= 0.6.0, omx-contract
+    >= 3.19.0, omx-clap-host, omx-clap-host-tests and omx-clap-core >= 0.33.0,
+    plugin-db >= 0.4.5, omx-dsp >= 0.32.0. A floor is the only bound a
+    dependency carries; a ceiling or an exact pin is refused by the packaging
+    checks. A worker the daemon gives up on is asked to leave before it is
+    killed, so it closes its JACK client, and the suspect and blame logic is
+    skipped for a worker the daemon stopped itself (#148). Main since 0.20.7:
+    the C API documented to the doxygen gate, the doc gates by the standard
+    tools (doxygen for C, ruff for Python; the baselines only shrink), the
+    bundle rule's listing, the consumer test names its failing step and
+    pkg-config's reason, and the make test arms run under $(MAKE) (#135, #141,
+    #142, #145, #147).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Wed, 18 Nov 2026 12:35:53 +0100
+
 plugin-hostd (0.20.7) unstable; urgency=medium
 
   * Built and run against the 3.18.0 pass's releases, every floor at the
