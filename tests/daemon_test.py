@@ -4524,7 +4524,8 @@ def each_alone(d, ids):
 @test
 def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
     path = refusal_file()
-    d = daemon(env={"FAKE_REFUSE_CHAIN": path})
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_REFUSE_CHAIN": path, "FAKE_LOG": log})
     try:
         for i in (40, 41):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
@@ -4539,6 +4540,12 @@ def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
         check(chain_of(d, 5) == {}, "no worker is left in the chain's place: %s" % d.workers())
         each_alone(d, (40, 41))
         check("refused 'chain 5 41 40'" in d.log(), "the refusal is written: %s" % d.log()[-400:])
+        # the refusal is kept on the chain and the worker stays up to hand the members back: it is told to remove each of
+        # them. A refusal taken for the worker's death stops it instead, and nothing is removed from it
+        lines = [l.split(" ", 1) for l in open(log).read().splitlines()]
+        pid = [p for p, l in lines if l == "chain 5 41 40"][0]
+        check([l for p, l in lines if p == pid and l.startswith("remove ")] == ["remove 41", "remove 40"],
+              "the worker that refused the chain removes its members one by one: %s" % lines)
         d.expect("param_get 40 gain", "resp 0 0.2500")
         # refused once, the members are free: a chain the worker takes forms over them
         os.unlink(path)
@@ -4548,8 +4555,9 @@ def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
         check(list(chain_of(d, 5).values())[0]["inst"] == [41, 40], "formed after the refusal: %s" % d.workers())
     finally:
         d.close()
-        if os.path.exists(path):
-            os.unlink(path)
+        for f in (path, log):
+            if os.path.exists(f):
+                os.unlink(f)
 
 
 @test
