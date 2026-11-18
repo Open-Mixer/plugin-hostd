@@ -539,12 +539,12 @@ SABOTAGE = [
      "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
     ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
      "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
-    ("the generator types the latency methods by hand", "tools/protocol-gen.c", "VOCABULARY(MEASUREMENT_LATENCY_METHODS)\n",
-     'static const char *const VOCAB_MEASUREMENT_LATENCY_METHODS[] = { "impulse-onset", "declared-port", "note-onset" };\n',
+    ("the generator types the latency methods by hand", "tools/protocol-gen.c", "        LISTS[first + q].codes = words;\n",
+     '        if (q == 0)\n        {\n            static const char *const typed[] = { "impulse-onset", "declared-port", "note-onset" };\n'
+     '            words = typed;\n            LISTS[first + q].count = 3;\n        }\n        LISTS[first + q].codes = words;\n',
      "contract", "contract"),
-    ("the generator does not hold a word list to its count", "tools/protocol-gen.c",
-     '    _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract\'s " #item ": not as many words as its count");\n',
-     "\n", "contract", "contract"),
+    ("the generator writes an empty list for an item the domain lacks", "tools/protocol-gen.c",
+     '            return 1;\n        }\n        snprintf(tokens[q]', '        }\n        snprintf(tokens[q]', "contract", "contract"),
     ("two errors share a code", "include/plugin-hostd/omx_clap_core_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
      "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
@@ -752,9 +752,21 @@ SABOTAGE = [
      "an_lv2_point_carries_the_note_sweep_and_what_run_did_while_the_notes_played", "probe"),
     ("a note sweep leaves out its allocations", "src/probe.c", '    put_count(b, ns, "allocationsInRun", "allocations");\n', "",
      "a_clap_point_carries_the_note_sweep_counts", "probe"),
-    ("a latency from a note is called an impulse's", "src/probe.c", 'from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);',
-     'OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);',
+    ("a latency from a note is called an impulse's", "src/probe.c", 'from_note ? g_qw.note_onset : g_qw.impulse_onset);',
+     'g_qw.impulse_onset);',
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
+    ("the probe writes a scheduling class it types itself", "src/probe.c", 'fifo ? g_qw.fifo : g_qw.none, fifo ? g_rt.priority : 0',
+     'fifo ? "fifo" : "none", fifo ? g_rt.priority : 0', "run.realtime.class is the domain's word", "qualdomain"),
+    ("the probe asks the domain for no floor", "src/qualification_words.h", '#define QW_FLOOR "1.1.0"', '#define QW_FLOOR "0.0.0"',
+     "a domain below 1.1.0 is refused", "qualdomain"),
+    ("the probe starts on a domain the loader refused", "src/probe.c", '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0)\n',
+     '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0 && 0)\n', "an absent domain ends the run", "qualdomain"),
+    ("the probe ignores OMX_CONTRACT_PATH", "src/probe.c", 'qualification_words_load(getenv("OMX_CONTRACT_PATH"))', "qualification_words_load(NULL)",
+     "run.realtime.class is the domain's word", "qualdomain"),
+    ("a missing domain does not name the directories tried", "src/qualification_words.c", '" is in none of %s.", dirs);',
+     '" is in none of the directories.");', "no directory holds the domain: exit 78 naming the domain and both directories", "qualdomain"),
+    ("the probe takes a word the domain lacks as nothing", "src/probe.c", '        if ((*want[i].slot = qw_word(domain, want[i].item, want[i].key)) == NULL)\n',
+     '        if ((*want[i].slot = qw_word(domain, want[i].item, want[i].key)) == NULL && 0)\n', "a domain without a word the probe writes", "qualdomain"),
     ("a note that did not sound is heard", "src/probe.c", 'jbool(jkid(latency, k), "heard", 1) ? "true" : "false"', '"true"',
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("the probe schema has no notes held in a cost", "protocol/probe-output.schema.json", '            "voices": {\n', '            "voices-": {\n',
@@ -802,19 +814,20 @@ SABOTAGE = [
      "refused: fifo claimed while the kernel reported the child SCHED_OTHER", "probeschema"),
     ("the generated schema lost a latency method the contract has", "protocol/probe-output.schema.json",
      '"declared-port", "note-onset"]', '"declared-port"]',
-     "MEASUREMENT_LATENCY_METHODS at /$defs/point/properties/latency/properties/method is the contract's", "vocabulary"),
+     "QUALIFICATION_MEASUREMENT_LATENCY_METHODS at /$defs/point/properties/latency/properties/method is the contract's", "vocabulary"),
     ("the generated schema has the clock bands in an order of its own", "protocol/probe-output.schema.json",
      '"3.5-4.5GHz", "4.5GHz+"]', '"4.5GHz+", "3.5-4.5GHz"]',
      "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
-    ("the contract gives its hosts a scheduling class the schema does not have", "omx-vocabulary.schema.json",
-     '        "none",\n        "fifo"\n', '        "none",\n        "fifo",\n        "rr"\n',
-     "RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
+    ("the qualification domain gives its hosts a scheduling class the schema does not have", "contract.d/qualification/qualification.json",
+     '            "x-text": "The real-time FIFO scheduling class."\n          }\n',
+     '            "x-text": "The real-time FIFO scheduling class."\n          },\n          {"const": "rr", "title": "rr", "x-code": 2, "x-text": "x"}\n',
+     "QUALIFICATION_RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
     ("the template types the latency methods by hand again", "protocol/probe-output.schema.in",
-     '"enum": [@OMX_MEASUREMENT_LATENCY_METHODS@]', '"enum": ["impulse-onset", "declared-port", "note-onset"]',
+     '"enum": [@QUALIFICATION_MEASUREMENT_LATENCY_METHODS@]', '"enum": ["impulse-onset", "declared-port", "note-onset"]',
      "the template types no list of the contract's by hand", "vocabulary"),
     ("the template takes the voice basis from nowhere", "protocol/probe-output.schema.in",
-     '"enum": [@OMX_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
-     "the template takes MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
+     '"enum": [@QUALIFICATION_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
+     "the template takes QUALIFICATION_MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
     ("a chain declared again is always formed again", "src/supervisor.c",
      "(chain_in_place(c) ? chain_update(c) : chain_form(c))",
      "(0 ? chain_update(c) : chain_form(c))",
@@ -1708,7 +1721,7 @@ def rebuild(tree, jack):
             os.unlink(os.path.join(tree, "src", f))
     if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, "plugin-hostd")):
         build(tree)
-    if jack in ("verbs", "probe") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
+    if jack in ("verbs", "probe", "qualdomain") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
         subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
                        stdout=subprocess.DEVNULL)
 
@@ -1892,6 +1905,11 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_test.py")], env=env, capture_output=True, text=True,
                            timeout=300)
         return p.returncode, p.stdout
+    if jack == "qualdomain":
+        env = dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe"))
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "qualification_domain.py")], env=env, capture_output=True,
+                           text=True, timeout=300)
+        return p.returncode, p.stdout
     if jack == "probeschema":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_schema.py"), tree], capture_output=True,
                            text=True, timeout=60)
@@ -1995,7 +2013,7 @@ def arm(entry, tree):
         os.makedirs(os.path.join(tree, "tests"))
         for f in ("gesture_alloc_test.c", "lv2_alloc_test.c", "verbs_alloc_test.c"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
-    elif jack == "probe":
+    elif jack in ("probe", "qualdomain"):
         # the probe is built by the Makefile's own rule: its sources, headers and the spec its VERSION is read from
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -2013,11 +2031,16 @@ def arm(entry, tree):
         datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
                                  check=True).stdout.strip()
         shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
+        # plugin-qualify's qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import qualification_source
+        shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
+                        os.path.join(tree, "contract.d", qualification_source.DOMAIN))
     elif jack == "contract":
         for d in ("src", "include", "tools", "protocol"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
         os.makedirs(os.path.join(tree, "tests"))
-        for f in ("contract_derived.py", "declared.py"):
+        for f in ("contract_derived.py", "declared.py", "qualification_source.py"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
         for f in ("Makefile",):
             shutil.copy(os.path.join(ROOT, f), tree)
@@ -2071,7 +2094,7 @@ def arm(entry, tree):
     if path == PROTOCOL_VERBS:
         # a changed declaration is rendered, as plugin-hostd-protocol renders it, before the daemon is built from it
         declared.render_overlay(tree, os.path.join(tree, PROTOCOL_VERBS))
-    if jack == "probe":
+    if jack in ("probe", "qualdomain"):
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
                       "verbtable", "planner", "qualcost", "placement", "pool", "timing"):
