@@ -213,7 +213,9 @@ def main():
                   "the probe schema's latency methods are the installed domain's %s" % have)
 
             def grow(doc):
-                doc["components"]["schemas"][item]["oneOf"].append({"const": "x-onset", "title": "xOnset", "x-code": 99, "x-text": "x"})
+                words = doc["components"]["schemas"][item]["oneOf"]
+                # the loader holds a word's x-code to its index: the new word takes the next one
+                words.append({"const": "x-onset", "title": "xOnset", "x-code": len(words), "x-text": "x"})
             grown = qualification_source.fixture(tmp, grow, "grown")
             methods = gen_methods(os.path.join(tmp, "gen-domain"), grown)
             check(methods is not None and methods[-1:] == ["x-onset"],
