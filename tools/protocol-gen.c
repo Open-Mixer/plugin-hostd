@@ -519,6 +519,46 @@ static const char *const QUALIFICATION_ITEMS[] = {
 };
 #define N_QUALIFICATION_ITEMS (sizeof(QUALIFICATION_ITEMS) / sizeof(*QUALIFICATION_ITEMS))
 
+typedef struct
+{
+    const char *token;
+    const char *const *codes;
+    size_t count;
+} probe_list_t;
+
+/* The words of items of a domain, read through the loader (OMX_CONTRACT_PATH: the generator's test entry, a ':' list whose
+ * first directory holding the domain wins; else the installed directory): out[i] is the list of items[i], its token the
+ * item's own name between '@'. One read for any domain, so another reader of a domain reuses it. Returns 0, or 1 after the
+ * refusal (the domain, or an item it lacks, by name) is on stderr. */
+static int domain_lists(const char *domain, const char *floor, const char *const *items, size_t n, probe_list_t *out,
+                        char (*tokens)[96])
+{
+    omx_domain *d = NULL;
+    char why[512];
+    size_t i;
+
+    if (qw_open_domain(domain, floor, getenv("OMX_CONTRACT_PATH"), &d, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, "protocol-gen: %s\n", why);
+        return 1;
+    }
+    for (i = 0; i < n; i++)
+    {
+        const char **words;
+
+        if (qw_words(d, items[i], &words, &out[i].count) != 0)
+        {
+            fprintf(stderr, "protocol-gen: %s: the domain %s has no item %s\n",
+                    omx_domain_code(OMX_CONTRACT_CODE_ITEM_UNKNOWN), domain, items[i]);
+            return 1;
+        }
+        snprintf(tokens[i], sizeof(tokens[i]), "@%s@", items[i]);
+        out[i].token = tokens[i];
+        out[i].codes = words;
+    }
+    return 0;
+}
+
 /* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, each
  * @OMX_<ITEM>@ token by the quoted words of that omx-contract item and each @QUALIFICATION_<ITEM>@ token by the quoted
  * words of that item of plugin-qualify's qualification domain, so the schema's enumerations are the declarations' own;
@@ -527,12 +567,7 @@ static const char *const QUALIFICATION_ITEMS[] = {
  * a token the template holds and the generator does not know is an error */
 static int probe_schema(const char *path)
 {
-    struct
-    {
-        const char *token;
-        const char *const *codes;
-        size_t count;
-    } LISTS[] = {
+    probe_list_t LISTS[] = {
         PROBE_LIST("PHD_PROBE_OUTCOMES", PROBE_OUTCOMES),
         PROBE_LIST("PHD_PROBE_LIMIT_NAMES", PROBE_LIMIT_NAMES),
         PROBE_LIST("PHD_PROBE_LIMIT_MECHANISMS", PROBE_LIMIT_MECHANISMS),
@@ -547,31 +582,12 @@ static int probe_schema(const char *path)
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
     char tokens[N_QUALIFICATION_ITEMS][96];
-    size_t first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS, q;
-    omx_domain *domain = NULL;
-    char why[512];
+    size_t first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS;
     FILE *f;
     char line[512];
 
-    if (qw_open(getenv("OMX_CONTRACT_PATH"), &domain, why, sizeof(why)) != 0)
-    {
-        fprintf(stderr, "protocol-gen: %s\n", why);
+    if (domain_lists(QW_DOMAIN, QW_FLOOR, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + first, tokens) != 0)
         return 1;
-    }
-    for (q = 0; q < N_QUALIFICATION_ITEMS; q++)
-    {
-        const char **words;
-
-        if (qw_words(domain, QUALIFICATION_ITEMS[q], &words, &LISTS[first + q].count) != 0)
-        {
-            fprintf(stderr, "protocol-gen: %s: the domain " QW_DOMAIN " has no item %s\n",
-                    omx_domain_code(OMX_CONTRACT_CODE_ITEM_UNKNOWN), QUALIFICATION_ITEMS[q]);
-            return 1;
-        }
-        snprintf(tokens[q], sizeof(tokens[q]), "@%s@", QUALIFICATION_ITEMS[q]);
-        LISTS[first + q].token = tokens[q];
-        LISTS[first + q].codes = words;
-    }
     f = fopen(path, "r");
     if (f == NULL)
     {

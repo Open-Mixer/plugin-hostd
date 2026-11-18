@@ -45,6 +45,10 @@
  */
 int qw_open(const char *dirs, omx_domain **out, char *why, size_t n);
 
+/** qw_open for any domain and floor: the one read of a domain through the loader (the first directory of the ':' list
+ *  that holds it wins, none given means the installed directory) that a reader of another domain reuses */
+int qw_open_domain(const char *domain, const char *floor, const char *dirs, omx_domain **out, char *why, size_t n);
+
 /**
  * The word of an item whose key (its `title`) is key: the word as the domain writes it today.
  *
