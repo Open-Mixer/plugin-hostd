@@ -806,6 +806,9 @@ SABOTAGE = [
     ("the generated schema has the clock bands in an order of its own", "protocol/probe-output.schema.json",
      '"3.5-4.5GHz", "4.5GHz+"]', '"4.5GHz+", "3.5-4.5GHz"]',
      "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
+    ("the machine domain's top clock band is another word than the generated schema's", "contract.d/machine/machine.json",
+     '"const": "4.5GHz+"', '"const": "4.6GHz+"',
+     "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
     ("the contract gives its hosts a scheduling class the schema does not have", "omx-vocabulary.schema.json",
      '        "none",\n        "fifo"\n', '        "none",\n        "fifo",\n        "rr"\n',
      "RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
@@ -1780,7 +1783,9 @@ def run_history_test(tree):
     shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
     subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True,
                    stdout=subprocess.DEVNULL)
-    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
+    # the host class's band words are the machine domain's: this checkout's document
+    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120,
+                       env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d")))
     return p.returncode, p.stdout
 
 
@@ -2010,6 +2015,8 @@ def arm(entry, tree):
         shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
     elif jack == "vocabulary":
         shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
+        # the machine words are plugin-hostd's own domain, the source the generated enums are held to
+        shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
         datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
                                  check=True).stdout.strip()
         shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)

@@ -2,23 +2,31 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """tests/machine_domain.py: plugin-hostd owns the domain `machine` (contract.d/machine/machine.json) ; consumer-move recipe,
-arms 1, 2, 4 and 7 (arms 3, 5 and 6 need the loader in plugin-hostd's own code and follow in part 2).
+arms 1 to 7.
 
 1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, every item MACHINE_-prefixed;
 2. no machine_vocabulary.h exists or is included;
+3. the words the probe and the schema generator write are the domain's: a scratch copy with every band word renamed, read
+   through OMX_CONTRACT_PATH, gives the renamed words in the probe's machine.class and in the generated schema;
 4. include/plugin-hostd/machine_codes.h holds exactly the items marked x-c-codes and is the render (--check), or there is none;
+5. the CLIs (the probe, the generator) read OMX_CONTRACT_PATH, the library entry (machine_words_open with no directory,
+   the daemon's) ignores it, and nothing of src/machine.c or src/domain_words.c reads the environment;
+6. a machine domain that is absent, invalid, too old (below 1.0.0) or without the items or bands the probe cuts is refused by name at
+   start-up: the probe exits 78 with the loader's code and the domain's name, the generator exits 1 the same way;
 7. make install_machine_domain DESTDIR=<tmp> gives the tree the loader reads: omx_domain_open_at opens it and finds a
    word and a catalog text.
 
 Environment: OMX_CONTRACT (the command, default omx-contract), INSTALL_CONTRACT_DIR (the installer, default found by
 pkg-config), DOMAIN_CFLAGS and DOMAIN_LIBS (the loader, default pkg-config libomx-domain), CC. Exit 0 all green, 1 a
-FAIL line.
+FAIL line. Arms 3, 5 and 6 also take PROBE (default ./plugin-hostd-probe), PROBE_CHILD (tests/probe-child), STRESS_CLAP
+(tests/stress.clap) and GEN (tools/protocol-gen), built by make test-machine-domain.
 """
 import glob
 import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,6 +35,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "contract.d", "machine", "machine.json")
 HEADER = os.path.join(ROOT, "include", "plugin-hostd", "machine_codes.h")
 OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
+PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
+CHILD = os.path.abspath(os.environ.get("PROBE_CHILD", os.path.join(ROOT, "tests", "probe-child")))
+CLAP = os.path.abspath(os.environ.get("STRESS_CLAP", os.path.join(ROOT, "tests", "stress.clap")))
+GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protocol-gen")))
+WORDS_OPEN = "machine_words_open"
+BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
 failures = []
 
 
@@ -156,12 +170,161 @@ def arm7():
         ok("arm 7: the installed tree opens through omx_domain_open_at, a word and a catalog text are found")
 
 
+def fixture(root, name, edit=None, text=None):
+    """a scratch contract directory root/name holding the machine domain (with its catalogs), edit(document) applied, or
+    text written in place of the document; its path"""
+    out = os.path.join(root, name)
+    shutil.copytree(os.path.join(ROOT, "contract.d", "machine"), os.path.join(out, "machine"))
+    with open(DOC) as f:
+        doc = json.load(f)
+    if edit:
+        edit(doc)
+    with open(os.path.join(out, "machine", "machine.json"), "w") as f:
+        if text is not None:
+            f.write(text)
+        else:
+            json.dump(doc, f, indent=2)
+    return out
+
+
+def words(doc, item):
+    return [w["const"] for w in sorted(doc["components"]["schemas"][item]["oneOf"], key=lambda w: w["x-code"])]
+
+
+def renamed(doc):
+    for item in BANDS:
+        for w in doc["components"]["schemas"][item]["oneOf"]:
+            w["const"] += "-x"
+
+
+def run_probe(contract_dir, tmp):
+    out = os.path.join(tmp, "probe.json")
+    if os.path.exists(out):
+        os.unlink(out)
+    cmd = [PROBE, "run", "--child", CHILD, "--rates", "48000", "--quantum", "256", "--wall-s", "10", "--grace-ms", "200",
+           "--out", out, CLAP, "org.plugin-hostd.test.stress"]
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=dict(os.environ, OMX_CONTRACT_PATH=contract_dir))
+    return p, (json.load(open(out)) if os.path.exists(out) else None)
+
+
+def generate(contract_dir):
+    return subprocess.run([GEN, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
+                          text=True, env=dict(os.environ, OMX_CONTRACT_PATH=contract_dir))
+
+
+def arm3(doc, tmp):
+    before = len(failures)
+    if doc is None:
+        return
+    core, clock = words(doc, "MACHINE_CORE_BANDS"), words(doc, "MACHINE_CLOCK_BANDS")
+    p, out = run_probe(fixture(tmp, "as-is"), tmp)
+    if p.returncode != 0 or out is None:
+        fail("arm 3: positive control: the probe does not run over the domain as it is: rc %d %s" % (p.returncode, p.stderr[-200:]))
+        return
+    cls = out["machine"]["class"]
+    if cls["coreBand"] not in core or cls["clockBand"] not in clock:
+        fail("arm 3: positive control: the probe's bands %r %r are not the domain's" % (cls["coreBand"], cls["clockBand"]))
+    p, out = run_probe(fixture(tmp, "renamed", renamed), tmp)
+    if p.returncode != 0 or out is None:
+        fail("arm 3: the probe does not run over the renamed domain: rc %d %s" % (p.returncode, p.stderr[-200:]))
+    else:
+        cls = out["machine"]["class"]
+        if not (cls["coreBand"].endswith("-x") and cls["clockBand"].endswith("-x")):
+            fail("arm 3: machine.class is %r %r, not the renamed domain's words" % (cls["coreBand"], cls["clockBand"]))
+    g = generate(fixture(tmp, "renamed-gen", renamed))
+    if g.returncode != 0:
+        fail("arm 3: the generator does not run over the renamed domain: %s" % g.stderr[-200:])
+    else:
+        schema = json.loads(g.stdout)
+        got = schema["properties"]["machine"]["properties"]["class"]["properties"]
+        if got["coreBand"]["enum"] != [w + "-x" for w in core] or got["clockBand"]["enum"] != [w + "-x" for w in clock]:
+            fail("arm 3: the generated schema's bands are not the renamed domain's: %s" % got["coreBand"]["enum"])
+    if len(failures) == before:
+        ok("arm 3: the probe and the generated schema write the domain's band words")
+
+
+def arm5(tmp):
+    before = len(failures)
+    for rel in ("src/machine.c", "src/domain_words.c", "src/domain_words.h"):
+        path = os.path.join(ROOT, rel)
+        if not os.path.isfile(path):
+            fail("arm 5: %s does not exist" % rel)
+        elif "getenv" in open(path).read():
+            fail("arm 5: %s reads the environment: only a CLI's main passes OMX_CONTRACT_PATH" % rel)
+    cflags = os.environ.get("DOMAIN_CFLAGS") or run(["pkg-config", "--cflags", "libomx-domain"]).stdout.strip()
+    libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
+    contract = os.environ.get("CONTRACT_CFLAGS") or run(["pkg-config", "--cflags", "omx-contract"]).stdout.strip()
+    exe = os.path.join(tmp, WORDS_OPEN)
+    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-o", exe,
+                                                    "tests/machine_words_open.c", "src/machine.c", "src/domain_words.c"]
+    b = run(cc + shlex.split(contract) + shlex.split(cflags) + shlex.split(libs))
+    if b.returncode != 0:
+        fail("arm 5: tests/machine_words_open.c does not build: %s" % b.stderr.strip()[-300:])
+        return
+    scratch = fixture(tmp, "env-renamed", renamed)
+    env = dict(os.environ, OMX_CONTRACT_PATH=scratch)
+    entry = subprocess.run([exe], cwd=ROOT, capture_output=True, text=True, env=env)
+    if "-x" in entry.stdout:
+        fail("arm 5: the library entry read OMX_CONTRACT_PATH: %s" % entry.stdout.strip())
+    # the test entry names a directory itself, and reads it
+    listed = subprocess.run([exe, scratch], cwd=ROOT, capture_output=True, text=True)
+    if listed.returncode != 0 or "-x" not in listed.stdout:
+        fail("arm 5: the entry that names a directory does not read it: rc %d %s%s" % (listed.returncode, listed.stdout, listed.stderr))
+    if len(failures) == before:
+        ok("arm 5: the library entry ignores OMX_CONTRACT_PATH, the entry with a directory reads it")
+
+
+def arm6(doc, tmp):
+    before = len(failures)
+    if doc is None:
+        return
+
+    def old(d):
+        d["info"]["version"] = "0.9.0"
+
+    def short(d):
+        d["components"]["schemas"]["MACHINE_CORE_BANDS"]["oneOf"].pop()
+
+    def lacking(d):
+        del d["components"]["schemas"]["MACHINE_CLOCK_BANDS"]
+
+    cases = (
+        ("absent", os.path.join(tmp, "nowhere"), "contract.dir.absent"),
+        ("invalid", fixture(tmp, "invalid", text="{ not json"), "contract."),
+        ("too old", fixture(tmp, "old", old), "contract.package.too-old"),
+        ("without an item", fixture(tmp, "lacking", lacking), "MACHINE_CLOCK_BANDS"),
+    )
+    for what, dirs, mark in cases:
+        p, out = run_probe(dirs, tmp)
+        if not (p.returncode == 78 and out is None and "machine" in p.stderr and mark in p.stderr):
+            fail("arm 6: a domain %s does not end the probe's start-up with 78, its code and the domain's name: rc %d %r" %
+                 (what, p.returncode, p.stderr[-200:]))
+        g = generate(dirs)
+        if not (g.returncode != 0 and "machine" in g.stderr and mark in g.stderr):
+            fail("arm 6: a domain %s is not refused by the generator, by name: rc %d %r" % (what, g.returncode, g.stderr[-200:]))
+    # a band the probe cuts that the domain does not word: only the probe refuses it (the generator writes the words it finds)
+    p, out = run_probe(fixture(tmp, "short", short), tmp)
+    if not (p.returncode == 78 and out is None and "MACHINE_CORE_BANDS" in p.stderr and "machine" in p.stderr):
+        fail("arm 6: a core band short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))
+    if "1.0.0" not in run_probe(cases[2][1], tmp)[0].stderr:
+        fail("arm 6: the too-old refusal does not name the floor 1.0.0")
+    if len(failures) == before:
+        ok("arm 6: an absent, invalid, too old, short or item-less machine domain is refused by name at start-up")
+
+
 def main():
     doc = load()
     arm1(doc)
     arm2()
     arm4(doc)
     arm7()
+    tmp = tempfile.mkdtemp(prefix="plugin-hostd-machine.")
+    try:
+        arm3(doc, tmp)
+        arm5(tmp)
+        arm6(doc, tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     return 1 if failures else 0
 
 
