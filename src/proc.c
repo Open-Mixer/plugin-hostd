@@ -331,21 +331,79 @@ int proc_exited(pid_t pid, int *status)
     return r == pid || (r < 0 && errno == ECHILD);
 }
 
+/* the workers the daemon has sent SIGTERM to and not yet reaped, each with the time its grace ends: a worker that exits
+ * on SIGTERM leaves as one that exited, which says nothing about the last verb it was sent */
+#define STOPPED_MAX 64
+static struct { pid_t pid; int64_t kill_at_ms; } g_stopped[STOPPED_MAX];
+static int g_nstopped;
+
+int proc_stopped_by_us(pid_t pid)
+{
+    int n;
+
+    for (n = 0; n < g_nstopped; n++)
+        if (g_stopped[n].pid == pid)
+        {
+            g_stopped[n] = g_stopped[--g_nstopped];
+            return 1;
+        }
+    return 0;
+}
+
+int proc_leaving(pid_t pid)
+{
+    int n;
+
+    for (n = 0; n < g_nstopped; n++)
+        if (g_stopped[n].pid == pid)
+            return 1;
+    return 0;
+}
+
+void proc_term(pid_t pid)
+{
+    if (proc_dead(pid))
+        return;
+    if (proc_leaving(pid))
+        return;
+    /* the oldest entry goes when the table is full: a pid that was never reaped by on_death is not coming back */
+    if (g_nstopped == STOPPED_MAX)
+        memmove(g_stopped, g_stopped + 1, --g_nstopped * sizeof(g_stopped[0]));
+    g_stopped[g_nstopped].pid = pid;
+    g_stopped[g_nstopped++].kill_at_ms = proc_now_ms() + PROC_TERM_GRACE_MS;
+    kill(pid, SIGTERM);
+}
+
+void proc_term_poll(void)
+{
+    int64_t now = proc_now_ms();
+    int n;
+
+    for (n = 0; n < g_nstopped; n++)
+        if (g_stopped[n].kill_at_ms <= now)
+        {
+            if (!proc_dead(g_stopped[n].pid))
+                kill(g_stopped[n].pid, SIGKILL);
+            g_stopped[n].kill_at_ms = INT64_MAX; /* killed once: the entry stays until the process is reaped */
+        }
+}
+
 void proc_stop(pid_t pid)
 {
-    int status, i;
+    int status;
 
     if (pid <= 0)
         return;
-    kill(pid, SIGTERM);
-    for (i = 0; i < 200; i++)
+    /* blocking, for a worker nobody serves any more (a retired one, one that failed to start, the daemon's end): the
+     * same grace as the loop's, kept here with the signals sent in one place */
+    proc_term(pid);
+    while (!proc_dead(pid) && proc_leaving(pid))
     {
-        if (proc_exited(pid, &status))
-            return;
+        proc_term_poll();
         usleep(10000);
     }
-    kill(pid, SIGKILL);
     waitpid(pid, &status, 0);
+    proc_stopped_by_us(pid); /* reaped here, no on_death follows: the entry must not outlive the pid */
 }
 
 /* one thread as the kernel sees it: its id, its state letter, what it waits in (wchan), and the top of its kernel stack
@@ -407,7 +465,7 @@ static void say_threads(char *out, size_t size, const char *task)
         out[used - 1] = '\0';
 }
 
-/* a worker that did not answer in rpc_timeout_ms is said before it is killed: the command, how long it waited, how much
+/* a worker that did not answer in rpc_timeout_ms is said before it is sent SIGTERM (and SIGKILL if it stays): the command, how long it waited, how much
  * of the command it had not read, where each of its threads was, and the daemon's own threads, so a slow machine and a
  * worker stuck behind something each say which */
 static void say_unanswered(pid_t pid, int fd, const char *msg, int64_t waited)
@@ -420,7 +478,7 @@ static void say_unanswered(pid_t pid, int fd, const char *msg, int64_t waited)
     say_threads(daemon, sizeof(daemon), "/proc/self/task");
     if (ioctl(fd, SIOCOUTQ, &unread) != 0)
         unread = -1;
-    fprintf(stderr, "plugin-hostd: worker %d did not answer '%.80s' in %lld ms, %d bytes of it unread; killed. its threads:%s; "
+    fprintf(stderr, "plugin-hostd: worker %d did not answer '%.80s' in %lld ms, %d bytes of it unread; stopped. its threads:%s; "
                     "the daemon's:%s\n", (int)pid, msg, (long long)waited, unread, worker, daemon);
 }
 
@@ -437,7 +495,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
     buffer = malloc(cap);
     if (buffer == NULL)
     {
-        kill(pid, SIGKILL);
+        proc_term(pid);
         return RPC_DIED;
     }
     start = proc_now_ms();
@@ -451,7 +509,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
         {
             free(buffer);
             say_unanswered(pid, fd, msg, proc_now_ms() - start);
-            kill(pid, SIGKILL);
+            proc_term(pid);
             return RPC_DIED;
         }
         if (used + 1024 > cap)
@@ -462,7 +520,7 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
             {
                 /* no memory for the rest of the reply: the worker cannot be followed any more, as on a timeout */
                 free(buffer);
-                kill(pid, SIGKILL);
+                proc_term(pid);
                 return RPC_DIED;
             }
             buffer = bigger;

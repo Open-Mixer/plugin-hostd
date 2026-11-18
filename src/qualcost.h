@@ -9,6 +9,10 @@
  * binary and offer (<id>@<version>-<hash>.<offer>.qualification.json), each holding the figures of the probe's grid
  * per rate and quantum. The daemon reads them and writes none; a record gates no add. */
 
+/** @file qualcost.h
+ * @brief The declarations of qualcost.h.
+ */
+
 #ifndef PLUGIN_HOSTD_QUALCOST_H
 #define PLUGIN_HOSTD_QUALCOST_H
 

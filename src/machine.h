@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file machine.h
+ * @brief The declarations of machine.h.
+ */
+
 #ifndef MACHINE_H
 #define MACHINE_H
 

@@ -2620,6 +2620,101 @@ def a_binary_swapped_between_the_hash_and_the_load_is_refused():
         p.close()
 
 
+def swap_late_env(p):
+    """FAKE_SWAP_ON_ADD for the plugin file with an exchange partner that does not exist yet: the worker's adds swap
+    nothing until the test writes the partner (the returned path), and the next load is then of a swapped file"""
+    evil = os.path.join(p.dir, "clap", "late-evil.clap")
+    return {"FAKE_SWAP_ON_ADD": "%s=%s" % (p.clap, evil)}, evil
+
+
+@test
+def a_worker_the_daemon_stops_on_a_pin_refusal_blames_and_drops_nothing():
+    """a worker the daemon ends itself on a pin refusal (the add of a third member of a pool swapped between the hash and
+    the load) is asked to leave with SIGTERM and exits 0, as the real host does: that is the daemon's own stop, so the
+    verb a member was sent a moment before is not dropped as the suspect, and no member is quarantined"""
+    p = Plugins()
+    env, evil = swap_late_env(p)
+    d = p.daemon(env=env)
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        for i in (0, 1):
+            d.expect("add %s %d pool:p" % (p.clap_uri, i), "resp %d" % i)
+        d.expect("param_set 0 gain 0.7000", "resp 0")
+        write(evil, b"a build nobody hashed")
+        mark = d.mark()
+        d.expect("add %s 2 pool:p" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        died = d.wait_event("worker_died ", since=mark)
+        check(" exit:0 " in died, "the pool's worker left on SIGTERM, not SIGKILL: " + died)
+        d.settle(mark)
+        check(not any(e.startswith("instance_verb_dropped") or e.startswith("instance_quarantined") for e in d.events[mark:]),
+              "no verb was dropped as the suspect and no member quarantined: %s" % d.events[mark:])
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_worker_that_will_not_leave_on_sigterm_does_not_hold_the_daemon_up_while_it_is_stopped():
+    """a worker that does not answer (and ignores SIGTERM, stuck in a plugin) is stopped by the daemon: SIGTERM at once,
+    SIGKILL once PROC_TERM_GRACE_MS has passed, and the daemon serves the others meanwhile: the verb that timed out is
+    answered when its timeout ends, not two seconds later, another worker answers at once, and the wedged worker is
+    respawned only after it is gone, so the new one never shares its name or ports with one still leaving"""
+    d = daemon(conf={"rpc_timeout_ms": 300})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        d.expect("param_set 0 gain 0.7500", "resp 0")
+        d.expect("param_set 1 gain 0.2500", "resp 0")
+        ka, wa = d.holder(0)
+        mark = d.mark()
+        start = time.monotonic()
+        r = d.send("param_set 0 wedge 1")
+        took = time.monotonic() - start
+        check(r == resp("VERB_DROPPED"), "the controller is told its command was dropped: " + r)
+        check(took < 1.2, "the verb that timed out is answered when its timeout ends, not after the grace: %.2f s" % took)
+        start = time.monotonic()
+        d.expect("param_get 1 gain", "resp 0 0.2500")
+        took = time.monotonic() - start
+        check_timing(took < 0.5, "another worker answers while the wedged one is leaving: %.2f s" % took)
+        check(alive(wa["pid"]), "the wedged worker is still there, ignoring SIGTERM, a moment after")
+        died = d.wait_event("worker_died %s " % ka, since=mark)
+        check("signal:9" in died, "it was killed when its grace passed: " + died)
+        check_timing(time.monotonic() - start > 1.0, "and not before its grace")
+        up = d.wait_event("worker_respawned %s " % ka, since=mark)
+        check(not alive(wa["pid"]), "the old process is gone before the respawn: " + up)
+        d.wait_up(0)
+        d.expect("param_get 0 gain", "resp 0 0.7500")
+    finally:
+        d.close()
+
+
+@test
+def a_worker_refused_by_its_pin_at_a_replay_is_stopped_with_sigterm():
+    """the respawned worker whose replayed add loads a swapped file is asked to leave with SIGTERM before it is killed:
+    it exits 0, where a direct SIGKILL would show as signal:9"""
+    p = Plugins()
+    env, evil = swap_late_env(p)
+    d = p.daemon(env=env)
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        _, w = d.holder(0)
+        write(evil, b"a build nobody hashed")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("worker_died ", since=mark)
+        deaths = []
+        deadline = time.time() + 15
+        while time.time() < deadline and len(deaths) < 2:
+            deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+            time.sleep(0.05)
+        check(len(deaths) >= 2, "the worker the replay refused died too: %s" % deaths)
+        check(len(deaths) >= 2 and " exit:0 " in deaths[1], "and it left on SIGTERM, not SIGKILL: %s" % deaths)
+    finally:
+        d.close()
+        p.close()
+
+
 @test
 def a_swapped_clap_binary_is_refused_before_any_worker_sees_add():
     p = Plugins()
