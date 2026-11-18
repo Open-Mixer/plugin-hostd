@@ -567,7 +567,10 @@ static void worker_retire(worker_t *w)
 {
     if (w->pid > 0)
         proc_stop(w->pid);
+    if (w->leaving_pid > 0)
+        proc_stop(w->leaving_pid); /* a death not finished: nobody is left to finish it */
     w->pid = 0;
+    w->leaving_pid = 0;
     worker_free(w);
 }
 
@@ -1199,30 +1202,76 @@ static void clear_suspects(worker_t *w)
     }
 }
 
+/* how long a worker whose socket went quiet has to exit on its own (it is crashing, or closing) before it is asked to leave */
+#define QUIET_EXIT_MS 500
+/* how long a worker already asked to leave is waited for before the loop goes on without it: a worker that closes its JACK
+ * client and exits does so in a few milliseconds, and its death is then finished here as it always was */
+#define LEAVE_QUICK_MS 50
+
+static void death_finish(worker_t *w, int in_flight);
+
+/* the worker's process is gone, or is about to be. One that is not gone is asked to leave (SIGTERM, so it closes its JACK
+ * client) and the death is not finished here: the worker waits in W_BACKOFF with its process in leaving_pid, the tick sends
+ * SIGKILL when the grace has passed (proc_term_poll) and finishes the death once the process is gone, so a worker that
+ * does not leave never holds the loop (one asked to leave is waited for LEAVE_QUICK_MS, enough for a clean exit) and no other worker is served late because of it. The socket and the pid are let go
+ * now, so nothing sends it another command, and no respawn starts before it is reaped, so the new process never shares the
+ * old one's JACK client name or ports. A worker that is only dying (its socket went quiet because it crashed or is
+ * closing) is given QUIET_EXIT_MS to exit, as it always was: its death is then finished here, with its own status. */
 static void on_death(worker_t *w, int in_flight)
 {
-    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst, ours;
-    char ids[1024], how[32];
     int64_t now = proc_now_ms();
-    instance_t **members = NULL, *blamed = NULL;
+    int n, wait_ms;
 
     /* a plan waiting to gather its group again waits for steady running: this death puts it off */
     for (n = 0; n < w->ninst; n++)
         plans_regroup(w->inst[n]->id, now, 0);
     /* the history: the window it was in, and who was in the worker; before the process is reaped */
     hist_death(w, now);
+    wait_ms = w->pid > 0 && proc_leaving(w->pid) ? LEAVE_QUICK_MS : QUIET_EXIT_MS;
+    for (n = 0; n < wait_ms / 10 && w->pid > 0 && !proc_dead(w->pid); n++)
+        usleep(10000);
+    if (w->pid > 0 && !proc_dead(w->pid))
+    {
+        proc_term(w->pid);
+        w->leaving_pid = w->pid;
+        w->leave_flight = in_flight;
+        w->pid = 0;
+        if (w->fd >= 0)
+            close(w->fd);
+        w->fd = -1;
+        w->state = W_BACKOFF;
+        return;
+    }
+    death_finish(w, in_flight);
+}
+
+/* the tick of a worker that is leaving: finishes its death once the process is gone */
+static void leaving_tick(worker_t *w)
+{
+    if (proc_dead(w->leaving_pid))
+        death_finish(w, w->leave_flight);
+}
+
+static void death_finish(worker_t *w, int in_flight)
+{
+    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst, ours;
+    char ids[1024], how[32];
+    int64_t now = proc_now_ms();
+    instance_t **members = NULL, *blamed = NULL;
+    pid_t pid = w->leaving_pid > 0 ? w->leaving_pid : w->pid;
+
+    w->leaving_pid = 0;
     if (grouped && (members = malloc(nmembers * sizeof(instance_t *))))
         memcpy(members, w->inst, nmembers * sizeof(instance_t *));
-    for (n = 0; n < 50 && !(done = proc_exited(w->pid, &status)); n++)
-        usleep(10000);
+    done = proc_exited(pid, &status);
     if (!done)
     {
-        /* still there after it went quiet: asked to leave before it is killed, so that it closes its JACK client */
-        proc_term_wait(w->pid);
-        waitpid(w->pid, &status, 0);
+        /* gone for proc_dead and not for proc_exited cannot happen; a process that is still there is ended */
+        kill(pid, SIGKILL);
+        waitpid(pid, &status, 0);
     }
     /* before the pid is forgotten: a worker the daemon asked to leave (and that left on SIGTERM, status 0) is no crash */
-    ours = proc_stopped_by_us(w->pid);
+    ours = proc_stopped_by_us(pid);
     if (WIFSIGNALED(status))
         snprintf(how, sizeof(how), "signal:%d", WTERMSIG(status));
     else
@@ -1231,7 +1280,7 @@ static void on_death(worker_t *w, int in_flight)
     relay_remove(w->fb_fd);
     w->fb_fd = -1;
     instances_of(w, ids, sizeof(ids));
-    event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)w->pid, how, ids[0] ? ids : PHD_WORD_NONE);
+    event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)pid, how, ids[0] ? ids : PHD_WORD_NONE);
     if (w->fd >= 0)
         close(w->fd);
     w->fd = -1;
@@ -1506,7 +1555,7 @@ static int replay_add(worker_t *w, instance_t *i)
         if (code != SUCCESS)
         {
             replay_refused(w, i, "pin", code);
-            proc_term_wait(w->pid);
+            proc_term(w->pid);
             on_death(w, -1);
             return -1;
         }
@@ -1731,6 +1780,7 @@ void sup_tick(void)
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
 
     sup_pins_poll();
+    proc_term_poll();
     moved_dirty();
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
@@ -1744,6 +1794,8 @@ void sup_tick(void)
             continue;
         if (w->state == W_UP && proc_dead(w->pid))
             on_death(w, -1);
+        else if (w->leaving_pid > 0)
+            leaving_tick(w);
         else if (w->state == W_BACKOFF && now >= w->next_try_ms)
             respawn(w);
         else if (w->state == W_UP && w->npend)
@@ -1848,10 +1900,17 @@ void sup_finish(void)
     int n;
 
     for (n = g_nworkers - 1; n >= 0; n--)
+    {
         if (g_workers[n]->pid > 0)
             kill(g_workers[n]->pid, SIGTERM);
+        if (g_workers[n]->leaving_pid > 0)
+            kill(g_workers[n]->leaving_pid, SIGTERM);
+    }
     for (n = g_nworkers - 1; n >= 0; n--)
+    {
         proc_stop(g_workers[n]->pid);
+        proc_stop(g_workers[n]->leaving_pid);
+    }
     rm_tree(g_root);
     pins_finish();
 }
@@ -2298,7 +2357,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
                 worker_retire(w);
             else
             {
-                proc_term_wait(w->pid);
+                proc_term(w->pid);
                 on_death(w, -1);
             }
             return sup_resp(loaded);

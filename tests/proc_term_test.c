@@ -20,10 +20,12 @@
 
 /* A worker the daemon ends is asked to end first. Each worker holds a JACK client, and a JACK client that dies without
  * jack_client_close strands the mutexes of its metadata environment in jackd for good (the pool is fixed, a handful of
- * unclean deaths exhaust it). So proc_rpc, which gives up on a worker that does not answer, sends SIGTERM and waits
- * for it to exit before any SIGKILL: a worker that closes on SIGTERM leaves as a process that exited (here with status
- * 42, the way a worker closes its client and returns), and one that ignores SIGTERM is killed once PROC_TERM_GRACE_MS
- * has passed, not before and not much after. The workers here are forked children that never answer. */
+ * unclean deaths exhaust it). So proc_rpc, which gives up on a worker that does not answer, sends SIGTERM and returns at
+ * once, and the supervisor's tick (proc_term_poll) sends SIGKILL to one that is still there when PROC_TERM_GRACE_MS has
+ * passed: a worker that closes on SIGTERM leaves as a process that exited (here with status 42, the way a worker closes
+ * its client and returns), and one that ignores SIGTERM is killed once the grace has passed, not before and not much
+ * after. proc_rpc never waits out the grace: the supervisor serves the others meanwhile. The workers here are forked
+ * children that never answer. */
 
 #include <errno.h>
 #include <signal.h>
@@ -82,7 +84,7 @@ static pid_t spawn_mute(int closes, int *fd)
 }
 
 /* proc_rpc to a mute worker: the wait status of the worker after, and how long the call took */
-static void rpc_to_mute(int closes, int *status, int64_t *took_ms, int *result)
+static void rpc_to_mute(int closes, int *status, int64_t *rpc_ms, int64_t *took_ms, int *result)
 {
     conf_t conf;
     char *reply = NULL;
@@ -97,29 +99,41 @@ static void rpc_to_mute(int closes, int *status, int64_t *took_ms, int *result)
     usleep(100000);
     start = proc_now_ms();
     *result = proc_rpc(&conf, pid, fd, "ping", &reply);
-    *took_ms = proc_now_ms() - start;
+    *rpc_ms = proc_now_ms() - start;
     free(reply);
-    while (waitpid(pid, status, 0) < 0 && errno == EINTR)
-        ;
+    /* the tick: SIGKILL for the one past its grace, and the reap once it is gone */
+    for (;;)
+    {
+        pid_t r;
+
+        proc_term_poll();
+        r = waitpid(pid, status, WNOHANG);
+        if (r == pid || (r < 0 && errno != EINTR))
+            break;
+        usleep(10000);
+    }
+    *took_ms = proc_now_ms() - start;
     close(fd);
 }
 
 int main(void)
 {
     int status = 0, result = 0;
-    int64_t took = 0;
+    int64_t took = 0, rpc = 0;
 
-    rpc_to_mute(1, &status, &took, &result);
+    rpc_to_mute(1, &status, &rpc, &took, &result);
     check(result == RPC_DIED, "a worker that does not answer counts as died");
     check(WIFEXITED(status) && WEXITSTATUS(status) == 42,
           "a worker that does not answer got SIGTERM and left on its own, not a SIGKILL with no SIGTERM first");
     check(took < PROC_TERM_GRACE_MS, "a worker that leaves on SIGTERM is not waited for the whole grace");
+    check(rpc < PROC_TERM_GRACE_MS / 2, "proc_rpc returns when the timeout ends, with the worker still leaving");
 
-    rpc_to_mute(0, &status, &took, &result);
+    rpc_to_mute(0, &status, &rpc, &took, &result);
     check(result == RPC_DIED, "a worker that ignores SIGTERM counts as died");
     check(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL, "a worker that ignores SIGTERM is killed after the grace");
+    check(rpc < PROC_TERM_GRACE_MS / 2, "proc_rpc returns when the timeout ends, not after the grace");
     check(took >= 200 + PROC_TERM_GRACE_MS - 50 && took < 200 + PROC_TERM_GRACE_MS + 1500,
-          "and the wait is the grace, bounded: not before it, and not long after");
+          "and the kill comes with the grace, bounded: not before it, and not long after");
 
     if (failures)
         printf("proc_term: %d failed\n", failures);
