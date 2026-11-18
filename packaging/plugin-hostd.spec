@@ -176,6 +176,9 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %license COPYING
 %doc README.md
 %{omx_contract_dir}/plugin-hostd/
+# the domain machine (contract.d/machine), installed by omx-contract's installer in its domain mode into the contract
+# directory itself, beside the schema major's directory: the loader reads <contractdir>/machine/
+%{_datadir}/omx-contract/contract.d/machine/
 
 %changelog
 * Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
