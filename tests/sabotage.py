@@ -806,6 +806,9 @@ SABOTAGE = [
     ("the generated schema has the clock bands in an order of its own", "protocol/probe-output.schema.json",
      '"3.5-4.5GHz", "4.5GHz+"]', '"4.5GHz+", "3.5-4.5GHz"]',
      "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
+    ("the machine domain's top clock band is another word than the generated schema's", "contract.d/machine/machine.json",
+     '"const": "4.5GHz+"', '"const": "4.6GHz+"',
+     "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
     ("the contract gives its hosts a scheduling class the schema does not have", "omx-vocabulary.schema.json",
      '        "none",\n        "fifo"\n', '        "none",\n        "fifo",\n        "rr"\n',
      "RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
@@ -1706,7 +1709,7 @@ def rebuild(tree, jack):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, "plugin-hostd")):
+    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, DAEMON_TEST)):
         build(tree)
     if jack in ("verbs", "probe") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
         subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
@@ -1719,9 +1722,17 @@ def reply_words_generator(tree):
     shutil.copy(os.path.join(ROOT, "tools", "reply-words.py"), os.path.join(tree, "tools"))
 
 
+DAEMON_TEST = os.path.join("tests", "plugin-hostd-test")
+
+
 def build(tree):
+    """the tree's test build of the daemon (the Makefile's PROG_TEST: the packaged daemon reads the installed contract directory
+    only, the test build the tree's copy of contract.d/machine, which the tree holds)"""
     reply_words_generator(tree)
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    if not os.path.isdir(os.path.join(tree, "contract.d")):
+        shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, DAEMON_TEST], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
 
 
@@ -1780,7 +1791,9 @@ def run_history_test(tree):
     shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
     subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
-    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
+    # the host class's band words are the machine domain's: this checkout's document
+    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120,
+                       env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d")))
     return p.returncode, p.stdout
 
 
@@ -1830,7 +1843,7 @@ def run_verbs_test(tree, name):
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
                            text=True, timeout=60, env=dict(os.environ, PROTOCOL_DIR=PROTOCOL_DIR))
     else:
-        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
+        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE,
                    PROBE=os.path.join(tree, "plugin-hostd-probe"))
         if os.path.exists(os.path.join(tree, PROTOCOL_VERBS)):
             env["PLUGIN_HOSTD_VERBS"] = os.path.join(tree, PROTOCOL_VERBS)
@@ -1856,11 +1869,11 @@ def run_test(tree, name, jack=False):
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
-        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, "plugin-hostd")],
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, DAEMON_TEST)],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "searchpath":
-        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, "plugin-hostd")],
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, DAEMON_TEST)],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "placement":
@@ -1919,7 +1932,7 @@ def run_test(tree, name, jack=False):
         return p.returncode, p.stdout
     # a sabotaged timing proof is judged as on a quiet node: on a loaded runner its miss would warn and pass, and the
     # arm would read as decoration (ruling 2026-11-11; the load is faked to 0 for the arm and its control alike)
-    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
+    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
     cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
     return p.returncode, p.stdout
@@ -2010,6 +2023,8 @@ def arm(entry, tree):
         shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
     elif jack == "vocabulary":
         shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
+        # the machine words are plugin-hostd's own domain, the source the generated enums are held to
+        shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
         datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
                                  check=True).stdout.strip()
         shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)

@@ -22,6 +22,13 @@ CJSON_CFLAGS = os.environ["CJSON_CFLAGS"] if "CJSON_CFLAGS" in os.environ else \
     subprocess.run([PKG_CONFIG, "--cflags", "libcjson"], capture_output=True, text=True, check=True).stdout
 CJSON_LIBS = os.environ["CJSON_LIBS"] if "CJSON_LIBS" in os.environ else \
     subprocess.run([PKG_CONFIG, "--libs", "libcjson"], capture_output=True, text=True, check=True).stdout
+# the machine domain's loader (libomx-domain): the Makefile's DOMAIN_CFLAGS and DOMAIN_LIBS, else pkg-config's
+DOMAIN_CFLAGS = (os.environ["DOMAIN_CFLAGS"] if "DOMAIN_CFLAGS" in os.environ else
+                 subprocess.run([PKG_CONFIG, "--cflags", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
+DOMAIN_LIBS = (os.environ["DOMAIN_LIBS"] if "DOMAIN_LIBS" in os.environ else
+               subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
+# the CLIs read the machine domain from OMX_CONTRACT_PATH: this checkout's own document
+MACHINE_ENV = dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d"))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 failures = 0
 
@@ -69,7 +76,7 @@ def child_rates(probe, tmp):
     plugin = os.path.join(tmp, "x.clap")
     open(plugin, "w").close()
     subprocess.run([probe, "run", "--child", child, "--wall-s", "5", "--out", os.path.join(tmp, "doc.json"), plugin],
-                   capture_output=True, text=True, timeout=60)
+                   capture_output=True, text=True, timeout=60, env=MACHINE_ENV)
     args = open(seen).read().split("\n") if os.path.exists(seen) else []
     return args[args.index("--rates") + 1] if "--rates" in args else None
 
@@ -91,15 +98,18 @@ PIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "plugin-db"], capture_output=Tr
 
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
-          [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + CJSON_LIBS.split()
+          [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + DOMAIN_LIBS + CJSON_LIBS.split()
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def build_gen(include_first, out, source=JSON_GEN):
+    # this tree's generator reads the machine domain through src/domain_words.c
+    own = source == OWN_GEN
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + ["-std=gnu99", "-o", out, source] + PIN_LIBS
+          (["-I" + os.path.join(ROOT, "src")] if own else []) + pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + \
+          ["-std=gnu99", "-o", out, source] + ([os.path.join(ROOT, "src", "domain_words.c")] if own else []) + PIN_LIBS + DOMAIN_LIBS
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -111,7 +121,7 @@ def gen_json(gen):
 def gen_methods(gen):
     """the latency methods of the probe schema the generator writes from this tree's template"""
     p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
-                       text=True, timeout=30)
+                       text=True, timeout=30, env=MACHINE_ENV)
     if p.returncode != 0:
         return None
     return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]

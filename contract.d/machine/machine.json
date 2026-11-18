@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmixer.org/contract/machine",
+  "info": {
+    "title": "The machine a figure was taken on",
+    "version": "1.0.0",
+    "x-owner": "plugin-hostd",
+    "x-stability": "experimental"
+  },
+  "components": {
+    "schemas": {
+      "MACHINE_CLASS_FIELDS": {
+        "description": "What identifies the machine a figure was taken on (plugin-qualify#115): a verdict for a host profile reads only figures of the class it names.",
+        "x-since": "2.18.0",
+        "oneOf": [
+          {
+            "const": "arch",
+            "title": "arch",
+            "description": "The machine architecture as uname -m names it.",
+            "x-code": 0,
+            "x-text": "The machine architecture, as uname -m names it."
+          },
+          {
+            "const": "family",
+            "title": "family",
+            "description": "The CPU family and model.",
+            "x-code": 1,
+            "x-text": "The CPU family and model."
+          },
+          {
+            "const": "coreBand",
+            "title": "coreBand",
+            "description": "The cores, as a band of MACHINE_CORE_BANDS.",
+            "x-code": 2,
+            "x-text": "The core count, as a band of MACHINE_CORE_BANDS."
+          },
+          {
+            "const": "clockBand",
+            "title": "clockBand",
+            "description": "The clock, as a band of MACHINE_CLOCK_BANDS.",
+            "x-code": 3,
+            "x-text": "The clock, as a band of MACHINE_CLOCK_BANDS."
+          },
+          {
+            "const": "preemptRt",
+            "title": "preemptRt",
+            "description": "Whether the kernel is PREEMPT_RT.",
+            "x-code": 4,
+            "x-text": "Whether the kernel is PREEMPT_RT."
+          },
+          {
+            "const": "cstatesLimited",
+            "title": "cstatesLimited",
+            "description": "Whether the deep idle states are limited.",
+            "x-code": 5,
+            "x-text": "Whether the deep idle states are limited."
+          }
+        ]
+      },
+      "MACHINE_PROFILE_FIELDS": {
+        "description": "How the machine was set when a figure was taken: the frequency policy and isolation a figure depends on.",
+        "x-since": "2.18.0",
+        "oneOf": [
+          {
+            "const": "governor",
+            "title": "governor",
+            "x-code": 0,
+            "x-text": "The CPU frequency governor in effect when the figure was taken."
+          },
+          {
+            "const": "turbo",
+            "title": "turbo",
+            "x-code": 1,
+            "x-text": "Whether turbo or boost clocking was enabled when the figure was taken."
+          },
+          {
+            "const": "smt",
+            "title": "smt",
+            "x-code": 2,
+            "x-text": "Whether simultaneous multithreading was enabled when the figure was taken."
+          },
+          {
+            "const": "preempt",
+            "title": "preempt",
+            "x-code": 3,
+            "x-text": "Whether the measuring thread ran under real-time preemption, or scheduled as any other thread."
+          },
+          {
+            "const": "cpuidle",
+            "title": "cpuidle",
+            "x-code": 4,
+            "x-text": "The CPU idle driver or policy in effect when the figure was taken."
+          }
+        ]
+      },
+      "MACHINE_CORE_BANDS": {
+        "description": "The bands a machine's core count falls in, ascending.",
+        "x-since": "2.18.0",
+        "oneOf": [
+          {
+            "const": "1-2",
+            "title": "cores1To2",
+            "x-code": 0,
+            "x-text": "A machine with 1 to 2 cores."
+          },
+          {
+            "const": "3-4",
+            "title": "cores3To4",
+            "x-code": 1,
+            "x-text": "A machine with 3 to 4 cores."
+          },
+          {
+            "const": "5-8",
+            "title": "cores5To8",
+            "x-code": 2,
+            "x-text": "A machine with 5 to 8 cores."
+          },
+          {
+            "const": "9-16",
+            "title": "cores9To16",
+            "x-code": 3,
+            "x-text": "A machine with 9 to 16 cores."
+          },
+          {
+            "const": "17-32",
+            "title": "cores17To32",
+            "x-code": 4,
+            "x-text": "A machine with 17 to 32 cores."
+          },
+          {
+            "const": "33+",
+            "title": "cores33Up",
+            "x-code": 5,
+            "x-text": "A machine with 33 or more cores."
+          }
+        ]
+      },
+      "MACHINE_CLOCK_BANDS": {
+        "description": "The bands a machine's clock falls in, ascending.",
+        "x-since": "2.18.0",
+        "oneOf": [
+          {
+            "const": "<1.5GHz",
+            "title": "under1500MHz",
+            "x-code": 0,
+            "x-text": "A machine clocked under 1.5 GHz."
+          },
+          {
+            "const": "1.5-2.5GHz",
+            "title": "from1500To2500MHz",
+            "x-code": 1,
+            "x-text": "A machine clocked from 1.5 to 2.5 GHz."
+          },
+          {
+            "const": "2.5-3.5GHz",
+            "title": "from2500To3500MHz",
+            "x-code": 2,
+            "x-text": "A machine clocked from 2.5 to 3.5 GHz."
+          },
+          {
+            "const": "3.5-4.5GHz",
+            "title": "from3500To4500MHz",
+            "x-code": 3,
+            "x-text": "A machine clocked from 3.5 to 4.5 GHz."
+          },
+          {
+            "const": "4.5GHz+",
+            "title": "from4500MHz",
+            "x-code": 4,
+            "x-text": "A machine clocked at 4.5 GHz or more."
+          }
+        ]
+      },
+      "MACHINE_ARCHES": {
+        "description": "The architectures a host profile names, as uname -m spells them.",
+        "x-since": "2.18.0",
+        "oneOf": [
+          {
+            "const": "x86_64",
+            "title": "x8664",
+            "x-code": 0,
+            "x-text": "An x86-64 machine, as uname -m spells it."
+          },
+          {
+            "const": "aarch64",
+            "title": "aarch64",
+            "x-code": 1,
+            "x-text": "An AArch64 machine, as uname -m spells it."
+          }
+        ]
+      }
+    }
+  }
+}
