@@ -1202,7 +1202,8 @@ static void clear_suspects(worker_t *w)
     }
 }
 
-/* how long a worker whose socket went quiet has to exit on its own (it is crashing, or closing) before it is asked to leave */
+/* how long a worker whose socket went quiet has to exit on its own (it is crashing, or closing) before it is asked to leave.
+ * A different quantity from suspect_window_ms: it only happens to share that default's value, so it is not a copy of it */
 #define QUIET_EXIT_MS 500
 /* how long a worker already asked to leave is waited for before the loop goes on without it: a worker that closes its JACK
  * client and exits does so in a few milliseconds, and its death is then finished here as it always was */
