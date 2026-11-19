@@ -26,9 +26,27 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick). A pull request runs the plain test
-# tier and one package arm (fc45 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
+# tier and one package arm (fc45 x86_64, trixie arm64). make sabotage, bookworm and the release dry run run on push to
 # main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
+  # the deb cells come from the one list every OpenMixer check reads (check-matrix, ruling D25): the development set
+  # is trixie arm64, run on the ARM runner, since the -dev debs are arm64-only and an amd64 container cannot install them
+  checks:
+    name: which deb cells this run covers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deb: ${{ steps.m.outputs.deb }}
+      deb-count: ${{ steps.m.outputs.deb-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          deb-releases: '["bookworm", "trixie"]'
+          deb-arches: '["amd64", "arm64"]'
+          x86-runner: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+
   # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
   # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
   changes:
@@ -271,11 +289,17 @@ jobs:
           done
 
   jack2:
-    name: build and test over JACK2's jackd (x86_64)
-    runs-on: ubuntu-latest
+    name: build and test over JACK2's jackd (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }})
+    needs: checks
+    if: needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     container:
-      image: debian:trixie
+      image: ${{ matrix.cell.image }}
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
@@ -338,7 +362,6 @@ jobs:
       - name: Name what this job does not run
         run: |
           echo "The LV2 steps of test-jack2 are NOT run here: mod-host itself (not just its protocol library) is not built in this job, and Debian does not package it."
-          echo "An aarch64 run of this job is not here either: this is x86_64 only, a separate step for later."
 
   rpm:
     name: RPMs (fc45, ${{ matrix.arch }}), installed in a clean root
@@ -528,22 +551,20 @@ jobs:
           retention-days: 1
 
   deb:
-    name: DEBs (${{ matrix.suite }}, ${{ matrix.arch }}), built and linted
-    needs: changes
-    if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: DEBs (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}), built and linted
+    needs: [changes, checks]
+    if: needs.changes.outputs.packages == 'true' && needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
-        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     defaults:
       run:
         shell: bash
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
@@ -598,7 +619,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: |
             debs/*.deb
             dep-debs/libplugin-hostd-protocol0_*.deb
@@ -613,22 +634,21 @@ jobs:
           retention-days: 1
 
   deb-smoke:
-    name: DEBs (${{ matrix.suite }}, ${{ matrix.arch }}), installed in a clean container
-    needs: deb
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: DEBs (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}), installed in a clean container
+    needs: [deb, checks]
+    if: needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
-        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     # nothing but the distribution: a dependency the package forgot to declare is missing here
     defaults:
       run:
         shell: bash
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
@@ -642,7 +662,7 @@ jobs:
         run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - uses: actions/download-artifact@v4
         with:
-          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
 
       - name: Install the package with its dependencies from the distribution
         run: |
@@ -726,22 +746,20 @@ jobs:
   # page's LV2 block runs an LV2 URI with `lv2_worker omx-clap-host`, and --audio then measures the gain of a sine that
   # went through that instance.
   own-host-page:
-    name: own-host page (${{ matrix.suite }}, ${{ matrix.arch }}), run as written in a clean container
-    needs: [changes, deb]
-    if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: own-host page (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}), run as written in a clean container
+    needs: [changes, deb, checks]
+    if: needs.changes.outputs.packages == 'true' && needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
-        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     defaults:
       run:
         shell: bash
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
@@ -764,7 +782,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: /tmp/run-artifact
 
       # the page's apt-get install takes plugin-hostd and plugin-hostd-contract from this run, never the channel's
@@ -789,7 +807,7 @@ jobs:
           mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" /tmp/own-host
           cd /tmp/own-host
           python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run --audio
-          test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
+          test "$(dpkg --print-architecture)" = "${{ matrix.cell.arch }}"
           # the page ran this run's daemon, not a released one
           test "$(dpkg-query -W -f='${Version}' plugin-hostd)" = "$(cat /tmp/run-version)"
           test "$(dpkg-query -W -f='${Version}' plugin-hostd-contract)" = "$(cat /tmp/run-version)"
