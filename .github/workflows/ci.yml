@@ -349,7 +349,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON('["x86_64"]') }}
+        arch: [x86_64]
     container:
       image: fedora:45
       # the clean root gets a /proc and a /dev of its own

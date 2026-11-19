@@ -580,6 +580,11 @@ static int probe_schema(const char *path)
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
+    /* the six lists of the headers, then one slot for each item of the domains below: a miscounted slot is a build error */
+    _Static_assert(sizeof(LISTS) / sizeof(*LISTS) ==
+                       6 + N_PROBE_ITEMS + N_MACHINE_ITEMS + N_QUALIFICATION_ITEMS + N_PLUGIN_DB_ITEMS,
+                   "LISTS holds the six header lists and one slot for each item of the probe, machine, qualification and "
+                   "plugin-db domains");
     char probe_tokens[N_PROBE_ITEMS][96];
     char machine_tokens[N_MACHINE_ITEMS][96];
     char qualification_tokens[N_QUALIFICATION_ITEMS][96];
