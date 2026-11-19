@@ -91,7 +91,7 @@ def gate_scan(root):
 
 
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick): a pull request runs the plain tier
-# and one package arm (fc44 x86_64, trixie amd64); `make sabotage` (36 minutes of the last green run), the release dry
+# and one package arm (fc45 x86_64, trixie amd64); `make sabotage` (36 minutes of the last green run), the release dry
 # run and bookworm run on push to main, tags and dispatch. Each is red where a pull request would run it.
 OFF_PR = "github.event_name != 'pull_request'"
 
@@ -152,6 +152,22 @@ def own_build_scan(root):
     return found
 
 
+# Fedora 44 is dropped (owner ruling 2026-11-19): protocol 0.6.0 and later are published for fc45 only, so a workflow
+# that names fedora:44 or fc44 builds nothing the channel serves. Every workflow file is scanned, comments included.
+FEDORA_44 = re.compile(r"fedora:44\b|\bfc44\b")
+
+
+def fedora_scan(root):
+    """every finding as 'path:line what'"""
+    found = []
+    for path in workflow_files(root):
+        for n, line in enumerate(open(path).read().split("\n")):
+            if FEDORA_44.search(line):
+                found.append("%s:%d names fedora:44 or fc44: Fedora 44 is dropped, the cell is fedora:45 / fc45"
+                             % (os.path.relpath(path, root), n + 1))
+    return found
+
+
 def main():
     own = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
@@ -187,6 +203,20 @@ def main():
     finally:
         shutil.rmtree(gate, ignore_errors=True)
     print("ok   the gate scan sees a planted ci.yml without make check-contract-dir and passes one with it")
+    fed = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+    try:
+        wf = os.path.join(fed, ".github", "workflows")
+        os.makedirs(wf)
+        open(os.path.join(wf, "ci.yml"), "w").write("    container:\n      image: fedora:44\n# RPMs (fc44, x86_64)\n")
+        open(os.path.join(wf, "release.yml"), "w").write("      image: fedora:45\n# fc45 only\n")
+        seen = fedora_scan(fed)
+        open(os.path.join(wf, "ci.yml"), "w").write("    container:\n      image: fedora:45\n")
+        if len(seen) != 2 or fedora_scan(fed):
+            print("FAIL the fedora scan misses a planted fedora:44 or fc44, or refuses a fedora:45 file: saw %s" % seen)
+            return 1
+    finally:
+        shutil.rmtree(fed, ignore_errors=True)
+    print("ok   the fedora scan sees a planted fedora:44 and fc44, and passes a fc45-only workflow")
     tmp = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
         scratch = os.path.join(tmp, "t")
@@ -237,6 +267,11 @@ def main():
         shutil.rmtree(tiers, ignore_errors=True)
     print("ok   the tier scan sees a planted sabotage, a whole suite matrix and a dry run on a pull request, and passes them split")
     failed = 0
+    for f in fedora_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   no workflow names fedora:44 or fc44: Fedora 44 is dropped")
     for f in own_build_scan(ROOT):
         print("FAIL %s" % f)
         failed += 1
