@@ -606,7 +606,8 @@ jobs:
           set -euo pipefail
           mkdir -p dep-debs
           (cd dep-debs && bounded-install apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
-            omx-clap-core-contract omx-contract-data omx-contract)
+            omx-clap-core-contract omx-contract-data omx-contract \
+            libomx-domain0 libomx-domain-dev plugin-db-contract plugin-qualify-contract)
 
       # what the smoke test runs the installed package against, built here for the architecture
       - name: Build the smoke test fixtures
@@ -622,13 +623,7 @@ jobs:
           name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: |
             debs/*.deb
-            dep-debs/libplugin-hostd-protocol0_*.deb
-            dep-debs/libplugin-hostd-protocol-dev_*.deb
-            dep-debs/plugin-hostd-protocol-contract_*.deb
-            dep-debs/plugin-db-dev_*.deb
-            dep-debs/omx-clap-core-contract_*.deb
-            dep-debs/omx-contract-data_*.deb
-            dep-debs/omx-contract_*.deb
+            dep-debs/*.deb
             smoke
           if-no-files-found: error
           retention-days: 1
@@ -668,7 +663,7 @@ jobs:
         run: |
           set -euo pipefail
           bounded-install apt-get update -qq
-          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/plugin-db-dev_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
