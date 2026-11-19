@@ -3,7 +3,7 @@ Use plugin-hostd in your own host
 
 This page takes a Debian machine (Raspberry Pi OS, Zynthian, Debian 13 trixie, arm64) from nothing to a
 plugin running under plugin-hostd, driven over its socket, in nine commands, and then runs an LV2 plugin the same way in eight more. CI runs every command below, as written, in
-a clean Debian container on Debian 13, on arm64; a step that stops working fails that job.
+a clean Debian 13 container; a step that stops working fails that job.
 
 The plugin is a CLAP effect from the `omx-plugins-clap` package, so nothing else has to be installed to try it. Any
 host that already speaks mod-host's socket protocol can send the same lines.
