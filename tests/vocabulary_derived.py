@@ -4,6 +4,8 @@
 # generated schema holds at a token's place must be the contract's omx-vocabulary.schema.json $defs.<ITEM>.enum, the
 # same words in the same order. A list of the template that is the whole of a contract item, typed by hand, is refused
 # even when its words are right today: it is the second copy that drifts.
+# The probe words (the reasons, outcomes, steps and signals of a run) are the domain `probe` (contract.d/probe, plugin-hostd's own),
+# read the same way (@PROBE_<ITEM>@).
 # The machine band words are not omx-contract's: they are the domain `machine` (contract.d/machine/machine.json, plugin-hostd's
 # own), the template names them @MACHINE_<ITEM>@ and the generator reads them through the loader; the generated enum must be
 # the document's words in x-code order, which is the index.
@@ -14,11 +16,12 @@ import copy, json, os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TREE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
-TOKEN = re.compile(r"@((?:OMX|PHD|MACHINE|QUALIFICATION)_[A-Z0-9_]+)@")
+TOKEN = re.compile(r"@((?:OMX|PHD|PROBE|MACHINE|QUALIFICATION)_[A-Z0-9_]+)@")
 # the items the probe output must take from a domain: the machine domain's (this tree's) and the qualification domain's
 # (plugin-qualify's), their item names the tokens; any other @OMX_<ITEM>@ the template names is held to the contract all the same
 REQUIRED = ("QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "QUALIFICATION_MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS",
-            "MACHINE_CLOCK_BANDS", "QUALIFICATION_RESOURCE_THREAD_SCHEDULING")
+            "MACHINE_CLOCK_BANDS", "QUALIFICATION_RESOURCE_THREAD_SCHEDULING", "PROBE_REASONS", "PROBE_OUTCOMES",
+            "PROBE_STEPS", "PROBE_SIGNALS")
 failed = 0
 
 
@@ -71,7 +74,7 @@ def derived(tmpl):
         m = TOKEN.fullmatch(values[0]) if len(values) == 1 and isinstance(values[0], str) else None
         if m and m.group(1).startswith("OMX_"):
             out[pointer] = m.group(1)[len("OMX_"):]
-        elif m and m.group(1).startswith(("MACHINE_", "QUALIFICATION_")):
+        elif m and m.group(1).startswith(("PROBE_", "MACHINE_", "QUALIFICATION_")):
             out[pointer] = m.group(1)
     return out
 

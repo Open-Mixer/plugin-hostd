@@ -191,6 +191,8 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 # the domain machine (contract.d/machine), installed by omx-contract's installer in its domain mode into the contract
 # directory itself, beside the schema major's directory: the loader reads <contractdir>/machine/
 %{omx_contract_domain_dir}/machine/
+# the domain probe (contract.d/probe), the words a probe run writes, the same way
+%{omx_contract_domain_dir}/probe/
 
 %changelog
 * Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1

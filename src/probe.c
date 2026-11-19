@@ -95,6 +95,7 @@
 #include "confine.h"
 #include "probe_cgroup.h"
 #include "probe_lock.h"
+#include "probe_words.h"
 #include "qualification_words.h"
 
 #ifndef SCHED_DEADLINE
@@ -136,10 +137,11 @@ typedef struct
     int nrequire;
 } options_t;
 
-/* the outcome codes of the header, by id */
-#define X(id, code, meaning) static const char OUT_##id[] __attribute__((unused)) = code;
-PHD_PROBE_OUTCOMES(X)
-#undef X
+/* the words a run writes (reasons, outcomes, steps, signals) are the probe domain's, read once at start-up (probe_words_open);
+ * the protocol header's lists give the ids, so the word of an id is the domain's word at its place */
+static probe_words g_probe;
+#define OUT(id) (g_probe.outcome[PROBE_OUTCOME_##id])
+#define STEP(id) (g_probe.step[PROBE_STEP_##id])
 
 #define X(id, code, meaning) static const char LIMIT_##id[] __attribute__((unused)) = code;
 PHD_PROBE_LIMIT_CODES(X)
@@ -149,47 +151,46 @@ PHD_PROBE_LIMIT_CODES(X)
 PHD_PROBE_RT_GRANTS(X)
 #undef X
 
-static int outcome_known(const char *code)
+/* the child writes the protocol's own words, the codes of the header's lists; the probe writes the probe domain's word at
+ * the same place (the two are the same words, tests/probe_domain.py holds them to it) */
+static const char *wire_word(const char *const *wire, const char *const *domain, size_t n, const char *code)
 {
-    static const char *const ALL[] = {
-#define X(id, code, meaning) code,
+    size_t i;
+
+    for (i = 0; i < n; i++)
+        if (!strcmp(wire[i], code))
+            return domain[i];
+    return NULL;
+}
+
+static const char *child_outcome(const char *code)
+{
+    static const char *const WIRE[] = {
+#define X(id, wire, meaning) wire,
         PHD_PROBE_OUTCOMES(X)
 #undef X
     };
-    size_t i;
 
-    for (i = 0; i < sizeof(ALL) / sizeof(*ALL); i++)
-        if (!strcmp(ALL[i], code))
-            return 1;
-    return 0;
+    return wire_word(WIRE, g_probe.outcome, sizeof(WIRE) / sizeof(*WIRE), code);
+}
+
+static const char *child_step(const char *code)
+{
+    static const char *const WIRE[] = {
+#define X(id, wire, meaning) wire,
+        PHD_PROBE_STEPS(X)
+#undef X
+    };
+
+    return wire_word(WIRE, g_probe.step, sizeof(WIRE) / sizeof(*WIRE), code);
 }
 
 static int reason_known(const char *name)
 {
-    static const char *const ALL[] = {
-#define X(id, code, meaning) code,
-        PHD_PROBE_REASONS(X)
-#undef X
-    };
-    size_t i;
+    int i;
 
-    for (i = 0; i < sizeof(ALL) / sizeof(*ALL); i++)
-        if (!strcmp(ALL[i], name))
-            return 1;
-    return 0;
-}
-
-static int step_known(const char *name)
-{
-    static const char *const ALL[] = {
-#define X(id, code, meaning) code,
-        PHD_PROBE_STEPS(X)
-#undef X
-    };
-    size_t i;
-
-    for (i = 0; i < sizeof(ALL) / sizeof(*ALL); i++)
-        if (!strcmp(ALL[i], name))
+    for (i = 0; i < PROBE_REASON_COUNT; i++)
+        if (!strcmp(g_probe.reason[i], name))
             return 1;
     return 0;
 }
@@ -908,27 +909,6 @@ static void put_memory_lock(sb_t *b)
 
 /* ---------------------------------------------------------------- limits */
 
-static const char *signal_name(int sig)
-{
-    switch (sig)
-    {
-    case SIGSEGV: return "SIGSEGV";
-    case SIGABRT: return "SIGABRT";
-    case SIGBUS: return "SIGBUS";
-    case SIGFPE: return "SIGFPE";
-    case SIGILL: return "SIGILL";
-    case SIGKILL: return "SIGKILL";
-    case SIGTERM: return "SIGTERM";
-    case SIGXCPU: return "SIGXCPU";
-    case SIGXFSZ: return "SIGXFSZ";
-    case SIGSYS: return "SIGSYS";
-    case SIGPIPE: return "SIGPIPE";
-    case SIGINT: return "SIGINT";
-    case SIGHUP: return "SIGHUP";
-    default: return "SIGNAL";
-    }
-}
-
 static void put_rlimit(int resource, rlim_t soft, rlim_t hard)
 {
     struct rlimit r = { soft, hard };
@@ -1156,7 +1136,9 @@ static void take_step_records(run_t *r)
         n = *line ? jparse(line) : NULL;
         name = jstr(n, "step");
         outcome = jstr(n, "outcome");
-        if (n == NULL || !cJSON_IsObject(n) || name == NULL || outcome == NULL || !step_known(name) || !outcome_known(outcome))
+        name = name ? child_step(name) : NULL;
+        outcome = outcome ? child_outcome(outcome) : NULL;
+        if (n == NULL || !cJSON_IsObject(n) || name == NULL || outcome == NULL)
             r->protocol_error = 1;
         else
         {
@@ -1456,44 +1438,44 @@ static void put_step(sb_t *b, const step_t *s)
 
 static int outcome_ok(const char *code)
 {
-    return !strcmp(code, OUT_OK) || !strcmp(code, OUT_NOT_ATTEMPTED);
+    return !strcmp(code, OUT(OK)) || !strcmp(code, OUT(NOT_ATTEMPTED));
 }
 
 /* how the child ended, as the step `name`: its outcome, and whether the run may still be complete */
 static const char *child_end(const char *name, const options_t *o, const run_t *r, int *complete)
 {
     {
-        const char *code = OUT_OK;
-        step_t *s = add_step(name, OUT_OK, now_ms() - r->started_ms);
+        const char *code = OUT(OK);
+        step_t *s = add_step(name, OUT(OK), now_ms() - r->started_ms);
 
         if (r->protocol_error)
-            code = OUT_CHILD_PROTOCOL;
+            code = OUT(CHILD_PROTOCOL);
         else if (r->cancelled)
-            code = OUT_CANCELLED;
+            code = OUT(CANCELLED);
         else if (r->killed_by_deadline)
-            code = OUT_TIMEOUT;
+            code = OUT(TIMEOUT);
         else if (WIFSIGNALED(r->status))
         {
             int sig = WTERMSIG(r->status);
 
-            snprintf(s->signal, sizeof(s->signal), "%s", signal_name(sig));
-            code = sig == SIGXCPU ? OUT_CPU_LIMIT : sig == SIGXFSZ ? OUT_OUTPUT_LIMIT : sig == SIGSYS ? OUT_SANDBOX_DENIED : OUT_CRASHED;
+            snprintf(s->signal, sizeof(s->signal), "%s", probe_signal_word(&g_probe, sig));
+            code = sig == SIGXCPU ? OUT(CPU_LIMIT) : sig == SIGXFSZ ? OUT(OUTPUT_LIMIT) : sig == SIGSYS ? OUT(SANDBOX_DENIED) : OUT(CRASHED);
         }
         else if (WIFEXITED(r->status))
         {
             s->exit_status = WEXITSTATUS(r->status);
             if (s->exit_status == 120)
             {
-                code = OUT_ERROR;
+                code = OUT(ERROR);
                 set_detail(s, "a limit could not be applied in the child");
             }
             else if (s->exit_status != 0 && r->out.len == 0)
-                code = OUT_ERROR;
+                code = OUT(ERROR);
         }
         /* the kernel's count, not the signal: a plugin killed at the limit dies of the same SIGKILL as any other */
         if (r->measuring && !r->killed_by_deadline && !r->cancelled && probe_cgroup_oom_kills(&g_cgroup) > 0)
         {
-            code = OUT_MEMORY_LIMIT;
+            code = OUT(MEMORY_LIMIT);
             set_detail(s, "the memory limit of %lld bytes was hit; the kernel killed the process tree", o->data_bytes);
         }
         s->outcome = code;
@@ -1506,7 +1488,7 @@ static const char *child_end(const char *name, const options_t *o, const run_t *
         else if (r->leftovers)
             snprintf(s->detail + strlen(s->detail), sizeof(s->detail) - strlen(s->detail), "; %d process(es) left behind were killed", r->leftovers);
         /* a crash keeps the steps before it; the run is complete only when the child finished */
-        *complete = !strcmp(code, OUT_OK) && WIFEXITED(r->status);
+        *complete = !strcmp(code, OUT(OK)) && WIFEXITED(r->status);
         return code;
     }
 }
@@ -1662,7 +1644,7 @@ static double cost_percentile_other(const cJSON *cost)
 /* the step that says why a run carries no cost: the prober reported a percentile this runner does not read */
 static void add_cost_percentile_refusal(const cJSON *cost)
 {
-    step_t *s = add_step("cost", OUT_CHILD_PROTOCOL, 0);
+    step_t *s = add_step(STEP(COST), OUT(CHILD_PROTOCOL), 0);
 
     set_detail(s, "the child's cost percentile is %.9g; only 95 is read", cost_percentile_other(cost));
 }
@@ -1681,11 +1663,11 @@ static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, u
         return;
     snprintf(key, sizeof(key), "%ld", rate);
     at = jget(map, key);
-    if (!strcmp(name, "latency") ? jnum(at, "measuredFrames", &v) : jnum(at, "nsPerSampleMedian", &v))
-        s = add_step(name, OUT_OK, 0);
+    if (!strcmp(name, STEP(LATENCY)) ? jnum(at, "measuredFrames", &v) : jnum(at, "nsPerSampleMedian", &v))
+        s = add_step(name, OUT(OK), 0);
     else
     {
-        s = add_step(name, OUT_NOT_ATTEMPTED, 0);
+        s = add_step(name, OUT(NOT_ATTEMPTED), 0);
         snprintf(s->hosting_code, sizeof(s->hosting_code), "%s", hosting_code);
         set_detail(s, "%s: %s", jstr(at, "unmeasuredReason") ? jstr(at, "unmeasuredReason") : "probe-error",
                    jstr(at, "unmeasuredDetail") ? jstr(at, "unmeasuredDetail") : "the child's line holds no figure at this rate");
@@ -1715,10 +1697,10 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     if (!r->killed_by_deadline && !r->cancelled && WIFEXITED(r->status) && WEXITSTATUS(r->status) == 3 &&
         !jbool(*pin, "found", 1))
     {
-        fprintf(stderr, RUNNER_NAME ": %s%s: %s\n", PROBE_LV2_PREFIX, uri, OUT_NOT_FOUND);
+        fprintf(stderr, RUNNER_NAME ": %s%s: %s\n", PROBE_LV2_PREFIX, uri, OUT(NOT_FOUND));
         return 3;
     }
-    *outcome = child_end("hash", o, r, complete);
+    *outcome = child_end(STEP(HASH), o, r, complete);
     integrity = jget(*pin, "integrity");
     files = jget(integrity, "files");
     for (k = 0; files && cJSON_IsArray(files) && k < jcount(files); k++)
@@ -1727,16 +1709,16 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
             *library = jkid(files, k);
             break;
         }
-    if (!strcmp(*outcome, OUT_OK) && *library == NULL)
+    if (!strcmp(*outcome, OUT(OK)) && *library == NULL)
     {
         step_t *s = &g_steps[g_nsteps - 1];
         const char *reason = jstr(integrity, "unmeasuredReason"), *detail = jstr(integrity, "unmeasuredDetail");
 
-        s->outcome = *outcome = reason && !strcmp(reason, "unpinnable") ? OUT_UNPINNABLE : OUT_ERROR;
+        s->outcome = *outcome = reason && !strcmp(reason, "unpinnable") ? OUT(UNPINNABLE) : OUT(ERROR);
         set_detail(s, "%s", detail ? detail : "the child pinned no library of the plugin");
         *complete = 0;
     }
-    if (strcmp(*outcome, OUT_OK))
+    if (strcmp(*outcome, OUT(OK)))
         return 0;
 
     snprintf(rate_s, sizeof(rate_s), "%ld", rate);
@@ -1759,27 +1741,27 @@ static int run_lv2(const options_t *o, const char *uri, long rate, const cpu_set
     if (*measure && jbool(*measure, "instantiated", 0))
     {
         const cJSON *rt = jget(*measure, "rtSafety");
-        step_t *s = add_step("instantiate", OUT_OK, 0);
+        step_t *s = add_step(STEP(INSTANTIATE), OUT(OK), 0);
 
         set_detail(s, "read from the child's line");
-        s = add_step("rt-safety", jbool(rt, "interposer", 0) ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
+        s = add_step(STEP(RT_SAFETY), jbool(rt, "interposer", 0) ? OUT(OK) : OUT(NOT_ATTEMPTED), 0);
         s->rate = rate;
         s->quantum = o->quantum;
         set_detail(s, "%s", with_dropped(jbool(rt, "interposer", 0) ? "read from the child's line" : no_interposer_reason()));
-        add_lv2_figure_step("latency", jget(*measure, "latency"), rate, o->quantum, "hosting.latency.unmeasured");
+        add_lv2_figure_step(STEP(LATENCY), jget(*measure, "latency"), rate, o->quantum, "hosting.latency.unmeasured");
         if (cost_percentile_other(jget(*measure, "cost")) != 95)
             add_cost_percentile_refusal(jget(*measure, "cost"));
         else
-            add_lv2_figure_step("cost", jget(jget(*measure, "cost"), "perRate"), rate, o->quantum,
+            add_lv2_figure_step(STEP(COST), jget(jget(*measure, "cost"), "perRate"), rate, o->quantum,
                                 "hosting.cost.unmeasured-at-rate-and-quantum");
     }
     else if (*measure && jbool(*measure, "found", 0))
     {
-        step_t *s = add_step("instantiate", OUT_REFUSED_INSTANTIATION, 0);
+        step_t *s = add_step(STEP(INSTANTIATE), OUT(REFUSED_INSTANTIATION), 0);
 
         set_detail(s, "the child could not instantiate the plugin");
     }
-    *outcome = child_end("lifecycle", o, r, complete);
+    *outcome = child_end(STEP(LIFECYCLE), o, r, complete);
     return 0;
 }
 
@@ -1840,7 +1822,7 @@ static void put_lv2_measure(sb_t *b, const cJSON *m, long rate, unsigned quantum
 
     snprintf(key, sizeof(key), "%ld", rate);
     lat = jget(jget(m, "latency"), key);
-    sb_printf(b, ",\n  \"grid\": [\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\"", rate, quantum, OUT_OK);
+    sb_printf(b, ",\n  \"grid\": [\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\"", rate, quantum, OUT(OK));
     /* the figures under the CLAP point's field names: latency (declared, and measured by the impulse or from a note), cost.
      * A response that never came (an instrument whose note did not sound) has no measured figure; what the plugin
      * declares on its latency port is still its own figure, and is kept as such (declared-port), never as a measurement. */
@@ -2130,7 +2112,7 @@ static int describe_main(int argc, char **argv)
         {
             fprintf(stderr, RUNNER_NAME ": describe: %s --fields %s made no dump (%s)\n", o.child, target,
                     r.killed_by_deadline ? "the wall clock ran out" : r.cancelled ? "cancelled"
-                    : WIFSIGNALED(r.status) ? signal_name(WTERMSIG(r.status)) : "it exited non-zero");
+                    : WIFSIGNALED(r.status) ? probe_signal_word(&g_probe, WTERMSIG(r.status)) : "it exited non-zero");
             return 3;
         }
         dump = r.out;
@@ -2205,7 +2187,7 @@ static int panel_main(int argc, char **argv)
         {
             fprintf(stderr, RUNNER_NAME ": panel: %s --json %s made no scan (%s)\n", o.child, path,
                     r.killed_by_deadline ? "the wall clock ran out" : r.cancelled ? "cancelled"
-                    : WIFSIGNALED(r.status) ? signal_name(WTERMSIG(r.status)) : "it exited non-zero");
+                    : WIFSIGNALED(r.status) ? probe_signal_word(&g_probe, WTERMSIG(r.status)) : "it exited non-zero");
             free(path);
             return 3;
         }
@@ -2225,7 +2207,7 @@ static int panel_main(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-    options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = "on-request",
+    options_t o = { .child = "clap-qualify", .rates = floor_rates(), .quantum = 512, .reason = NULL,
                     .set = "default", .cgroup_root = PROBE_CGROUP_ROOT, .wall_s = 600, .cpu_s = 540, .files = 256, .data_bytes = 4LL << 30,
                     .file_bytes = 64LL << 20, .grace_ms = 300 };
     int a = 1, pin_option = 0, exit_code = 0, i, rc;
@@ -2237,7 +2219,7 @@ int main(int argc, char **argv)
     run_t r;
     sb_t doc = { 0 };
     cJSON *line = NULL;
-    const char *run_outcome = OUT_OK;
+    const char *run_outcome = OUT(OK);
     /* an LV2 plugin, lv2:<uri>: the runner runs lv2_measure's passes, the pin then the measurement */
     const char *lv2_uri = NULL;
     cJSON *pin_line = NULL, *measure_line = NULL;
@@ -2355,10 +2337,18 @@ int main(int argc, char **argv)
             fprintf(stderr, RUNNER_NAME ": %s\n", why);
             return 78;
         }
+        /* the words a run writes are the probe domain's, refused the same way */
+        if (probe_words_open(getenv("OMX_CONTRACT_PATH"), &g_probe, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": %s\n", why);
+            return 78;
+        }
     }
     o.plugin = argv[a++];
     if (a < argc)
         o.id = argv[a++];
+    if (o.reason == NULL)
+        o.reason = g_probe.reason[PROBE_REASON_ON_REQUEST];
     if (!reason_known(o.reason))
     {
         fprintf(stderr, RUNNER_NAME ": --reason %s is not one of the reasons of the format\n", o.reason);
@@ -2391,7 +2381,7 @@ int main(int argc, char **argv)
     }
     else if (stat(o.plugin, &st) != 0 || !S_ISREG(st.st_mode) || realpath(o.plugin, realpath_buf) == NULL)
     {
-        fprintf(stderr, RUNNER_NAME ": %s: " "%s\n", o.plugin, OUT_NOT_FOUND);
+        fprintf(stderr, RUNNER_NAME ": %s: " "%s\n", o.plugin, OUT(NOT_FOUND));
         return 3;
     }
     fd = lv2_uri ? -1 : open(realpath_buf, O_RDONLY | O_CLOEXEC);
@@ -2477,14 +2467,14 @@ int main(int argc, char **argv)
     {
         char *argv_child[32];
 
-        add_step("hash", OUT_OK, now_ms() - t0);
+        add_step(STEP(HASH), OUT(OK), now_ms() - t0);
         clap_argv(&o, argv_child);
         /* the CLAP prober counts under the interposer beside it, as the LV2 measurement does */
         preload_for_measurement(o.child);
         r.measuring = 1;
         run_child(&o, argv_child, &pinned, pin_option, &r, t0 + o.wall_s * 1000);
         preload_restore();
-        run_outcome = child_end("lifecycle", &o, &r, &complete);
+        run_outcome = child_end(STEP(LIFECYCLE), &o, &r, &complete);
     }
     read_idle(g_idle_after, &g_nidle, &pinned);
     if (g_rt.refused)
@@ -2519,18 +2509,18 @@ int main(int argc, char **argv)
         /* what the child's line says about the plugin, as steps and grid points */
         if (line && clap && r.records == 0)
         {
-            step_t *s = add_step("instantiate", jbool(clap, "headlessOk", 0) ? OUT_OK : OUT_REFUSED_INSTANTIATION, 0);
+            step_t *s = add_step(STEP(INSTANTIATE), jbool(clap, "headlessOk", 0) ? OUT(OK) : OUT(REFUSED_INSTANTIATION), 0);
 
             set_detail(s, "read from the child's line");
             if (!jbool(clap, "headlessOk", 0) || (unmeasured && !strcmp(unmeasured, "refused-instantiation")))
-                s->outcome = OUT_REFUSED_INSTANTIATION;
+                s->outcome = OUT(REFUSED_INSTANTIATION);
             else if (unmeasured && !strcmp(unmeasured, "not-installed"))
-                s->outcome = OUT_NOT_FOUND;
+                s->outcome = OUT(NOT_FOUND);
             if (latency)
                 for (k = 0; k < jcount(latency); k++)
                 {
                     double decl = 0, meas = 0;
-                    step_t *l = add_step("latency", OUT_OK, 0);
+                    step_t *l = add_step(STEP(LATENCY), OUT(OK), 0);
 
                     l->rate = atol(jkey(latency, k));
                     l->quantum = o.quantum;
@@ -2540,19 +2530,19 @@ int main(int argc, char **argv)
                 }
             if (rt && jbool(rt, "interposer", 0))
             {
-                step_t *x = add_step("rt-safety", OUT_OK, 0);
+                step_t *x = add_step(STEP(RT_SAFETY), OUT(OK), 0);
 
                 set_detail(x, "%s", with_dropped("counts are totals over every rate, read from the child's line"));
             }
             else if (rt)
             {
-                step_t *x = add_step("rt-safety", OUT_NOT_ATTEMPTED, 0);
+                step_t *x = add_step(STEP(RT_SAFETY), OUT(NOT_ATTEMPTED), 0);
 
                 set_detail(x, "%s", with_dropped(no_interposer_reason()));
             }
             {
                 int counted = jbool(notes, "applicable", 0) && jbool(notes, "interposer", 0);
-                step_t *x = add_step("note-sweep", counted ? OUT_OK : OUT_NOT_ATTEMPTED, 0);
+                step_t *x = add_step(STEP(NOTE_SWEEP), counted ? OUT(OK) : OUT(NOT_ATTEMPTED), 0);
 
                 if (!jbool(notes, "applicable", 0))
                     set_detail(x, "no note input");
@@ -2566,7 +2556,7 @@ int main(int argc, char **argv)
         if (line && clap && cost_percentile_other(cost) != 95)
             add_cost_percentile_refusal(cost);
         for (i = 0; i < g_nsteps; i++)
-            if (!outcome_ok(g_steps[i].outcome) && !strcmp(run_outcome, OUT_OK))
+            if (!outcome_ok(g_steps[i].outcome) && !strcmp(run_outcome, OUT(OK)))
             {
                 run_outcome = g_steps[i].outcome;
                 complete = 0;
@@ -2702,7 +2692,7 @@ int main(int argc, char **argv)
                 from_note = jstr(jkid(latency, k), "from") && !strcmp(jstr(jkid(latency, k), "from"), "note");
                 sb_printf(&doc, "%s\n    {\"rate\": %ld, \"quantum\": %u, \"outcome\": \"%s\", \"latency\": {\"declaredFrames\": %.0f, "
                                 "\"measuredFrames\": %.0f, \"method\": \"%s\"",
-                          k ? "," : "", atol(jkey(latency, k)), o.quantum, OUT_OK, decl, meas,
+                          k ? "," : "", atol(jkey(latency, k)), o.quantum, OUT(OK), decl, meas,
                           from_note ? g_qw.note_onset : g_qw.impulse_onset);
                 if (from_note)
                     sb_printf(&doc, ", \"heard\": %s", jbool(jkid(latency, k), "heard", 1) ? "true" : "false");
@@ -2758,7 +2748,7 @@ int main(int argc, char **argv)
             put_lv2_measure(&doc, measure_line, lv2_rate, o.quantum);
         if (WIFSIGNALED(r.status) && !r.killed_by_deadline && !r.cancelled)
         {
-            sb_printf(&doc, ",\n  \"crash\": {\"signal\": \"%s\"}", signal_name(WTERMSIG(r.status)));
+            sb_printf(&doc, ",\n  \"crash\": {\"signal\": \"%s\"}", probe_signal_word(&g_probe, WTERMSIG(r.status)));
         }
         if (o.log)
         {

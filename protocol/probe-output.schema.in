@@ -64,7 +64,7 @@
           ]
         },
         "reason": {
-          "enum": [@PHD_PROBE_REASONS@]
+          "enum": [@PROBE_REASONS@]
         },
         "protocol": {
           "type": "object",
@@ -571,7 +571,8 @@
       "additionalProperties": false,
       "properties": {
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": [@PROBE_SIGNALS@]
         },
         "topFrame": {
           "type": "string"
@@ -813,7 +814,7 @@
       "pattern": "^[0-9a-f]{64}$"
     },
     "outcome": {
-      "enum": [@PHD_PROBE_OUTCOMES@]
+      "enum": [@PROBE_OUTCOMES@]
     },
     "limitName": {
       "enum": [@PHD_PROBE_LIMIT_NAMES@]
@@ -859,7 +860,7 @@
       "additionalProperties": false,
       "properties": {
         "step": {
-          "enum": [@PHD_PROBE_STEPS@]
+          "enum": [@PROBE_STEPS@]
         },
         "rate": {
           "type": "integer"
@@ -875,7 +876,8 @@
           "minimum": 0
         },
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": [@PROBE_SIGNALS@]
         },
         "exitStatus": {
           "type": "integer"

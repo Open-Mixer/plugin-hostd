@@ -23,7 +23,7 @@
  *
  *   protocol-gen regions       the name of every region, one per line
  *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header,
- *                              and each @MACHINE_<ITEM>@ / @QUALIFICATION_<ITEM>@ token by the words of that item of the domain
+ *                              and each @PROBE_<ITEM>@ / @MACHINE_<ITEM>@ / @QUALIFICATION_<ITEM>@ token by the words of that item of the domain
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
@@ -36,6 +36,7 @@
 #include <plugin-hostd/protocol.h>
 #include "domain_words.h"
 #include "machine.h"
+#include "probe_words.h"
 #include "qualification_words.h"
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
@@ -454,11 +455,6 @@ static int splice(const char *path)
 /* ---------------------------------------------------------------- probe output schema */
 
 /* the code or name of each entry of a PHD_PROBE_* list: the second argument of X(id, code, meaning) */
-static const char *const PROBE_OUTCOMES[] = {
-#define X(id, code, meaning) code,
-    PHD_PROBE_OUTCOMES(X)
-#undef X
-};
 static const char *const PROBE_LIMIT_NAMES[] = {
 #define X(id, code, meaning) code,
     PHD_PROBE_LIMIT_NAMES(X)
@@ -477,16 +473,6 @@ static const char *const PROBE_LIMIT_CODES[] = {
 static const char *const PROBE_PROFILE_CODES[] = {
 #define X(id, code, meaning) code,
     PHD_PROBE_PROFILE_CODES(X)
-#undef X
-};
-static const char *const PROBE_REASONS[] = {
-#define X(id, code, meaning) code,
-    PHD_PROBE_REASONS(X)
-#undef X
-};
-static const char *const PROBE_STEPS[] = {
-#define X(id, code, meaning) code,
-    PHD_PROBE_STEPS(X)
 #undef X
 };
 static const char *const PROBE_RT_GRANTS[] = {
@@ -523,6 +509,15 @@ static const char *const MACHINE_ITEMS[] = {
     "MACHINE_CLOCK_BANDS",
 };
 #define N_MACHINE_ITEMS (sizeof(MACHINE_ITEMS) / sizeof(*MACHINE_ITEMS))
+
+/* the items of the probe domain (plugin-hostd's own) the probe output shares: the words a run writes */
+static const char *const PROBE_ITEMS[] = {
+    "PROBE_REASONS",
+    "PROBE_OUTCOMES",
+    "PROBE_STEPS",
+    "PROBE_SIGNALS",
+};
+#define N_PROBE_ITEMS (sizeof(PROBE_ITEMS) / sizeof(*PROBE_ITEMS))
 
 /* The words of items of a domain, read through the loader (OMX_CONTRACT_PATH: the generator's test entry, a ':' list whose
  * first directory holding the domain wins; else the installed directory): out[i] is the list of items[i], its token the
@@ -566,25 +561,26 @@ static int domain_lists(const char *domain, const char *floor, const char *const
 static int probe_schema(const char *path)
 {
     probe_list_t LISTS[] = {
-        PROBE_LIST("PHD_PROBE_OUTCOMES", PROBE_OUTCOMES),
         PROBE_LIST("PHD_PROBE_LIMIT_NAMES", PROBE_LIMIT_NAMES),
         PROBE_LIST("PHD_PROBE_LIMIT_MECHANISMS", PROBE_LIMIT_MECHANISMS),
         PROBE_LIST("PHD_PROBE_LIMIT_CODES", PROBE_LIMIT_CODES),
         PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
-        PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
-        PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
         PROBE_LIST("PHD_PROBE_RT_GRANTS", PROBE_RT_GRANTS),
         PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
+        { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
+    char probe_tokens[N_PROBE_ITEMS][96];
     char machine_tokens[N_MACHINE_ITEMS][96];
     char qualification_tokens[N_QUALIFICATION_ITEMS][96];
+    size_t probe_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS - N_PROBE_ITEMS;
     size_t machine_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS;
     size_t qualification_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS;
     FILE *f;
     char line[512];
 
-    if (domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
+    if (domain_lists(PROBE_DOMAIN, PROBE_FLOOR, PROBE_ITEMS, N_PROBE_ITEMS, LISTS + probe_first, probe_tokens) != 0 ||
+        domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
                      machine_tokens) != 0 ||
         domain_lists(QW_DOMAIN, QW_FLOOR, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + qualification_first,
                      qualification_tokens) != 0)
