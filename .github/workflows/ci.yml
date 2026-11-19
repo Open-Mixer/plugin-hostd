@@ -128,6 +128,11 @@ jobs:
       - name: The protocol's Catalan catalog, where a language pack carries it
         run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
 
+      # the one Python codec is plugin-hostd-protocol's package: the daemon test reads the daemon's replies with it and
+      # tests/grouping_reasons_test.py holds data/grouping.json to its constants; this tree keeps no copy
+      - name: The protocol's Python codec
+        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False python3-plugin-hostd-protocol
+
       - name: Build
         run: make
 
@@ -140,8 +145,8 @@ jobs:
           PROBE_REQUIRE_REALTIME: "1"
         run: make test
 
-      # the protocol clients (docs/clients.md): each one's tests on the shared fixtures, then the two held to each other on
-      # them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
+      # the TypeScript client (docs/clients.md): its tests on the shared fixtures, then it and plugin-hostd-protocol's Python
+      # codec held to each other on them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
       - name: The protocol clients agree
         run: make test-clients
 
