@@ -383,6 +383,8 @@ void proc_term(pid_t pid)
 {
     if (proc_dead(pid))
         return;
+    if (proc_leaving(pid))
+        return;
     if (stopped_room())
     {
         g_stopped[g_nstopped].pid = pid;
