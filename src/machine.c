@@ -37,6 +37,7 @@ int machine_words_open(const char *dirs, machine_words *w, char *why, size_t n)
     } bands[] = {
         { "MACHINE_CORE_BANDS", offsetof(machine_words, core), MACHINE_CORE_BAND_COUNT },
         { "MACHINE_CLOCK_BANDS", offsetof(machine_words, clock), MACHINE_CLOCK_BAND_COUNT },
+        { "MACHINE_FAMILIES", offsetof(machine_words, family), MACHINE_FAMILY_COUNT },
     };
     size_t b, i;
     int rc;
