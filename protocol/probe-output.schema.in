@@ -130,10 +130,7 @@
       "additionalProperties": false,
       "properties": {
         "format": {
-          "enum": [
-            "clap",
-            "lv2"
-          ]
+          "enum": [@PLUGIN_DB_ADDRESS_FORMATS@]
         },
         "id": {
           "type": "string",
