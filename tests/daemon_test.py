@@ -5801,8 +5801,8 @@ def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answe
               "nothing else is left beside it but the panels: %s" % os.listdir(os.path.dirname(name)))
         check(os.listdir(os.path.dirname(panel_name(name))) == [os.path.basename(name)],
               "the panels hold its panel alone: %s" % os.listdir(os.path.dirname(panel_name(name))))
-        for path in (s.descriptors, s.qualification):
-            check(os.stat(path).st_mode & 0o777 == 0o700, "%s is made 0700" % path)
+        check(os.stat(s.descriptors).st_mode & 0o777 == 0o700, "%s is made 0700" % s.descriptors)
+        check(not os.path.exists(s.qualification), "the daemon makes no qualification directory: it reads a store")
         # written once: a second instance of the same files reads the file and runs no scan
         d.expect("add %s 1" % s.clap_uri, "resp 1")
         d.expect("add lv2:%s 2" % LV2_COMPRESSOR, "resp 2")
