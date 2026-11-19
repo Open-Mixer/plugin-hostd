@@ -140,6 +140,24 @@ static void many_stopped(void)
     check(proc_stopped_by_us(pids[0]) == 0, "and an entry is consumed once, not kept for a pid that is gone");
 }
 
+/* a worker stopped twice (the supervisor's paths can reach one pid more than once) has ONE entry: the second proc_term
+ * adds none and keeps the first's kill time, so once it is reaped no entry is left to read a reused pid as stopped by us. */
+static void term_twice(void)
+{
+    int fd, status;
+    pid_t pid = spawn_mute(0, &fd);
+
+    usleep(200000);
+    proc_term(pid);
+    proc_term(pid);
+    kill(pid, SIGKILL);
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+        ;
+    check(proc_stopped_by_us(pid) == 1, "a worker stopped twice is known as stopped by us");
+    check(proc_stopped_by_us(pid) == 0, "and has one entry, not a duplicate left behind after it is reaped");
+    close(fd);
+}
+
 int main(void)
 {
     int status = 0, result = 0;
@@ -160,6 +178,7 @@ int main(void)
           "and the kill comes with the grace, bounded: not before it, and not long after");
 
     many_stopped();
+    term_twice();
 
     if (failures)
         printf("proc_term: %d failed\n", failures);
