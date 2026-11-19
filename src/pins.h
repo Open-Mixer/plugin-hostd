@@ -68,6 +68,13 @@ int pins_known(const char *uri);
  * under. -1 when the uri has no pin */
 int pins_digest(const char *uri, char hex[OMX_PLUGIN_DB_PIN_SHA256_HEX_LEN + 1]);
 int pins_in_process(const char *uri);
+/* whether the operator chose to load the plugin (pin_accept, first-use only): the choice counts as its verdict, and a
+ * check that finishes later does not override it */
+int pins_accepted(const char *uri);
+/* the n-th file the pin of the uri holds, relative to its bundle, and its SHA-256; -1 past the last or for no pin */
+int pins_file_at(const char *uri, int n, const char **path, const char **digest);
+/* the directory the pin store lives in, written to dir; NULL for a store with no path. The qualify spool is beside it */
+const char *pins_store_dir_of(char *dir, size_t size);
 /* whether the pin of the uri grants it the CLAP thread pool: it carries pool=cores and is not a refusal (the pool is the
  * plugin's qualification's to give, never a global switch) */
 int pins_pool_cores(const char *uri);

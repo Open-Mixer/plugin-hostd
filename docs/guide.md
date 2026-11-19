@@ -704,8 +704,18 @@ resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ER
 
 Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set` or from a `pin_file` loaded at start, and a
 plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
-files, keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`) and places the instance `own`; the layout is
-asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files whose path as listed, `..`
+files and keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`). A plugin with no verdict is not
+instantiated in any worker (R-112): the `add` answers, the instance exists and its insert passes dry, no worker holds it
+and none loads its code, until its pin carries a verdict or the user chooses with `pin_accept`. The daemon writes one
+request for its quick check into the qualify spool (`qualify/` in the directory of the pin store: one `*.request` file
+per plugin, written whole by a temporary file renamed over its name, the lines `uri <uri>` and `file <path> <sha256>` for
+each file hashed) and says `qualify_requested <uri>` once the file is on disk, at most once for a plugin until a verdict
+lands. The daemon runs no check: the service that watches the spool does, and writes the verdict as a pin in the
+pins_dir. A pin of a verdict other than `refused`, read at the next tick or `pin_reload`, answers the request and makes
+the insert live in the worker its verdict places it in, with no restart; `refused` answers it too and the insert stays
+bypassed, its `add` answering `-516`, until `pin_accept`, which makes it live alone. An instance that is live when its
+verdict later turns `refused` keeps playing. A verdict never overwrites the user's choice (`<pin_store>.accepted`, the
+daemon's alone). The layout is asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files whose path as listed, `..`
 taken by its text and the file's own links not followed, is inside a directory of the declared search path: `clap_path`
 for CLAP, `lv2_path` (with `lv2_extra`) for LV2. A bundle in the search path whose binary is a link out of it (Debian's
 `calf.lv2/calf.so`) is learned, the pin holds the digest of the file the link resolves to and the log names both paths;
@@ -737,7 +747,7 @@ daemon never writes it. A pin from this layer is trusted as it is, in both pin m
   `pin_set` never override it: `pin_set` of its uri answers `-516` (`PIN_REFUSED`), and a line of the store or of the
   `pin_file` for it is kept but has no effect, which stderr says at start.
 - A failed qualification is our advice, not a wall: the user decides. Under `pin_mode first-use`, `pin_accept <uri>` of
-  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, records the user's choice, kept beside the pin store in
+  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, or none (the plugin is bypassed, R-112), records the user's choice, kept beside the pin store in
   `<pin_store>.accepted`, one uri per line, and takes the plugin's files as they are now as its pin, in the store with no
   verdict: the user's choice, not a pass. The plugin then runs alone in a worker of its own, as any plugin not qualified
   for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart and over a
