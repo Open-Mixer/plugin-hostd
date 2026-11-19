@@ -5,6 +5,10 @@
 
 Usage: qual_fixture.py <schema.sql> <out.sqlite> [options] [cell ...]
 
+The schema is the library's installed DDL (pkg-config --variable=schema plugin-qualification-db), else PQDB_SCHEMA, else the
+checkout's schema/qualification.sql (the Makefile takes it in that order); its fractional reason params and adapter params
+tables are the correction of plugin-db-qualification 1d8b2e2f2, which a cell needs none of: they take no placeholder row.
+
   --user-version N   PRAGMA user_version (default 1; 0 is a file that is no store)
   --bad-word         a record whose mc_arch is in no item of the machine domain, with the word check of it recorded
   cell               sha256,uri,rate,quantum,median,p95,declared,measured,firstkb,perkb  ("-" is NULL)

@@ -67,17 +67,18 @@ PROTOCOL_HEADERS = $(wildcard include/plugin-hostd/*.h $(PROTOCOL_INCLUDE)/plugi
 CONTRACT_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags omx-contract 2>/dev/null)
 
 # the qualification store's reader, plugin-qualification-db (<plugin-qualification-db/pqdb.h>): pkg-config when it is installed, a
-# checkout of it otherwise (PQDB_DIR, its library built in place). Its schema/qualification.sql builds the fixtures of the
-# tests; the daemon reads the store through the library only, never a file of records
+# checkout of it otherwise (PQDB_DIR, its library built in place). Its DDL builds the fixtures of the tests: the installed
+# one (pkg-config --variable=schema), else PQDB_SCHEMA, else the checkout's schema/qualification.sql; the daemon reads the store through the library only, never a file of records
 PQDB_DIR ?= ../plugin-db-qualification
 ifeq ($(shell $(PKG_CONFIG) --exists plugin-qualification-db && echo true), true)
 PQDB_CFLAGS = $(shell $(PKG_CONFIG) --cflags plugin-qualification-db)
 PQDB_LIBS = $(shell $(PKG_CONFIG) --libs plugin-qualification-db)
+PQDB_SCHEMA ?= $(shell $(PKG_CONFIG) --variable=schema plugin-qualification-db)
 else
 PQDB_CFLAGS = -I$(PQDB_DIR)/include
 PQDB_LIBS = -L$(PQDB_DIR) -lplugin-qualification-db -Wl,-rpath,$(abspath $(PQDB_DIR))
-endif
 PQDB_SCHEMA ?= $(PQDB_DIR)/schema/qualification.sql
+endif
 
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
