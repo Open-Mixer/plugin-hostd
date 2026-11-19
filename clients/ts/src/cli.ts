@@ -7,6 +7,7 @@
  * client's python3 -m plugin_hostd_protocol).
  */
 import { readFileSync } from 'node:fs';
+import { isMain } from '@openmixer/omx-contract/entry';
 import { decodePath, encodePath, pinKey, Protocol, ProtocolError, quote, uriWord, words, type Arg } from './index.js';
 
 export function answer(protocol: Protocol, op: string, arg: unknown): unknown {
@@ -67,4 +68,4 @@ function main(): void {
   process.stdout.write(JSON.stringify(out));
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) main();
+if (isMain(import.meta.url)) main();
