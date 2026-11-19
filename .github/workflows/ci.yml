@@ -709,7 +709,7 @@ jobs:
           set -euo pipefail
           version=$(dpkg-query -W -f='${Version}' plugin-hostd)
           plugin-hostd -V | tee v.txt
-          grep -q "version: ${version%%~*}\$" v.txt
+          grep -q "version: ${version%%[+~-]*}\$" v.txt
           ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
           grep -q 'libplugin-hostd-protocol\.so\.0 => /' ldd.txt
