@@ -102,7 +102,7 @@ endif
 # <plugin-db/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-db.pc requires libcrypto)
 PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
-INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS)
+INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS)
 
 # the machine domain (contract.d/machine/) and plugin-qualify's qualification domain (contract.d/qualification/ there) are
 # read at start-up through omx-contract's C loader (libomx-domain), never rendered here (src/domain_words.c, src/machine.c,
@@ -135,7 +135,7 @@ $(REPLY_WORDS): $(dir $(PROTOCOL_JSON))plugin-hostd-protocol.json tools/reply-wo
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
-	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the test build of the daemon, never installed or packaged: src/main.c compiled with OMX_CONTRACTDIR, the one directory it
 # reads the machine domain from (the packaged daemon reads the installed contract directory only, no path and no
@@ -156,17 +156,21 @@ $(TEST_CONTRACT_TREE): $(wildcard contract.d/machine/*)
 $(TEST_CONTRACT_EMPTY):
 	mkdir -p $@
 
+# and with OMX_QUALIFICATION_TEST_STORE, the other seam of the test builds: the qualification store is read from the file
+# <qualification_dir>/qualification.sqlite of the settings (pqdb_open_at) instead of the installed one, so each test has a
+# store of its own (tests/qual_fixture.py). A packaged daemon is built with neither: it opens the store of its scope (pqdb_open)
+# and reads no path and no environment variable
 src/main-test.o: src/main.c $(TEST_CONTRACT_TREE)
-	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -c -o $@ src/main.c
+	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -c -o $@ src/main.c
 
 src/main-test-empty.o: src/main.c $(TEST_CONTRACT_EMPTY)
-	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_EMPTY)"' -c -o $@ src/main.c
+	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_EMPTY)"' -DOMX_QUALIFICATION_TEST_STORE -c -o $@ src/main.c
 
 $(PROG_TEST): $(TEST_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(TEST_OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(TEST_OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
 
 $(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
-	$(CC) $(TEST_OBJ_EMPTY) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(TEST_OBJ_EMPTY) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
@@ -520,7 +524,7 @@ test-ready-connect: $(PROG_TEST) $(FAKE)
 # the same test against a daemon whose ready line goes out before its sockets exist: it must fail (issue 238)
 .PHONY: test-ready-connect test-ready-connect-sabotage
 test-ready-connect-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
-	python3 tests/ready_connect_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"'" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+	python3 tests/ready_connect_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # who reaches the ports: 127.0.0.1 by default, other addresses only when asked (tests/bind_test.py), and the same test
 # against a daemon built with each guard taken out, which must fail
@@ -528,7 +532,7 @@ test-ready-connect-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
 test-bind: $(PROG_TEST) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
 test-bind-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
-	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"'" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG_TEST) $(FAKE) $(SLOW_FSYNC)
@@ -576,7 +580,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 FORMAT_OBJ = $(filter-out src/main.o src/verbs.o,$(OBJ))
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm
 
 
 # the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
@@ -666,18 +670,18 @@ $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(
 ALLOC_SWEEP_DAEMON = tests/plugin-hostd-alloc-fail
 $(ALLOC_SWEEP_DAEMON): $(TEST_CONTRACT_TREE) $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
 	mkdir -p tests/alloc-fail-objs
-	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
+	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
-	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
 $(PLAN_REFUSED_DAEMON): $(TEST_CONTRACT_TREE) $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
 	mkdir -p tests/plan-refused-objs
-	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
+	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/world_refuse.o tests/world_refuse.c
-	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
+	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
 
 .PHONY: test-plan-refused
 test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
@@ -688,7 +692,7 @@ test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
 .PHONY: test-alloc-sweep
 test-alloc-sweep: $(ALLOC_SWEEP_DAEMON) $(FAKE)
 	ALLOC_SWEEP_DAEMON=./$(ALLOC_SWEEP_DAEMON) FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep.py
-	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
+	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
 
 # the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
 # each is built with its allocation calls renamed, so the test picks the one that fails
@@ -706,7 +710,7 @@ $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
-	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
+	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS)
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<

@@ -28,6 +28,12 @@ BuildRequires: omx-contract-devel >= 3.20.0
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
 # and plugin-qualify's qualification domain through it (3.20.0 the first release that ships it); a floor only
 BuildRequires: libomx-domain-devel >= 3.20.0
+# the reader of the qualification store, <plugin-qualification-db/pqdb.h>: the daemon reads what a plugin costs through it and
+# reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
+# declared in); a floor only
+BuildRequires: libplugin-qualification-db-devel >= 2026111901
+Requires: libplugin-qualification-db >= 2026111901
+Requires: sqlite-libs >= 3.37.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}

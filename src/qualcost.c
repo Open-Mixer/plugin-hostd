@@ -5,405 +5,193 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
-#include <dirent.h>
 #include <limits.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#include <unistd.h>
 
 #include <plugin-hostd/protocol.h>
 
-#include "json.h"
 #include "qualcost.h"
 
-#define RECORD_SUFFIX ".qualification.json"
+static int (*g_opener)(pqdb **db, pqdb_error *err);
 
-unsigned long qualcost_dir_scans, qualcost_record_parses;
-#define RECORD_MAX    (4u << 20)
-
-/* the id as plugin-qualify spells it in a file name: each character outside [A-Za-z0-9._-] is an underscore */
-static void safe(const char *id, char *out, size_t size)
+pqdb_scope qualcost_scope(void)
 {
-    size_t n;
+    return geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;
+}
 
-    for (n = 0; id[n] && n + 1 < size; n++)
-        out[n] = (id[n] >= 'a' && id[n] <= 'z') || (id[n] >= 'A' && id[n] <= 'Z') || (id[n] >= '0' && id[n] <= '9') ||
-                 id[n] == '.' || id[n] == '_' || id[n] == '-' ? id[n] : '_';
-    out[n] = '\0';
+void qualcost_refusal(int status, const pqdb_error *err, char *out, size_t size)
+{
+    const char *code = err && err->code ? err->code : pqdb_code(status);
+
+    snprintf(out, size, "%s: %s", code ? code : "qualification-db.refused", err ? err->message : "");
+}
+
+void qualcost_use_opener(int (*opener)(pqdb **db, pqdb_error *err))
+{
+    g_opener = opener;
+}
+
+pqdb *qualcost_open(void)
+{
+    static char last[96];
+    pqdb *db = NULL;
+    pqdb_error err = { NULL, "" };
+    int status = g_opener ? g_opener(&db, &err) : pqdb_open(qualcost_scope(), &db, &err);
+
+    if (status == 0)
+    {
+        last[0] = '\0';
+        return db;
+    }
+    /* a store that cannot be read is no figure for any plugin; the refusal is said once by its name, not at every read */
+    if (!err.code || strcmp(err.code, last))
+    {
+        char why[512];
+
+        qualcost_refusal(status, &err, why, sizeof(why));
+        fprintf(stderr, "plugin-hostd: the qualification store is not read: %s\n", why);
+        snprintf(last, sizeof(last), "%s", err.code ? err.code : "");
+    }
+    return NULL;
+}
+
+void qualcost_close(pqdb *db)
+{
+    if (db)
+        pqdb_close(db);
 }
 
 /* the id with each %XX escape of an IRI replaced by its byte, by the protocol's phd_pin_path_decode: LV2 URIs reach the
- * daemon percent-encoded as often as not, and a record may name the plugin in either spelling. An id the codec refuses
- * (a stray %) is its own spelling. */
+ * daemon percent-encoded as often as not, and the store holds the URI as plugin-qualify wrote it, in either spelling.
+ * An id the codec refuses (a stray %) is its own spelling. */
 static void decode(const char *id, char *out, size_t size)
 {
     if (phd_pin_path_decode(id, out, size) != 0)
         snprintf(out, size, "%s", id);
 }
 
-/* whether two ids are one plugin's, in either spelling */
-static int same_id(const char *a, const char *b)
+/* calls each for every result of the plugin at the rate and quantum (-1: any), in each spelling of its id */
+static int each_result(pqdb *db, const char *id, int rate, int quantum, int (*each)(const pqdb_result *, void *), void *ctx)
 {
-    char da[PATH_MAX], db[PATH_MAX];
+    char plain[PATH_MAX];
+    pqdb_query q;
+    int status;
 
-    decode(a, da, sizeof(da));
-    decode(b, db, sizeof(db));
-    return !strcmp(da, db);
-}
-
-static char *slurp(const char *path)
-{
-    FILE *f = fopen(path, "r");
-    char *text;
-    long size;
-
-    if (!f)
-        return NULL;
-    if (fseek(f, 0, SEEK_END) != 0 || (size = ftell(f)) < 0 || (unsigned long)size > RECORD_MAX || fseek(f, 0, SEEK_SET) != 0)
-    {
-        fclose(f);
-        return NULL;
-    }
-    text = malloc((size_t)size + 1);
-    if (text && fread(text, 1, (size_t)size, f) != (size_t)size)
-    {
-        free(text);
-        text = NULL;
-    }
-    else if (text)
-        text[size] = '\0';
-    fclose(f);
-    return text;
-}
-
-/* the grid point of the record at the rate and quantum, NULL for none; the record must name the id */
-static const cJSON *point_at(const cJSON *record, const char *id, int rate, int quantum, size_t *from)
-{
-    const cJSON *plugin = jget(record, "plugin"), *grid = jget(jget(record, "measurements"), "grid");
-    const char *got = plugin ? jstr(plugin, "id") : NULL;
-
-    if (!got || !same_id(got, id) || !grid || !cJSON_IsArray(grid))
-        return NULL;
-    for (; *from < jcount(grid); (*from)++)
-    {
-        const cJSON *point = jkid(grid, *from);
-        double r, q;
-
-        if (!point || !jnum(point, "rate", &r) || !jnum(point, "quantum", &q) || r != rate || q != quantum)
-            continue;
-        (*from)++;
-        return point;
-    }
-    return NULL;
-}
-
-/* whether the record names the id */
-static int names(const cJSON *record, const char *id)
-{
-    const char *got = jget(record, "plugin") ? jstr(jget(record, "plugin"), "id") : NULL;
-
-    return got && same_id(got, id);
-}
-
-/* the fraction of one core of the record's grid point, or -1.0 */
-static double point_of(const cJSON *record, const char *id, int rate, int quantum)
-{
-    const cJSON *point;
-    size_t k = 0;
-
-    while ((point = point_at(record, id, rate, quantum, &k)) != NULL)
-    {
-        const cJSON *percentile = jget(jget(point, "cost"), "percentile");
-        double ns;
-
-        if (percentile && jnum(percentile, "value", &ns) && ns >= 0)
-            return ns * rate / 1e9;
-    }
-    return -1.0;
-}
-
-/* the records of an id, remembered with the directory's time and each file's time and size: a repeat read lists the
- * directory again only when an entry was added, removed or renamed (the directory's time moves), and parses a record
- * again only when its own time or size moved. Without memory to remember, a read is as it always was. The daemon reads
- * records on its one control thread. */
-#define RECORD_MEMO_MAX 1024
-typedef struct
-{
-    char *path;
-    struct timespec mtime;
-    off_t size;
-    cJSON *record;
-} memo_file_t;
-static struct record_memo
-{
-    char *dir, *id;
-    struct timespec mtime;
-    int n;
-    memo_file_t *files;
-} g_record_memo[RECORD_MEMO_MAX];
-static int g_record_memos;
-
-static int same_time(struct timespec a, struct timespec b)
-{
-    return a.tv_sec == b.tv_sec && a.tv_nsec == b.tv_nsec;
-}
-
-static cJSON *parse_file(const char *path)
-{
-    char *text = slurp(path);
-    cJSON *record;
-
-    if (!text)
-        return NULL;
-    record = jparse(text);
-    qualcost_record_parses++;
-    free(text);
-    return record;
-}
-
-static void memo_files_free(memo_file_t *files, int n)
-{
-    int k;
-
-    for (k = 0; k < n; k++)
-    {
-        free(files[k].path);
-        cJSON_Delete(files[k].record);
-    }
-    free(files);
-}
-
-/* the records whose file name is the id's, listed and parsed: n files, NULL with *n 0 when none or no memory */
-static memo_file_t *list_records(const char *dir, const char *id, int *n)
-{
-    char prefix[PATH_MAX], plain[PATH_MAX], path[PATH_MAX * 2];
-    struct dirent *e;
-    size_t plen, plain_len, slen = strlen(RECORD_SUFFIX);
-    memo_file_t *files = NULL, *grown;
-    DIR *d;
-
-    *n = 0;
-    if (!(d = opendir(dir)))
-        return NULL;
-    qualcost_dir_scans++;
-    safe(id, prefix, sizeof(prefix) - 2);
-    strcat(prefix, "@");
-    plen = strlen(prefix);
+    if (!db || !id || !*id)
+        return 0;
+    memset(&q, 0, sizeof(q));
+    q.rate = rate;
+    q.quantum = quantum;
+    q.uri = id;
+    if ((status = pqdb_each(db, &q, each, ctx)) != 0)
+        return status;
     decode(id, plain, sizeof(plain));
-    safe(plain, plain, sizeof(plain) - 2);
-    strcat(plain, "@");
-    plain_len = strlen(plain);
-    while ((e = readdir(d)) != NULL)
+    if (strcmp(plain, id))
     {
-        size_t len = strlen(e->d_name);
-        struct stat st;
-        cJSON *record;
-
-        if (len <= slen || (strncmp(e->d_name, prefix, plen) && strncmp(e->d_name, plain, plain_len)) ||
-            len <= (strncmp(e->d_name, prefix, plen) ? plain_len : plen) + slen || strcmp(e->d_name + len - slen, RECORD_SUFFIX))
-            continue;
-        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
-        if (stat(path, &st) != 0 || !(record = parse_file(path)))
-            continue;
-        grown = realloc(files, (*n + 1) * sizeof(*files));
-        if (!grown || !(grown[*n].path = strdup(path)))
-        {
-            cJSON_Delete(record);
-            files = grown ? grown : files;
-            continue;
-        }
-        files = grown;
-        files[*n].mtime = st.st_mtim;
-        files[*n].size = st.st_size;
-        files[*n].record = record;
-        (*n)++;
+        q.uri = plain;
+        return pqdb_each(db, &q, each, ctx);
     }
-    closedir(d);
-    return files;
-}
-
-static struct record_memo *record_memo_find(const char *dir, const char *id)
-{
-    int k;
-
-    for (k = 0; k < g_record_memos; k++)
-        if (!strcmp(g_record_memo[k].id, id) && !strcmp(g_record_memo[k].dir, dir))
-            return &g_record_memo[k];
-    return NULL;
-}
-
-/* calls each(record, ctx) for every record of qualification_dir whose file name is the id's */
-static void each_record(const char *dir, const char *id, void (*each)(const cJSON *, void *), void *ctx)
-{
-    struct record_memo *m;
-    struct stat st;
-    int k, n;
-    memo_file_t *files;
-
-    if (!dir || !*dir || !id || !*id || stat(dir, &st) != 0)
-        return;
-    m = record_memo_find(dir, id);
-    if (m && same_time(m->mtime, st.st_mtim))
-    {
-        for (k = 0; k < m->n; k++)
-        {
-            struct stat fs;
-
-            if (stat(m->files[k].path, &fs) != 0)
-                break;
-            if (!same_time(fs.st_mtim, m->files[k].mtime) || fs.st_size != m->files[k].size)
-            {
-                cJSON *record = parse_file(m->files[k].path);
-
-                if (!record)
-                    break;
-                cJSON_Delete(m->files[k].record);
-                m->files[k].record = record;
-                m->files[k].mtime = fs.st_mtim;
-                m->files[k].size = fs.st_size;
-            }
-        }
-        if (k == m->n)
-        {
-            for (k = 0; k < m->n; k++)
-                each(m->files[k].record, ctx);
-            return;
-        }
-    }
-    files = list_records(dir, id, &n);
-    for (k = 0; k < n; k++)
-        each(files[k].record, ctx);
-    if (m)
-    {
-        memo_files_free(m->files, m->n);
-        m->files = files;
-        m->n = n;
-        m->mtime = st.st_mtim;
-        return;
-    }
-    if (g_record_memos < RECORD_MEMO_MAX)
-    {
-        m = &g_record_memo[g_record_memos];
-        m->dir = strdup(dir);
-        m->id = strdup(id);
-        if (m->dir && m->id)
-        {
-            m->files = files;
-            m->n = n;
-            m->mtime = st.st_mtim;
-            g_record_memos++;
-            return;
-        }
-        free(m->dir);
-        free(m->id);
-    }
-    memo_files_free(files, n);
+    return 0;
 }
 
 struct cost_ctx {
-    const char *id;
-    int rate, quantum;
     double best;
 };
 
-static void cost_of(const cJSON *record, void *ctx)
+static int cost_of(const pqdb_result *r, void *ctx)
 {
     struct cost_ctx *c = ctx;
-    double v = point_of(record, c->id, c->rate, c->quantum);
+    double fraction;
 
-    if (v > c->best)
-        c->best = v;
+    if (!r->has_cost || r->cost_p_ns < 0)
+        return 0;
+    fraction = r->cost_p_ns * r->rate / 1e9;
+    if (fraction > c->best)
+        c->best = fraction;
+    return 0;
 }
 
-double qualcost_read(const char *dir, const char *id, int rate, int quantum)
+double qualcost_read(pqdb *db, const char *id, int rate, int quantum)
 {
-    struct cost_ctx c = { id, rate, quantum, -1.0 };
+    struct cost_ctx c = { -1.0 };
 
-    each_record(dir, id, cost_of, &c);
+    if (rate <= 0 || quantum <= 0 || each_result(db, id, rate, quantum, cost_of, &c) != 0)
+        return -1.0;
     return c.best;
 }
 
 struct cell_ctx {
-    const char *id;
-    int rate, quantum;
-    int status;
+    int found;
     qualcost_cell_t cell;
 };
 
-static void cell_of(const cJSON *record, void *ctx)
+static int cell_of(const pqdb_result *r, void *ctx)
 {
     struct cell_ctx *c = ctx;
-    const cJSON *point;
-    size_t k = 0;
 
-    if (!names(record, c->id))
-        return;
-    if (c->status == QUALCOST_CELL_NO_RECORD)
-        c->status = QUALCOST_CELL_NO_POINT;
-    while ((point = point_at(record, c->id, c->rate, c->quantum, &k)) != NULL)
-    {
-        const cJSON *latency = jget(point, "latency");
-        double median, frames;
-
-        if (!jnum(jget(point, "cost"), "median", &median) || median < 0 ||
-            (!jnum(latency, "measuredFrames", &frames) && !jnum(latency, "declaredFrames", &frames)) || frames < 0)
-            continue;
-        if (c->status != QUALCOST_CELL_FOUND)
-        {
-            c->status = QUALCOST_CELL_FOUND;
-            c->cell.median_ns = median;
-            c->cell.latency_frames = frames;
-            continue;
-        }
-        if (median > c->cell.median_ns)
-            c->cell.median_ns = median;
-        if (frames > c->cell.latency_frames)
-            c->cell.latency_frames = frames;
-    }
+    if (!r->has_cost || r->cost_median_ns < 0 || !r->has_latency || r->latency_frames < 0)
+        return 0;
+    if (!c->found || r->cost_median_ns > c->cell.median_ns)
+        c->cell.median_ns = r->cost_median_ns;
+    if (!c->found || r->latency_frames > c->cell.latency_frames)
+        c->cell.latency_frames = (double)r->latency_frames;
+    c->found = 1;
+    return 0;
 }
 
-int qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualcost_cell_t *out)
+static int any_of(const pqdb_result *r, void *ctx)
 {
-    struct cell_ctx c = { id, rate, quantum, QUALCOST_CELL_NO_RECORD, { 0, 0 } };
+    (void)r;
+    *(int *)ctx = 1;
+    return 1; /* one is enough: stop the walk */
+}
 
-    each_record(dir, id, cell_of, &c);
+int qualcost_cell(pqdb *db, const char *id, int rate, int quantum, qualcost_cell_t *out)
+{
+    struct cell_ctx c = { 0, { 0, 0 } };
+    int named = 0;
+
     *out = c.cell;
-    return c.status;
+    if (rate <= 0 || quantum <= 0)
+        return QUALCOST_CELL_NO_RECORD;
+    each_result(db, id, rate, quantum, cell_of, &c);
+    if (c.found)
+    {
+        *out = c.cell;
+        return QUALCOST_CELL_FOUND;
+    }
+    /* a record that holds the plugin at any grid point names it: no point here, not no record */
+    each_result(db, id, -1, -1, any_of, &named);
+    return named ? QUALCOST_CELL_NO_POINT : QUALCOST_CELL_NO_RECORD;
 }
 
 struct memory_ctx {
-    const char *id;
-    int rate, quantum, found;
+    int found;
     qualcost_memory_t memory;
 };
 
-static void memory_of(const cJSON *record, void *ctx)
+static int memory_of(const pqdb_result *r, void *ctx)
 {
     struct memory_ctx *c = ctx;
-    const cJSON *point;
-    size_t k = 0;
 
-    while ((point = point_at(record, c->id, c->rate, c->quantum, &k)) != NULL)
-    {
-        const cJSON *mem = jget(point, "memory");
-        double first, per;
-
-        if (!jnum(mem, "firstInstanceKb", &first) || !jnum(mem, "perInstanceKb", &per) || first < 0 || per < 0)
-            continue;
-        if (!c->found || first > c->memory.first_kb)
-            c->memory.first_kb = first;
-        if (!c->found || per > c->memory.per_instance_kb)
-            c->memory.per_instance_kb = per;
-        c->found = 1;
-    }
+    if (!r->has_memory || r->mem_first_kb < 0 || r->mem_per_instance_kb < 0)
+        return 0;
+    if (!c->found || r->mem_first_kb > c->memory.first_kb)
+        c->memory.first_kb = (double)r->mem_first_kb;
+    if (!c->found || r->mem_per_instance_kb > c->memory.per_instance_kb)
+        c->memory.per_instance_kb = (double)r->mem_per_instance_kb;
+    c->found = 1;
+    return 0;
 }
 
-int qualcost_memory(const char *dir, const char *id, int rate, int quantum, qualcost_memory_t *out)
+int qualcost_memory(pqdb *db, const char *id, int rate, int quantum, qualcost_memory_t *out)
 {
-    struct memory_ctx c = { id, rate, quantum, 0, { 0, 0 } };
+    struct memory_ctx c = { 0, { 0, 0 } };
 
-    each_record(dir, id, memory_of, &c);
+    if (rate > 0 && quantum > 0)
+        each_result(db, id, rate, quantum, memory_of, &c);
     *out = c.memory;
     return c.found ? 0 : -1;
 }
