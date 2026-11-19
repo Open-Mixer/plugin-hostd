@@ -4871,14 +4871,12 @@ def pin_n(p, n, verdict=None):
 
 def put_cell(d, name, plugin_id, rate, quantum, median, p95, declared="-", measured="-", first="-", per="-"):
     """a cell in the qualification store of the daemon d, as the test build of the daemon reads it: the file
-    <qualification_dir>/qualification.sqlite, rebuilt from the DDL of plugin-qualification-db with every cell put so far. A
+    <tmp>/qualification.sqlite (PLUGIN_HOSTD_TEST_QUALIFICATION_STORE of harness.Daemon), rebuilt from the DDL of plugin-qualification-db with every cell put so far. A
     cell of the same name replaces the earlier one (as a record file of that name did), and each name is a binary of its own."""
     cells = d.__dict__.setdefault("qual_cells", {})
     cells[name] = [format(len(cells) + 1, "x") if name not in cells else cells[name][0], plugin_id, rate, quantum, median, p95,
                    declared, measured, first, per]
-    directory = os.path.join(d.tmp, "qualification")
-    os.makedirs(directory, exist_ok=True)
-    store = os.path.join(directory, "qualification.sqlite")
+    store = os.path.join(d.tmp, "qualification.sqlite")
     qual_fixture.build(qual_fixture.schema_path(), store + ".new", list(cells.values()))
     os.replace(store + ".new", store)
 
@@ -5802,7 +5800,7 @@ def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answe
         check(os.listdir(os.path.dirname(panel_name(name))) == [os.path.basename(name)],
               "the panels hold its panel alone: %s" % os.listdir(os.path.dirname(panel_name(name))))
         check(os.stat(s.descriptors).st_mode & 0o777 == 0o700, "%s is made 0700" % s.descriptors)
-        check(not os.path.exists(s.qualification), "the daemon makes no qualification directory: it reads a store")
+        check(not os.path.exists(os.path.join(s.dir, "qualification")), "the daemon makes no qualification directory: it reads a store")
         # written once: a second instance of the same files reads the file and runs no scan
         d.expect("add %s 1" % s.clap_uri, "resp 1")
         d.expect("add lv2:%s 2" % LV2_COMPRESSOR, "resp 2")

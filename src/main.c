@@ -59,14 +59,16 @@ static conf_t g_conf;
 
 #ifdef OMX_QUALIFICATION_TEST_STORE
 /* The test build's seam for the qualification store (the Makefile's PROG_TEST and the other test builds of the daemon, never
- * installed or packaged): the store is the file qualification.sqlite in the directory the settings name qualification_dir,
- * opened as the base with no user layer, so each test has a store of its own. The packaged daemon opens the store of its scope
+ * installed or packaged): the store is the file the test names in PLUGIN_HOSTD_TEST_QUALIFICATION_STORE, opened as the base
+ * with no user layer, so each test has a store of its own; no variable names no file, which is an absent store. It is no
+ * setting of the daemon. The packaged daemon opens the store of its scope
  * with pqdb_open and takes no path and no environment variable for it. */
 static int open_test_store(pqdb **db, pqdb_error *err)
 {
-    char path[PATH_MAX + 32];
+    const char *path = getenv("PLUGIN_HOSTD_TEST_QUALIFICATION_STORE");
 
-    snprintf(path, sizeof(path), "%s/qualification.sqlite", g_conf.qualification_dir);
+    if (!path || !*path)
+        path = "/nonexistent/qualification.sqlite";
 #ifdef OMX_CONTRACTDIR
     return pqdb_open_at(path, NULL, OMX_CONTRACTDIR, db, err);
 #else

@@ -157,7 +157,7 @@ $(TEST_CONTRACT_EMPTY):
 	mkdir -p $@
 
 # and with OMX_QUALIFICATION_TEST_STORE, the other seam of the test builds: the qualification store is read from the file
-# <qualification_dir>/qualification.sqlite of the settings (pqdb_open_at) instead of the installed one, so each test has a
+# PLUGIN_HOSTD_TEST_QUALIFICATION_STORE (pqdb_open_at) instead of the installed one, so each test has a
 # store of its own (tests/qual_fixture.py). A packaged daemon is built with neither: it opens the store of its scope (pqdb_open)
 # and reads no path and no environment variable
 src/main-test.o: src/main.c $(TEST_CONTRACT_TREE)

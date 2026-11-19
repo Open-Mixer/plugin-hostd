@@ -220,12 +220,14 @@ static int source_holds(const char *needle)
 static void the_reader_names_no_record_directory_variable_or_test_entry(void)
 {
     static const char *const banned[] = { "qualification.json", "qualification_dir", "OMX_QUALIFICATION_DIR", "opendir",
-                                          "readdir", "getenv", "pqdb_open_at", "fopen", NULL };
+                                          "readdir", "getenv", "pqdb_open_at", "fopen", "memset", "pqdb_query q;", NULL };
     int k;
 
     for (k = 0; banned[k]; k++)
         CHECK(!source_holds(banned[k]), "src/qualcost.c names '%s'", banned[k]);
     CHECK(source_holds("pqdb_open("), "src/qualcost.c does not open the store through pqdb_open");
+    /* a zeroed pqdb_query asks for rate 0 and quantum 0 and matches nothing: every query starts from PQDB_QUERY_ANY */
+    CHECK(source_holds("pqdb_query q = PQDB_QUERY_ANY"), "src/qualcost.c does not start its query from PQDB_QUERY_ANY");
 }
 
 /* plugin-hostd takes the system scope run as root and the user's otherwise (the rule its qualification_dir had) */

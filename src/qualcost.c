@@ -76,12 +76,11 @@ static void decode(const char *id, char *out, size_t size)
 static int each_result(pqdb *db, const char *id, int rate, int quantum, int (*each)(const pqdb_result *, void *), void *ctx)
 {
     char plain[PATH_MAX];
-    pqdb_query q;
+    pqdb_query q = PQDB_QUERY_ANY; /* a zeroed query asks for rate 0 and quantum 0 and matches nothing */
     int status;
 
     if (!db || !id || !*id)
         return 0;
-    memset(&q, 0, sizeof(q));
     q.rate = rate;
     q.quantum = quantum;
     q.uri = id;

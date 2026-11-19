@@ -5,11 +5,10 @@
 # TEMPORARY: until libplugin-qualification-db is published in the OpenMixer channel, CI builds Open-Mixer/plugin-db-qualification at
 # the pinned commit below and installs it under /usr/local, where pkg-config finds it. When its package is in the channel, the
 # floor of packaging/deps.txt installs it by dnf builddep and this script and its steps in ci.yml are deleted.
-# The installed .pc of that commit carries the prefix it was built with, so it is built and installed with PREFIX=/usr/local and
-# `make check` is not run before the install. Fedora only (dnf), run as root.
+# Built and installed with PREFIX=/usr/local, its .pc written at the install with that prefix. Fedora only (dnf), run as root.
 set -eu
 PDQ_URL=https://github.com/Open-Mixer/plugin-db-qualification.git
-PDQ_SHA=1d8b2e2f20f2bd537d441ae1f8de35dd9a980a13
+PDQ_SHA=dbb21122229669d46baa229d617f74dce3a91b6c
 
 bounded-install dnf install -y --setopt=install_weak_deps=False git gcc make sqlite-devel libomx-domain-devel
 dir=$(mktemp -d)
