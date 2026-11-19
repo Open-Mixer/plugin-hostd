@@ -110,8 +110,14 @@ jobs:
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
       # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
+      # TEMPORARY until libplugin-qualification-db is published in the channel: built from a pinned commit of
+      # plugin-db-qualification (tools/ci-temp-build-pdq.sh); the floor of packaging/deps.txt replaces this step
+      - name: Build the qualification reader (temporary, until its package is in the channel)
+        run: sh tools/ci-temp-build-pdq.sh
+
       - name: Install the build dependencies from the channel
-        run: bounded-install dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+        # --skip-unavailable: the reader's own package is not in the channel yet (the step above installed it from source)
+        run: bounded-install dnf builddep -y --skip-unavailable --setopt=retries=10 packaging/plugin-hostd.spec
 
       # an ordinary run builds against the channel: name where each omx package came from, refuse one from staging
       # (plugin-hostd-protocol#27: a stale staged contract package outranked the channel)
@@ -248,8 +254,14 @@ jobs:
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
+      # TEMPORARY until libplugin-qualification-db is published in the channel: built from a pinned commit of
+      # plugin-db-qualification (tools/ci-temp-build-pdq.sh); the floor of packaging/deps.txt replaces this step
+      - name: Build the qualification reader (temporary, until its package is in the channel)
+        run: sh tools/ci-temp-build-pdq.sh
+
       - name: Install the build dependencies from the channel
-        run: bounded-install dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
+        # --skip-unavailable: the reader's own package is not in the channel yet (the step above installed it from source)
+        run: bounded-install dnf builddep -y --skip-unavailable --setopt=retries=10 packaging/plugin-hostd.spec
 
       - name: Build
         run: make
