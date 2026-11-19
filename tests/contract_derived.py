@@ -130,9 +130,11 @@ def gen_json(gen):
 
 def gen_methods(gen, contract_path):
     """the latency methods of the probe schema the generator writes from this tree's template, the qualification domain
-    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry)"""
+    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry); the installed contract directory follows, for
+    the domains the template takes from their owners (plugin-db's address formats)"""
     p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
-                       text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + contract_path))
+                       text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join(
+                           [os.path.join(ROOT, "contract.d"), contract_path] + qualification_source.search_path())))
     if p.returncode != 0:
         return None
     return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]

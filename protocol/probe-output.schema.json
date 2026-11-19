@@ -130,10 +130,7 @@
       "additionalProperties": false,
       "properties": {
         "format": {
-          "enum": [
-            "clap",
-            "lv2"
-          ]
+          "enum": ["clap", "lv2"]
         },
         "id": {
           "type": "string",
