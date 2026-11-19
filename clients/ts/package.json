@@ -43,6 +43,6 @@
     "provenance": true
   },
   "dependencies": {
-    "@openmixer/omx-contract": "^3.20.2"
+    "@openmixer/omx-contract": ">=3.20.2"
   }
 }
