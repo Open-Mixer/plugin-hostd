@@ -521,6 +521,15 @@ static const char *const MACHINE_ITEMS[] = {
 };
 #define N_MACHINE_ITEMS (sizeof(MACHINE_ITEMS) / sizeof(*MACHINE_ITEMS))
 
+/* the items of plugin-db's own domain the probe output shares: the address-format words of a plugin, owned by plugin-db
+ * (its domain `plugin-db`, since 0.4.7), the token the item's own name */
+#define PLUGIN_DB_DOMAIN "plugin-db"
+#define PLUGIN_DB_FLOOR "1.0.0"
+static const char *const PLUGIN_DB_ITEMS[] = {
+    "PLUGIN_DB_ADDRESS_FORMATS",
+};
+#define N_PLUGIN_DB_ITEMS (sizeof(PLUGIN_DB_ITEMS) / sizeof(*PLUGIN_DB_ITEMS))
+
 /* the items of the probe domain (plugin-hostd's own) the probe output shares: the words a run writes */
 static const char *const PROBE_ITEMS[] = {
     "PROBE_REASONS",
@@ -565,7 +574,8 @@ static int domain_lists(const char *domain, const char *floor, const char *const
 
 /* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, each
  * @MACHINE_<ITEM>@ token by the quoted words of that item of the machine domain and each @QUALIFICATION_<ITEM>@ token
- * by the quoted words of that item of plugin-qualify's qualification domain, so the schema's enumerations are the
+ * by the quoted words of that item of plugin-qualify's qualification domain and each @PLUGIN_DB_<ITEM>@ token by the
+ * words of plugin-db's domain, so the schema's enumerations are the
  * declarations' own; each domain is read through the loader from OMX_CONTRACT_PATH (the generator's test entry: a ':'
  * list, the first directory holding it wins), else from the installed contract directory, and refused by name when it is
  * absent, invalid, too old or lacks an item; a token the template holds and the generator does not know is an error */
@@ -579,14 +589,22 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_RT_GRANTS", PROBE_RT_GRANTS),
         PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
-        { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
+        { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
+    /* the six lists of the headers, then one slot for each item of the domains below: a miscounted slot is a build error */
+    _Static_assert(sizeof(LISTS) / sizeof(*LISTS) ==
+                       6 + N_PROBE_ITEMS + N_MACHINE_ITEMS + N_QUALIFICATION_ITEMS + N_PLUGIN_DB_ITEMS,
+                   "LISTS holds the six header lists and one slot for each item of the probe, machine, qualification and "
+                   "plugin-db domains");
     char probe_tokens[N_PROBE_ITEMS][96];
     char machine_tokens[N_MACHINE_ITEMS][96];
     char qualification_tokens[N_QUALIFICATION_ITEMS][96];
-    size_t probe_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS - N_PROBE_ITEMS;
-    size_t machine_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS;
-    size_t qualification_first = sizeof(LISTS) / sizeof(*LISTS) - N_QUALIFICATION_ITEMS;
+    char plugin_db_tokens[N_PLUGIN_DB_ITEMS][96];
+    size_t probe_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS -
+                         N_PROBE_ITEMS;
+    size_t machine_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS;
+    size_t qualification_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS - N_QUALIFICATION_ITEMS;
+    size_t plugin_db_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS;
     FILE *f;
     char line[512];
 
@@ -594,7 +612,9 @@ static int probe_schema(const char *path)
         domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
                      machine_tokens) != 0 ||
         domain_lists(QW_DOMAIN, QW_FLOOR, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + qualification_first,
-                     qualification_tokens) != 0)
+                     qualification_tokens) != 0 ||
+        domain_lists(PLUGIN_DB_DOMAIN, PLUGIN_DB_FLOOR, PLUGIN_DB_ITEMS, N_PLUGIN_DB_ITEMS, LISTS + plugin_db_first,
+                     plugin_db_tokens) != 0)
         return 1;
     f = fopen(path, "r");
     if (f == NULL)
