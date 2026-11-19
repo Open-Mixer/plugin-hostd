@@ -91,7 +91,7 @@ def gate_scan(root):
 
 
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick): a pull request runs the plain tier
-# and one package arm (fc45 x86_64, trixie amd64); `make sabotage` (36 minutes of the last green run), the release dry
+# and one package arm (fc45 x86_64, trixie arm64); `make sabotage` (36 minutes of the last green run), the release dry
 # run and bookworm run on push to main, tags and dispatch. Each is red where a pull request would run it.
 OFF_PR = "github.event_name != 'pull_request'"
 
