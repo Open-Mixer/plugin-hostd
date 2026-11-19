@@ -51,7 +51,8 @@ def fill(db, table, given):
 
 
 def num(text):
-    """A cell figure: "-" is NULL."""
+    """A cell figure: "-" is NULL; a number stands for itself, a string is read."""
+    text = str(text)
     return None if text == "-" else float(text) if "." in text else int(text)
 
 
