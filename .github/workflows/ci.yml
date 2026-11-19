@@ -655,8 +655,8 @@ jobs:
           for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
           done
-          dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces | tee breaks.txt
-          test "$(grep -c '^\(Breaks\|Replaces\): plugin-hostd-dev (<< ' breaks.txt)" = 2
+          # no Breaks, Replaces or Conflicts between our own packages (owner rule 2026-11-16)
+          test -z "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces Conflicts)"
           for p in plugin-hostd plugin-hostd-dev; do
             dpkg-deb -f debs/${p}_*.deb Depends | grep -q 'plugin-hostd-contract (= '
           done
