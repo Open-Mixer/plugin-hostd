@@ -1002,7 +1002,7 @@ SABOTAGE = [
      '    return rc;\n}\n\n/* chain_formed:',
      '    return rc == RPC_OK && code < 0 ? rc + 1 : rc;\n}\n\n/* chain_formed:',
      "a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone"),
-    ("a descriptor_dir or qualification_dir that cannot be written is let through", "src/descriptors.c",
+    ("a descriptor_dir that cannot be written is let through", "src/descriptors.c",
      "    if (make_dirs(dir) != 0 || writable(dir) != 0)\n", "    if (make_dirs(dir) != 0 && 0)\n",
      "a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key"),
     ("an empty descriptor_dir ignores $XDG_STATE_HOME", "src/descriptors.c",
@@ -1552,29 +1552,55 @@ SABOTAGE = [
      "    if (phd_pin_path_decode(id, out, size) != 0)\n", "    if (1)\n",
      "a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling", "qualcost"),
     ('the rate is not read', 'src/qualcost.c',
-     'r != rate ||',
-     '(r != rate && 0) ||',
-     'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
+     '    q.rate = rate;',
+     '    q.rate = -1;',
+     'a_rate_or_quantum_the_store_lacks_is_unknown', "qualcost"),
     ('the quantum is not read', 'src/qualcost.c',
-     'q != quantum)',
-     '(q != quantum && 0))',
-     'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
+     '    q.quantum = quantum;',
+     '    q.quantum = -1;',
+     'a_rate_or_quantum_the_store_lacks_is_unknown', "qualcost"),
     ('the first record of a plugin stands', 'src/qualcost.c',
-     'if (v > c->best)',
+     'if (fraction > c->best)',
      'if (c->best < 0)',
-     'the_larger_record_stands_whichever_the_directory_lists_first', "qualcost"),
-    ('the id inside the record is not read', 'src/qualcost.c',
-     'if (!got || !same_id(got, id) || !grid',
-     'if (!got || (!same_id(got, id) && 0) || !grid',
-     'a_record_of_another_plugin_is_not_this_ones', "qualcost"),
-    ('an encoded IRI is not decoded', 'src/qualcost.c',
-     'return !strcmp(da, db);',
-     'return !strcmp(a, b);',
+     'the_larger_of_two_records_of_one_plugin_stands', "qualcost"),
+    ('the plugin is not asked for', 'src/qualcost.c',
+     '    q.uri = id;\n',
+     '    q.uri = NULL;\n',
+     'a_plugin_the_store_does_not_name_has_no_figure', "qualcost"),
+    ('an encoded IRI is not asked for in its decoded spelling', 'src/qualcost.c',
+     '    if (strcmp(plain, id))',
+     '    if (0)',
      'a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling', "qualcost"),
     ('the fraction is nanoseconds over a second', 'src/qualcost.c',
-     'return ns * rate / 1e9;',
-     'return ns / 1e9;',
+     'fraction = r->cost_p_ns * r->rate / 1e9;',
+     'fraction = r->cost_p_ns / 1e9;',
      'the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core', "qualcost"),
+    ('the cell keeps the first median, not the largest', 'src/qualcost.c',
+     'if (!c->found || r->cost_median_ns > c->cell.median_ns)',
+     'if (!c->found)',
+     'the_larger_of_each_figure_of_two_records_stands', "qualcost"),
+    ('the memory keeps the first figure, not the largest', 'src/qualcost.c',
+     'if (!c->found || r->mem_first_kb > c->memory.first_kb)',
+     'if (!c->found)',
+     'the_larger_of_each_figure_of_two_records_stands', "qualcost"),
+    ('a plugin the points of which are not this rate is no record', 'src/qualcost.c',
+     '    return named ? QUALCOST_CELL_NO_POINT : QUALCOST_CELL_NO_RECORD;',
+     '    return QUALCOST_CELL_NO_RECORD;',
+     'a_point_without_a_latency_or_at_another_rate_is_no_cell', "qualcost"),
+    ('the scope is the user\'s as root and the system\'s otherwise', 'src/qualcost.c',
+     '    return geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;',
+     '    return geteuid() != 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;',
+     'the_scope_is_the_system_s_as_root_and_the_user_s_otherwise', "qualcost"),
+    ('the production daemon is built with the test seam of the qualification store', 'src/main.c',
+     '#ifndef VERSION', '#define OMX_QUALIFICATION_TEST_STORE\n#ifndef VERSION',
+     'no_test_seam', "seam"),
+    ('a query starts zeroed, which matches nothing', 'src/qualcost.c',
+     '    pqdb_query q = PQDB_QUERY_ANY;', '    pqdb_query q = { 0 };',
+     'the_reader_names_no_record_directory_variable_or_test_entry', "qualcost"),
+    ('the reader names the old directory of record files again', 'src/qualcost.c',
+     '    pqdb_error err = { NULL, "" };',
+     '    pqdb_error err = { NULL, "" };\n    (void)"qualification_dir";',
+     'the_reader_names_no_record_directory_variable_or_test_entry', "qualcost"),
     ('what instances share is counted for each of them', 'src/supervisor.c',
      'kb += shared ? mem.per_instance_kb : mem.first_kb;', 'kb += mem.first_kb;',
      'an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_counted_once_and_the_budget'),
@@ -1604,10 +1630,6 @@ SABOTAGE = [
      '        if (bytes < 0)\n            ram_every = 0;\n',
      '        if (bytes < 0)\n            bytes = 0;\n',
      'an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure'),
-    ('the declared latency is read before the measured one', 'src/qualcost.c',
-     '(!jnum(latency, "measuredFrames", &frames) && !jnum(latency, "declaredFrames", &frames))',
-     '(!jnum(latency, "declaredFrames", &frames) && !jnum(latency, "measuredFrames", &frames))',
-     'the_cell_is_the_median_and_the_measured_latency', "qualcost"),
     ('a plan again forms every segment again', 'src/supervisor.c',
      'if (!kept[j] && was[j]->n == pp->seg_len[k]',
      'if (0 && !kept[j] && was[j]->n == pp->seg_len[k]',
@@ -1641,7 +1663,7 @@ SABOTAGE = [
      '    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", c->id);',
      'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
     ('a cost is never read from a record', 'src/supervisor.c',
-     '? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)',
+     '? qualcost_read(g_qual, record_id(uri), g_conf.group_rate, g_conf.group_quantum)',
      '? PLANNER_COST_UNKNOWN',
      'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
     ('group_cost_max is read as a fraction already', 'src/supervisor.c',
@@ -1882,6 +1904,13 @@ def run_unit_test(tree, target, source, name):
 def run_test(tree, name, jack=False):
     if jack == "planner":
         return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
+    if jack == "seam":
+        # the production daemon of the tree, built with no test define, and the check of its binary
+        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
+                       stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "no_test_seam.py"), os.path.join(tree, "plugin-hostd")],
+                           capture_output=True, text=True, timeout=60)
+        return p.returncode, p.stdout + p.stderr
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
@@ -2064,7 +2093,7 @@ def arm(entry, tree):
             shutil.copy(os.path.join(ROOT, f), tree)
         os.makedirs(os.path.join(tree, "packaging"))
         shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-    elif jack in ("planner", "qualcost", "placement"):
+    elif jack in ("planner", "qualcost", "placement", "seam"):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
@@ -2115,7 +2144,7 @@ def arm(entry, tree):
     if jack in ("probe", "qualdomain"):
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                      "verbtable", "planner", "qualcost", "placement", "pool", "timing"):
+                      "verbtable", "planner", "qualcost", "placement", "pool", "timing", "seam"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))

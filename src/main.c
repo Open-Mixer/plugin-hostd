@@ -36,6 +36,7 @@
 #include "history.h"
 #include "machine.h"
 #include "pins.h"
+#include "qualcost.h"
 #include "relay.h"
 #include "session.h"
 #include "supervisor.h"
@@ -55,6 +56,26 @@
 
 static volatile int running;
 static conf_t g_conf;
+
+#ifdef OMX_QUALIFICATION_TEST_STORE
+/* The test build's seam for the qualification store (the Makefile's PROG_TEST and the other test builds of the daemon, never
+ * installed or packaged): the store is the file the test names in PLUGIN_HOSTD_TEST_QUALIFICATION_STORE, opened as the base
+ * with no user layer, so each test has a store of its own; no variable names no file, which is an absent store. It is no
+ * setting of the daemon. The packaged daemon opens the store of its scope
+ * with pqdb_open and takes no path and no environment variable for it. */
+static int open_test_store(pqdb **db, pqdb_error *err)
+{
+    const char *path = getenv("PLUGIN_HOSTD_TEST_QUALIFICATION_STORE");
+
+    if (!path || !*path)
+        path = "/nonexistent/qualification.sqlite";
+#ifdef OMX_CONTRACTDIR
+    return pqdb_open_at(path, NULL, OMX_CONTRACTDIR, db, err);
+#else
+    return pqdb_open_at(path, NULL, NULL, db, err);
+#endif
+}
+#endif
 
 /* the running history, unless history_window_s is 0: under the class of this machine, or the one host_class names */
 static int history_start(const conf_t *conf)
@@ -324,6 +345,9 @@ int main(int argc, char **argv)
     if (pin_files)
         return print_pin_files(pin_files);
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
+#ifdef OMX_QUALIFICATION_TEST_STORE
+    qualcost_use_opener(open_test_store);
+#endif
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;
     pins_accepting(conf_pins_first_use(&g_conf));

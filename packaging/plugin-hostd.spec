@@ -14,7 +14,7 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: plugin-db-devel >= 0.4.4
+BuildRequires: plugin-db-devel >= 0.4.7
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
@@ -28,6 +28,14 @@ BuildRequires: omx-contract-devel >= 3.20.0
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
 # and plugin-qualify's qualification domain through it (3.20.0 the first release that ships it); a floor only
 BuildRequires: libomx-domain-devel >= 3.20.0
+# the reader of the qualification store, <plugin-qualification-db/pqdb.h>: the daemon reads what a plugin costs through it and
+# reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
+# declared in); a floor only
+BuildRequires: libplugin-qualification-db-devel >= 2026111901
+# the reader's pkg-config file asks for sqlite3, which the Debian package of the reader does not pull in: named here too
+BuildRequires: sqlite-devel >= 3.37.0
+Requires: libplugin-qualification-db >= 2026111901
+Requires: sqlite-libs >= 3.37.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}
@@ -82,7 +90,7 @@ Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
 Requires: plugin-hostd-protocol-devel >= 0.6.0
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: plugin-db-devel >= 0.4.4
+Requires: plugin-db-devel >= 0.4.7
 
 %description devel
 The pin header, the words of the grouping planner and the running history,

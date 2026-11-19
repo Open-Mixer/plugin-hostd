@@ -16,12 +16,12 @@ import copy, json, os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TREE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
-TOKEN = re.compile(r"@((?:OMX|PHD|PROBE|MACHINE|QUALIFICATION)_[A-Z0-9_]+)@")
-# the items the probe output must take from a domain: the machine domain's (this tree's) and the qualification domain's
-# (plugin-qualify's), their item names the tokens; any other @OMX_<ITEM>@ the template names is held to the contract all the same
+TOKEN = re.compile(r"@((?:OMX|PHD|PROBE|MACHINE|QUALIFICATION|PLUGIN_DB)_[A-Z0-9_]+)@")
+# the items the probe output must take from a domain: the machine domain's (this tree's), the qualification domain's
+# (plugin-qualify's) and the address formats of plugin-db's domain (plugin-db >= 0.4.7), their item names the tokens; any other @OMX_<ITEM>@ the template names is held to the contract all the same
 REQUIRED = ("QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "QUALIFICATION_MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS",
             "MACHINE_CLOCK_BANDS", "QUALIFICATION_RESOURCE_THREAD_SCHEDULING", "PROBE_REASONS", "PROBE_OUTCOMES",
-            "PROBE_STEPS", "PROBE_SIGNALS")
+            "PROBE_STEPS", "PROBE_SIGNALS", "PLUGIN_DB_ADDRESS_FORMATS")
 failed = 0
 
 
@@ -74,7 +74,7 @@ def derived(tmpl):
         m = TOKEN.fullmatch(values[0]) if len(values) == 1 and isinstance(values[0], str) else None
         if m and m.group(1).startswith("OMX_"):
             out[pointer] = m.group(1)[len("OMX_"):]
-        elif m and m.group(1).startswith(("PROBE_", "MACHINE_", "QUALIFICATION_")):
+        elif m and m.group(1).startswith(("PROBE_", "MACHINE_", "QUALIFICATION_", "PLUGIN_DB_")):
             out[pointer] = m.group(1)
     return out
 
