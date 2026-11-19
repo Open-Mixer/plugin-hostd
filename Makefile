@@ -156,8 +156,8 @@ $(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/domain_words.c src/qualification_words.c
-$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/domain_words.h src/qualification_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/probe_words.c src/domain_words.c src/qualification_words.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_words.h src/domain_words.h src/qualification_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
@@ -196,7 +196,7 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
@@ -224,6 +224,13 @@ install_protocol:
 install_machine_domain:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_machine_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(DESTDIR)$(CONTRACTDIR)
+
+# the domain probe (contract.d/probe: the words a probe run writes), installed to <contractdir>/probe/ the same way:
+# plugin-hostd-contract ships it, and the probe and the schema generator refuse to start without it (78)
+.PHONY: install_probe_domain
+install_probe_domain:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_probe_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/probe $(DESTDIR)$(CONTRACTDIR)
 
 # the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
@@ -772,7 +779,7 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c src/domain_words.c src/domain_words.h src/machine.h src/qualification_words.c src/qualification_words.h $(PROTOCOL_HEADERS) $(RENDERED)
+$(GEN): tools/protocol-gen.c src/domain_words.c src/domain_words.h src/machine.h src/probe_words.h src/qualification_words.c src/qualification_words.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) -o $@ tools/protocol-gen.c src/domain_words.c src/qualification_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
 
 gen: $(GEN)

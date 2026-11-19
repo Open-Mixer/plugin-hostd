@@ -343,10 +343,14 @@ def arm6(doc):
         return
     before = len(failures)
     src = open(os.path.join(ROOT, "src", "probe.c")).read()
-    for item in ("PROBE_REASONS", "PROBE_OUTCOMES", "PROBE_STEPS"):
+    for item in ("PROBE_REASONS", "PROBE_OUTCOMES"):
         for w in words(doc, item):
             if '"%s"' % w in src:
                 fail("arm 6: src/probe.c holds the %s word %r as a literal" % (item, w))
+    for w in words(doc, "PROBE_STEPS"):
+        for call in ("add_step", "child_end", "add_lv2_figure_step"):
+            if '%s("%s"' % (call, w) in src:
+                fail("arm 6: src/probe.c names the PROBE_STEPS word %r in a call of %s: the word is the domain's" % (w, call))
     if len(failures) == before:
         ok("arm 6: no word of the probe domain is a literal of src/probe.c")
 

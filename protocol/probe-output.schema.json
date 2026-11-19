@@ -571,7 +571,8 @@
       "additionalProperties": false,
       "properties": {
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": ["SIGSEGV", "SIGABRT", "SIGBUS", "SIGFPE", "SIGILL", "SIGKILL", "SIGTERM", "SIGXCPU", "SIGXFSZ", "SIGSYS", "SIGPIPE", "SIGINT", "SIGHUP", "SIGNAL"]
         },
         "topFrame": {
           "type": "string"
@@ -875,7 +876,8 @@
           "minimum": 0
         },
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": ["SIGSEGV", "SIGABRT", "SIGBUS", "SIGFPE", "SIGILL", "SIGKILL", "SIGTERM", "SIGXCPU", "SIGXFSZ", "SIGSYS", "SIGPIPE", "SIGINT", "SIGHUP", "SIGNAL"]
         },
         "exitStatus": {
           "type": "integer"

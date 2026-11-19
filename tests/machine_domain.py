@@ -48,6 +48,7 @@ GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protoco
 WORDS_OPEN = "machine_words_open"
 BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
 failures = []
+PROBE_ONLY = [None]  # a scratch contract directory holding this checkout's probe domain and no other, set by main()
 
 
 def fail(msg):
@@ -204,9 +205,10 @@ def renamed(doc):
 
 
 def with_qualification(contract_dir):
-    """the test entry for the probe and the generator, which read plugin-qualify's qualification domain as well: the machine
-    directory under test first, the directory that holds the qualification domain after it"""
-    return contract_dir + ":" + qualification_source.source_dir()
+    """the test entry for the probe and the generator, which read plugin-qualify's qualification domain and this checkout's
+    probe domain as well: the machine directory under test first, a directory that holds the probe domain alone, the
+    directory that holds the qualification domain"""
+    return contract_dir + ":" + PROBE_ONLY[0] + ":" + qualification_source.source_dir()
 
 
 def run_probe(contract_dir, tmp):
@@ -357,6 +359,8 @@ def main():
     arm4(doc)
     arm7()
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-machine.")
+    PROBE_ONLY[0] = os.path.join(tmp, "probe-only")
+    shutil.copytree(os.path.join(ROOT, "contract.d", "probe"), os.path.join(PROBE_ONLY[0], "probe"))
     try:
         arm3(doc, tmp)
         arm5(tmp)
