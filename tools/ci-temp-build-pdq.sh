@@ -22,5 +22,7 @@ make PREFIX=/usr/local
 make PREFIX=/usr/local install
 echo /usr/local/lib > /etc/ld.so.conf.d/plugin-qualification-db.conf
 ldconfig
-echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+PKG_CONFIG_PATH=/usr/local/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+export PKG_CONFIG_PATH
+echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
 pkg-config --exists plugin-qualification-db

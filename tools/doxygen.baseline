@@ -79,19 +79,6 @@ src/probe_lock.h: warning: Member PROBE_LOCK_FD (macro definition) of file probe
 src/probe_lock.h: warning: Member PROBE_LOCK_FD_ENV (macro definition) of file probe_lock.h is not documented.
 src/probe_lock.h: warning: Member error (variable) of struct probe_lock_report_t is not documented.
 src/probe_lock.h: warning: Member locked (variable) of struct probe_lock_report_t is not documented.
-src/qualcost.h: warning: Compound QUALCOST_CELL_T is not documented.
-src/qualcost.h: warning: Compound QUALCOST_MEMORY_T is not documented.
-src/qualcost.h: warning: Member first_kb (variable) of struct QUALCOST_MEMORY_T is not documented.
-src/qualcost.h: warning: Member latency_frames (variable) of struct QUALCOST_CELL_T is not documented.
-src/qualcost.h: warning: Member median_ns (variable) of struct QUALCOST_CELL_T is not documented.
-src/qualcost.h: warning: Member per_instance_kb (variable) of struct QUALCOST_MEMORY_T is not documented.
-src/qualcost.h: warning: Member qualcost_cell(const char *dir, const char *id, int rate, int quantum, qualcost_cell_t *out) (function) of file qualcost.h is not documented.
-src/qualcost.h: warning: Member qualcost_cell_t (typedef) of file qualcost.h is not documented.
-src/qualcost.h: warning: Member qualcost_dir_scans (variable) of file qualcost.h is not documented.
-src/qualcost.h: warning: Member qualcost_memory(const char *dir, const char *id, int rate, int quantum, qualcost_memory_t *out) (function) of file qualcost.h is not documented.
-src/qualcost.h: warning: Member qualcost_memory_t (typedef) of file qualcost.h is not documented.
-src/qualcost.h: warning: Member qualcost_read(const char *dir, const char *id, int rate, int quantum) (function) of file qualcost.h is not documented.
-src/qualcost.h: warning: Member qualcost_record_parses (variable) of file qualcost.h is not documented.
 src/words.h: warning: Member words_need_quotes(const char *word) (function) of file words.h is not documented.
 src/words.h: warning: Member words_read(char *line, char **tok, int max) (function) of file words.h is not documented.
 src/words.h: warning: Member words_write(const char *word, char *buf, size_t size) (function) of file words.h is not documented.
