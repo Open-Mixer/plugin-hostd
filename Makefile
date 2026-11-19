@@ -66,6 +66,19 @@ PROTOCOL_HEADERS = $(wildcard include/plugin-hostd/*.h $(PROTOCOL_INCLUDE)/plugi
 # parameter scales are read from it; CONTRACT_CFLAGS=-I<dir> for a header that is not installed
 CONTRACT_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags omx-contract 2>/dev/null)
 
+# the qualification store's reader, plugin-qualification-db (<plugin-qualification-db/pqdb.h>): pkg-config when it is installed, a
+# checkout of it otherwise (PQDB_DIR, its library built in place). Its schema/qualification.sql builds the fixtures of the
+# tests; the daemon reads the store through the library only, never a file of records
+PQDB_DIR ?= ../plugin-db-qualification
+ifeq ($(shell $(PKG_CONFIG) --exists plugin-qualification-db && echo true), true)
+PQDB_CFLAGS = $(shell $(PKG_CONFIG) --cflags plugin-qualification-db)
+PQDB_LIBS = $(shell $(PKG_CONFIG) --libs plugin-qualification-db)
+else
+PQDB_CFLAGS = -I$(PQDB_DIR)/include
+PQDB_LIBS = -L$(PQDB_DIR) -lplugin-qualification-db -Wl,-rpath,$(abspath $(PQDB_DIR))
+endif
+PQDB_SCHEMA ?= $(PQDB_DIR)/schema/qualification.sql
+
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
 
@@ -613,8 +626,13 @@ test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
 	./$(PLANNER_TEST)
 	./$(QUALCOST_TEST)
 
-$(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(CJSON_LIBS) -lm
+# the fixtures are built from plugin-qualification-db's schema (tests/qual_fixture.py); the word check of the unknown-word arm
+# reads this checkout's machine domain, installed as the loader reads it
+$(QUALCOST_TEST): tests/qualcost_test.c tests/qual_fixture.py src/qualcost.c src/qualcost.h src/json.c src/json.h $(PROTOCOL_HEADERS) $(RENDERED) $(TEST_CONTRACT_TREE)
+	$(CC) -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(PQDB_CFLAGS) $(CFLAGS) -Werror \
+	    -DQUAL_SCHEMA='"$(abspath $(PQDB_SCHEMA))"' -DQUAL_FIXTURE='"$(abspath tests/qual_fixture.py)"' \
+	    -DQUALCOST_SOURCE='"$(abspath src/qualcost.c)"' -DTEST_CONTRACT_TREE='"$(TEST_CONTRACT_TREE)"' \
+	    -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm
 
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(PIN_LIBS)
