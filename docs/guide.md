@@ -178,7 +178,6 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `pin_file` | `` | a file of pin lines loaded at start, as plugin-qualify --all --pins writes it; empty is none |
 | `pins_dir` | `/usr/share/plugin-hostd/pins.d` | the read-only pins of packages: every file in it whose name ends in .pins, read at start in name order, under the store, the pin_file and pin_set, except that a pin of verdict=refused there holds over them until the user's pin_accept; empty is none |
 | `descriptor_dir` | `$OMX_DESCRIPTOR_DIR`, else `` | the scanned descriptors, one file per plugin binary (<id>@<version>-<hash>.json, the hash the binary's SHA-256), written by the scan of an add and read by descriptor_get; empty is $XDG_STATE_HOME/omx/descriptors, else /var/lib/omx/descriptors run as root (a system service), else $HOME/.local/state/omx/descriptors; its variable is for tests only |
-| `qualification_dir` | `$OMX_QUALIFICATION_DIR`, else `` | plugin-qualify's qualification records (verdict, cost, version tested), kept apart from the descriptors; empty is $XDG_STATE_HOME/omx/qualification, else /var/lib/omx/qualification run as root (a system service), else $HOME/.local/state/omx/qualification; its variable is for tests only |
 | `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
 | `history_file` | `` | the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear |
 | `host_class` | `` | the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space |
@@ -823,7 +822,7 @@ gathered, and the member the history marks goes alone. The new reasons come as a
 
 `estimate <rate> <quantum> <uri> [<uri> ...]` answers what a chain of those plugins would cost before any of them is
 added: a chain editor asks it before an insert. It loads nothing and moves nothing. The figures come from the
-qualification records of `qualification_dir`, the grid point at that rate and quantum: the latency is the measured
+qualification store (read through libplugin-qualification-db: the system store as root, else the user's; no directory of record files, no fallback to one), the grid point at that rate and quantum: the latency is the measured
 frames, else the declared ones, added up; the CPU is the cost median in nanoseconds per sample times the rate, added up,
 as percent of one core's cycle. No per-worker overhead is added: none is measured. The RAM is the history's
 `pss_mb_solo` of each member, in bytes, and `-` unless every member has one. The workers are the segments `plan` would make of the members, so an isolated plugin counts a worker of
