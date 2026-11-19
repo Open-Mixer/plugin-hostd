@@ -289,13 +289,13 @@ int main(int argc, char **argv)
     if (!mkdtemp(dir))
         return 2;
     snprintf(g_dir, sizeof(g_dir), "%s", dir);
-    /* cells: sha256 (a letter, 64 times), uri, rate, quantum, median, p95, declared, measured, firstKb, perKb */
+    /* cells: sha256 (a hex digit, 64 times), uri, rate, quantum, median, p95, declared, measured, firstKb, perKb */
     fixture("good",
             "a,org.example.a,48000,128,1000,5000,-,-,-,- a,org.example.a,96000,64,1,1,-,-,-,- "
             "b,org.example.b,48000,128,1,2000,-,-,-,- c,org.example.b,48000,128,1,10000,-,-,-,- "
             "e,org.example.e,48000,128,3000,6000,64,70,100,10 "
             "f,org.example.f,48000,128,1000,2000,32,-,-,- "
-            "g,org.example.g,48000,128,1000,2000,-,-,-,- "
+            "9,org.example.g,48000,128,1000,2000,-,-,-,- "
             "d,org.example.h,48000,128,1000,2000,0,10,100,5 f,org.example.h,48000,128,2000,3000,0,5,80,9 "
             "a,'urn:a b',48000,128,1000,5000,-,-,-,- "
             "b,urn:a%20c,48000,128,1000,5000,-,-,-,-");

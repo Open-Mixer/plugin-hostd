@@ -8,6 +8,7 @@ import concurrent.futures, hashlib, json, os, shutil, signal, socket, subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
+import qual_fixture
 
 EXE = os.path.abspath(os.environ.get("ALLOC_SWEEP_DAEMON", "tests/plugin-hostd-alloc-fail"))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", "tests/fake-host"))
@@ -89,12 +90,10 @@ def one_run(site=None, nth=1, every_after=False):
             write("%s/lv2/%s.lv2/manifest.ttl" % (tmp, name), (MANIFEST % uri).encode())
             write("%s/lv2/%s.lv2/pinned.so" % (tmp, name), b"lv2 binary " + name.encode())
             write("%s/lv2/%s.lv2/pinned.ttl" % (tmp, name), (PLUGIN_TTL % uri).encode())
-        # a qualification record: read as JSON whenever a plan or an estimate asks the plugin's cost
-        doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": "org.openmixer.4"},
-               "measurements": {"grid": [{"rate": 48000, "quantum": 256, "outcome": "probe.ok",
-                                          "cost": {"median": 1000, "percentile": {"p": 95, "value": 2000}, "blocks": 100,
-                                                   "warmupBlocks": 10}}]}}
-        write("%s/qualification/org.openmixer.4@1.0-0123456789ab.default.qualification.json" % tmp, json.dumps(doc).encode())
+        # a qualification store: read through libplugin-qualification-db whenever a plan or an estimate asks the plugin's cost
+        os.makedirs("%s/qualification" % tmp)
+        qual_fixture.build(qual_fixture.schema_path(), "%s/qualification/qualification.sqlite" % tmp,
+                           [("a", "org.openmixer.4", 48000, 256, 1000, 2000, "-", "-", "-", "-")])
         layout = subprocess.check_output([FAKE, "-L"], text=True).strip()
         cmds = scenario(tmp, layout)
         conf = "%s/plugin-hostd.conf" % tmp

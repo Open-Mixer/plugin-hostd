@@ -13,18 +13,30 @@ tables are the correction of plugin-db-qualification 1d8b2e2f2, which a cell nee
   --bad-word         a record whose mc_arch is in no item of the machine domain, with the word check of it recorded
   cell               sha256,uri,rate,quantum,median,p95,declared,measured,firstkb,perkb  ("-" is NULL)
 
-A cell is one grid point of one plugin binary (its sha256 is a letter repeated 64 times) on one host class; its record
+A cell is one grid point of one plugin binary (its sha256 is a hex digit or digits repeated to 64 characters) on one host class; its record
 is made once per sha256 and uri. Every column the schema needs and a cell does not name takes a plain placeholder.
 """
+import os
 import sqlite3
+import subprocess
 import sys
 
 PLACEHOLDER = {"TEXT": "x", "INTEGER": 0, "REAL": 0.0}
 
 
+def schema_path():
+    """The DDL of the store: the installed one (pkg-config --variable=schema plugin-qualification-db), else PQDB_SCHEMA."""
+    try:
+        path = subprocess.run(["pkg-config", "--variable=schema", "plugin-qualification-db"], capture_output=True, text=True,
+                              check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        path = ""
+    return path if path and os.path.exists(path) else os.environ["PQDB_SCHEMA"]
+
+
 def sha(letter):
-    """The 64-hex sha256 a plugin binary of this letter has."""
-    return letter * 64
+    """The 64-hex sha256 a plugin binary of this letter (or hex digits) has: it repeated up to 64 characters."""
+    return (letter * 64)[:64]
 
 
 def fill(db, table, given):
@@ -43,18 +55,8 @@ def num(text):
     return None if text == "-" else float(text) if "." in text else int(text)
 
 
-def main(argv):
-    """Build the fixture the arguments name."""
-    schema, out, rest = argv[1], argv[2], argv[3:]
-    version, bad_word, cells = 1, False, []
-    while rest:
-        arg = rest.pop(0)
-        if arg == "--user-version":
-            version = int(rest.pop(0))
-        elif arg == "--bad-word":
-            bad_word = True
-        else:
-            cells.append(arg.split(","))
+def build(schema, out, cells, user_version=1, bad_word=False):
+    """Write the store fixture out from the DDL of schema; cells are sequences of the ten cell fields (strings)."""
     db = sqlite3.connect(out)
     with open(schema, encoding="utf-8") as f:
         db.executescript(f.read())
@@ -86,9 +88,24 @@ def main(argv):
         fill(db, "claim", {"record_id": rid, "plugin_id": plugins[key], "offer": "default", "host_class": "x86-64",
                            "rate": int(rate), "quantum": int(quantum)})
     db.commit()
-    db.execute(f"PRAGMA user_version = {version}")
+    db.execute(f"PRAGMA user_version = {user_version}")
     db.commit()
     db.close()
+
+
+def main(argv):
+    """Build the fixture the arguments name."""
+    schema, out, rest = argv[1], argv[2], argv[3:]
+    version, bad_word, cells = 1, False, []
+    while rest:
+        arg = rest.pop(0)
+        if arg == "--user-version":
+            version = int(rest.pop(0))
+        elif arg == "--bad-word":
+            bad_word = True
+        else:
+            cells.append(arg.split(","))
+    build(schema, out, cells, version, bad_word)
 
 
 if __name__ == "__main__":
