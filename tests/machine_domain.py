@@ -11,7 +11,7 @@ arms 1 to 8.
 4. include/plugin-hostd/machine_codes.h holds exactly the items marked x-c-codes and is the render (--check), or there is none;
 5. the CLIs (the probe, the generator) read OMX_CONTRACT_PATH, the library entry (machine_words_open with no directory,
    the daemon's) ignores it, and nothing of src/machine.c or src/domain_words.c reads the environment;
-6. a machine domain that is absent, invalid, too old (below 1.0.0) or without the items or bands the probe cuts is refused by name at
+6. a machine domain that is absent, invalid, too old (below 1.1.0) or without the items or bands the probe cuts is refused by name at
    start-up: the probe exits 78 with the loader's code and the domain's name, the generator exits 1 the same way;
 7. make install_machine_domain DESTDIR=<tmp> gives the tree the loader reads: omx_domain_open_at opens it and finds a
    word and a catalog text;
@@ -166,7 +166,7 @@ def arm7():
         if b.returncode != 0:
             fail("arm 7: tests/machine_domain_open.c does not build (a loader is needed, libomx-domain): %s" % b.stderr.strip()[-200:])
             return
-        o = run([exe, installed, "1.0.0", "MACHINE_CORE_BANDS", "1-2", "MACHINE_CORE_BANDS.1-2", "ca"])
+        o = run([exe, installed, "1.1.0", "MACHINE_CORE_BANDS", "1-2", "MACHINE_CORE_BANDS.1-2", "ca"])
         if o.returncode != 0:
             fail("arm 7: the loader does not read the installed tree: %s" % o.stderr.strip())
         else:
@@ -325,8 +325,8 @@ def arm6(doc, tmp):
     p, out = run_probe(fixture(tmp, "short", short), tmp)
     if not (p.returncode == 78 and out is None and "MACHINE_CORE_BANDS" in p.stderr and "machine" in p.stderr):
         fail("arm 6: a core band short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))
-    if "1.0.0" not in run_probe(cases[2][1], tmp)[0].stderr:
-        fail("arm 6: the too-old refusal does not name the floor 1.0.0")
+    if "1.1.0" not in run_probe(cases[2][1], tmp)[0].stderr:
+        fail("arm 6: the too-old refusal does not name the floor 1.1.0")
     # the daemon is a program too, and a production entry point: it reads no path and no variable for the contract. The test
     # builds hold the seam (OMX_CONTRACTDIR, compiled in): DAEMON over this checkout's domain, DAEMON_EMPTY over a directory
     # with none. OMX_CONTRACT_PATH is set in both to prove it is ignored.
