@@ -599,16 +599,6 @@ jobs:
 
       - uses: Open-Mixer/.github/.github/actions/build-deb@openmixer-v1
 
-      # the data packages plugin-hostd-contract depends on are the channel's, not Debian's: the clean container
-      # installs them from here, like the protocol library; omx-contract too, whose schema reads the tables (#165)
-      - name: Fetch the contract data packages of the channel
-        run: |
-          set -euo pipefail
-          mkdir -p dep-debs
-          (cd dep-debs && bounded-install apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
-            omx-clap-core-contract omx-contract-data omx-contract \
-            libomx-domain0 libomx-domain-dev plugin-db-contract plugin-qualify-contract)
-
       # what the smoke test runs the installed package against, built here for the architecture
       - name: Build the smoke test fixtures
         run: |
@@ -623,7 +613,6 @@ jobs:
           name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: |
             debs/*.deb
-            dep-debs/*.deb
             smoke
           if-no-files-found: error
           retention-days: 1
@@ -638,7 +627,7 @@ jobs:
       fail-fast: false
       matrix:
         cell: ${{ fromJSON(needs.checks.outputs.deb) }}
-    # nothing but the distribution: a dependency the package forgot to declare is missing here
+    # nothing but the distribution and the OpenMixer channel: a dependency the package forgot to declare is missing here
     defaults:
       run:
         shell: bash
@@ -659,11 +648,16 @@ jobs:
         with:
           name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
 
-      - name: Install the package with its dependencies from the distribution
+      # the packages Depend on the channel's (libomx-domain0, plugin-db-dev, the contract data): apt resolves the whole
+      # closure from the channel, so no list of them is kept here to fall behind the floors
+      - name: Add the OpenMixer channel
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+
+      - name: Install the package with its dependencies from the distribution and the channel
         run: |
           set -euo pipefail
           bounded-install apt-get update -qq
-          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/*.deb python3
+          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
