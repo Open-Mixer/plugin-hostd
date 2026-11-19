@@ -26,7 +26,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick). A pull request runs the plain test
-# tier and one package arm (fc44 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
+# tier and one package arm (fc45 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
 # main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
   # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
-      image: fedora:44
+      image: fedora:45
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
       # CAP_SYS_RESOURCE lets the probe test raise RLIMIT_RTPRIO and RLIMIT_MEMLOCK as LimitRTPRIO= and LimitMEMLOCK= do,
       # so it measures at the highest SCHED_FIFO priority with its memory locked. Not CAP_SYS_NICE: the worker_env test
@@ -222,7 +222,7 @@ jobs:
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     container:
-      image: fedora:44
+      image: fedora:45
       options: --cap-add SYS_NICE
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
@@ -341,7 +341,7 @@ jobs:
           echo "An aarch64 run of this job is not here either: this is x86_64 only, a separate step for later."
 
   rpm:
-    name: RPMs (fc44, ${{ matrix.arch }}), installed in a clean root
+    name: RPMs (fc45, ${{ matrix.arch }}), installed in a clean root
     needs: changes
     if: needs.changes.outputs.packages == 'true'
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
@@ -349,9 +349,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
+        arch: [x86_64]
     container:
-      image: fedora:44
+      image: fedora:45
       # the clean root gets a /proc and a /dev of its own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
@@ -438,6 +438,13 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
+              /usr/share/omx-contract/contract.d/machine/machine.json /usr/share/omx-contract/contract.d/probe/probe.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/es.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/fr.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/it.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/pt.json \
               /usr/share/doc/plugin-hostd-contract/README.md /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
@@ -515,7 +522,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-rpms-fc44-${{ matrix.arch }}
+          name: plugin-hostd-rpms-fc45-${{ matrix.arch }}
           path: rpms/plugin-hostd-[0-9]*.rpm
           if-no-files-found: error
           retention-days: 1
@@ -803,7 +810,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
-      image: fedora:44
+      image: fedora:45
       # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:

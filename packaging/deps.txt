@@ -15,7 +15,7 @@ plugin-qualify-contract           plugin-qualify-contract        0.20.6
 plugin-hostd-protocol             libplugin-hostd-protocol0      0.5.9
 plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.5.9
 plugin-hostd-protocol-contract    plugin-hostd-protocol-contract 0.5.9
-plugin-db-devel                   plugin-db-dev                  0.4.4
+plugin-db-devel                   plugin-db-dev                  0.4.7
 omx-clap-core-contract            omx-clap-core-contract         0.32.5
 omx-clap-host-tests               omx-clap-host-tests            0.32.5
 omx-dsp-devel                     libomxdsp-dev                  0.32.0
