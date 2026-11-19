@@ -31,19 +31,29 @@
 /** the domain the band words are read from */
 #define MACHINE_DOMAIN "machine"
 /** the lowest info.version of the machine domain this package reads */
-#define MACHINE_FLOOR "1.0.0"
+#define MACHINE_FLOOR "1.1.0"
 /** the core bands machine_bands() cuts: the words of MACHINE_CORE_BANDS at these indexes, in order */
 #define MACHINE_CORE_BAND_COUNT 6
 /** the clock bands machine_bands() cuts: the words of MACHINE_CLOCK_BANDS at these indexes, in order */
 #define MACHINE_CLOCK_BAND_COUNT 5
+/** the families the probe names a CPU by, the words of MACHINE_FAMILIES at these indexes, in order */
+enum machine_family
+{
+    MACHINE_FAMILY_INTEL,
+    MACHINE_FAMILY_AMD,
+    MACHINE_FAMILY_ARM,
+    MACHINE_FAMILY_UNKNOWN,
+    MACHINE_FAMILY_COUNT
+};
 
-/** The band words, read once at start-up from the machine domain (contract.d/machine/machine.json, shipped by
+/** The band and family words, read once at start-up from the machine domain (contract.d/machine/machine.json, shipped by
  * plugin-hostd-contract); they point into the open handle, which lives until machine_words_close(). */
 typedef struct
 {
     omx_domain *domain;                          /**< the open machine domain, which owns the words */
     const char *core[MACHINE_CORE_BAND_COUNT];   /**< the MACHINE_CORE_BANDS words, by band index */
     const char *clock[MACHINE_CLOCK_BAND_COUNT]; /**< the MACHINE_CLOCK_BANDS words, by band index */
+    const char *family[MACHINE_FAMILY_COUNT];    /**< the MACHINE_FAMILIES words, by enum machine_family */
 } machine_words;
 
 /**

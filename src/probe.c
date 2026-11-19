@@ -421,8 +421,8 @@ static machine_words g_machine;
 static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
 {
     struct utsname u;
-    char text[256], cpus[256], vendor[64] = "", family[32] = "unknown", governor[64] = "";
-    const char *core_band, *clock_band;
+    char text[256], cpus[256], vendor[64] = "", governor[64] = "";
+    const char *core_band, *clock_band, *family;
     long ncpu = sysconf(_SC_NPROCESSORS_ONLN), khz = 0;
     int preempt_rt = 0, deep_entered = 0, deep_enabled = 0, i;
     FILE *f;
@@ -443,12 +443,15 @@ static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
             }
         fclose(f);
     }
+    /* the family is the machine domain's MACHINE_FAMILIES word, read at start-up */
     if (strstr(vendor, "Intel"))
-        snprintf(family, sizeof(family), "intel");
+        family = g_machine.family[MACHINE_FAMILY_INTEL];
     else if (strstr(vendor, "AMD"))
-        snprintf(family, sizeof(family), "amd");
+        family = g_machine.family[MACHINE_FAMILY_AMD];
     else if (!strncmp(u.machine, "aarch64", 7) || !strncmp(u.machine, "arm", 3))
-        snprintf(family, sizeof(family), "arm");
+        family = g_machine.family[MACHINE_FAMILY_ARM];
+    else
+        family = g_machine.family[MACHINE_FAMILY_UNKNOWN];
     if (read_text("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", text, sizeof(text)) == 0)
         khz = atol(text);
     if (read_text("/sys/kernel/realtime", text, sizeof(text)) == 0)

@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/machine",
   "info": {
     "title": "The machine a figure was taken on",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental"
   },
@@ -186,6 +186,36 @@
             "title": "aarch64",
             "x-code": 1,
             "x-text": "An AArch64 machine, as uname -m spells it."
+          }
+        ]
+      },
+      "MACHINE_FAMILIES": {
+        "description": "The CPU families the probe names a machine's CPU by.",
+        "x-since": "2.18.0",
+        "oneOf": [
+          {
+            "const": "intel",
+            "title": "intel",
+            "x-code": 0,
+            "x-text": "An Intel CPU."
+          },
+          {
+            "const": "amd",
+            "title": "amd",
+            "x-code": 1,
+            "x-text": "An AMD CPU."
+          },
+          {
+            "const": "arm",
+            "title": "arm",
+            "x-code": 2,
+            "x-text": "An Arm CPU."
+          },
+          {
+            "const": "unknown",
+            "title": "unknown",
+            "x-code": 3,
+            "x-text": "A CPU of none of the other families."
           }
         ]
       }

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """tests/machine_domain.py: plugin-hostd owns the domain `machine` (contract.d/machine/machine.json) ; consumer-move recipe,
-arms 1 to 7.
+arms 1 to 8.
 
 1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, every item MACHINE_-prefixed;
 2. no machine_vocabulary.h exists or is included;
@@ -11,10 +11,13 @@ arms 1 to 7.
 4. include/plugin-hostd/machine_codes.h holds exactly the items marked x-c-codes and is the render (--check), or there is none;
 5. the CLIs (the probe, the generator) read OMX_CONTRACT_PATH, the library entry (machine_words_open with no directory,
    the daemon's) ignores it, and nothing of src/machine.c or src/domain_words.c reads the environment;
-6. a machine domain that is absent, invalid, too old (below 1.0.0) or without the items or bands the probe cuts is refused by name at
+6. a machine domain that is absent, invalid, too old (below 1.1.0) or without the items or bands the probe cuts is refused by name at
    start-up: the probe exits 78 with the loader's code and the domain's name, the generator exits 1 the same way;
 7. make install_machine_domain DESTDIR=<tmp> gives the tree the loader reads: omx_domain_open_at opens it and finds a
-   word and a catalog text.
+   word and a catalog text;
+8. MACHINE_FAMILIES holds exactly the families the probe writes as machine.class.family (intel, amd, arm, unknown), the
+   probe writes the domain's word (a scratch copy with every family renamed gives the renamed word), and a domain short of
+   a family is refused by item at start-up.
 
 Environment: OMX_CONTRACT (the command, default omx-contract), INSTALL_CONTRACT_DIR (the installer, default found by
 pkg-config), DOMAIN_CFLAGS and DOMAIN_LIBS (the loader, default pkg-config libomx-domain), CC. Exit 0 all green, 1 a
@@ -47,6 +50,7 @@ CLAP = os.path.abspath(os.environ.get("STRESS_CLAP", os.path.join(ROOT, "tests",
 GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protocol-gen")))
 WORDS_OPEN = "machine_words_open"
 BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
+FAMILIES = ["intel", "amd", "arm", "unknown"]
 failures = []
 PROBE_ONLY = [None]  # a scratch contract directory holding this checkout's probe domain and no other, set by main()
 
@@ -163,7 +167,7 @@ def arm7():
         if b.returncode != 0:
             fail("arm 7: tests/machine_domain_open.c does not build (a loader is needed, libomx-domain): %s" % b.stderr.strip()[-200:])
             return
-        o = run([exe, installed, "1.0.0", "MACHINE_CORE_BANDS", "1-2", "MACHINE_CORE_BANDS.1-2", "ca"])
+        o = run([exe, installed, "1.1.0", "MACHINE_CORE_BANDS", "1-2", "MACHINE_CORE_BANDS.1-2", "ca"])
         if o.returncode != 0:
             fail("arm 7: the loader does not read the installed tree: %s" % o.stderr.strip())
         else:
@@ -323,8 +327,8 @@ def arm6(doc, tmp):
     p, out = run_probe(fixture(tmp, "short", short), tmp)
     if not (p.returncode == 78 and out is None and "MACHINE_CORE_BANDS" in p.stderr and "machine" in p.stderr):
         fail("arm 6: a core band short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))
-    if "1.0.0" not in run_probe(cases[2][1], tmp)[0].stderr:
-        fail("arm 6: the too-old refusal does not name the floor 1.0.0")
+    if "1.1.0" not in run_probe(cases[2][1], tmp)[0].stderr:
+        fail("arm 6: the too-old refusal does not name the floor 1.1.0")
     # the daemon is a program too, and a production entry point: it reads no path and no variable for the contract. The test
     # builds hold the seam (OMX_CONTRACTDIR, compiled in): DAEMON over this checkout's domain, DAEMON_EMPTY over a directory
     # with none. OMX_CONTRACT_PATH is set in both to prove it is ignored.
@@ -352,6 +356,42 @@ def arm6(doc, tmp):
         ok("arm 6: an absent, invalid, too old, short or item-less machine domain is refused by name at start-up")
 
 
+def arm8(doc, tmp):
+    before = len(failures)
+    if doc is None:
+        return
+    item = doc["components"]["schemas"].get("MACHINE_FAMILIES")
+    if item is None:
+        fail("arm 8: the domain has no item MACHINE_FAMILIES")
+        return
+    if words(doc, "MACHINE_FAMILIES") != FAMILIES:
+        fail("arm 8: MACHINE_FAMILIES holds %s, the probe writes %s" % (words(doc, "MACHINE_FAMILIES"), FAMILIES))
+
+    def renamed_families(d):
+        for w in d["components"]["schemas"]["MACHINE_FAMILIES"]["oneOf"]:
+            w["const"] += "-x"
+
+    def short(d):
+        d["components"]["schemas"]["MACHINE_FAMILIES"]["oneOf"].pop()
+
+    p, out = run_probe(fixture(tmp, "families-as-is"), tmp)
+    if p.returncode != 0 or out is None:
+        fail("arm 8: positive control: the probe does not run over the domain as it is: rc %d %s" % (p.returncode, p.stderr[-200:]))
+        return
+    if out["machine"]["class"]["family"] not in FAMILIES:
+        fail("arm 8: positive control: the probe's family %r is not the domain's" % out["machine"]["class"]["family"])
+    p, out = run_probe(fixture(tmp, "families-renamed", renamed_families), tmp)
+    if p.returncode != 0 or out is None:
+        fail("arm 8: the probe does not run over the domain with renamed families: rc %d %s" % (p.returncode, p.stderr[-200:]))
+    elif not out["machine"]["class"]["family"].endswith("-x"):
+        fail("arm 8: machine.class.family is %r, not the renamed domain's word" % out["machine"]["class"]["family"])
+    p, out = run_probe(fixture(tmp, "families-short", short), tmp)
+    if not (p.returncode == 78 and out is None and "MACHINE_FAMILIES" in p.stderr and "machine" in p.stderr):
+        fail("arm 8: a family short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))
+    if len(failures) == before:
+        ok("arm 8: MACHINE_FAMILIES holds the probe's families and the probe writes the domain's word")
+
+
 def main():
     doc = load()
     arm1(doc)
@@ -365,6 +405,7 @@ def main():
         arm3(doc, tmp)
         arm5(tmp)
         arm6(doc, tmp)
+        arm8(doc, tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return 1 if failures else 0
