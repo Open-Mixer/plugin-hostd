@@ -1591,6 +1591,9 @@ SABOTAGE = [
      '    return geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;',
      '    return geteuid() != 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;',
      'the_scope_is_the_system_s_as_root_and_the_user_s_otherwise', "qualcost"),
+    ('the production daemon is built with the test seam of the qualification store', 'src/main.c',
+     '#ifndef VERSION', '#define OMX_QUALIFICATION_TEST_STORE\n#ifndef VERSION',
+     'no_test_seam', "seam"),
     ('a query starts zeroed, which matches nothing', 'src/qualcost.c',
      '    pqdb_query q = PQDB_QUERY_ANY;', '    pqdb_query q = { 0 };',
      'the_reader_names_no_record_directory_variable_or_test_entry', "qualcost"),
@@ -1901,6 +1904,13 @@ def run_unit_test(tree, target, source, name):
 def run_test(tree, name, jack=False):
     if jack == "planner":
         return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
+    if jack == "seam":
+        # the production daemon of the tree, built with no test define, and the check of its binary
+        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
+                       stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "no_test_seam.py"), os.path.join(tree, "plugin-hostd")],
+                           capture_output=True, text=True, timeout=60)
+        return p.returncode, p.stdout + p.stderr
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
@@ -2083,7 +2093,7 @@ def arm(entry, tree):
             shutil.copy(os.path.join(ROOT, f), tree)
         os.makedirs(os.path.join(tree, "packaging"))
         shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-    elif jack in ("planner", "qualcost", "placement"):
+    elif jack in ("planner", "qualcost", "placement", "seam"):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
@@ -2134,7 +2144,7 @@ def arm(entry, tree):
     if jack in ("probe", "qualdomain"):
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                      "verbtable", "planner", "qualcost", "placement", "pool", "timing"):
+                      "verbtable", "planner", "qualcost", "placement", "pool", "timing", "seam"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))
