@@ -1398,8 +1398,7 @@ def an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_se
 def the_owner_client_reads_every_typed_reply_and_feedback_line_the_daemon_writes():
     """plugin-hostd-protocol#17, #19: the owner's Python client reads, by the table alone, what this daemon writes:
     worker_list, instance_info, plan, plan_get, estimate and hello's replies, and every feedback line of the run"""
-    sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
-    from plugin_hostd_protocol import Protocol
+    from plugin_hostd_protocol import Protocol  # plugin-hostd-protocol's package, installed: this tree keeps no codec
     proto = Protocol()
     cpus = four_cpus()
     p = Plugins()
