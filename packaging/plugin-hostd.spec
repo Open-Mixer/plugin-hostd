@@ -240,6 +240,20 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
   the dead shard machinery is gone; an arm whose command fails is a named
   FAIL; the chain-refusal arm tells a refusal from a death again (#137, #141,
   #142, #159, #164).
+- The daemon reads qualifications through libplugin-qualification-db
+  (>= 2026111901, with sqlite >= 3.37.0 as a build and run floor), no record
+  file is read any more, the qualification_dir key does nothing and the
+  daemon makes no qualification directory (#180).
+- The plugin address formats are read from plugin-db's domain, not typed in
+  the probe-output template; plugin-db is >= 0.4.7 (#178, #180).
+- A worker stopped twice leaves one entry in the stopped-worker list, and
+  the list grows instead of dropping past 64 (#181, #153).
+- The TypeScript client's codec command decides run or imported with
+  isMain, also through a symlinked bin; omx-contract there is a floor only
+  (#185).
+- CI: Fedora 45 only, the contract rpm's file list holds the machine and
+  probe domains, the deb jobs run on the arm64 runner from check-matrix and
+  the deb smoke takes the OpenMixer channel (#178, #183).
 
 * Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
 - Built and run against the 3.18.0 pass's releases, every floor at the chain
