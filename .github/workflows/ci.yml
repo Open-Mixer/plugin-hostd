@@ -438,6 +438,13 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
+              /usr/share/omx-contract/contract.d/machine/machine.json /usr/share/omx-contract/contract.d/probe/probe.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/es.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/fr.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/it.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/pt.json \
               /usr/share/doc/plugin-hostd-contract/README.md /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
