@@ -545,7 +545,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-rpms-fc45-${{ matrix.arch }}
+          name: plugin-hostd-ci-rpms-fc45-${{ matrix.arch }}
           path: rpms/plugin-hostd-[0-9]*.rpm
           if-no-files-found: error
           retention-days: 1
