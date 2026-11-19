@@ -32,6 +32,8 @@ BuildRequires: libomx-domain-devel >= 3.20.0
 # reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
 # declared in); a floor only
 BuildRequires: libplugin-qualification-db-devel >= 2026111901
+# the reader's pkg-config file asks for sqlite3, which the Debian package of the reader does not pull in: named here too
+BuildRequires: sqlite-devel >= 3.37.0
 Requires: libplugin-qualification-db >= 2026111901
 Requires: sqlite-libs >= 3.37.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
