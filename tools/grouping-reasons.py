@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
-# The grouping reasons as constants of the clients' readers (#67). data/grouping.json declares them
-# (PLUGIN_HOSTD_GROUPING_REASONS); GroupingReason in clients/python/plugin_hostd_protocol/__init__.py and in
-# clients/ts/src/index.ts is written between its markers from that file, never by hand, and so is RETRY_REASONS: the
-# reasons whose group the file declares retry (every reason names its group, retry or final).
+# The grouping reasons as constants of the TypeScript client's reader (#67). data/grouping.json declares them
+# (PLUGIN_HOSTD_GROUPING_REASONS); GroupingReason in clients/ts/src/index.ts is written between its markers from that file,
+# never by hand, and so is RETRY_REASONS: the reasons whose group the file declares retry (every reason names its group,
+# retry or final). The Python client is plugin-hostd-protocol's, held to the file by tests/grouping_reasons_test.py.
 #
-#   tools/grouping-reasons.py write       writes both regions
-#   tools/grouping-reasons.py check       fails when a region is missing or is not what the file gives
+#   tools/grouping-reasons.py write       writes the region
+#   tools/grouping-reasons.py check       fails when the region is missing or is not what the file gives
 #   tools/grouping-reasons.py self-test   plants a new reason, a stray constant and a hand edit; each must fail the check
 import json
 import os
@@ -19,7 +19,6 @@ import tempfile
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 JSON = "data/grouping.json"
-PY = "clients/python/plugin_hostd_protocol/__init__.py"
 TS = "clients/ts/src/index.ts"
 NAME = "grouping-reasons"
 
@@ -54,22 +53,6 @@ def banner(comment):
     return f"{comment} BEGIN GENERATED {NAME} (tools/grouping-reasons.py, from {JSON}): do not edit"
 
 
-def python_region(rs):
-    o = [banner("#"), "class GroupingReason:",
-         '    """The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS).',
-         '',
-         '    A controller compares against these and writes no reason word of its own. plan_get answers them as',
-         '    instance:reason; a plan-refused is followed by a colon and the number of the refusal.',
-         '    """', ""]
-    o += [f'    {w.upper().replace("-", "_")} = "{w}"' for _, w, _r in rs]
-    names = ", ".join(f"GroupingReason.{w.upper().replace('-', '_')}" for _, w, r in rs if r)
-    o += ["", "", "# the reasons of a plan that a later plan may not give again with the chain as it is: the reasons that declare",
-          "# the group retry in the file, read from it and chosen nowhere in code",
-          f"RETRY_REASONS = ({names})"]
-    o.append(f"# END GENERATED {NAME}")
-    return "\n".join(o) + "\n"
-
-
 def ts_region(rs):
     o = [banner("//"),
          "/** The reasons a plan gives (PLUGIN_HOSTD_GROUPING_REASONS), by the key the file gives each: a controller compares",
@@ -98,7 +81,7 @@ def splice(text, region, comment, path):
 
 def render(root):
     rs = reasons(root)
-    return {PY: (python_region(rs), "#"), TS: (ts_region(rs), "//")}
+    return {TS: (ts_region(rs), "//")}
 
 
 def run(root, write):
@@ -129,14 +112,10 @@ def self_test():
     plants = {
         "a reason added to the file": (JSON, lambda t: t.replace(
             '"groupingOff": {', '"groupingNew": {\n        "word": "grouping-new",\n        "doc": "x"\n      },\n      "groupingOff": {', 1)),
-        "a stray constant in the Python client": (PY, lambda t: t.replace('    GROUPING_OFF = "grouping-off"\n',
-                                                                         '    GROUPING_OFF = "grouping-off"\n    STRAY = "stray"\n', 1)),
         "a stray constant in the TypeScript client": (TS, lambda t: t.replace("  groupingOff: 'grouping-off',\n",
                                                                               "  groupingOff: 'grouping-off',\n  stray: 'stray',\n", 1)),
         "a reason without its retry property": (JSON, lambda t: t.replace('"group": "retry",\n        ', "", 1)),
         "a reason whose retry property the file flips": (JSON, lambda t: t.replace('"group": "final"', '"group": "retry"', 1)),
-        "a hand-edited RETRY_REASONS in the Python client": (PY, lambda t: t.replace(
-            "RETRY_REASONS = (", "RETRY_REASONS = (GroupingReason.REFUSED, ", 1)),
         "a hand-edited RETRY_REASONS in the TypeScript client": (TS, lambda t: t.replace(
             "RETRY_REASONS: readonly string[] = [", "RETRY_REASONS: readonly string[] = [GroupingReason.refused, ", 1)),
         "a hand edit of a value": (TS, lambda t: t.replace("'grouping-off'", "'grouping-of'", 1)),
@@ -144,7 +123,7 @@ def self_test():
     for what, (path, edit) in plants.items():
         tmp = tempfile.mkdtemp()
         try:
-            for p in (JSON, PY, TS):
+            for p in (JSON, TS):
                 os.makedirs(os.path.dirname(os.path.join(tmp, p)), exist_ok=True)
                 shutil.copy(os.path.join(ROOT, p), os.path.join(tmp, p))
             with open(os.path.join(tmp, path), encoding="utf-8") as f:

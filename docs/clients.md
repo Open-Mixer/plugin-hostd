@@ -1,9 +1,10 @@
 The protocol clients
 ====================
 
-plugin-hostd ships the clients of its protocol, one per language a controller is written in: Python
-(`clients/python`, the package `plugin_hostd_protocol`, shipped as python3-plugin-hostd-protocol) and
-TypeScript (`clients/ts`, the npm package `@openmixer/plugin-hostd-client`). A controller speaks the
+The clients of plugin-hostd's protocol, one per language a controller is written in: Python (the package
+`plugin_hostd_protocol`, python3-plugin-hostd-protocol, which is plugin-hostd-protocol's: this tree keeps no copy) and
+TypeScript (`clients/ts`, the npm package `@openmixer/plugin-hostd-client`, which moves to plugin-hostd-protocol as its `.`
+export, and is deleted here once that merges). A controller speaks the
 protocol through one of them and restates nothing: openmixer's server drops its own speaker for the
 TypeScript client, Zynthian's fork drops its own for the Python one
 (Open-Mixer/zynthian-ui#4). Ruled in #29 (owner, 2026-11-01, thin integration and one project; widened
