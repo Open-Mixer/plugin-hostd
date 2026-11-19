@@ -61,6 +61,7 @@
 /** the reasons of a run, the places of the words of PROBE_REASONS */
 enum probe_reason
 {
+/** one row of PHD_PROBE_REASONS: its enum constant */
 #define X(id, code, meaning) PROBE_REASON_##id,
     PHD_PROBE_REASONS(X)
 #undef X
@@ -70,6 +71,7 @@ enum probe_reason
 /** the outcomes of a step or a run, the places of the words of PROBE_OUTCOMES */
 enum probe_outcome
 {
+/** one row of PHD_PROBE_OUTCOMES: its enum constant */
 #define X(id, code, meaning) PROBE_OUTCOME_##id,
     PHD_PROBE_OUTCOMES(X)
 #undef X
@@ -79,6 +81,7 @@ enum probe_outcome
 /** the steps of a run, the places of the words of PROBE_STEPS */
 enum probe_step
 {
+/** one row of PHD_PROBE_STEPS: its enum constant */
 #define X(id, code, meaning) PROBE_STEP_##id,
     PHD_PROBE_STEPS(X)
 #undef X
@@ -88,6 +91,7 @@ enum probe_step
 /** the signals, the places of the words of PROBE_SIGNALS: those of PROBE_SIGNALS, then any other */
 enum probe_signal
 {
+/** one row of PROBE_SIGNALS: its enum constant */
 #define X(id, sig) PROBE_SIGNAL_##id,
     PROBE_SIGNALS(X)
 #undef X
