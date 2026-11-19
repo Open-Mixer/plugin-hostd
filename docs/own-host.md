@@ -29,7 +29,7 @@ send "param_get 0 1"   # resp 0 8.0000
 
 What each step did:
 
-1. `curl` fetches the repository key of the OpenMixer channel. It signs every package, for arm64.
+1. `curl` fetches the repository key of the OpenMixer channel. It signs every package we publish.
 2. The `echo` adds the channel for your Debian release (`trixie` is published).
 3. `apt-get install` takes the daemon, the CLAP worker `omx-clap-host`, a set of CLAP plugins to try, and JACK. On a
    machine that already runs JACK (Zynthian does) leave `jackd2` out.
