@@ -1431,9 +1431,9 @@
           {
             "const": "in-process",
             "title": "inProcess",
-            "description": "The plugin runs inside the engine.",
+            "description": "Qualified to run in a worker that other plugins share.",
             "x-code": 0,
-            "x-text": "The plugin runs inside the engine.",
+            "x-text": "Qualified to run in a worker that other plugins share.",
             "x-from": [
               {
                 "$ref": "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS",
@@ -1444,9 +1444,9 @@
           {
             "const": "isolated",
             "title": "isolated",
-            "description": "The plugin runs in a process of its own.",
+            "description": "Qualified to run, in a worker of its own.",
             "x-code": 1,
-            "x-text": "The plugin runs in a process of its own.",
+            "x-text": "Qualified to run, in a worker of its own.",
             "x-from": [
               {
                 "$ref": "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS",
@@ -1457,9 +1457,9 @@
           {
             "const": "refused",
             "title": "refused",
-            "description": "The plugin is not hosted.",
+            "description": "Failed qualification: the pin records the bytes, a host should not load them.",
             "x-code": 2,
-            "x-text": "The plugin is not hosted.",
+            "x-text": "Failed qualification: the pin records the bytes, a host should not load them.",
             "x-from": [
               {
                 "$ref": "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS",
