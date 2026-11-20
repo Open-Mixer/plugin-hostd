@@ -29,6 +29,7 @@ pkg-config), DOMAIN_CFLAGS and DOMAIN_LIBS (the loader, default pkg-config libom
 FAIL line. Arms 3, 5 and 6 also take PROBE (default ./plugin-hostd-probe), PROBE_CHILD (tests/probe-child), STRESS_CLAP
 (tests/stress.clap) and GEN (tools/protocol-gen), built by make test-machine-domain.
 """
+import atexit
 import glob
 import json
 import os
@@ -40,6 +41,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract_views  # noqa: E402
 import qualification_source  # noqa: E402
 from tree_files import tracked as tree_tracked  # noqa: E402
 
@@ -85,16 +87,31 @@ def load():
         return None
 
 
+_ALONE = []
+
+
+def machine_alone():
+    """a scratch contract directory holding this checkout's machine domain alone (removed at exit)"""
+    if not _ALONE:
+        tmp = tempfile.mkdtemp(prefix="machine-alone-")
+        atexit.register(shutil.rmtree, tmp, True)
+        _ALONE.append(contract_views.domain_only(tmp, "machine"))
+    return _ALONE[0]
+
+
 def arm1(doc):
     if doc is None:
         return
     before = len(failures)
-    r = run(OMX + ["validate", "--contract-dir", "contract.d"])
+    # the machine domain staged alone: contract.d holds the qualification domain (which names other owners' domains) and
+    # the vocabulary domains under plugin-hostd/ (read beside the package plugin-hostd), which a directory read alone refuses
+    alone = machine_alone()
+    r = run(OMX + ["validate", "--contract-dir", alone])
     if r.returncode != 0:
-        fail("arm 1: omx-contract validate --contract-dir contract.d: %s" % (r.stderr.strip() or r.stdout.strip()))
-    r = run(OMX + ["fmt", "--check", "--contract-dir", "contract.d"])
+        fail("arm 1: omx-contract validate of contract.d/machine: %s" % (r.stderr.strip() or r.stdout.strip()))
+    r = run(OMX + ["fmt", "--check", "--contract-dir", alone])
     if r.returncode != 0:
-        fail("arm 1: omx-contract fmt --check --contract-dir contract.d: %s" % (r.stderr.strip() or r.stdout.strip()))
+        fail("arm 1: omx-contract fmt --check of contract.d/machine: %s" % (r.stderr.strip() or r.stdout.strip()))
     if doc.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         fail("arm 1: $schema is %r, not the 2020-12 schema" % doc.get("$schema"))
     if doc.get("$id") != "https://openmixer.org/contract/machine":
@@ -145,7 +162,7 @@ def arm4(doc):
     for name in marked:
         if not any(name in open(os.path.join(ROOT, f), errors="replace").read() for f in glob.glob(os.path.join(ROOT, "src", "*.c"))):
             fail("arm 4: %s is marked x-c-codes and no file of src/ names it" % name)
-    r = run(OMX + ["render", "--target", "c", "--package", "machine", "--contract-dir", "contract.d", "--out", "include/plugin-hostd", "--check"])
+    r = run(OMX + ["render", "--target", "c", "--package", "machine", "--contract-dir", machine_alone(), "--out", "include/plugin-hostd", "--check"])
     if r.returncode != 0:
         fail("arm 4: omx-contract render --check: %s" % (r.stderr.strip() or r.stdout.strip()))
     if len(failures) == before:
@@ -220,7 +237,11 @@ def with_qualification(contract_dir):
     """the test entry for the probe and the generator, which read the qualification domain and this checkout's
     probe domain as well: the machine directory under test first, a directory that holds the probe domain alone, the
     directory that holds the qualification domain"""
-    return contract_dir + ":" + PROBE_ONLY[0] + ":" + qualification_source.source_dir()
+    # this checkout's qualification domain alone (contract.d holds the machine domain too, which an absent or renamed one
+    # under test is not to find), then the installed domains the generator reads (plugin-db's, the pin domain)
+    tmp = os.path.dirname(PROBE_ONLY[0])
+    return ":".join([contract_dir, PROBE_ONLY[0], contract_views.domain_only(tmp, "qualification"),
+                     contract_views.installed_without(tmp, ("machine", "probe", "qualification"))])
 
 
 def run_probe(contract_dir, tmp):

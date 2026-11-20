@@ -334,11 +334,11 @@ render-verbs check-rendered:
 # (MACHINE_CORE_BANDS, MACHINE_CLOCK_BANDS, MACHINE_FAMILIES; src/machine.h takes its counts and ids from it): validate,
 # fmt --check and render --check
 .PHONY: check-machine-codes
-# (the machine and probe domains, staged alone: the qualification domain names plugin-hostd-protocol's domain pin, which a
+# (the machine domain, staged alone (the probe domain is plugin-hostd-protocol's): the qualification domain names plugin-hostd-protocol's domain pin, which a
 # directory read alone cannot see; it is validated with the installed contract directory by check-contract-dir and
 # tests/qualification_pin_from.py)
 check-machine-codes:
-	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; cp -r contract.d/machine contract.d/probe $$tmp/; \
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; cp -r contract.d/machine $$tmp/; \
 	$(OMX_CONTRACT) validate --contract-dir $$tmp; \
 	$(OMX_CONTRACT) fmt --check --contract-dir $$tmp; \
 	$(OMX_CONTRACT) render --target c --package machine --contract-dir $$tmp --out include/plugin-hostd --check

@@ -37,6 +37,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract_views  # noqa: E402
 import qualification_source  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -179,14 +180,11 @@ def search(probe_dir, tmp):
     if not os.path.isdir(only):
         os.makedirs(only)
         shutil.copytree(os.path.join(ROOT, "contract.d", "machine"), os.path.join(only, "machine"))
-    # the qualification domain alone: the installed contract directory holds the probe domain too, which an absent one is not to find
-    qual = os.path.join(tmp, "qualification-only")
-    if not os.path.isdir(qual):
-        qualification_source.fixture(tmp, None, "qualification-only")
-        # the generator reads plugin-db's domain as well
-        if os.path.isdir(os.path.join(qualification_source.source_dir(), "plugin-db")):
-            shutil.copytree(os.path.join(qualification_source.source_dir(), "plugin-db"), os.path.join(qual, "plugin-db"))
-    return probe_dir + ":" + only + ":" + qual
+    # the qualification domain alone (this checkout's contract.d holds the machine domain too), then the installed domains
+    # the generator reads beside them (plugin-db's, the pin domain) without the probe domain, which an absent one is not to find
+    qual = contract_views.domain_only(tmp, "qualification")
+    others = contract_views.installed_without(tmp, ("probe", "machine", "qualification"))
+    return probe_dir + ":" + only + ":" + qual + ":" + others
 
 
 def run_probe(probe_dir, tmp, fault=None, extra=()):

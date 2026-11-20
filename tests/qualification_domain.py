@@ -12,6 +12,7 @@
 import json, os, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract_views
 import qualification_source as qs
 from tree_files import tracked as tree_tracked
 
@@ -37,10 +38,12 @@ def run_probe(contract_dir, tmp):
         os.unlink(out)
     cmd = [PROBE, "run", "--child", CHILD, "--rates", "48000", "--quantum", "256", "--wall-s", "10", "--grace-ms", "200",
            "--out", out, CLAP, ID]
-    # the test entry: OMX_CONTRACT_PATH, a ':' list whose first directory holding the domain wins; this checkout's
-    # contract.d holds the machine domain the probe reads too
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
-                       env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + contract_dir))
+    # the test entry: OMX_CONTRACT_PATH, a ':' list whose first directory holding the domain wins: this checkout's
+    # machine domain alone (contract.d holds the qualification domain too, which would shadow the one under test), the
+    # directories under test, then the installed domains the probe reads beside them (protocol's probe, plugin-db's)
+    path = ":".join([contract_views.domain_only(tmp, "machine"), contract_dir,
+                     contract_views.installed_without(tmp, ("machine", "qualification"))])
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=dict(os.environ, OMX_CONTRACT_PATH=path))
     return p, (json.load(open(out)) if os.path.exists(out) else None)
 
 
