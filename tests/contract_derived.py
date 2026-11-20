@@ -87,7 +87,7 @@ def param_scales(dirs=None):
 
 # the default rates of a run are omx-dsp's ORACLE_FLOOR_RATES (the sorting pass, V25: the oracle rates left omx-contract),
 # read from omx-dsp's package of the contract directory and, in C, from its rendered omxdsp/omxdsp_definitions.h
-GOLDEN_FLOOR = "44100,48000,96000,192000"  # omx-contract's ORACLE_FLOOR_RATES at 8155b8d
+GOLDEN_FLOOR = "44100,48000,96000,192000"  # omx-dsp's ORACLE_FLOOR_RATES
 
 
 def dsp_data(name):
