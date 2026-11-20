@@ -4,9 +4,6 @@
   "lang": "ca",
   "owner": "plugin-hostd",
   "messages": {
-    "QUALIFICATION_MACHINE_CLASSES.desk": {"text": "Un ordinador x86-64.", "by": "machine", "model": "draft-prose", "source": "e238c0ae47a76ab65181d3328b4c59fba8db45bbd9c3b64e6bd3c82fbc3cff26"},
-    "QUALIFICATION_MACHINE_CLASSES.raspberry-pi-4": {"text": "Un Raspberry Pi 4, aarch64.", "by": "machine", "model": "draft-prose", "source": "bcdf10ea8a74ac906394e5fd3801c0a3baf92aa0d8c6960ab7cb7063e1fe8952"},
-    "QUALIFICATION_MACHINE_CLASSES.raspberry-pi-5": {"text": "Un Raspberry Pi 5, aarch64.", "by": "machine", "model": "draft-prose", "source": "8a876a353c6779af1eee312a2be5d3e6751f51d4448f7cf3fd80626349c14a38"},
     "QUALIFICATION_MEASUREMENT_COST_METHODS.block-time-percentile": {"text": "Un percentil del temps de paret per bloc sota un estímul sostingut, escalfament descartat, en nanosegons per mostra.", "by": "machine", "model": "draft-prose", "source": "f525e3521ef62a10aa9c053eb6e8dcff30bda112d12c3e1e363b22c85ad61536"},
     "QUALIFICATION_MEASUREMENT_DIMENSIONS.cost": {"text": "La quantitat de temps de CPU que un connector gasta per bloc sota un estímul sostingut.", "by": "machine", "model": "draft-prose", "source": "44af3db68136f6e30fa6ede94c68907fbab09b0d235c8c149a21376e511b5c8b"},
     "QUALIFICATION_MEASUREMENT_DIMENSIONS.features": {"text": "Quines capacitats declara un connector i un provador pot confirmar, a més de la latència, el cost, l'estabilitat i la seguretat en temps real.", "by": "machine", "model": "draft-prose", "source": "e730e997b791598ff7908cabb176fbfc125ff70274d7c382226e33e0577d268d"},
