@@ -18,7 +18,7 @@ plugin-db-devel                   plugin-db-dev                  0.4.7
 plugin-db-contract                plugin-db-contract             0.5.0
 omx-clap-contract                 omx-clap-contract              0.34.0
 omx-clap-host-tests               omx-clap-host-tests            0.34.0
-omx-dsp-devel                     libomxdsp-dev                  0.32.0
+omx-dsp-devel                     libomxdsp-dev                  0.34.0
 omx-clap-host                     omx-clap-host                  0.34.0
 libplugin-qualification-db        libplugin-qualification-db0    2026111901
 libplugin-qualification-db-devel  libplugin-qualification-db-dev 2026111901

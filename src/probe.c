@@ -76,7 +76,7 @@
 
 #include <linux/capability.h>
 
-#include <omxcontract/omx_contract_limits.h>
+#include <omxdsp/omxdsp_definitions.h>
 #include <omxcontract/omx_vocabulary.h>
 #include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
@@ -1988,7 +1988,7 @@ static void put_memory(sb_t *b, const cJSON *cost, const char *rate)
     sb_printf(b, "}");
 }
 
-/* the rates a run measures at when it is given none: omx-contract's ORACLE_FLOOR_RATES, every kernel oracle's floor */
+/* the rates a run measures at when it is given none: omx-dsp's ORACLE_FLOOR_RATES, every kernel oracle's floor */
 static const unsigned g_floor_rates[] = OMX_ORACLE_FLOOR_RATES_INIT;
 
 static const char *floor_rates(void)

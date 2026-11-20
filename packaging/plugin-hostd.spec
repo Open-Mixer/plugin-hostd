@@ -28,6 +28,9 @@ BuildRequires: omx-contract-devel >= 3.21.0
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
 # and this package's qualification domain through it (3.21.0: the domain format its x-from words and x-requires need, and the domain param); a floor only
 BuildRequires: libomx-domain-devel >= 3.21.0
+# omx-dsp's rendered definitions: the probe runner's default rates are its ORACLE_FLOOR_RATES (0.34.0 the release they
+# moved to), and tests/curve_reply.c draws with omx_curve.h the curve the real worker must answer with; a floor only
+BuildRequires: omx-dsp-devel >= 0.34.0
 # the reader of the qualification store, <plugin-qualification-db/pqdb.h>: the daemon reads what a plugin costs through it and
 # reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
 # declared in); a floor only
@@ -50,8 +53,6 @@ Requires: libomx-domain >= 3.21.0
 # 0.31 for the curve verbs)
 %if %{with check}
 BuildRequires: omx-clap-host-tests >= 0.34.0
-# omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
-BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.21.0
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the

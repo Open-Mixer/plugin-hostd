@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# What plugin-hostd shares with omx-contract is read from omx-contract, never typed again here: the probe runner's
-# default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES of the domain param, the same words in
+# What plugin-hostd shares with omx-contract and omx-dsp is read from them, never typed again here: the probe runner's
+# default rates are omx-dsp's ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES of the domain param, the same words in
 # the same order, and the probe output's shared enums are the words of the contract (the qualification domain, plugin-qualify's, read through the loader). Checked twice: against the installed contract (its data and its C header), and against a scratch
 # copy of the header with the values changed, where the runner must follow and the generator must refuse to build.
 # The JSON of the protocol is written by plugin-hostd-protocol's generator (its installed source, protocolgen), built here
@@ -85,6 +85,37 @@ def param_scales(dirs=None):
     raise SystemExit("no directory of %s holds the domain param" % dirs)
 
 
+# the default rates of a run are omx-dsp's ORACLE_FLOOR_RATES (the sorting pass, V25: the oracle rates left omx-contract),
+# read from omx-dsp's package of the contract directory and, in C, from its rendered omxdsp/omxdsp_definitions.h
+GOLDEN_FLOOR = "44100,48000,96000,192000"  # omx-contract's ORACLE_FLOOR_RATES at 8155b8d
+
+
+def dsp_data(name):
+    """an item of omx-dsp's package of the contract directory (contract.d/<major>/omx-dsp/**.json)"""
+    base = pkg("--variable=contractdir")
+    for major in sorted(os.listdir(base), reverse=True):
+        root = os.path.join(base, major, "omx-dsp")
+        if not major.isdigit() or not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, files in sorted(os.walk(root)):
+            for f in sorted(files):
+                if f.endswith(".json") and f != "MANIFEST.json":
+                    with open(os.path.join(dirpath, f)) as fh:
+                        data = json.load(fh)
+                    if isinstance(data, dict) and name in data:
+                        return data[name]
+    raise SystemExit("omx-dsp declares no %s" % name)
+
+
+def dsp_header():
+    out = subprocess.run([PKG_CONFIG, "--cflags-only-I", "omxdsp"], capture_output=True, text=True).stdout.split()
+    for flag in out + ["-I/usr/include"]:
+        path = os.path.join(flag[2:], "omxdsp", "omxdsp_definitions.h")
+        if flag.startswith("-I") and os.path.exists(path):
+            return path
+    raise SystemExit("omx-dsp's rendered omxdsp/omxdsp_definitions.h is not installed (omx-dsp-devel)")
+
+
 def header(name="omx_contract_limits.h"):
     for flag in pkg("--cflags").split() + ["-I/usr/include"]:
         if flag.startswith("-I"):
@@ -129,7 +160,7 @@ DOMAIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_ou
 
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+          pkg("--cflags").split() + subprocess.run([PKG_CONFIG, "--cflags-only-I", "omxdsp"], capture_output=True, text=True).stdout.split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
           [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + DOMAIN_LIBS + CJSON_LIBS.split()
     return subprocess.run(cmd, capture_output=True, text=True)
@@ -163,7 +194,8 @@ def gen_methods(gen, contract_path):
 
 
 def main():
-    floor = ",".join(str(r) for r in contract_data("ORACLE_FLOOR_RATES")["values"])
+    floor = ",".join(str(r) for r in dsp_data("ORACLE_FLOOR_RATES")["values"])
+    check(floor == GOLDEN_FLOOR, "(a) omx-dsp's ORACLE_FLOOR_RATES are the golden %s: %s" % (GOLDEN_FLOOR, floor))
     scales = param_scales()
     check(scales == GOLDEN_SCALES, "(a) the domain param's PARAM_SCALES are the golden %s: %s" % (GOLDEN_SCALES, scales))
     with open(declared_protocol.variable("protocoljson")) as f:
@@ -189,20 +221,22 @@ def main():
 
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-contract.")
     try:
-        check(child_rates(PROBE, tmp) == floor, "the runner's child gets omx-contract's ORACLE_FLOOR_RATES %s by default, "
+        check(child_rates(PROBE, tmp) == floor, "the runner's child gets omx-dsp's ORACLE_FLOOR_RATES %s by default, "
               "not %s" % (floor, child_rates(PROBE, tmp)))
         check(help_rates(PROBE) == floor, "the runner's usage names the same default: %s" % help_rates(PROBE))
 
-        # a scratch contract whose floor is other rates: the runner built against it follows, with no edit of its own
+        # (c) a scratch omx-dsp header whose floor is other rates: the runner built against it follows, with no edit of its own
         scratch = os.path.join(tmp, "include")
         os.makedirs(os.path.join(scratch, "omxcontract"))
-        text = open(header()).read()
-        moved = re.sub(r"(#define OMX_ORACLE_FLOOR_RATES_INIT )\{[^}]*\}", r"\1{ 32000, 88200 }", text)
-        check(moved != text, "positive control: the scratch header's floor was changed")
-        with open(os.path.join(scratch, "omxcontract", "omx_contract_limits.h"), "w") as f:
+        os.makedirs(os.path.join(scratch, "omxdsp"))
+        dtext = open(dsp_header()).read()
+        moved = re.sub(r"(#define OMX_ORACLE_FLOOR_RATES_INIT )\{[^}]*\}", r"\1{ 32000, 88200 }", dtext)
+        check(moved != dtext, "positive control: the scratch omx-dsp header's floor was changed")
+        with open(os.path.join(scratch, "omxdsp", "omxdsp_definitions.h"), "w") as f:
             f.write(moved.replace("#define OMX_ORACLE_FLOOR_RATES_COUNT 4u", "#define OMX_ORACLE_FLOOR_RATES_COUNT 2u"))
+        text = open(header()).read()
         built = build_probe(scratch, os.path.join(tmp, "probe"))
-        check(built.returncode == 0, "the runner builds against the scratch contract: %s" % built.stderr[-400:])
+        check(built.returncode == 0, "the runner builds against the scratch omx-dsp header: %s" % built.stderr[-400:])
         if built.returncode == 0:
             check(child_rates(os.path.join(tmp, "probe"), tmp) == "32000,88200",
                   "a moved floor moves the runner's default: %s" % child_rates(os.path.join(tmp, "probe"), tmp))

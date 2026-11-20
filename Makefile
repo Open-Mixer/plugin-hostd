@@ -62,9 +62,12 @@ PROTOCOL_INCLUDE = $(firstword $(foreach d,$(patsubst -I%,%,$(filter -I%,$(PROTO
 # what is built from them depends on them, and on a scratch copy of them in include/plugin-hostd/ where one is
 PROTOCOL_HEADERS = $(wildcard include/plugin-hostd/*.h $(PROTOCOL_INCLUDE)/plugin-hostd/*.h)
 
-# omx-contract's C header (omx-contract-devel, libomx-contract-dev): the probe runner's default rates and the protocol's
+# omx-contract's C header (omx-contract-devel, libomx-contract-dev): the protocol's
 # parameter scales are read from it; CONTRACT_CFLAGS=-I<dir> for a header that is not installed
 CONTRACT_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags omx-contract 2>/dev/null)
+# omx-dsp's rendered definitions (omx-dsp-devel, libomxdsp-dev): the probe runner's default rates are its ORACLE_FLOOR_RATES
+# (the oracle rates left omx-contract for omx-dsp); its include directory only, none of its floating-point flags
+OMXDSP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags-only-I omxdsp 2>/dev/null)
 
 # the qualification store's reader, plugin-qualification-db (<plugin-qualification-db/pqdb.h>): pkg-config when it is installed, a
 # checkout of it otherwise (PQDB_DIR, its library built in place). Its DDL builds the fixtures of the tests: the installed
@@ -177,7 +180,7 @@ $(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
 # describe reads the installed table of a format by default (docs/formats.md)
 PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/probe_words.c src/scan_words.c src/domain_words.c src/qualification_words.c
 $(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_words.h src/scan_words.h src/domain_words.h src/qualification_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(OMXDSP_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
 
