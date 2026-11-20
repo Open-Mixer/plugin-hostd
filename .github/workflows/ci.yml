@@ -461,6 +461,7 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
+              /usr/share/omx-contract/contract.d/3/plugin-hostd/pin.json \
               /usr/share/omx-contract/contract.d/machine/machine.json /usr/share/omx-contract/contract.d/probe/probe.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
@@ -668,7 +669,7 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json; do
+          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json pin.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
           done
           # no Breaks, Replaces or Conflicts between our own packages (owner rule 2026-11-16)
