@@ -227,7 +227,7 @@ def main():
                 del doc["components"]["schemas"][item]
             bare = qualification_source.fixture(tmp, drop, "bare")
             p = subprocess.run([os.path.join(tmp, "gen-domain"), "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")],
-                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + bare))
+                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join([os.path.join(ROOT, "contract.d"), bare] + qualification_source.search_path())))  # the probe and plugin-db domains are the installed ones
             check(p.returncode != 0 and p.stdout == "" and item in p.stderr,
                   "the generator refuses a domain that lacks %s, by name: rc %d %r" % (item, p.returncode, p.stderr[-200:]))
     finally:

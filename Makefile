@@ -214,7 +214,7 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
@@ -242,13 +242,6 @@ install_protocol:
 install_machine_domain:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_machine_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(DESTDIR)$(CONTRACTDIR)
-
-# the domain probe (contract.d/probe: the words a probe run writes), installed to <contractdir>/probe/ the same way:
-# plugin-hostd-contract ships it, and the probe and the schema generator refuse to start without it (78)
-.PHONY: install_probe_domain
-install_probe_domain:
-	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_probe_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
-	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/probe $(DESTDIR)$(CONTRACTDIR)
 
 # the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
@@ -324,14 +317,6 @@ check-machine-codes:
 	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
 	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd --check
 
-# the probe domain's codes header (include/plugin-hostd/probe_codes.h) is the render of the items marked x-c-codes
-# (PROBE_SIGNALS; src/probe_words.h takes its signal codes from it): validate, fmt --check and render --check
-.PHONY: check-probe-codes
-check-probe-codes:
-	$(OMX_CONTRACT) validate --contract-dir contract.d
-	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
-	$(OMX_CONTRACT) render --target c --package probe --contract-dir contract.d --out include/plugin-hostd --check
-
 # the machine domain is a valid document, the codes header is its render, and the installed tree opens through the
 # loader (tests/machine_domain.py; DOMAIN_CFLAGS and DOMAIN_LIBS name a loader that pkg-config does not find)
 .PHONY: test-machine-domain
@@ -339,12 +324,17 @@ test-machine-domain: $(PROBE) $(PROG_TEST) $(PROG_TEST_EMPTY) tools/protocol-gen
 	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' PROBE=./$(PROBE) GEN=./tools/protocol-gen DAEMON=$(abspath $(PROG_TEST)) DAEMON_EMPTY=$(abspath $(PROG_TEST_EMPTY)) \
 	  DOMAIN_CFLAGS='$(DOMAIN_CFLAGS)' DOMAIN_LIBS='$(DOMAIN_LIBS)' CONTRACT_CFLAGS='$(CONTRACT_CFLAGS)' python3 tests/machine_domain.py
 
-# the probe domain (contract.d/probe) holds exactly the words the probe writes, the probe and the generated schema write
-# the domain's words, and a missing or short one is refused by name at start-up (tests/probe_domain.py)
+# the probe domain (plugin-hostd-protocol's, read from its contract package) holds exactly the words the probe writes, the
+# probe and the generated schema write the domain's words, and a missing or short one is refused by name at start-up (tests/probe_domain.py)
 .PHONY: test-probe-domain
 test-probe-domain: $(PROBE) tools/protocol-gen tests/probe-child tests/stress.clap
 	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' PROBE=./$(PROBE) GEN=./tools/protocol-gen \
 	  PROTOCOL_HEADER='$(PROTOCOL_INCLUDE)/plugin-hostd/protocol.h' DOMAIN_CFLAGS='$(DOMAIN_CFLAGS)' DOMAIN_LIBS='$(DOMAIN_LIBS)' python3 tests/probe_domain.py
+
+# the probe words are plugin-hostd-protocol's domain and this tree reads them from there (tests/probe_owner_test.py)
+.PHONY: test-probe-owner
+test-probe-owner:
+	PROTOCOL_HEADER='$(PROTOCOL_INCLUDE)/plugin-hostd/protocol.h' DOMAIN_CFLAGS='$(DOMAIN_CFLAGS)' DOMAIN_LIBS='$(DOMAIN_LIBS)' python3 tests/probe_owner_test.py
 
 # a release build is reproducible at its tag (#120): tests/rendered_at_tag.sh
 .PHONY: test-rendered-at-tag
@@ -507,7 +497,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes check-probe-codes test-qualification-domain test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage

@@ -29,12 +29,12 @@ default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`.
 
-The words a probe run writes (`PROBE_REASONS`, `PROBE_OUTCOMES`, `PROBE_STEPS`, `PROBE_SIGNALS`) are this tree's
-second domain, `contract.d/probe/probe.json` (floor 1.0.0, read the same way, refused by name with 78 when absent or too
-old, shipped by `plugin-hostd-contract`; `make test-probe-domain`). The protocol header's lists give the probe the ids of reasons, outcomes and steps, and
+The words a probe run writes (`PROBE_REASONS`, `PROBE_OUTCOMES`, `PROBE_STEPS`, `PROBE_SIGNALS`) are the domain `probe`,
+which is plugin-hostd-protocol's (`contract.d/probe/probe.json` there, shipped by
+`plugin-hostd-protocol-contract`; floor 1.0.0, read the same way, refused by name with 78 when absent or too old; `make
+test-probe-domain`, `make test-probe-owner`). The protocol header's lists give the probe the ids of reasons, outcomes and steps, and
 the words are the domain's, which the test holds to the header's, word for word. `PROBE_SIGNALS` is marked `x-c-codes`: the
-signal codes of `src/probe_words.h` come from the committed render `include/plugin-hostd/probe_codes.h` (`make
-check-probe-codes` fails when it is not the render).
+signal codes of `src/probe_words.h` come from `<plugin-hostd/probe_codes.h>`, the render protocol installs with its headers.
 
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
 `contract.d/machine/machine.json`, and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,

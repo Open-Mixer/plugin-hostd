@@ -15,7 +15,7 @@ that the qualification store checks its record columns against. Arms 1 to 6.
 4. a probe domain that is absent, invalid, too old (below 1.0.0) or without an item is refused by name at start-up: the probe
    exits 78 with the loader's code and the domain's name, the generator exits 1 the same way; an item short of a word is
    refused by item;
-5. make install_probe_domain DESTDIR=<tmp> gives the tree the loader reads;
+5. (moved: the package that ships the domain is plugin-hostd-protocol-contract; its own test installs it);
 6. no word of the four items is a C literal of src/probe.c: the words are the domain's.
 
 7. the call-level read (probe_signal_word, sorting pass V8): the word of each of the thirteen signals the probe names, the
@@ -40,7 +40,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qualification_source  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DOC = os.path.join(ROOT, "contract.d", "probe", "probe.json")
+# the domain is plugin-hostd-protocol's, read where its contract package installs it (PROTOCOL_CONTRACT_DIR for a checkout's)
+SOURCE = os.environ.get("PROTOCOL_CONTRACT_DIR") or subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"],
+                                                                     capture_output=True, text=True).stdout.strip() or "/usr/share/omx-contract/contract.d"
+DOC = os.path.join(SOURCE, "probe", "probe.json")
 OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 CHILD = os.path.abspath(os.environ.get("PROBE_CHILD", os.path.join(ROOT, "tests", "probe-child")))
@@ -71,7 +74,7 @@ def load():
         with open(DOC) as f:
             return json.load(f)
     except (OSError, ValueError) as e:
-        fail("arm 1: contract.d/probe/probe.json is not readable: %s" % e)
+        fail("arm 1: %s is not readable: %s" % (DOC, e))
         return None
 
 
@@ -83,16 +86,12 @@ def arm1(doc):
     if doc is None:
         return
     before = len(failures)
-    for cmd in (["validate"], ["fmt", "--check"]):
-        r = run(OMX + cmd + ["--contract-dir", "contract.d"])
-        if r.returncode != 0:
-            fail("arm 1: omx-contract %s --contract-dir contract.d: %s" % (cmd[0], r.stderr.strip() or r.stdout.strip()))
     if doc.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         fail("arm 1: $schema is %r" % doc.get("$schema"))
     if doc.get("$id") != "https://openmixer.org/contract/probe":
         fail("arm 1: $id is %r, not https://openmixer.org/contract/probe" % doc.get("$id"))
     info = doc.get("info", {})
-    if info.get("x-owner") != "plugin-hostd":
+    if info.get("x-owner") != "plugin-hostd-protocol":
         fail("arm 1: info.x-owner is %r" % info.get("x-owner"))
     if info.get("x-stability") != "experimental":
         fail("arm 1: info.x-stability is %r" % info.get("x-stability"))
@@ -153,7 +152,7 @@ def arm2(doc):
 
 def fixture(root, name, edit=None, text=None):
     out = os.path.join(root, name)
-    shutil.copytree(os.path.join(ROOT, "contract.d", "probe"), os.path.join(out, "probe"))
+    shutil.copytree(os.path.join(SOURCE, "probe"), os.path.join(out, "probe"))
     with open(DOC) as f:
         doc = json.load(f)
     if edit:
@@ -180,7 +179,14 @@ def search(probe_dir, tmp):
     if not os.path.isdir(only):
         os.makedirs(only)
         shutil.copytree(os.path.join(ROOT, "contract.d", "machine"), os.path.join(only, "machine"))
-    return probe_dir + ":" + only + ":" + qualification_source.source_dir()
+    # the qualification domain alone: the installed contract directory holds the probe domain too, which an absent one is not to find
+    qual = os.path.join(tmp, "qualification-only")
+    if not os.path.isdir(qual):
+        qualification_source.fixture(tmp, None, "qualification-only")
+        # the generator reads plugin-db's domain as well
+        if os.path.isdir(os.path.join(qualification_source.source_dir(), "plugin-db")):
+            shutil.copytree(os.path.join(qualification_source.source_dir(), "plugin-db"), os.path.join(qual, "plugin-db"))
+    return probe_dir + ":" + only + ":" + qual
 
 
 def run_probe(probe_dir, tmp, fault=None, extra=()):
@@ -315,35 +321,6 @@ def arm4(doc, tmp):
         ok("arm 4: an absent, invalid, too old, item-less or short probe domain is refused by name at start-up (78)")
 
 
-def arm5():
-    before = len(failures)
-    with tempfile.TemporaryDirectory() as tmp:
-        make = ["make", "--no-print-directory", "install_probe_domain", "DESTDIR=" + tmp]
-        if os.environ.get("INSTALL_CONTRACT_DIR"):
-            make.append("INSTALL_CONTRACT_DIR=" + os.environ["INSTALL_CONTRACT_DIR"])
-        r = run(make)
-        if r.returncode != 0:
-            fail("arm 5: make install_probe_domain: %s" % (r.stderr.strip() or r.stdout.strip()).splitlines()[-1:])
-            return
-        pc = run(["pkg-config", "--variable=contractdir", "omx-contract"]).stdout.strip() or "/usr/share/omx-contract/contract.d"
-        installed = tmp + pc
-        if not os.path.isfile(os.path.join(installed, "probe", "probe.json")):
-            fail("arm 5: probe/probe.json is not installed under %s" % pc)
-        cflags = os.environ.get("DOMAIN_CFLAGS") or run(["pkg-config", "--cflags", "libomx-domain"]).stdout.strip()
-        libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
-        exe = os.path.join(tmp, "domain_open")
-        cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-o", exe, "tests/domain_word_open.c"]
-        b = run(cc + shlex.split(cflags) + shlex.split(libs))
-        if b.returncode != 0:
-            fail("arm 5: tests/domain_word_open.c does not build: %s" % b.stderr.strip()[-200:])
-            return
-        o = run([exe, installed, "probe", "1.0.0", "PROBE_OUTCOMES", "probe.ok"])
-        if o.returncode != 0 or "word=probe.ok" not in o.stdout:
-            fail("arm 5: the loader does not read the installed tree: %s" % (o.stderr.strip() or o.stdout.strip()))
-    if len(failures) == before:
-        ok("arm 5: the installed tree opens through omx_domain_open_at and finds a word")
-
-
 def arm6(doc):
     if doc is None:
         return
@@ -362,7 +339,7 @@ def arm6(doc):
 
 
 GOLDEN_SIGNALS = ("SIGSEGV SIGABRT SIGBUS SIGFPE SIGILL SIGKILL SIGTERM SIGXCPU SIGXFSZ SIGSYS SIGPIPE SIGINT SIGHUP").split()
-HEADER_CODES = os.path.join(ROOT, "include", "plugin-hostd", "probe_codes.h")
+HEADER_CODES = os.path.join(os.path.dirname(HEADER), "probe_codes.h")
 
 
 def signal_word_call(dirs, tmp):
@@ -402,7 +379,7 @@ def arm7(doc, tmp):
         if header.pop("COUNT", None) != len(GOLDEN_SIGNALS) + 1:
             fail("arm 7 (b): the header's OMX_PROBE_SIGNALS_COUNT is not %d" % (len(GOLDEN_SIGNALS) + 1))
     else:
-        fail("arm 7 (b): include/plugin-hostd/probe_codes.h does not exist")
+        fail("arm 7 (b): probe_codes.h does not exist beside protocol.h")
     codes = {w["const"]: w["x-code"] for w in doc["components"]["schemas"]["PROBE_SIGNALS"]["oneOf"]}
     if header != codes:
         fail("arm 7 (b): the header's signal codes %s are not the domain's %s" % (header, codes))
@@ -441,7 +418,6 @@ def main():
     doc = load()
     arm1(doc)
     arm2(doc)
-    arm5()
     arm6(doc)
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-probe-domain.")
     try:
