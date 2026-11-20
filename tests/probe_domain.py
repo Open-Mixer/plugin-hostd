@@ -18,6 +18,12 @@ that the qualification store checks its record columns against. Arms 1 to 6.
 5. make install_probe_domain DESTDIR=<tmp> gives the tree the loader reads;
 6. no word of the four items is a C literal of src/probe.c: the words are the domain's.
 
+7. the call-level read (probe_signal_word, sorting pass V8): the word of each of the thirteen signals the probe names, the
+   word for any other and the number of signal words one handle holds are the golden ones frozen from the hand copy of
+   src/probe_words.h; the codes the call indexes by are the domain's own header (include/plugin-hostd/probe_codes.h, one
+   source: no hand-written signal list in src/probe_words.h); and a temporary domain with a signal word renamed gives
+   the renamed word at the call, with two signal codes swapped it is refused by item.
+
 Environment: OMX_CONTRACT, INSTALL_CONTRACT_DIR, DOMAIN_CFLAGS, DOMAIN_LIBS, CC, PROTOCOL_HEADER (protocol.h of
 plugin-hostd-protocol), PROBE, PROBE_CHILD, STRESS_CLAP, GEN. Exit 0 all green, 1 a FAIL line.
 """
@@ -355,6 +361,82 @@ def arm6(doc):
         ok("arm 6: no word of the probe domain is a literal of src/probe.c")
 
 
+GOLDEN_SIGNALS = ("SIGSEGV SIGABRT SIGBUS SIGFPE SIGILL SIGKILL SIGTERM SIGXCPU SIGXFSZ SIGSYS SIGPIPE SIGINT SIGHUP").split()
+HEADER_CODES = os.path.join(ROOT, "include", "plugin-hostd", "probe_codes.h")
+
+
+def signal_word_call(dirs, tmp):
+    """the call: tests/probe_signal_word.c over probe_words_open(dirs) and probe_signal_word(); the process, or None when it does
+    not build"""
+    cflags = os.environ.get("DOMAIN_CFLAGS") or run(["pkg-config", "--cflags", "libomx-domain"]).stdout.strip()
+    libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
+    proto = os.path.dirname(os.path.dirname(HEADER))
+    exe = os.path.join(tmp, "probe_signal_word")
+    if not os.path.exists(exe):
+        cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-Iinclude",
+                                                        "-I" + proto, "-o", exe, "tests/probe_signal_word.c", "src/probe_words.c",
+                                                        "src/domain_words.c"]
+        b = run(cc + shlex.split(cflags) + shlex.split(libs))
+        if b.returncode != 0:
+            fail("arm 7: tests/probe_signal_word.c does not build: %s" % b.stderr.strip()[-300:])
+            return None
+    return subprocess.run([exe, dirs], cwd=ROOT, capture_output=True, text=True)
+
+
+def arm7(doc, tmp):
+    before = len(failures)
+    if doc is None:
+        return
+    want = " ".join("%s=%s" % (n, n) for n in GOLDEN_SIGNALS) + " other=%s slots=14" % UNKNOWN_SIGNAL
+    # (a) golden, frozen from the hand copy of src/probe_words.h
+    p = signal_word_call(fixture(tmp, "seven-as-is"), tmp)
+    if p is None:
+        return
+    if p.returncode != 0 or p.stdout.strip() != want:
+        fail("arm 7 (a): the call does not give the golden words: rc %d %s (want %s)" % (p.returncode, (p.stdout + p.stderr).strip(), want))
+    # (b) the codes the call indexes by are the domain's own header, and src/probe_words.h holds no list of its own
+    header = {}
+    if os.path.isfile(HEADER_CODES):
+        text = open(HEADER_CODES).read()
+        header = {k: int(v) for k, v in re.findall(r"#define OMX_PROBE_SIGNALS_([A-Z0-9_]+) (\d+)u?\b", text)}
+        if header.pop("COUNT", None) != len(GOLDEN_SIGNALS) + 1:
+            fail("arm 7 (b): the header's OMX_PROBE_SIGNALS_COUNT is not %d" % (len(GOLDEN_SIGNALS) + 1))
+    else:
+        fail("arm 7 (b): include/plugin-hostd/probe_codes.h does not exist")
+    codes = {w["const"]: w["x-code"] for w in doc["components"]["schemas"]["PROBE_SIGNALS"]["oneOf"]}
+    if header != codes:
+        fail("arm 7 (b): the header's signal codes %s are not the domain's %s" % (header, codes))
+    words_h = open(os.path.join(ROOT, "src", "probe_words.h")).read()
+    if "probe_codes.h" not in words_h:
+        fail("arm 7 (b): src/probe_words.h does not include the domain's probe_codes.h")
+    if re.search(r"#define PROBE_SIGNALS\(X\)", words_h) or re.search(r"PROBE_SIGNAL_SEGV", words_h):
+        fail("arm 7 (b): src/probe_words.h still holds the hand-written signal list")
+
+    # (c) sabotage: a renamed word is the call's result, swapped codes are refused by item
+    def rename_one(d):
+        for w in d["components"]["schemas"]["PROBE_SIGNALS"]["oneOf"]:
+            if w["const"] == "SIGSEGV":
+                w["const"] = "SIGSEGV-x"
+
+    def swapped(d):
+        one = d["components"]["schemas"]["PROBE_SIGNALS"]["oneOf"]
+        one[0]["x-code"], one[1]["x-code"] = one[1]["x-code"], one[0]["x-code"]
+
+    p = signal_word_call(fixture(tmp, "seven-renamed", rename_one), tmp)
+    if p is None:
+        return
+    if p.returncode != 0 or "SIGSEGV=SIGSEGV-x " not in p.stdout:
+        fail("arm 7 (c): a renamed signal word is not the call's result: rc %d %s" % (p.returncode, (p.stdout + p.stderr).strip()))
+    p = signal_word_call(fixture(tmp, "seven-swapped", swapped), tmp)
+    if p is None:
+        return
+    if not (p.returncode == 1 and p.stdout.startswith("refused") and "PROBE_SIGNALS" in p.stdout):
+        fail("arm 7 (c): a domain with swapped signal codes is not refused by item at the call: rc %d %s" %
+             (p.returncode, (p.stdout + p.stderr).strip()))
+    if len(failures) == before:
+        ok("arm 7: the call's signal words are the golden ones, the codes are the header's, a renamed word is the result and swapped codes are refused")
+
+
 def main():
     doc = load()
     arm1(doc)
@@ -365,6 +447,7 @@ def main():
     try:
         arm3(doc, tmp)
         arm4(doc, tmp)
+        arm7(doc, tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return 1 if failures else 0
