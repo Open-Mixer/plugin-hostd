@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+"""tests/qualification_domain_owned.py: plugin-hostd owns the domain `qualification` (contract.d/qualification/qualification.json),
+the vocabulary sorting pass, row V5. The domain was plugin-qualify's up to 1.4.0 at plugin-qualify 2d6aefc; its words are
+frozen in tests/fixtures/qualification-golden.json (item -> [title, word] pairs, in the document's order).
+
+a. golden: the document of this checkout, and the tree `make install_qualification_domain DESTDIR=<tmp>` installs, hold
+   exactly the golden items with the golden words; info.x-owner and every catalog's owner are plugin-hostd;
+b. both sources agree while both exist: when QUALIFICATION_OLD_DOMAIN names a contract directory holding plugin-qualify's
+   qualification domain, the two documents are equal but for the owner (skipped, and said so, when it is not set);
+c. sabotage: the installed tree with one word removed from its document is refused by the golden comparison, and so is
+   an installed tree with an item removed (the test is run against a scratch copy, the source is never edited).
+
+Environment: INSTALL_CONTRACT_DIR (the installer, as the Makefile finds it), QUALIFICATION_OLD_DOMAIN (arm b). Exit 0 all green,
+1 a FAIL line.
+"""
+import copy
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GOLDEN = os.path.join(ROOT, "tests", "fixtures", "qualification-golden.json")
+DOC = os.path.join("qualification", "qualification.json")
+failed = 0
+
+
+def check(cond, what):
+    global failed
+    print(("ok   " if cond else "FAIL ") + what)
+    if not cond:
+        failed += 1
+
+
+def words(doc):
+    return {k: [[e["title"], e["const"]] for e in v["oneOf"]] for k, v in doc["components"]["schemas"].items()}
+
+
+def load(path):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def catalog_owners(domain_dir):
+    cat = os.path.join(domain_dir, "qualification", "catalogs")
+    return sorted({load(os.path.join(cat, f)).get("owner") for f in os.listdir(cat)}) if os.path.isdir(cat) else []
+
+
+def install(tmp):
+    cmd = ["make", "--no-print-directory", "-C", ROOT, "install_qualification_domain", "DESTDIR=" + tmp]
+    if os.environ.get("INSTALL_CONTRACT_DIR"):
+        cmd.append("INSTALL_CONTRACT_DIR=" + os.environ["INSTALL_CONTRACT_DIR"])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        return None, (r.stderr.strip() or r.stdout.strip()).splitlines()[-1:]
+    pc = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip() \
+        or "/usr/share/omx-contract/contract.d"
+    return tmp + pc, None
+
+
+def main():
+    golden = load(GOLDEN)
+    src = os.path.join(ROOT, "contract.d")
+    doc_path = os.path.join(src, DOC)
+    check(os.path.isfile(doc_path), "contract.d/qualification/qualification.json is in this tree")
+    if not os.path.isfile(doc_path):
+        print("qualification domain owned: FAILED (%d)" % failed)
+        return 1
+    doc = load(doc_path)
+    check(words(doc) == golden, "a. the document's items and words are the golden ones (%d items)" % len(golden))
+    check(doc["info"].get("x-owner") == "plugin-hostd", "a. info.x-owner is plugin-hostd: %r" % doc["info"].get("x-owner"))
+    check(catalog_owners(src) == ["plugin-hostd"], "a. every catalog's owner is plugin-hostd: %s" % catalog_owners(src))
+
+    old = os.environ.get("QUALIFICATION_OLD_DOMAIN")
+    if old and os.path.isfile(os.path.join(old, DOC)):
+        o = load(os.path.join(old, DOC))
+        o["info"]["x-owner"] = doc["info"]["x-owner"]
+        check(o == doc, "b. the document is plugin-qualify's, but for the owner")
+    else:
+        print("skip b. QUALIFICATION_OLD_DOMAIN names no directory holding plugin-qualify's domain")
+
+    with tempfile.TemporaryDirectory(prefix="plugin-hostd-qualification-owned.") as tmp:
+        tree, why = install(tmp)
+        check(tree is not None, "make install_qualification_domain installs the domain: %s" % (why or ""))
+        if tree:
+            installed = os.path.join(tree, DOC)
+            check(os.path.isfile(installed) and words(load(installed)) == golden, "a. the installed document holds the golden words")
+            check(os.path.isfile(installed) and open(installed, "rb").read() == open(doc_path, "rb").read(),
+                  "the installed document is the source, byte for byte")
+            check(os.path.isfile(os.path.join(tree, "qualification", "catalogs", "ca.json")), "the catalogs are installed with it")
+            # c. one word removed from a scratch copy of the installed tree: the golden comparison refuses it
+            scratch = os.path.join(tmp, "scratch")
+            shutil.copytree(tree, scratch)
+            bad = load(os.path.join(scratch, DOC))
+            item = bad["components"]["schemas"]["QUALIFICATION_MEASUREMENT_VERDICT_RATINGS"]
+            item["oneOf"] = [e for e in item["oneOf"] if e["title"] != "conditional"]
+            check(words(bad) != golden, "c. a tree with one word removed is refused by the golden comparison")
+            bad2 = copy.deepcopy(load(os.path.join(scratch, DOC)))
+            del bad2["components"]["schemas"]["QUALIFICATION_PIN_VERDICTS"]
+            check(words(bad2) != golden, "c. a tree with one item removed is refused by the golden comparison")
+    print("qualification domain owned: %s" % ("FAILED (%d)" % failed if failed else "ok"))
+    return 1 if failed else 0
+
+
+sys.exit(main())
