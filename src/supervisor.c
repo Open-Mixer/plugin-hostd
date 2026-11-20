@@ -4442,10 +4442,10 @@ static const char *estimate_code_reason(int code)
 
 /* The host's insert verdict on the last member, the candidate, added to the chain the others make: the first reason of
  * PHD_ESTIMATE_REASONS that holds gives it. The candidate's own code first (unknown-plugin refuses, no-record and no-cell
- * are not measured); then the warnings: the CPU, percent of one core as the reply writes it, over the real-time
+ * are not measured); then the warnings: the CPU, percent of one core, the figure and not its rounded word, over the real-time
  * admission ceiling of one core; what the workers hold now and what the members add over the budget; another member's
  * code; a memory figure missing. None holds: recommend, within. A consumer shows the two words and judges nothing. */
-static void estimate_verdict(const int *codes, int n, const char *cpu_word, double ram_used, double ram_added,
+static void estimate_verdict(const int *codes, int n, double cpu_pct, double ram_used, double ram_added,
                              int ram_unknown, const char **verdict, const char **reason)
 {
     double budget = (double)g_conf.ram_budget_mb * 1024.0 * 1024.0;
@@ -4459,7 +4459,7 @@ static void estimate_verdict(const int *codes, int n, const char *cpu_word, doub
         return;
     }
     *verdict = PHD_ESTIMATE_VERDICT_WARN;
-    if (strtod(cpu_word, NULL) > PHD_ESTIMATE_CPU_CEILING_PCT)
+    if (cpu_pct > PHD_ESTIMATE_CPU_CEILING_PCT)
         *reason = PHD_ESTIMATE_REASON_CPU_OVER_BUDGET;
     else if (g_conf.ram_budget_mb > 0 && ram_used >= 0 && ram_used + ram_added > budget)
         *reason = PHD_ESTIMATE_REASON_RAM_OVER_BUDGET;
@@ -4489,6 +4489,7 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     int k, planned = 0, unknown = 0, ram_every = 1, workers = 0, ram_unknown = 0;
     size_t used = 0, cap = 128, lused = 0, lcap = 64;
     char ram_word[32], used_word[32], added_word[32], budget_word[32], cpu_word[32], *list, *reply;
+    double cpu_pct;
     double ram_used, ram_added = 0;
 
     if (rate <= 0 || quantum <= 0 || n < 1 || n > PLANNER_MEMBERS_MAX)
@@ -4570,9 +4571,10 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     else
         snprintf(ram_word, sizeof(ram_word), PHD_WORD_NONE);
     /* a member's cost per block over the block's duration is its nanoseconds per sample times the rate, over 1e9; the
-     * verdict weighs the CPU as the reply writes it */
-    snprintf(cpu_word, sizeof(cpu_word), "%.2f", median_ns * rate / 1e9 * 100.0);
-    estimate_verdict(codes, n, cpu_word, ram_used, ram_added, ram_unknown, &verdict, &reason);
+     * verdict weighs the figure, and the reply's word is written from it */
+    cpu_pct = median_ns * rate / 1e9 * 100.0;
+    snprintf(cpu_word, sizeof(cpu_word), "%.2f", cpu_pct);
+    estimate_verdict(codes, n, cpu_pct, ram_used, ram_added, ram_unknown, &verdict, &reason);
     reply = list ? malloc(cap) : NULL;
     if (reply)
         put(&reply, &used, &cap, "resp 0 %.0f %s %s %d %d %s %s %s %s %d %s %s", latency, cpu_word, ram_word, workers,

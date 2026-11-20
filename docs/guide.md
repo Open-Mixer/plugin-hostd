@@ -857,7 +857,7 @@ verdict of its own. The first reason that holds, in this order, gives the verdic
 | the candidate's code is `-535` | `refuse` | `unknown-plugin` |
 | the candidate's code is `-533` | `not-measured` | `no-record` |
 | the candidate's code is `-534` | `not-measured` | `no-cell` |
-| the CPU, as the reply writes it, is over `PHD_ESTIMATE_CPU_CEILING_PCT` (60), the real-time admission ceiling of one core | `warn` | `cpu-over-budget` |
+| the CPU figure (not the word the reply rounds it to: 60.004 is over) is over `PHD_ESTIMATE_CPU_CEILING_PCT` (60), the real-time admission ceiling of one core | `warn` | `cpu-over-budget` |
 | a budget is set, and what is held now plus what the members add is over it | `warn` | `ram-over-budget` |
 | another member has a code | `warn` | that code's word: `unknown-plugin`, `no-record` or `no-cell` |
 | a member has no memory figure, or what is held now cannot be read | `warn` | `ram-unknown` |
