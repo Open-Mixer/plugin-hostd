@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+"""tests/qualification_pin_from.py: QUALIFICATION_PIN_VERDICTS names the verdict words of plugin-hostd-protocol's domain `pin`
+(PIN_VERDICTS, its package plugin-hostd-protocol-contract 0.8.0), and holds no list of its own (sorting pass, V12).
+
+a. every word of the item carries an `x-from` of one entry: the `$ref` of the domain pin's PIN_VERDICTS and the word's
+   `title` as `x-term`, and its `const` is the word the domain pin gives that key (golden: in-process, isolated, refused);
+b. omx-contract validate of this document beside the domain pin accepts it (the real reader of an `x-from`);
+c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, and no domain pin at all, are refused
+   by validate, by name.
+
+Environment: PIN_DOMAIN_DIR (a contract directory holding pin/pin.json: protocol's contract.d, or the installed contract
+directory, the default), OMX_CONTRACT (the command). Exit 0 all green, 1 a FAIL line."""
+import json, os, shlex, shutil, subprocess, sys, tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
+REF = "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS"
+GOLDEN = {"inProcess": "in-process", "isolated": "isolated", "refused": "refused"}
+failed = 0
+
+
+def check(cond, what):
+    global failed
+    print(("ok   " if cond else "FAIL ") + what)
+    if not cond:
+        failed += 1
+
+
+def pin_dir():
+    d = os.environ.get("PIN_DOMAIN_DIR")
+    if d:
+        return d
+    p = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True)
+    return p.stdout.strip()
+
+
+def validate(tmp, name, qualification, pin):
+    """omx-contract validate over a scratch contract directory: this document, and the domain pin when given"""
+    d = os.path.join(tmp, name)
+    os.makedirs(os.path.join(d, "qualification"))
+    json.dump(qualification, open(os.path.join(d, "qualification", "qualification.json"), "w"), indent=2)
+    if pin is not None:
+        os.makedirs(os.path.join(d, "pin"))
+        json.dump(pin, open(os.path.join(d, "pin", "pin.json"), "w"), indent=2)
+    # beside the installed contract directory, where the terms the other items name are; only the findings that name this
+    # item count (the rest of the document is V5's own checks)
+    installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
+    env = dict(os.environ, OMX_CONTRACT_PATH=d + ":" + installed)
+    r = subprocess.run(OMX + ["validate", "--installed"], capture_output=True, text=True, env=env)
+    ours = [l for l in (r.stdout + r.stderr).splitlines() if "QUALIFICATION_PIN_VERDICTS" in l]
+    return (1 if ours else 0), "; ".join(ours) or "no finding on QUALIFICATION_PIN_VERDICTS"
+
+
+def main():
+    qual = json.load(open(os.path.join(ROOT, "contract.d", "qualification", "qualification.json")))
+    item = qual["components"]["schemas"]["QUALIFICATION_PIN_VERDICTS"]
+    words = item["oneOf"]
+    pin_path = os.path.join(pin_dir(), "pin", "pin.json")
+    pin = json.load(open(pin_path)) if os.path.isfile(pin_path) else None
+    check(pin is not None, "the domain pin is found (%s)" % pin_path)
+    check({w["title"]: w["const"] for w in words} == GOLDEN, "the item's words are the golden three")
+    check(all(w.get("x-from") == [{"$ref": REF, "x-term": w["title"]}] for w in words),
+          "(a) every word names the domain pin's PIN_VERDICTS by x-from, its title the term")
+    if pin is None:
+        return 1
+    with tempfile.TemporaryDirectory() as tmp:
+        rc, out = validate(tmp, "with-pin", qual, pin)
+        check(rc == 0, "(b) validate accepts the document beside the domain pin: %s" % out[-200:])
+        cut = json.loads(json.dumps(pin))
+        cut["components"]["schemas"]["PIN_VERDICTS"]["oneOf"] = [w for w in cut["components"]["schemas"]["PIN_VERDICTS"]["oneOf"] if w["title"] != "refused"]
+        rc, out = validate(tmp, "no-word", qual, cut)
+        check(rc != 0, "(c) the domain pin without its refused word is refused: %s" % out[-160:])
+        rc, out = validate(tmp, "no-pin", qual, None)
+        check(rc != 0, "(c) no domain pin is refused: %s" % out[-160:])
+    return 1 if failed else 0
+
+
+sys.exit(main())
