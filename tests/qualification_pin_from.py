@@ -12,12 +12,11 @@ c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDIC
 
 The document declares `info.x-requires`: {"pin": ">= 1.0.0", "plugin-hostd-protocol": ">= 0.8.0"}: the domain its x-from
 names (the read refuses an x-from into a domain x-requires does not declare) and the package that ships it
-(plugin-hostd-protocol-contract 0.8.0). The scratch directories hold that package as the floor needs it: a copy of the installed
-package whose MANIFEST says the version under test.
+(plugin-hostd-protocol-contract 0.8.0). The scratch directories hold that package as the floor needs it: one table and its manifest at the version under test.
 
 Environment: PIN_DOMAIN_DIR (a contract directory holding pin/pin.json: protocol's contract.d, or the installed contract
 directory, the default), OMX_CONTRACT (the command). Exit 0 all green, 1 a FAIL line."""
-import json, os, shlex, shutil, subprocess, sys, tempfile
+import hashlib, json, os, shlex, shutil, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
@@ -41,23 +40,45 @@ def pin_dir():
     return p.stdout.strip()
 
 
-def validate(tmp, name, qualification, pin, protocol="0.8.0"):
-    """omx-contract validate over a scratch contract directory: this document, and the domain pin when given"""
+def stage(tmp, name, qualification, pin, protocol="0.8.0"):
+    """a scratch contract directory: this document (a dict, or the text as it is), the domain pin when given, and the package
+    plugin-hostd-protocol at the version under test; returns (directory, installed contract directory)"""
     d = os.path.join(tmp, name)
     os.makedirs(os.path.join(d, "qualification"))
-    json.dump(qualification, open(os.path.join(d, "qualification", "qualification.json"), "w"), indent=2)
+    with open(os.path.join(d, "qualification", "qualification.json"), "w") as f:
+        f.write(qualification if isinstance(qualification, str) else json.dumps(qualification, indent=2))
     if pin is not None:
         os.makedirs(os.path.join(d, "pin"))
-        json.dump(pin, open(os.path.join(d, "pin", "pin.json"), "w"), indent=2)
+        with open(os.path.join(d, "pin", "pin.json"), "w") as f:
+            f.write(pin if isinstance(pin, str) else json.dumps(pin, indent=2))
     # the package the floor names, at the version under test
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
-    src = os.path.join(installed, "3", "plugin-hostd-protocol")
     dst = os.path.join(d, "3", "plugin-hostd-protocol")
-    os.makedirs(os.path.dirname(dst))
-    shutil.copytree(src, dst)
-    m = json.load(open(os.path.join(dst, "MANIFEST.json")))
-    m["version"] = protocol
-    json.dump(m, open(os.path.join(dst, "MANIFEST.json"), "w"), indent=2)
+    os.makedirs(dst)
+    # a package that holds one small table and its manifest, at the version under test: the floor is all the document asks
+    # of it (a manifest names at least one file), and the table is formatted as the installer writes it
+    doc = {"$schema": "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json",
+           "requires": {"omx-contract-schema": ">= 3.3.0"},
+           "PLUGIN_HOSTD_PROTOCOL_FLOOR_STUB": {"kind": "words", "since": "0.8.0", "doc": "The word of a stand-in table.",
+                                                "words": {"stub": {"word": "stub", "doc": "A stand-in."}}}}
+    body = (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode()
+    open(os.path.join(dst, "stub.json"), "wb").write(body)
+    digest = hashlib.sha256(body).hexdigest()
+    json.dump({"package": "plugin-hostd-protocol", "version": protocol, "schemaMajor": 3, "tree": "data", "files": {"stub.json": digest}},
+              open(os.path.join(dst, "MANIFEST.json"), "w"), indent=2)
+    return d, installed
+
+
+def fmt_check(tmp, name, text, pin):
+    """omx-contract fmt --check of the document staged with the domain pin it names: (exit code, output)"""
+    d, _ = stage(tmp, name, text, pin)
+    r = subprocess.run(OMX + ["fmt", "--check", "--contract-dir", d], capture_output=True, text=True)
+    return r.returncode, (r.stdout + r.stderr).strip()
+
+
+def validate(tmp, name, qualification, pin, protocol="0.8.0"):
+    """omx-contract validate over a scratch contract directory: this document, and the domain pin when given"""
+    d, installed = stage(tmp, name, qualification, pin, protocol)
     # beside the installed contract directory, where the terms the other items name are; only the findings that name this
     # item, or the document's requires, count (the rest of the document is V5's own checks)
     env = dict(os.environ, OMX_CONTRACT_PATH=d + ":" + installed)
@@ -78,6 +99,10 @@ def main():
           "(a) every word names the domain pin's PIN_VERDICTS by x-from, its title the term")
     if pin is None:
         return 1
+    # the item carries no meaning of its own: each word is the owner's word, its const, code, description and text verbatim
+    owner = {w["title"]: w for w in pin["components"]["schemas"]["PIN_VERDICTS"]["oneOf"]}
+    same = all(w["title"] in owner and all(w.get(k) == owner[w["title"]].get(k) for k in ("const", "x-code", "description", "x-text")) for w in words)
+    check(same, "(a) every word is the owner's: const, x-code, description and x-text verbatim, no meaning of its own")
     with tempfile.TemporaryDirectory() as tmp:
         rc, out = validate(tmp, "with-pin", qual, pin)
         check(rc == 0, "(b) validate accepts the document beside the domain pin: %s" % out[-200:])
@@ -87,6 +112,19 @@ def main():
         check(rc != 0, "(c) the domain pin without its refused word is refused: %s" % out[-160:])
         rc, out = validate(tmp, "no-pin", qual, None)
         check(rc != 0, "(c) no domain pin is refused: %s" % out[-160:])
+        # a const or a code that differs from the target word: what validate says is recorded, never covered (a)
+        for what, edit in (("const", lambda w: w.update(const="in-proc")), ("x-code", lambda w: w.update({"x-code": 7}))):
+            bad = json.loads(json.dumps(qual))
+            edit(bad["components"]["schemas"]["QUALIFICATION_PIN_VERDICTS"]["oneOf"][0])
+            rc, out = validate(tmp, "differs-" + what, bad, pin)
+            print("note validate %s a word whose %s differs from the target's (the test's own comparison, (a), holds it)" %
+                  ("refuses" if rc else "does not refuse", what))
+        # the document stays in the one formatting (fmt --check, beside the domain pin it names), and a misformatted one is refused
+        text = open(os.environ.get("QUALIFICATION_DOC", os.path.join(ROOT, "contract.d", "qualification", "qualification.json"))).read()
+        rc, out = fmt_check(tmp, "fmt-real", text, open(pin_path).read())
+        check(rc == 0, "(d) fmt --check accepts the document as it is: %s" % out[-160:])
+        rc, out = fmt_check(tmp, "fmt-misformatted", json.dumps(json.loads(text), indent=4), open(pin_path).read())
+        check(rc != 0, "(d) fmt --check refuses the document in another formatting: %s" % out[-120:])
         rc, out = validate(tmp, "old-protocol", qual, pin, protocol="0.7.0")
         check(rc != 0 and "0.8.0" in out, "(c) plugin-hostd-protocol 0.7.0 is below the document's floor: %s" % out[-160:])
     check(qual["info"].get("x-requires") == {"pin": ">= 1.0.0", "plugin-hostd-protocol": ">= 0.8.0"}, "(a) info.x-requires names the domain pin at 1.0.0 and plugin-hostd-protocol at 0.8.0")
