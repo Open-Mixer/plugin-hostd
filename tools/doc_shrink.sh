@@ -15,7 +15,7 @@ if [ -z "$base" ]; then
     echo "doc-shrink: DOC_GATE_BASE is empty: name the base branch (unset means origin/main), never a skipped compare"
     exit 1
 fi
-py=${DOC_GATE_PY:-clients/python tests/lib/plugin_hostd_client.py}
+py=${DOC_GATE_PY:-tests/lib/plugin_hostd_client.py}
 # a remote-tracking base is a copy from the last fetch: fetch it now, and a fetch that fails is no base
 remote=${base%%/*}
 if [ "$remote" != "$base" ] && git remote | grep -qx -- "$remote"; then

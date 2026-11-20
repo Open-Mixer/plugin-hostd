@@ -146,6 +146,11 @@ jobs:
       - name: The protocol's Catalan catalog, where a language pack carries it
         run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False plugin-hostd-protocol-langpack-ca
 
+      # the one Python codec is plugin-hostd-protocol's package: the daemon test reads the daemon's replies with it, and
+      # tests/grouping_domain.py holds its GroupingReason to the domain plugin-hostd/grouping; this tree keeps no client
+      - name: The protocol's Python codec
+        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False python3-plugin-hostd-protocol
+
       - name: Build
         run: make
 
@@ -157,11 +162,6 @@ jobs:
         env:
           PROBE_REQUIRE_REALTIME: "1"
         run: make test
-
-      # the protocol clients (docs/clients.md): each one's tests on the shared fixtures, then the two held to each other on
-      # them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
-      - name: The protocol clients agree
-        run: make test-clients
 
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,
       # then the installed omx-contract (the builddep above) validates it with its own tables and omx-clap-core's; red on
@@ -460,9 +460,9 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/clap.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
               /usr/share/omx-contract/contract.d/machine/machine.json \
               /usr/share/omx-contract/contract.d/qualification/qualification.json \
+              /usr/share/omx-contract/contract.d/plugin-hostd/grouping/grouping.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/es.json \
@@ -675,7 +675,7 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json; do
+          for f in MANIFEST.json formats/clap.json formats/lv2.json history.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
           done
           # no Breaks, Replaces or Conflicts between our own packages (owner rule 2026-11-16)
