@@ -4459,7 +4459,7 @@ static void estimate_verdict(const int *codes, int n, double cpu_pct, double ram
         return;
     }
     *verdict = PHD_ESTIMATE_VERDICT_WARN;
-    if (cpu_pct > PHD_ESTIMATE_CPU_CEILING_PCT)
+    if (cpu_pct > PHD_ESTIMATE_CPU_CEILING)
         *reason = PHD_ESTIMATE_REASON_CPU_OVER_BUDGET;
     else if (g_conf.ram_budget_mb > 0 && ram_used >= 0 && ram_used + ram_added > budget)
         *reason = PHD_ESTIMATE_REASON_RAM_OVER_BUDGET;
