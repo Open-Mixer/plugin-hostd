@@ -3,7 +3,8 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """tests/qualification_domain_owned.py: plugin-hostd owns the domain `qualification` (contract.d/qualification/qualification.json),
 the vocabulary sorting pass, row V5. The domain was plugin-qualify's up to 1.4.0 at plugin-qualify 2d6aefc; its words are
-frozen in tests/fixtures/qualification-golden.json (item -> [title, word] pairs, in the document's order).
+frozen in tests/fixtures/qualification-golden.json (item -> [title, word] pairs, in the document's order), less
+QUALIFICATION_MACHINE_CLASSES, which nothing reads (ownership map rows 5 and 20) and is dropped from the domain and its catalogs.
 
 a. golden: the document of this checkout, and the tree `make install_qualification_domain DESTDIR=<tmp>` installs, hold
    exactly the golden items with the golden words; info.x-owner and every catalog's owner are plugin-hostd;
@@ -96,6 +97,10 @@ def main():
     doc = load(doc_path)
     check(words(doc) == golden, "a. the document's items and words are the golden ones (%d items)" % len(golden))
     check(doc["info"].get("x-owner") == "plugin-hostd", "a. info.x-owner is plugin-hostd: %r" % doc["info"].get("x-owner"))
+    check("QUALIFICATION_MACHINE_CLASSES" not in doc["components"]["schemas"], "a. QUALIFICATION_MACHINE_CLASSES is not an item of the domain")
+    texts = [k for f in os.listdir(os.path.join(src, "qualification", "catalogs")) for k in load(os.path.join(src, "qualification", "catalogs", f))["messages"]
+             if k.startswith("QUALIFICATION_MACHINE_CLASSES.")]
+    check(not texts, "a. no catalog holds a text of it: %s" % texts[:2])
     check(catalog_owners(src) == ["plugin-hostd"], "a. every catalog's owner is plugin-hostd: %s" % catalog_owners(src))
 
     old = os.environ.get("QUALIFICATION_OLD_DOMAIN")

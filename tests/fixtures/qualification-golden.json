@@ -15,7 +15,6 @@
  "QUALIFICATION_RESOURCE_HOST_ISOLATIONS": [["inProcess","in-process"],["perProcess","per-process"],["sharedProcess","shared-process"]],
  "QUALIFICATION_RESOURCE_HOST_LATENCY_HANDLING": [["compensated","compensated"],["uncompensated","uncompensated"]],
  "QUALIFICATION_RESOURCE_THREAD_SCHEDULING": [["none","none"],["fifo","fifo"]],
- "QUALIFICATION_MACHINE_CLASSES": [["desk","desk"],["raspberryPi4","raspberry-pi-4"],["raspberryPi5","raspberry-pi-5"]],
  "QUALIFICATION_HOST_CLASSES": [["rpi5","rpi5"],["x8664","x86-64"]],
  "QUALIFICATION_SET_TIERS": [["reference","reference"],["provisional","provisional"],["hardware","hardware"]],
  "QUALIFICATION_HOST_PROFILES": [["omxClapHost","omx-clap-host"],["openmixerConsole","openmixer-console"],["openmixerPi4gb","openmixer-pi-4gb"],["openmixerPi8gb","openmixer-pi-8gb"]],
