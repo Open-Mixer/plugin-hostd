@@ -327,10 +327,14 @@ render-verbs check-rendered:
 # the machine domain's codes header (include/plugin-hostd/machine_codes.h) is the render of the items marked x-c-codes,
 # and there is none while no item is marked: validate, fmt --check and render --check
 .PHONY: check-machine-codes
+# (the machine and probe domains, staged alone: the qualification domain names plugin-hostd-protocol's domain pin, which a
+# directory read alone cannot see; it is validated with the installed contract directory by check-contract-dir and
+# tests/qualification_pin_from.py)
 check-machine-codes:
-	$(OMX_CONTRACT) validate --contract-dir contract.d
-	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
-	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd --check
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; cp -r contract.d/machine contract.d/probe $$tmp/; \
+	$(OMX_CONTRACT) validate --contract-dir $$tmp; \
+	$(OMX_CONTRACT) fmt --check --contract-dir $$tmp; \
+	$(OMX_CONTRACT) render --target c --package machine --contract-dir $$tmp --out include/plugin-hostd --check
 
 # the machine domain is a valid document, the codes header is its render, and the installed tree opens through the
 # loader (tests/machine_domain.py; DOMAIN_CFLAGS and DOMAIN_LIBS name a loader that pkg-config does not find)
@@ -950,7 +954,7 @@ test-qualification-domain-owned:
 # QUALIFICATION_PIN_VERDICTS names plugin-hostd-protocol's pin verdict words (its domain pin), it holds no list (V12)
 .PHONY: test-qualification-pin-from
 test-qualification-pin-from:
-	python3 tests/qualification_pin_from.py
+	OMX_CONTRACT='$(OMX_CONTRACT)' python3 tests/qualification_pin_from.py
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates

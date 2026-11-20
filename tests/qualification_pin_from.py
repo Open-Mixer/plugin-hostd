@@ -7,8 +7,13 @@
 a. every word of the item carries an `x-from` of one entry: the `$ref` of the domain pin's PIN_VERDICTS and the word's
    `title` as `x-term`, and its `const` is the word the domain pin gives that key (golden: in-process, isolated, refused);
 b. omx-contract validate of this document beside the domain pin accepts it (the real reader of an `x-from`);
-c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, and no domain pin at all, are refused
-   by validate, by name.
+c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, no domain pin at all, and the package
+   plugin-hostd-protocol below 0.8.0 (the floor of the document's info.x-requires) are refused by validate, by name.
+
+The document declares `info.x-requires`: {"pin": ">= 1.0.0", "plugin-hostd-protocol": ">= 0.8.0"}: the domain its x-from
+names (the read refuses an x-from into a domain x-requires does not declare) and the package that ships it
+(plugin-hostd-protocol-contract 0.8.0). The scratch directories hold that package as the floor needs it: a copy of the installed
+package whose MANIFEST says the version under test.
 
 Environment: PIN_DOMAIN_DIR (a contract directory holding pin/pin.json: protocol's contract.d, or the installed contract
 directory, the default), OMX_CONTRACT (the command). Exit 0 all green, 1 a FAIL line."""
@@ -36,7 +41,7 @@ def pin_dir():
     return p.stdout.strip()
 
 
-def validate(tmp, name, qualification, pin):
+def validate(tmp, name, qualification, pin, protocol="0.8.0"):
     """omx-contract validate over a scratch contract directory: this document, and the domain pin when given"""
     d = os.path.join(tmp, name)
     os.makedirs(os.path.join(d, "qualification"))
@@ -44,12 +49,20 @@ def validate(tmp, name, qualification, pin):
     if pin is not None:
         os.makedirs(os.path.join(d, "pin"))
         json.dump(pin, open(os.path.join(d, "pin", "pin.json"), "w"), indent=2)
-    # beside the installed contract directory, where the terms the other items name are; only the findings that name this
-    # item count (the rest of the document is V5's own checks)
+    # the package the floor names, at the version under test
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
+    src = os.path.join(installed, "3", "plugin-hostd-protocol")
+    dst = os.path.join(d, "3", "plugin-hostd-protocol")
+    os.makedirs(os.path.dirname(dst))
+    shutil.copytree(src, dst)
+    m = json.load(open(os.path.join(dst, "MANIFEST.json")))
+    m["version"] = protocol
+    json.dump(m, open(os.path.join(dst, "MANIFEST.json"), "w"), indent=2)
+    # beside the installed contract directory, where the terms the other items name are; only the findings that name this
+    # item, or the document's requires, count (the rest of the document is V5's own checks)
     env = dict(os.environ, OMX_CONTRACT_PATH=d + ":" + installed)
     r = subprocess.run(OMX + ["validate", "--installed"], capture_output=True, text=True, env=env)
-    ours = [l for l in (r.stdout + r.stderr).splitlines() if "QUALIFICATION_PIN_VERDICTS" in l]
+    ours = [l for l in (r.stdout + r.stderr).splitlines() if "QUALIFICATION_PIN_VERDICTS" in l or "requires plugin-hostd-protocol" in l or "requires pin" in l]
     return (1 if ours else 0), "; ".join(ours) or "no finding on QUALIFICATION_PIN_VERDICTS"
 
 
@@ -74,6 +87,9 @@ def main():
         check(rc != 0, "(c) the domain pin without its refused word is refused: %s" % out[-160:])
         rc, out = validate(tmp, "no-pin", qual, None)
         check(rc != 0, "(c) no domain pin is refused: %s" % out[-160:])
+        rc, out = validate(tmp, "old-protocol", qual, pin, protocol="0.7.0")
+        check(rc != 0 and "0.8.0" in out, "(c) plugin-hostd-protocol 0.7.0 is below the document's floor: %s" % out[-160:])
+    check(qual["info"].get("x-requires") == {"pin": ">= 1.0.0", "plugin-hostd-protocol": ">= 0.8.0"}, "(a) info.x-requires names the domain pin at 1.0.0 and plugin-hostd-protocol at 0.8.0")
     return 1 if failed else 0
 
 

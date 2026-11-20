@@ -5,7 +5,11 @@
     "title": "What a qualification measures and records",
     "version": "1.4.0",
     "x-owner": "plugin-hostd",
-    "x-stability": "experimental"
+    "x-stability": "experimental",
+    "x-requires": {
+      "pin": ">= 1.0.0",
+      "plugin-hostd-protocol": ">= 0.8.0"
+    }
   },
   "components": {
     "schemas": {
@@ -1421,7 +1425,7 @@
         ]
       },
       "QUALIFICATION_PIN_VERDICTS": {
-        "description": "The verdict words of a pins file, as plugin-hostd knows them.",
+        "description": "The verdict words of a pins file: the words of plugin-hostd-protocol's PIN_VERDICTS, which names them.",
         "x-since": "1.4.0",
         "oneOf": [
           {
@@ -1429,21 +1433,39 @@
             "title": "inProcess",
             "description": "The plugin runs inside the engine.",
             "x-code": 0,
-            "x-text": "The plugin runs inside the engine."
+            "x-text": "The plugin runs inside the engine.",
+            "x-from": [
+              {
+                "$ref": "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS",
+                "x-term": "inProcess"
+              }
+            ]
           },
           {
             "const": "isolated",
             "title": "isolated",
             "description": "The plugin runs in a process of its own.",
             "x-code": 1,
-            "x-text": "The plugin runs in a process of its own."
+            "x-text": "The plugin runs in a process of its own.",
+            "x-from": [
+              {
+                "$ref": "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS",
+                "x-term": "isolated"
+              }
+            ]
           },
           {
             "const": "refused",
             "title": "refused",
             "description": "The plugin is not hosted.",
             "x-code": 2,
-            "x-text": "The plugin is not hosted."
+            "x-text": "The plugin is not hosted.",
+            "x-from": [
+              {
+                "$ref": "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS",
+                "x-term": "refused"
+              }
+            ]
           }
         ]
       },
