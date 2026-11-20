@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
-"""tests/probe_domain.py: plugin-hostd owns the domain `probe` (contract.d/probe/probe.json): the words a probe run writes,
+"""tests/probe_domain.py: the domain `probe` is plugin-hostd-protocol's (its contract.d/probe/probe.json): the words a probe run writes,
 that the qualification store checks its record columns against. Arms 1 to 6.
 
 1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, version 1.0.0, every

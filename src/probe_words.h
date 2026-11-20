@@ -19,8 +19,8 @@
  */
 
 /** @file probe_words.h
- * @brief The words a probe run writes, which the probe domain (contract.d/probe/probe.json, shipped by
- * plugin-hostd-contract) holds: the run's reason, the outcome of a step and of the run, the steps, and the signal a child
+ * @brief The words a probe run writes, which plugin-hostd-protocol's probe domain (its contract.d/probe/probe.json, shipped by
+ * plugin-hostd-protocol-contract) holds: the run's reason, the outcome of a step and of the run, the steps, and the signal a child
  * died of.
  *
  * The ids come from the protocol header's own lists (PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES, PHD_PROBE_STEPS) and, for the
