@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Where the tests find the qualification domain, the document plugin-hostd owns
 # (contract.d/qualification/qualification.json of this tree): the first directory of $OMX_CONTRACT_PATH (a ':' list)
-# that holds it, else the installed contract directory (pkg-config omx-contract). A test that changes a word writes a
+# that holds it, else this checkout's contract.d, else the installed contract directory (pkg-config omx-contract). A test that changes a word writes a
 # scratch copy with fixture() and points the loader at it; the source is never edited.
 import json, os, shutil, subprocess
 
@@ -12,7 +12,8 @@ DOMAIN = "qualification"
 def search_path():
     listed = [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d]
     installed = subprocess.run([PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
-    return listed + ([installed] if installed else [])
+    here = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "contract.d")
+    return listed + [here] + ([installed] if installed else [])
 
 
 def source_dir():

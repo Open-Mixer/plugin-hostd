@@ -104,11 +104,11 @@ PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
 INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS)
 
-# the machine domain (contract.d/machine/) and plugin-qualify's qualification domain (contract.d/qualification/ there) are
+# the machine domain (contract.d/machine/) and the qualification domain (contract.d/qualification/) are
 # read at start-up through omx-contract's C loader (libomx-domain), never rendered here (src/domain_words.c, src/machine.c,
 # src/qualification_words.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a ':' list, the first
 # directory holding the domain wins) and the daemon the installed contract directory only; the tests of this tree run the
-# CLIs over this checkout's own machine document, the installed contract directory after it for plugin-qualify's
+# CLIs over this checkout's own documents, the installed contract directory after it
 DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
 DOMAIN_LIBS ?= $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
 INSTALLED_CONTRACT_DIR := $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null)
@@ -214,7 +214,7 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_qualification_domain install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
@@ -249,6 +249,14 @@ install_machine_domain:
 install_probe_domain:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_probe_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/probe $(DESTDIR)$(CONTRACTDIR)
+
+# the domain qualification (contract.d/qualification: what a qualification measures and records, with its catalogs; plugin-qualify's
+# up to its 1.4.0), installed to <contractdir>/qualification/ the same way: plugin-hostd-contract ships it, and the probe and the
+# schema generator refuse to start without it (78)
+.PHONY: install_qualification_domain
+install_qualification_domain:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_qualification_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(DESTDIR)$(CONTRACTDIR)
 
 # the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
@@ -929,7 +937,7 @@ check-ci-guards:
 test-vocabulary:
 	python3 tests/vocabulary_derived.py
 
-# the qualification words are plugin-qualify's domain, read by the probe through the C loader: no render of it here, the
+# the qualification words are this tree's domain (contract.d/qualification), read by the probe through the C loader: no render of it here, the
 # probe's words follow a changed copy, an absent or too old domain is refused by name
 test-qualification-domain: $(PROBE) tests/probe-child tests/stress.clap
 	PROBE=./$(PROBE) python3 tests/qualification_domain.py

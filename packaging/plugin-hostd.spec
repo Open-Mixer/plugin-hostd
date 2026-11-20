@@ -54,9 +54,6 @@ BuildRequires: omx-clap-host-tests >= 0.33.1
 BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.20.0
-# the qualification domain, plugin-qualify's (contract.d/qualification/), which the tests read from the contract directory
-# its data package installs into (0.20.6 the first release that ships it)
-BuildRequires: plugin-qualify-contract >= 0.20.6
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.7.0
@@ -111,10 +108,8 @@ Requires: omx-clap-core-contract >= 0.33.1
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
 Requires: omx-contract >= 3.20.0
-# the probe runner reads the qualification domain through the loader at start-up: the loader, and plugin-qualify's data
-# package that holds the domain (noarch data, so plugin-qualify's own requirement of this package is no cycle)
+# the probe runner reads the qualification domain, which this package holds, through the loader at start-up
 Requires: libomx-domain >= 3.20.0
-Requires: plugin-qualify-contract >= 0.20.6
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
@@ -201,6 +196,8 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_domain_dir}/machine/
 # the domain probe (contract.d/probe), the words a probe run writes, the same way
 %{omx_contract_domain_dir}/probe/
+# the domain qualification (contract.d/qualification), what a qualification measures and records, the same way
+%{omx_contract_domain_dir}/qualification/
 
 %changelog
 * Thu Nov 19 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.8-1

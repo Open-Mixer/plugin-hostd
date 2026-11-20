@@ -20,7 +20,7 @@
 #ifndef PLUGIN_HOSTD_QUALIFICATION_WORDS_H
 #define PLUGIN_HOSTD_QUALIFICATION_WORDS_H
 /** @file
- * @brief The qualification words the probe and the schema generator write, read from plugin-qualify's domain.
+ * @brief The qualification words the probe and the schema generator write, read from the qualification domain, which plugin-hostd owns.
  *
  * The qualification domain (contract.d/qualification/qualification.json, items QUALIFICATION_*) is plugin-qualify's:
  * this package ships no copy and no render of it. It is read once at start-up through the C loader of omx-contract

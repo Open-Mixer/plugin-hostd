@@ -168,7 +168,7 @@ def renamed(doc):
 
 def search(probe_dir, tmp):
     """the test entry of the probe and the generator: the probe domain under test first, then this checkout's other
-    domains, then plugin-qualify's qualification domain; a probe-only directory is excluded when the domain is the thing
+    domains, then the qualification domain; a probe-only directory is excluded when the domain is the thing
     that is absent"""
     only = os.path.join(tmp, "others")
     if not os.path.isdir(only):

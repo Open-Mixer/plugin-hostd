@@ -12,7 +12,11 @@ b. both sources agree while both exist: when QUALIFICATION_OLD_DOMAIN names a co
 c. sabotage: the installed tree with one word removed from its document is refused by the golden comparison, and so is
    an installed tree with an item removed (the test is run against a scratch copy, the source is never edited).
 
-Environment: INSTALL_CONTRACT_DIR (the installer, as the Makefile finds it), QUALIFICATION_OLD_DOMAIN (arm b). Exit 0 all green,
+d. packaging: the spec and debian/control name no plugin-qualify-contract (the package is pruned from the channel; no Breaks,
+   Replaces, Conflicts or Provides stand in for it) and plugin-hostd-contract ships the domain, in the spec's %files and in
+   debian/plugin-hostd-contract.install; packaging/deps.txt lists no plugin-qualify-contract.
+
+Environment: PKG_ROOT (the tree whose packaging arm d reads, default this one), INSTALL_CONTRACT_DIR (the installer, as the Makefile finds it), QUALIFICATION_OLD_DOMAIN (arm b). Exit 0 all green,
 1 a FAIL line.
 """
 import copy
@@ -62,7 +66,26 @@ def install(tmp):
     return tmp + pc, None
 
 
+def packaging(root):
+    def read(rel):
+        with open(os.path.join(root, rel), encoding="utf-8") as f:
+            return f.read()
+    spec = read("packaging/plugin-hostd.spec").split("%changelog")[0]
+    control = read("debian/control")
+    named = [rel for rel, text in (("packaging/plugin-hostd.spec", spec), ("debian/control", control), ("packaging/deps.txt", read("packaging/deps.txt")))
+             if "plugin-qualify-contract" in text]
+    check(not named, "d. nothing but the changelogs names plugin-qualify-contract: %s" % named)
+    relations = [line for line in (spec + control).splitlines()
+                 if line.split(":")[0].strip() in ("Breaks", "Replaces", "Conflicts", "Provides", "Obsoletes") and "qualif" in line]
+    check(not relations, "d. no Breaks, Replaces, Conflicts, Provides or Obsoletes for the old package: %s" % relations)
+    check("%{omx_contract_domain_dir}/qualification/" in spec.split("%files contract")[-1],
+          "d. the spec's %files contract holds the qualification domain")
+    check("usr/share/omx-contract/contract.d/qualification" in read("debian/plugin-hostd-contract.install").split(),
+          "d. debian/plugin-hostd-contract.install holds the qualification domain")
+
+
 def main():
+    packaging(os.environ.get("PKG_ROOT", ROOT))
     golden = load(GOLDEN)
     src = os.path.join(ROOT, "contract.d")
     doc_path = os.path.join(src, DOC)

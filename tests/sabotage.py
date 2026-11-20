@@ -2078,7 +2078,7 @@ def arm(entry, tree):
         datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
                                  check=True).stdout.strip()
         shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
-        # plugin-qualify's qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
+        # the qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
         sys.path.insert(0, os.path.join(ROOT, "tests"))
         import qualification_source
         shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
