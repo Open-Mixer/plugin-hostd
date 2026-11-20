@@ -10,7 +10,8 @@
     (the compile finds <plugin-hostd/probe_codes.h> in the protocol include directory alone);
 (c) sabotage: a temporary directory holding the domain with SIGSEGV changed, first on OMX_CONTRACT_PATH, gives the changed word at
     the call;
-(d) packaging: the spec and debian/control floor plugin-hostd-protocol-contract at 0.7.0 (protocol's version on main), a floor only.
+(d) packaging: the spec and debian/control floor plugin-hostd-protocol (-devel, -contract) at 0.8.0, the release that carries the
+    probe domain and its header (0.7.0 has neither), a floor only.
 
 Environment: PROTOCOL_CONTRACT_DIR (the protocol package's contract directory; default pkg-config's contractdir of omx-contract),
 PROTOCOL_HEADER (protocol.h of plugin-hostd-protocol), DOMAIN_CFLAGS, DOMAIN_LIBS, CC. Exit 0 all green, 1 a FAIL line."""
@@ -76,10 +77,13 @@ def main():
     # (d)
     spec = open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read()
     control = open(os.path.join(ROOT, "debian", "control")).read()
-    check(re.search(r"^Requires: plugin-hostd-protocol-contract >= 0\.7\.0$", spec, re.M) is not None
-          and re.search(r"^BuildRequires: plugin-hostd-protocol-contract >= 0\.7\.0$", spec, re.M) is not None,
-          "(d) the spec requires and builds against plugin-hostd-protocol-contract >= 0.7.0")
-    check("plugin-hostd-protocol-contract (>= 0.7.0~)" in control, "(d) debian/control names plugin-hostd-protocol-contract at the same floor")
+    for name in ("plugin-hostd-protocol-contract", "plugin-hostd-protocol-devel"):
+        check(re.search(r"^Requires: %s >= 0\.8\.0$" % name, spec, re.M) is not None or name.endswith("devel"),
+              "(d) the spec requires %s >= 0.8.0" % name)
+        check(re.search(r"^(Build)?Requires: %s >= 0\.8\.0$" % name, spec, re.M) is not None, "(d) the spec names %s >= 0.8.0" % name)
+    check("plugin-hostd-protocol-contract (>= 0.8.0~)" in control and "libplugin-hostd-protocol-dev (>= 0.8.0~)" in control,
+          "(d) debian/control names plugin-hostd-protocol-contract and -dev at the same floor")
+    check(not re.search(r"plugin-hostd-protocol[a-z-]* \(?>= 0\.7\.0", spec + control), "(d) no 0.7.0 floor of protocol is left")
     return 1 if failed else 0
 
 
