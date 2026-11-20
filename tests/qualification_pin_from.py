@@ -83,7 +83,7 @@ def validate(tmp, name, qualification, pin, protocol="0.8.0"):
     # item, or the document's requires, count (the rest of the document is V5's own checks)
     env = dict(os.environ, OMX_CONTRACT_PATH=d + ":" + installed)
     r = subprocess.run(OMX + ["validate", "--installed"], capture_output=True, text=True, env=env)
-    ours = [l for l in (r.stdout + r.stderr).splitlines() if "QUALIFICATION_PIN_VERDICTS" in l or "requires plugin-hostd-protocol" in l or "requires pin" in l]
+    ours = [l for l in (r.stdout + r.stderr).splitlines() if "QUALIFICATION_PIN_VERDICTS" in l or "word-from-differs" in l or "requires plugin-hostd-protocol" in l or "requires pin" in l]
     return (1 if ours else 0), "; ".join(ours) or "no finding on QUALIFICATION_PIN_VERDICTS"
 
 
@@ -112,13 +112,21 @@ def main():
         check(rc != 0, "(c) the domain pin without its refused word is refused: %s" % out[-160:])
         rc, out = validate(tmp, "no-pin", qual, None)
         check(rc != 0, "(c) no domain pin is refused: %s" % out[-160:])
-        # a const or a code that differs from the target word: what validate says is recorded, never covered (a)
-        for what, edit in (("const", lambda w: w.update(const="in-proc")), ("x-code", lambda w: w.update({"x-code": 7}))):
+        # a word that takes its meaning from a word is that word (format ruling (b), omx-contract#154): a const, a code, a
+        # description or a text that differs, and a description that is absent, are each refused by `word-from-differs`
+        def drop(ws):
+            del ws[0]["description"]
+
+        def swap(ws):  # the first two words trade places and codes: a valid order, each word's code differs from the target's
+            ws[0], ws[1] = ws[1], ws[0]
+            ws[0]["x-code"], ws[1]["x-code"] = 0, 1
+        for what, edit in (("const", lambda ws: ws[0].update(const="in-proc")), ("x-code", swap),
+                           ("description", lambda ws: ws[0].update(description="Another meaning.")),
+                           ("x-text", lambda ws: ws[0].update({"x-text": "Another text."})), ("absent description", drop)):
             bad = json.loads(json.dumps(qual))
-            edit(bad["components"]["schemas"]["QUALIFICATION_PIN_VERDICTS"]["oneOf"][0])
-            rc, out = validate(tmp, "differs-" + what, bad, pin)
-            print("note validate %s a word whose %s differs from the target's (the test's own comparison, (a), holds it)" %
-                  ("refuses" if rc else "does not refuse", what))
+            edit(bad["components"]["schemas"]["QUALIFICATION_PIN_VERDICTS"]["oneOf"])
+            rc, out = validate(tmp, "differs-" + what.replace(" ", "-"), bad, pin)
+            check(rc != 0 and "word-from-differs" in out, "(c) a word whose %s differs from the target's is refused by word-from-differs: %s" % (what, out[-110:]))
         # the document stays in the one formatting (fmt --check, beside the domain pin it names), and a misformatted one is refused
         text = open(os.environ.get("QUALIFICATION_DOC", os.path.join(ROOT, "contract.d", "qualification", "qualification.json"))).read()
         rc, out = fmt_check(tmp, "fmt-real", text, open(pin_path).read())
