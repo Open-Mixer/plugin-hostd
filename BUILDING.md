@@ -36,6 +36,11 @@ test-probe-domain`, `make test-probe-owner`). The protocol header's lists give t
 the words are the domain's, which the test holds to the header's, word for word. `PROBE_SIGNALS` is marked `x-c-codes`: the
 signal codes of `src/probe_words.h` come from `<plugin-hostd/probe_codes.h>`, the render protocol installs with its headers.
 
+The scopes of a field dump that `describe` reads (`SCAN_FIELD_SCOPES`) are omx-clap-core's scan domain
+(`contract.d/scan/scan.json` there, shipped by `omx-clap-core-contract`, floor 1.0.0), read once at the start of `describe`
+through `scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
+absent, too old or short of a scope ends the start with 78.
+
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
 `contract.d/machine/machine.json`; the three items are marked `x-c-codes`, so the band counts and the family ids of
 `src/machine.h` come from the committed render `include/plugin-hostd/machine_codes.h` (`make check-machine-codes`
