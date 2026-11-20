@@ -367,9 +367,9 @@ test-probe-owner:
 test-rendered-at-tag:
 	bash tests/rendered_at_tag.sh
 
-# the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every term of
-# omx-contract's installed TERM files and every row with a from, once per format, each field one row; then its sabotage
-# arms, each red naming its field. CONTRACT_SCHEMA_MAJOR=<n> reads the TERM files of another major
+# the tables cover their format (tests/format_coverage.py, docs/formats.md#the-coverage-test): every TERM of the format's
+# domain (plugin-db's lv2, omx-clap's clap) and every row with a from, once per format, each field one row; then its
+# sabotage arms, each red naming its field, among them a scratch domain without a term a row maps
 .PHONY: test-format-coverage
 test-format-coverage:
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) clap

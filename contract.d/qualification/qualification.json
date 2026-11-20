@@ -7,7 +7,11 @@
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": {
+      "clap": ">= 2.18.0",
+      "lv2": ">= 1.0.0",
+      "omx-clap": ">= 0.34.0",
       "pin": ">= 1.0.0",
+      "plugin-db": ">= 0.5.0",
       "plugin-hostd-protocol": ">= 0.8.0"
     }
   },
@@ -268,11 +272,11 @@
             "x-text": "The delay from a unit impulse to the first output sample above the residual floor: what the plugin does.",
             "x-from": [
               {
-                "$ref": "https://openmixer.org/contract/omx-contract#/components/schemas/LV2_CORE_TERMS",
+                "$ref": "https://openmixer.org/contract/lv2#/components/schemas/LV2_CORE_TERMS",
                 "x-term": "latency"
               },
               {
-                "$ref": "https://openmixer.org/contract/omx-contract#/components/schemas/CLAP_EXT_LATENCY_TERMS",
+                "$ref": "https://openmixer.org/contract/clap#/components/schemas/CLAP_EXT_LATENCY_TERMS",
                 "x-term": "latency"
               }
             ]
@@ -285,11 +289,11 @@
             "x-text": "Read from the plugin's own latency report: what it claims.",
             "x-from": [
               {
-                "$ref": "https://openmixer.org/contract/omx-contract#/components/schemas/LV2_CORE_TERMS",
+                "$ref": "https://openmixer.org/contract/lv2#/components/schemas/LV2_CORE_TERMS",
                 "x-term": "latency"
               },
               {
-                "$ref": "https://openmixer.org/contract/omx-contract#/components/schemas/CLAP_EXT_LATENCY_TERMS",
+                "$ref": "https://openmixer.org/contract/clap#/components/schemas/CLAP_EXT_LATENCY_TERMS",
                 "x-term": "latency"
               }
             ]
@@ -408,7 +412,7 @@
             "x-text": "The voice capacity the plugin declares through CLAP's voice-info extension.",
             "x-from": [
               {
-                "$ref": "https://openmixer.org/contract/omx-contract#/components/schemas/CLAP_EXT_VOICE_INFO_TERMS",
+                "$ref": "https://openmixer.org/contract/clap#/components/schemas/CLAP_EXT_VOICE_INFO_TERMS",
                 "x-term": "voice-info"
               }
             ]

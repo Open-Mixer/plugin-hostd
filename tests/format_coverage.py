@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The format tables cover their format, every field once (docs/formats.md#the-coverage-test). The field list of a format
-# is every term of omx-contract's installed TERM files of that format plus every row of the table with a `from`; each
+# is every term of that format's domain (LV2: plugin-db's lv2, CLAP: omx-clap's clap) plus every row of the table with a `from`; each
 # field has exactly one row. Per field it prints `mapped <word> <transform>`, `extension <format>` or
 # `dropped <decision>`, then the count per class, and it is red, naming the field, for: a field with no row or with two; a
 # row that covers no field; a row keyed other than its field; a word the descriptor schema lacks, or a lookup entry that
@@ -12,9 +12,9 @@
 #   format_coverage.py --self-test [the same options]   each sabotage arm (a row removed, a word misspelt, a transform
 #                                                       renamed) red naming its field, then the tables as they are green
 #
-# The TERM files are <contract-dir>/<major>/omx-contract/formats/<format>/**; contract-dir is pkg-config's contractdir
-# of omx-contract, the schema omx-contract.schema.json in its datadir; the tables are this tree's data/formats/.
-import argparse, copy, glob, json, os, re, subprocess, sys
+# The TERMs are the items of the domain <contract-dir>/<lv2|clap>/<lv2|clap>.json; contract-dir is pkg-config's
+# contractdir of omx-contract, the schema omx-contract.schema.json in its datadir; the tables are this tree's data/formats/.
+import argparse, copy, json, os, re, subprocess, sys, tempfile
 
 import jsonschema
 
@@ -38,17 +38,26 @@ def transforms(path):
     return set(re.findall(r'X\("([a-z0-9-]+)"', body.group(1)))
 
 
+# the domain each format's TERMs are items of, and its owner: LV2's are plugin-db's domain lv2, CLAP's omx-clap's domain clap
+# (the sorting pass, V27a/V27b); omx-contract holds no format term
+TERM_DOMAINS = {"lv2": ("lv2", "plugin-db"), "clap": ("clap", "omx-clap")}
+
+
 def terms(contract_dir, major, fmt):
-    """Every term of the installed TERM files of a format: <ITEM>#<term> -> (term name, term)."""
-    base = os.path.join(contract_dir, str(major), "omx-contract", "formats", fmt)
+    """Every term of a format, from the items of its domain (x-kind terms, x-format <fmt>): <ITEM>#<term> -> (term name,
+    term). The domain is <contract-dir>/<domain>/<domain>.json, as a reader reads a domain; major is unused, kept for the
+    caller's signature."""
+    domain, owner = TERM_DOMAINS[fmt]
+    path = os.path.join(contract_dir, domain, domain + ".json")
+    if not os.path.isfile(path):
+        sys.exit("format_coverage: no domain %s under %s (%s's contract package installed?)" % (domain, contract_dir, owner))
     out = {}
-    for path in sorted(glob.glob(os.path.join(base, "**", "*.json"), recursive=True)):
-        for name, item in json.load(open(path)).items():
-            if isinstance(item, dict) and item.get("kind") == "terms" and item.get("format") == fmt:
-                for t, v in item["terms"].items():
-                    out["%s#%s" % (name, t)] = (t, v)
+    for name, item in json.load(open(path))["components"]["schemas"].items():
+        if item.get("x-kind") == "terms" and item.get("x-format") == fmt:
+            for w in item["oneOf"]:
+                out["%s#%s" % (name, w["title"])] = (w["title"], w["x-term"])
     if not out:
-        sys.exit("format_coverage: no %s TERM file under %s (omx-contract-devel installed?)" % (fmt, base))
+        sys.exit("format_coverage: the domain %s holds no %s term (%s)" % (domain, fmt, path))
     return out
 
 
@@ -204,6 +213,24 @@ def self_test(opts):
         arm("one row removed", lambda r: r.pop(removed), [rows[removed]["term"]])
         arm("one word misspelt", lambda r: r[misspelt]["word"].update(word=r[misspelt]["word"]["word"] + "x"), [misspelt])
         arm("one transform renamed", lambda r: r[renamed]["word"].update(transform="look-up"), [renamed])
+        # the TERMs are read from the format's domain: a scratch copy of it without the term a mapped row names is red,
+        # naming that row (the read follows the domain, not a copy of its own)
+        domain, _owner = TERM_DOMAINS[fmt]
+        with tempfile.TemporaryDirectory() as scratch:
+            doc = json.load(open(os.path.join(opts.contract_dir, domain, domain + ".json")))
+            item, term = rows[removed]["term"].split("#", 1)
+            words = doc["components"]["schemas"][item]["oneOf"]
+            doc["components"]["schemas"][item]["oneOf"] = [w for w in words if w["title"] != term]
+            os.makedirs(os.path.join(scratch, domain))
+            with open(os.path.join(scratch, domain, domain + ".json"), "w") as f:
+                json.dump(doc, f)
+            installed = opts.installed[fmt]
+            opts.installed[fmt] = terms(scratch, opts.major, fmt)
+            reds = run(fmt, table, opts, quiet=True)
+            opts.installed[fmt] = installed
+            ok = len(words) - 1 == len(doc["components"]["schemas"][item]["oneOf"]) and any(removed in r for r in reds)
+            print("self-test %s one term removed from a scratch domain %s: %s" % (fmt, domain, "red, naming %s" % removed if ok else "NOT RED"))
+            failed += not ok
         reds = run(fmt, table, opts, quiet=True)
         print("self-test %s as it is: %s" % (fmt, "green" if not reds else "RED"))
         failed += bool(reds)
