@@ -1,0 +1,33 @@
+{
+  "_source": "plugin-db data/pin.json at 09ee2fa: PLUGIN_DB_PIN_VERDICTS and PLUGIN_DB_PIN_POOLS, frozen (sorting pass, V12)",
+  "PLUGIN_HOSTD_PIN_VERDICTS": {
+    "doc": "What the qualification of the pinned bytes said: the value of a pin's verdict key. A pin with no verdict was learned on first use and carries no judgment. A word outside these is not a pin's.",
+    "words": {
+      "inProcess": {
+        "word": "in-process",
+        "doc": "qualified to run in a worker that other plugins share"
+      },
+      "isolated": {
+        "word": "isolated",
+        "doc": "qualified to run, in a worker of its own"
+      },
+      "refused": {
+        "word": "refused",
+        "doc": "failed qualification: the pin records the bytes, a host should not load them"
+      }
+    }
+  },
+  "PLUGIN_HOSTD_PIN_POOLS": {
+    "doc": "Whether the plugin's qualification measured the CLAP thread pool real-time safe and faster at the quantum: the value of a pin's pool key. A plugin with no word runs serial. A word outside these is not a pin's.",
+    "words": {
+      "cores": {
+        "word": "cores",
+        "doc": "its worker starts with the thread pool on, one helper per core of its cpu set but one, and no other plugin shares the worker"
+      },
+      "off": {
+        "word": "off",
+        "doc": "measured, and not faster or not safe with the pool: the worker keeps no option"
+      }
+    }
+  }
+}
