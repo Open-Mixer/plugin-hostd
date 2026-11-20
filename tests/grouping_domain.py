@@ -7,12 +7,12 @@
 #   a. golden: planner_reason_word, the planner's real read (compiled against the committed vocabulary header), gives the
 #      16 reasons frozen from data/grouping.json at 2235c68, in that order, and the domain holds them with their groups
 #   b. the committed include/plugin-hostd/plugin_hostd_vocabulary.h is the render of the domain, byte for byte (the
-#      rebuild of tools/domain-data.mjs, then omx-contract render --check), and data/grouping.json is gone
+#      render with --with-domain for each domain), and data/grouping.json is gone
 #   c. sabotage: a scratch domain with no-pin renamed no-pin-x renders a header whose planner_reason_word says no-pin-x,
 #      and with PLUGIN_HOSTD_GROUPING_REASONS removed from a scratch domain the planner does not build
 #   d. plugin-hostd-protocol's Python client (GroupingReason, RETRY_REASONS, written there from this domain) holds the same
 #      words and the same retry group
-# Environment: OMX_CONTRACT, OMX_CONTRACT_CLIDIR, INSTALL_CONTRACT_DIR, CC, CFLAGS (the Makefile's test-grouping-domain).
+# Environment: OMX_CONTRACT, INSTALL_CONTRACT_DIR, CC, CFLAGS (the Makefile's test-grouping-domain).
 import json
 import os
 import shutil
