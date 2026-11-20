@@ -5288,7 +5288,8 @@ def verdict_daemon(budget_mb=120):
     1, 2, 4 and 5 of one file pinned in-process, 3 isolated, a memory budget of budget_mb MiB. The records: 1 at
     48000/128 (2000 ns, 64 frames, 100 MiB first and 10 per instance), 2 only at 96000/128 (1000 ns, no memory figure), 3
     at 48000/128 (3000 ns, 128 frames declared, 40 and 40 MiB), 4 none, 5 at 48000/128 (12500 ns: 60.00 percent of a core
-    at 48 kHz, the ceiling itself; 10 and 10 MiB)"""
+    at 48 kHz, the ceiling itself; 10 and 10 MiB), and 5 again at 44100/128 in a record of its own (13606 ns: 60.00246
+    percent, which the reply writes 60.00 and is over the ceiling)"""
     p = Plugins()
     d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on", "ram_budget_mb": budget_mb})
     for n in (1, 2, 4, 5):
@@ -5298,6 +5299,8 @@ def verdict_daemon(budget_mb=120):
     cell_for(d, "org.openmixer.fault.2", 1000, measured=32, rate=96000)
     cell_for(d, "org.openmixer.fault.3", 3000, declared=128, memory={"firstInstanceKb": 40 * 1024, "perInstanceKb": 40 * 1024})
     cell_for(d, "org.openmixer.fault.5", 12500, measured=16, memory={"firstInstanceKb": 10 * 1024, "perInstanceKb": 10 * 1024})
+    put_cell(d, "org.openmixer.fault.5@1.1-0123456789ac.default.qualification.json", "org.openmixer.fault.5", 44100, 128, 13606,
+             13606 * 2, "-", 16, 10 * 1024, 10 * 1024)
     return p, d
 
 
@@ -5348,6 +5351,22 @@ def the_insert_verdict_warns_when_the_cpu_is_over_the_ceiling_of_one_core():
     verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(5)), ["warn", "cpu-over-budget"], "the CPU over")
     verdict_case(lambda ref: "estimate 48000 128 %s %s %s" % (ref(1), ref(3), ref(5)), ["warn", "cpu-over-budget"],
                  "the CPU and the memory over, the CPU first")
+
+
+@test
+def the_insert_verdict_judges_the_cpu_figure_and_not_the_word_the_reply_rounds_it_to():
+    """5 alone at 44100/128 is 13606 ns per sample, 60.00246 percent of one core: over the ceiling, though the reply
+    writes it 60.00, so the host warns cpu-over-budget; 5 at 48000/128 is 60.00 exactly, within"""
+    p, d = verdict_daemon()
+    try:
+        words = d.send("estimate 44100 128 %s" % clap_n(p, 5)).split()
+        check(words[3] == "60.00" and words[-2:] == ["warn", "cpu-over-budget"],
+              "60.00246 percent, written 60.00, is over the ceiling: %s" % words)
+        words = d.send("estimate 48000 128 %s" % clap_n(p, 5)).split()
+        check(words[3] == "60.00" and words[-2:] == ["recommend", "within"], "60.00 exactly is within: %s" % words)
+    finally:
+        d.close()
+        p.close()
 
 
 @test
