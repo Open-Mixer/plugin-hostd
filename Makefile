@@ -322,10 +322,14 @@ render-verbs check-rendered:
 # (MACHINE_CORE_BANDS, MACHINE_CLOCK_BANDS, MACHINE_FAMILIES; src/machine.h takes its counts and ids from it): validate,
 # fmt --check and render --check
 .PHONY: check-machine-codes
+# (the machine and probe domains, staged alone: the qualification domain names plugin-hostd-protocol's domain pin, which a
+# directory read alone cannot see; it is validated with the installed contract directory by check-contract-dir and
+# tests/qualification_pin_from.py)
 check-machine-codes:
-	$(OMX_CONTRACT) validate --contract-dir contract.d
-	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
-	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd --check
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; cp -r contract.d/machine contract.d/probe $$tmp/; \
+	$(OMX_CONTRACT) validate --contract-dir $$tmp; \
+	$(OMX_CONTRACT) fmt --check --contract-dir $$tmp; \
+	$(OMX_CONTRACT) render --target c --package machine --contract-dir $$tmp --out include/plugin-hostd --check
 
 # the machine domain is a valid document, the codes header is its render, and the installed tree opens through the
 # loader (tests/machine_domain.py; DOMAIN_CFLAGS and DOMAIN_LIBS name a loader that pkg-config does not find)
@@ -507,7 +511,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -893,6 +897,7 @@ check-no-moved-packages:
 test: check-protocol-floor
 check-protocol-floor:
 	python3 tests/protocol_floor.py
+	python3 tests/pin_words_floor.py
 
 # a workflow step the runner may be unable to run fails where it cannot run it (#107)
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not
@@ -946,6 +951,11 @@ test-qualification-domain: $(PROBE) tests/probe-child tests/stress.clap
 .PHONY: test-qualification-domain-owned
 test-qualification-domain-owned:
 	python3 tests/qualification_domain_owned.py
+
+# QUALIFICATION_PIN_VERDICTS names plugin-hostd-protocol's pin verdict words (its domain pin), it holds no list (V12)
+.PHONY: test-qualification-pin-from
+test-qualification-pin-from:
+	OMX_CONTRACT='$(OMX_CONTRACT)' python3 tests/qualification_pin_from.py
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates
