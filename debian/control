@@ -60,9 +60,9 @@ Depends: omx-clap-core-contract (>= 0.33.1~), omx-contract (>= 3.20.0~), plugin-
 Description: plugin-hostd's format tables, read at run time
  plugin-hostd's package of omx-contract's contract directory: the format
  tables a scan maps a CLAP or LV2 plugin through (formats/clap.json,
- formats/lv2.json), the keys of the running history (history.json) and, as
- the domain plugin-hostd/grouping, the reasons a plan gives for a plugin it
- leaves alone, under
+ formats/lv2.json), the keys of the running history and the reasons a plan
+ gives for a plugin it leaves alone (the domains plugin-hostd/history and
+ plugin-hostd/grouping), under
  /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
  them at run time depends on this package, never on the development one.
  .

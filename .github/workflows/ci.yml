@@ -459,10 +459,10 @@ jobs:
             printf '%s\n' /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/clap.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/machine/machine.json \
               /usr/share/omx-contract/contract.d/qualification/qualification.json \
               /usr/share/omx-contract/contract.d/plugin-hostd/grouping/grouping.json \
+              /usr/share/omx-contract/contract.d/plugin-hostd/history/history.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/es.json \
@@ -675,8 +675,11 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          for f in MANIFEST.json formats/clap.json formats/lv2.json history.json; do
+          for f in MANIFEST.json formats/clap.json formats/lv2.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
+          done
+          for d in grouping history; do
+            grep -qx "/usr/share/omx-contract/contract.d/plugin-hostd/$d/$d.json" contract.txt
           done
           # no Breaks, Replaces or Conflicts between our own packages (owner rule 2026-11-16)
           test -z "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces Conflicts)"

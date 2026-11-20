@@ -20,6 +20,8 @@ import subprocess
 import sys
 import tempfile
 
+from domain_render import env, render
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOMAIN = os.path.join(ROOT, "contract.d", "plugin-hostd", "grouping", "grouping.json")
 HEADER = os.path.join(ROOT, "include", "plugin-hostd", "plugin_hostd_vocabulary.h")
@@ -37,36 +39,6 @@ def check(ok, what):
     print(("ok   " if ok else "FAIL ") + what)
     if not ok:
         fails += 1
-
-
-def env(name, default=None):
-    v = os.environ.get(name, default)
-    if v is None:
-        sys.exit("grouping_domain.py: %s is unset (run it as make test-grouping-domain)" % name)
-    return v
-
-
-def render(contract_d, out):
-    """The Makefile's render of the vocabulary, over another contract.d: rebuild, install as the package, render."""
-    tmp = tempfile.mkdtemp(prefix="grouping-render-")
-    try:
-        stage = os.path.join(tmp, "stage", "data")
-        shutil.copytree(os.path.join(ROOT, "data"), stage)
-        r = subprocess.run(["node", os.path.join(ROOT, "tools", "domain-data.mjs"), env("OMX_CONTRACT_CLIDIR"), stage,
-                            contract_d, "plugin-hostd/grouping"], capture_output=True, text=True)
-        if r.returncode:
-            return r.returncode, r.stderr
-        pkg = os.path.join(tmp, "dir")
-        subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "plugin-hostd", "0.0.0", "3", stage, pkg, "data"],
-                       check=True, capture_output=True)
-        path = pkg + ":" + subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True,
-                                          text=True).stdout.strip()
-        r = subprocess.run(env("OMX_CONTRACT", "omx-contract").split() + ["render", "--target", "c", "--package",
-                           "plugin-hostd", "--installed", "--out", out], capture_output=True, text=True,
-                           env=dict(os.environ, OMX_CONTRACT_PATH=path))
-        return r.returncode, r.stdout + r.stderr
-    finally:
-        shutil.rmtree(tmp)
 
 
 def planner_words(include):

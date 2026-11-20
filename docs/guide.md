@@ -790,7 +790,7 @@ The first line is `# plugin-hostd history/1`, then one line per key, `history <u
 key=value ...`. The binary digest is the SHA-256 of the first file the plugin's pin holds, so a plugin with no pin has
 no history and a changed plugin starts a record of its own, the old one kept and not read. The host class is
 `arch/cores/clock` as the probe writes it (`x86_64/5-8/2.5-3.5GHz`), or the `host_class` setting. The keys are the
-words of `PLUGIN_HOSTD_HISTORY_KEYS` in [data/history.json](../data/history.json): `first`, `last`, `windows_solo`,
+words of `PLUGIN_HOSTD_HISTORY_KEYS` in [the domain plugin-hostd/history](../contract.d/plugin-hostd/history/history.json): `first`, `last`, `windows_solo`,
 `windows_grouped`, `cpu_p95_solo`, `cpu_max_solo`, `pss_mb_solo`, `xrun_windows_solo`, `xrun_windows_grouped`,
 `crashes_solo`, `crashes_grouped`, `restarts_grouped`, `quarantines`, `last_crash`, `last_crash_grouped`.
 

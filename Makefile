@@ -122,7 +122,7 @@ SRC = src/main.c src/conf.c src/proc.c src/confine.c src/supervisor.c src/verbs.
       src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/domain_words.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
-# the C names of the words of this tree's grouping domain (contract.d/plugin-hostd/grouping) and its table data/history.json, rendered by omx-contract
+# the C names of the words of this tree's domains plugin-hostd/grouping and plugin-hostd/history (contract.d/plugin-hostd/), rendered by omx-contract
 # (render-verbs below); the daemon's verbs and reply codes are rendered in plugin-hostd-protocol, beside protocol.h
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
@@ -252,14 +252,14 @@ install_qualification_domain:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_qualification_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(DESTDIR)$(CONTRACTDIR)
 
-# the domains the vocabulary renders (VOCABULARY_DOMAINS: plugin-hostd/grouping), installed to <contractdir>/<domain>/ the
+# the domains the vocabulary renders (VOCABULARY_DOMAINS: plugin-hostd/grouping, plugin-hostd/history), installed to <contractdir>/<domain>/ the
 # same way: plugin-hostd-contract ships them, and a reader of the words (plugin-hostd-protocol's clients) reads them there
 .PHONY: install_vocabulary_domains
 install_vocabulary_domains:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_vocabulary_domains: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	for d in $(VOCABULARY_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $(DESTDIR)$(CONTRACTDIR) || exit 1; done
 
-# the format tables (data/formats/, docs/formats.md) and the history words this tree owns, installed as the
+# the format tables (data/formats/, docs/formats.md) this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
 # MANIFEST.json naming this version and the tree they came from; plugin-hostd-contract ships them. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
@@ -298,14 +298,20 @@ OMX_CONTRACT ?= omx-contract
 # the grouping words are the domain plugin-hostd/grouping (contract.d/plugin-hostd/grouping): the planner's reasons are its
 # words in its order, the vocabulary header is its render byte for byte, a renamed word in a scratch domain is the
 # render's and the planner's, and plugin-hostd-protocol's Python client holds the same words (tests/grouping_domain.py)
-.PHONY: test-grouping-domain
+.PHONY: test-grouping-domain test-history-domain test-history-domain
+# the history keys are the domain plugin-hostd/history the same way: history_line writes its words in its order, the
+# header is its render, a renamed key in a scratch domain is history_line's (tests/history_domain.py)
+test-history-domain:
+	OMX_CONTRACT='$(OMX_CONTRACT)' OMX_CONTRACT_CLIDIR='$(OMX_CONTRACT_CLIDIR)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
+	  CC='$(CC)' CFLAGS='$(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS)' \
+	  LIBS='$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) -lm' python3 tests/history_domain.py
 test-grouping-domain: tests/planner-test
 	OMX_CONTRACT='$(OMX_CONTRACT)' OMX_CONTRACT_CLIDIR='$(OMX_CONTRACT_CLIDIR)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
 	  CC='$(CC)' CFLAGS='$(CFLAGS) $(INCS)' python3 tests/grouping_domain.py
 # the domains whose words the vocabulary renders (contract.d/<domain>, each item's x-file the data path it came from):
 # tools/domain-data.mjs rebuilds their data files with omx-contract's own reader (the rebuild of `render --with-domain`,
 # which takes one domain) beside data/, and that staged directory is rendered unchanged, byte for byte the data form
-VOCABULARY_DOMAINS = plugin-hostd/grouping
+VOCABULARY_DOMAINS = plugin-hostd/grouping plugin-hostd/history
 OMX_CONTRACT_CLIDIR = $(or $(shell $(PKG_CONFIG) --variable=clidir omx-contract 2>/dev/null),/usr/lib/omx-contract)
 NODE ?= node
 RENDERED_WITH = $(RENDERED).rendered-with
