@@ -302,18 +302,16 @@ OMX_CONTRACT ?= omx-contract
 # the history keys are the domain plugin-hostd/history the same way: history_line writes its words in its order, the
 # header is its render, a renamed key in a scratch domain is history_line's (tests/history_domain.py)
 test-history-domain:
-	OMX_CONTRACT='$(OMX_CONTRACT)' OMX_CONTRACT_CLIDIR='$(OMX_CONTRACT_CLIDIR)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
+	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
 	  CC='$(CC)' CFLAGS='$(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS)' \
 	  LIBS='$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) -lm' python3 tests/history_domain.py
 test-grouping-domain: tests/planner-test
-	OMX_CONTRACT='$(OMX_CONTRACT)' OMX_CONTRACT_CLIDIR='$(OMX_CONTRACT_CLIDIR)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
+	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
 	  CC='$(CC)' CFLAGS='$(CFLAGS) $(INCS)' python3 tests/grouping_domain.py
 # the domains whose words the vocabulary renders (contract.d/<domain>, each item's x-file the data path it came from):
-# tools/domain-data.mjs rebuilds their data files with omx-contract's own reader (the rebuild of `render --with-domain`,
-# which takes one domain) beside data/, and that staged directory is rendered unchanged, byte for byte the data form
+# omx-contract's render reads each with --with-domain (repeated), rebuilding its data files into the package this tree
+# installs from data/, so the vocabulary renders as its data form did, its banner naming each domain's document
 VOCABULARY_DOMAINS = plugin-hostd/grouping plugin-hostd/history
-OMX_CONTRACT_CLIDIR = $(or $(shell $(PKG_CONFIG) --variable=clidir omx-contract 2>/dev/null),/usr/lib/omx-contract)
-NODE ?= node
 RENDERED_WITH = $(RENDERED).rendered-with
 RENDERED_COMPARE ?= always
 .PHONY: render-verbs check-rendered
@@ -322,11 +320,10 @@ render-verbs check-rendered:
 	@renderer=$$($(PKG_CONFIG) --modversion omx-contract 2>/dev/null); recorded=$$(cat $(RENDERED_WITH) 2>/dev/null || true); \
 	if [ $@ = check-rendered ] && [ "$(RENDERED_COMPARE)" = recorded ] && [ -n "$$recorded" ] && [ "$$renderer" != "$$recorded" ]; then \
 	  echo "$(RENDERED) is rendered with omx-contract $$recorded; $$renderer is installed: not compared"; exit 0; fi; \
-	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; mkdir -p $$tmp/stage $$tmp/dir; cp -r data $$tmp/stage/; \
-	$(NODE) tools/domain-data.mjs $(OMX_CONTRACT_CLIDIR) $$tmp/stage/data contract.d $(VOCABULARY_DOMAINS); \
-	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) $$tmp/stage/data $$tmp/dir data >/dev/null; tmp=$$tmp/dir; \
+	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
-	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
+	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed $(foreach d,$(VOCABULARY_DOMAINS),--with-domain contract.d/$(d)) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 

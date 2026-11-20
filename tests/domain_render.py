@@ -2,8 +2,8 @@
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 #
 # The render of plugin_hostd_vocabulary.h from this tree's domains, as the Makefile's check-rendered runs it, over any
-# contract.d: tools/domain-data.mjs rebuilds the data files of the domains beside data/, omx-contract's installer stages
-# them as the package plugin-hostd, and omx-contract renders that package. Used by the call-level tests of the domains
+# contract.d: omx-contract's installer stages data/ as the package plugin-hostd, and omx-contract renders it with each
+# domain read by --with-domain (repeated), which rebuilds the domain's data files into that package. Used by the call-level tests of the domains
 # plugin-hostd/grouping (tests/grouping_domain.py) and plugin-hostd/history (tests/history_domain.py).
 import os
 import shutil
@@ -26,19 +26,14 @@ def render(contract_d, out):
     """Render the vocabulary of the domains under <contract_d> into <out>: (exit status, output)."""
     tmp = tempfile.mkdtemp(prefix="vocabulary-render-")
     try:
-        stage = os.path.join(tmp, "stage", "data")
-        shutil.copytree(os.path.join(ROOT, "data"), stage)
-        r = subprocess.run(["node", os.path.join(ROOT, "tools", "domain-data.mjs"), env("OMX_CONTRACT_CLIDIR"), stage,
-                            contract_d] + DOMAINS, capture_output=True, text=True)
-        if r.returncode:
-            return r.returncode, r.stderr
         pkg = os.path.join(tmp, "dir")
-        subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "plugin-hostd", "0.0.0", "3", stage, pkg, "data"],
+        subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "plugin-hostd", "0.0.0", "3", os.path.join(ROOT, "data"), pkg, "data"],
                        check=True, capture_output=True)
         path = pkg + ":" + subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True,
                                           text=True).stdout.strip()
+        withs = [a for d in DOMAINS for a in ("--with-domain", os.path.join(contract_d, d))]
         r = subprocess.run(env("OMX_CONTRACT", "omx-contract").split() + ["render", "--target", "c", "--package",
-                           "plugin-hostd", "--installed", "--out", out], capture_output=True, text=True,
+                           "plugin-hostd", "--installed"] + withs + ["--out", out], capture_output=True, text=True,
                            env=dict(os.environ, OMX_CONTRACT_PATH=path))
         return r.returncode, r.stdout + r.stderr
     finally:
