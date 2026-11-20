@@ -35,7 +35,9 @@ old, shipped by `plugin-hostd-contract`; `make test-probe-domain`). The protocol
 the words are the domain's, which the test holds to the header's, word for word.
 
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
-`contract.d/machine/machine.json`, and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
+`contract.d/machine/machine.json`; the three items are marked `x-c-codes`, so the band counts and the family ids of
+`src/machine.h` come from the committed render `include/plugin-hostd/machine_codes.h` (`make check-machine-codes`
+fails when it is not the render), and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
 `QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`, and the rest of the `QUALIFICATION_*`
 items) are this tree's third domain, `contract.d/qualification/qualification.json`, shipped by `plugin-hostd-contract`
 (`make test-qualification-domain-owned`); this tree renders nothing of it. Both are read
