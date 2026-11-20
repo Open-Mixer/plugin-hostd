@@ -545,7 +545,7 @@ SABOTAGE = [
      "contract", "contract"),
     ("the generator writes an empty list for an item the domain lacks", "tools/protocol-gen.c",
      '            return 1;\n        }\n        snprintf(tokens[i]', '        }\n        snprintf(tokens[i]', "contract", "contract"),
-    ("two errors share a code", "include/plugin-hostd/omx_clap_core_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
+    ("two errors share a code", "include/plugin-hostd/omx_clap_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
      "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
      "        if (held == NULL)\n            return;\n", "", "alloc_test", "alloc"),

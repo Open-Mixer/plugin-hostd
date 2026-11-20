@@ -37,7 +37,7 @@ def worker_code(key):
     """a reply code omx-clap-host declares, from omx-clap-core's verbs.json in the contract directory"""
     contractdir = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=contractdir", "omx-contract"],
                                  capture_output=True, text=True, check=True).stdout.strip()
-    with open(os.path.join(contractdir, "3", "omx-clap-core", "verbs.json")) as f:
+    with open(os.path.join(contractdir, "3", "omx-clap", "verbs.json")) as f:
         return "resp %d" % json.load(f)["HOST_REPLY_CODES"]["codes"][key]["resp"]
 
 

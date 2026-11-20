@@ -106,7 +106,7 @@ feedback events, the settings and the verbs (`pkg-config --cflags plugin-hostd-p
 grammar, and the protocol and mod-host's as JSON (`pkg-config --variable=table`, `grammar`, `protocoljson` and
 `modhostjson` of `plugin-hostd-protocol`). The verbs the daemon adds are its package of omx-contract's contract
 directory (`plugin-hostd-protocol-contract`). A refusal number omx-clap-host answers too carries omx-clap-core's
-`reply.host.*` code (package `omx-clap-core-contract`), the others plugin-hostd's `reply.plugin-hostd.*`: one name per
+`reply.host.*` code (package `omx-clap-contract`), the others plugin-hostd's `reply.plugin-hostd.*`: one name per
 number. The tables here and the man page's key list are generated from that header; this tree keeps no copy of it.
 
 This tree's development package installs what it declares beside the protocol: the schemas `probe-output.schema.json`

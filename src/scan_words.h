@@ -23,7 +23,7 @@
 
 /** @file scan_words.h
  * @brief The scopes of a field dump, which omx-clap-core's scan domain (contract.d/scan/scan.json there, shipped by
- * omx-clap-core-contract) holds as the words of SCAN_FIELD_SCOPES: the first field of a dump line, `param:3`, `plugin`.
+ * omx-clap-contract) holds as the words of SCAN_FIELD_SCOPES: the first field of a dump line, `param:3`, `plugin`.
  *
  * The parser of src/describe.c knows what each scope is (which entry it makes, in which format it is read, whether it
  * carries an index) under a title the domain gives its word; the word is the domain's, read once at start-up, so no

@@ -15,10 +15,10 @@ plugin-hostd-protocol             libplugin-hostd-protocol0      0.8.0
 plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.8.0
 plugin-hostd-protocol-contract    plugin-hostd-protocol-contract 0.8.0
 plugin-db-devel                   plugin-db-dev                  0.4.7
-omx-clap-core-contract            omx-clap-core-contract         0.33.1
-omx-clap-host-tests               omx-clap-host-tests            0.33.1
+omx-clap-contract                 omx-clap-contract              0.34.0
+omx-clap-host-tests               omx-clap-host-tests            0.34.0
 omx-dsp-devel                     libomxdsp-dev                  0.32.0
-omx-clap-host                     omx-clap-host                  0.33.1
+omx-clap-host                     omx-clap-host                  0.34.0
 libplugin-qualification-db        libplugin-qualification-db0    2026111901
 libplugin-qualification-db-devel  libplugin-qualification-db-dev 2026111901
 sqlite-libs                       libsqlite3-0                   3.37.0

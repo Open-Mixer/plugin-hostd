@@ -12,7 +12,7 @@
 #   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
 #     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
 # omx-clap-core's declarations are read from its package in the contract directory: the first of OMX_CONTRACT_PATH
-# (directories that stand where contractdir stands) that holds 3/omx-clap-core, else pkg-config's contractdir. Without
+# (directories that stand where contractdir stands) that holds 3/omx-clap, else pkg-config's contractdir. Without
 # one the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
@@ -85,7 +85,7 @@ def check_one_name(own_docs, shared_docs):
     PHD_ERRORS answers is named by one code of the two packages; the lower package, omx-clap-core, owns the numbers
     both hosts answer and plugin-hostd names only its own"""
     named = {}
-    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap", shared_docs)):
         for ref, (code, resp) in codes_of(docs).items():
             if resp is not None:
                 named.setdefault(resp, []).append("%s %s (%s)" % (pkg, code, ref))
@@ -95,7 +95,7 @@ def check_one_name(own_docs, shared_docs):
     header = protocol_files.read_header("protocol.h", TREE)
     # the numbers PHD_ERRORS answers are the rendered OMX_REPLY_*_RESP macros it names; the header defines none of its own
     rendered = {}
-    for name in ("omx_clap_core_vocabulary.h", "plugin_hostd_protocol_vocabulary.h"):
+    for name in ("omx_clap_vocabulary.h", "plugin_hostd_protocol_vocabulary.h"):
         rendered.update({m: int(n) for m, n in re.findall(r"^#define\s+(OMX_REPLY_\w+_RESP)\s+\((-[0-9]+)\)",
                                                           protocol_files.read_header(name, TREE), re.M)})
     if re.search(r"^#define\s+PHD_ERR_", header, re.M):
@@ -106,7 +106,7 @@ def check_one_name(own_docs, shared_docs):
     if absent:
         fail("PHD_ERRORS names %s, which no rendered vocabulary header defines" % absent)
     # the daemon is compiled against the rendered numbers: one that is not the declared resp of its code is a stale render
-    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap", shared_docs)):
         for ref, (code, resp) in codes_of(docs).items():
             macro = "OMX_" + re.sub(r"[^A-Za-z0-9]+", "_", code).upper() + "_RESP"
             if resp is not None and macro in rendered and rendered[macro] != resp:
@@ -118,7 +118,7 @@ def check_one_name(own_docs, shared_docs):
     if unnamed:
         fail("protocol.h answers %s, which no code of plugin-hostd or omx-clap-core names" % unnamed)
     print("ok   one name per number: %d numbers, %d of protocol.h's, %d of them named by omx-clap-core"
-          % (len(named), len(errors), len([r for r in errors if any(n.startswith("omx-clap-core") for n in named.get(r, []))])))
+          % (len(named), len(errors), len([r for r in errors if any(n.startswith("omx-clap") for n in named.get(r, []))])))
 
 
 def contract_dirs():
@@ -458,10 +458,10 @@ def check_both(declared):
 def main():
     with open(OWN) as f:
         own_docs = [json.load(f)]
-    docs, source = package("omx-clap-core")
+    docs, source = package("omx-clap")
     if not docs:
         fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: verbs.json requires it "
-             "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap-core"))
+             "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
         return 1
     own = verbs_of(own_docs, own_docs + docs)
     shared = verbs_of(docs, docs)
@@ -500,7 +500,7 @@ def main():
             events = {k: w["word"] for k, w in item["words"].items()}
     xruns = re.search(r'^#define\s+PHD_EVENT_XRUNS\s+"(\w+)"', header, re.M)
     if "xruns" not in events:
-        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap-core"))
+        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap"))
     elif not xruns or xruns.group(1) != events["xruns"]:
         fail("protocol.h's PHD_EVENT_XRUNS is %r, omx-clap-core's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
     else:

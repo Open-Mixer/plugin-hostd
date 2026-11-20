@@ -86,7 +86,7 @@ def deb_shippers(root):
 
 
 SPEC_OK = "%package contract\nRequires: omx-contract >= 3.2.0\n%description contract\nx\n%files contract\n%{omx_contract_dir}/plugin-hostd/\n"
-CTL_OK = "Package: p-contract\nArchitecture: all\nDepends: omx-clap-core-contract (>= 0.23.0~),\n omx-contract (>= 3.2.0~), ${misc:Depends}\n"
+CTL_OK = "Package: p-contract\nArchitecture: all\nDepends: omx-clap-contract (>= 0.23.0~),\n omx-contract (>= 3.2.0~), ${misc:Depends}\n"
 
 
 def main():

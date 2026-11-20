@@ -37,7 +37,7 @@ the words are the domain's, which the test holds to the header's, word for word.
 signal codes of `src/probe_words.h` come from `<plugin-hostd/probe_codes.h>`, the render protocol installs with its headers.
 
 The scopes of a field dump that `describe` reads (`SCAN_FIELD_SCOPES`) are omx-clap-core's scan domain
-(`contract.d/scan/scan.json` there, shipped by `omx-clap-core-contract`, floor 1.0.0), read once at the start of `describe`
+(`contract.d/scan/scan.json` there, shipped by `omx-clap-contract`, floor 1.0.0), read once at the start of `describe`
 through `scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
 absent, too old or short of a scope ends the start with 78.
 
@@ -91,7 +91,7 @@ The verbs the daemon adds to mod-host's protocol, and the codes they answer, are
 `plugin-hostd-protocol` (`plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
 A refusal number omx-clap-host answers too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is
 named once, by omx-clap-core's `reply.host.*` codes: `make test-verbs-declared` reads the daemon's verbs from that
-package and omx-clap-core's from its package of the contract directory (`omx-clap-core-contract`), or the first
+package and omx-clap-core's from its package of the contract directory (`omx-clap-contract`), or the first
 directory of `OMX_CONTRACT_PATH` that holds one.
 
 The words of this tree's domains `plugin-hostd/grouping` and `plugin-hostd/history` (`contract.d/plugin-hostd/`) are rendered by `omx-contract render`

@@ -49,7 +49,7 @@ Requires: libomx-domain >= 3.20.0
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
-BuildRequires: omx-clap-host-tests >= 0.33.1
+BuildRequires: omx-clap-host-tests >= 0.34.0
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
@@ -57,14 +57,14 @@ BuildRequires: omx-contract >= 3.20.0
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.8.0
-BuildRequires: omx-clap-core-contract >= 0.33.1
+BuildRequires: omx-clap-contract >= 0.34.0
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: omx-clap-host >= 0.33.1
+Recommends: omx-clap-host >= 0.34.0
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -103,7 +103,7 @@ BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
 Requires: plugin-hostd-protocol-contract >= 0.8.0
-Requires: omx-clap-core-contract >= 0.33.1
+Requires: omx-clap-contract >= 0.34.0
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only

@@ -24,8 +24,8 @@ MOVED = [
     "protocol/plugin-hostd-protocol.json", "data/verbs.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
     "include/plugin-hostd/protocol.h", "include/plugin-hostd/search_paths.h",
     "include/plugin-hostd/plugin_hostd_host_verbs.h", "include/plugin-hostd/plugin_hostd_protocol_host_verbs.h",
-    "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_core_host_verbs.h",
-    "include/plugin-hostd/omx_clap_core_vocabulary.h", "tools/mod-host-json.py", "tools/protocol-doc.py",
+    "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_host_verbs.h",
+    "include/plugin-hostd/omx_clap_vocabulary.h", "tools/mod-host-json.py", "tools/protocol-doc.py",
     "tools/protocol-table.py", "tools/abnf-gen.py", "tests/verb_table.py", "tests/mod_host_json.py",
     "tests/protocol_schema.py",
     # the clients: plugin-hostd-protocol's Python codec and TypeScript codec are the readers, their grouping reasons written
