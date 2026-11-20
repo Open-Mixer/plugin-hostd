@@ -130,11 +130,11 @@ def gen_json(gen):
 
 def gen_methods(gen, contract_path):
     """the latency methods of the probe schema the generator writes from this tree's template, the qualification domain
-    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry); the installed contract directory follows, for
+    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry, first: this tree's contract.d holds the domain too); the installed contract directory follows, for
     the domains the template takes from their owners (plugin-db's address formats)"""
     p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
                        text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join(
-                           [os.path.join(ROOT, "contract.d"), contract_path] + qualification_source.search_path())))
+                           [contract_path, os.path.join(ROOT, "contract.d")] + qualification_source.search_path())))
     if p.returncode != 0:
         return None
     return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]
@@ -227,7 +227,7 @@ def main():
                 del doc["components"]["schemas"][item]
             bare = qualification_source.fixture(tmp, drop, "bare")
             p = subprocess.run([os.path.join(tmp, "gen-domain"), "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")],
-                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join([os.path.join(ROOT, "contract.d"), bare] + qualification_source.search_path())))  # the probe and plugin-db domains are the installed ones
+                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join([bare, os.path.join(ROOT, "contract.d")] + qualification_source.search_path())))  # the probe and plugin-db domains are the installed ones
             check(p.returncode != 0 and p.stdout == "" and item in p.stderr,
                   "the generator refuses a domain that lacks %s, by name: rc %d %r" % (item, p.returncode, p.stderr[-200:]))
     finally:
