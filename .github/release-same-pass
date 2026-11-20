@@ -3,6 +3,6 @@
 # goes away with this release branch, so it can never excuse a break in a later pass.
 #
 # plugin-hostd-full 0.20.7, as published, requires omx-clap-host below 0.33 and plugin-hostd below 0.21; plugin-hostd
-# 0.20.8 requires omx-clap-core-contract >= 0.33.0 (through plugin-hostd-contract), so the two cannot be installed
+# 0.20.8 requires omx-clap-core-contract >= 0.33.1 (through plugin-hostd-contract), so the two cannot be installed
 # together until plugin-hostd-full releases after this one in the same pass, from its own release branch.
 plugin-hostd-full

@@ -1,8 +1,8 @@
 plugin-hostd (0.20.8) unstable; urgency=medium
 
   * Floors, at the releases this one is built and run against, floors only:
-    plugin-hostd-protocol (and -devel, -contract) >= 0.6.0 (was 0.5.9),
-    omx-clap-core-contract, omx-clap-host-tests and omx-clap-host >= 0.33.0
+    plugin-hostd-protocol (and -devel, -contract) >= 0.7.0 (was 0.5.9),
+    omx-clap-core-contract, omx-clap-host-tests and omx-clap-host >= 0.33.1
     (were 0.32.5). Since 0.20.7 the ceilings are gone from every dependency,
     omx-contract is >= 3.20.0 (was 3.18.0), and two dependencies are new:
     libomx-domain (and -devel) >= 3.20.0, the loader of the contract's
