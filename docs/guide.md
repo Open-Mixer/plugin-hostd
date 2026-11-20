@@ -306,7 +306,7 @@ Verbs the daemon adds
 | `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>, "meters": [<the clap.meters/1 meters the panel's displays index, each a row of descriptor_get's meters[], same ids>]} (the keys of PHD_PANEL_FILE_KEYS; meters is optional, absent from a file written before it); an LV2 plugin's panel is null and its meters empty. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (data/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
 | `history_clear` | `<uri> \| all` | `resp 0` | delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the file at once; -902 while the history is blocked or off, or for a line that is not one word |
-| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,... <ram_used_bytes> <ram_added_bytes> <ram_budget_bytes> <ram_unknown_count>` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
+| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,... <ram_used_bytes> <ram_added_bytes> <ram_budget_bytes> <ram_unknown_count> <verdict> <reason>` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. Then the memory: ram_used_bytes, what the workers hold now (- when one cannot be read), ram_added_bytes, what the members would add, ram_budget_bytes, the host's ram_budget_mb in bytes (- when none is set), and ram_unknown_count, how many members have no such figure. Last the host's insert verdict on the last uri, the candidate, added to the chain the others make: a word of PHD_ESTIMATE_VERDICTS and the word of PHD_ESTIMATE_REASONS that gave it, the first that holds in this order: the candidate's -535 refuses, its -533 or -534 is not measured; the CPU over PHD_ESTIMATE_CPU_CEILING_PCT, used and added over the budget, another member's code, a memory figure missing each warns; else recommend, within. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -845,11 +845,29 @@ every worker, `-` when one cannot be read. `ram_added_bytes` is what the members
 qualification records at that rate and quantum: what instances of one plugin share is counted once in a segment, since a
 segment is one process, and again in another segment, which loads it again. `ram_budget_bytes` is the host's `ram_budget_mb`,
 `-` when none is set. `ram_unknown_count` is how many members have no figure: they add nothing to the sum and are not 0, and
-when no member has one `ram_added_bytes` is `-`:
+when no member has one `ram_added_bytes` is `-`.
+
+The last two words are the host's insert verdict on the last uri, the candidate, added to the chain the others make: a
+verdict word and the reason word that gave it, the words of plugin-hostd-protocol's domain `estimate`
+(`PHD_ESTIMATE_VERDICTS`, `PHD_ESTIMATE_REASONS`). The host judges; a chain editor shows the two words and computes no
+verdict of its own. The first reason that holds, in this order, gives the verdict:
+
+| what the host finds | verdict | reason |
+|---|---|---|
+| the candidate's code is `-535` | `refuse` | `unknown-plugin` |
+| the candidate's code is `-533` | `not-measured` | `no-record` |
+| the candidate's code is `-534` | `not-measured` | `no-cell` |
+| the CPU, as the reply writes it, is over `PHD_ESTIMATE_CPU_CEILING_PCT` (60), the real-time admission ceiling of one core | `warn` | `cpu-over-budget` |
+| a budget is set, and what is held now plus what the members add is over it | `warn` | `ram-over-budget` |
+| another member has a code | `warn` | that code's word: `unknown-plugin`, `no-record` or `no-cell` |
+| a member has no memory figure, or what is held now cannot be read | `warn` | `ram-unknown` |
+| none of these | `recommend` | `within` |
+
+A warning never refuses: the add judges the write as it always does.
 
 ```
 estimate 48000 128 clap:/usr/lib64/clap/a.clap#org.example.a clap:/usr/lib64/clap/a.clap#org.example.b
-resp 0 64 9.60 - 1 1 1:-534 0 104857600 2147483648 1
+resp 0 64 9.60 - 1 1 1:-534 0 104857600 2147483648 1 not-measured no-cell
 ```
 
 What a worker must do

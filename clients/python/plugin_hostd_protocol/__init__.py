@@ -597,10 +597,13 @@ class Protocol:
         """What estimate answers after resp 0, as words, read by the table's reply_forms, each figure by the name the
         protocol gives it; None for one the daemon has no figure for (-), and for the four memory figures a daemon that
         answers six words leaves out. members: the members no figure could be read for, counted from 0 in the order
-        they were asked, each with the reply code that says why and its name."""  # noqa: D205, D209
+        they were asked, each with the reply code that says why and its name. verdict and reason: the host's insert
+        verdict on the last member, the candidate, and the reason word that gave it; a client shows them and computes
+        no verdict."""  # noqa: D205, D209
         r = self.read_reply("estimate", data)
         out = {k: r.get(k) for k in ("latency_frames", "cpu_percent", "ram_bytes", "workers", "unknown_count",
-                                    "ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count")}
+                                    "ram_used_bytes", "ram_added_bytes", "ram_budget_bytes", "ram_unknown_count",
+                                    "verdict", "reason")}
         out["members"] = [{"member": u["position"], "code": u["code"], "name": self.names.get(u["code"])}
                           for u in r["unknown"]]
         return out

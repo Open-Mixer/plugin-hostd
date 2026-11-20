@@ -106,6 +106,10 @@ export interface Estimate {
   readonly ram_added_bytes: number | null;
   readonly ram_budget_bytes: number | null;
   readonly ram_unknown_count: number | null;
+  /** The host's insert verdict on the candidate (the last member): a word of the domain estimate's ESTIMATE_VERDICTS. */
+  readonly verdict: string;
+  /** The word of ESTIMATE_REASONS that gave the verdict. A client shows both and computes no verdict. */
+  readonly reason: string;
 }
 
 // ---- the words of a line, as plugin-hostd-protocol's grammar (core.abnf: word, quoted, escaped-quote) writes them,
@@ -714,7 +718,8 @@ export class Protocol {
    * What estimate answers after resp 0, as words, read by the table's reply_forms; null for a figure the daemon does
    * not have (-), and for the four memory figures a daemon that answers six words leaves out. members: the members no
    * figure could be read for, counted from 0 in the order they were asked, each with the reply code that says why and
-   * its name.
+   * its name. verdict and reason: the host's insert verdict on the last member, the candidate, and the reason word
+   * that gave it; a client shows them and computes no verdict.
    */
   readEstimate(data: readonly string[]): Estimate {
     const r = this.readReply('estimate', data);
@@ -733,6 +738,8 @@ export class Protocol {
       ram_added_bytes: n('ram_added_bytes'),
       ram_budget_bytes: n('ram_budget_bytes'),
       ram_unknown_count: n('ram_unknown_count'),
+      verdict: r['verdict'] as string,
+      reason: r['reason'] as string,
     };
   }
 
