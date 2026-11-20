@@ -35,7 +35,9 @@ old, shipped by `plugin-hostd-contract`; `make test-probe-domain`). The protocol
 the words are the domain's, which the test holds to the header's, word for word.
 
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
-`contract.d/machine/machine.json`, and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
+`contract.d/machine/machine.json`; the three items are marked `x-c-codes`, so the band counts and the family ids of
+`src/machine.h` come from the committed render `include/plugin-hostd/machine_codes.h` (`make check-machine-codes`
+fails when it is not the render), and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
 `QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`) are plugin-qualify's domain,
 `contract.d/qualification/qualification.json` there: this tree ships no copy and no render of the second. Both are read
 through one function, `domain_words_open` (`src/domain_words.c`), over omx-contract's C loader (`libomx-domain`,

@@ -281,7 +281,7 @@ def arm5(tmp):
     libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
     contract = os.environ.get("CONTRACT_CFLAGS") or run(["pkg-config", "--cflags", "omx-contract"]).stdout.strip()
     exe = os.path.join(tmp, WORDS_OPEN)
-    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-o", exe,
+    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-Iinclude", "-o", exe,
                                                     "tests/machine_words_open.c", "src/machine.c", "src/domain_words.c"]
     b = run(cc + shlex.split(contract) + shlex.split(cflags) + shlex.split(libs))
     if b.returncode != 0:
