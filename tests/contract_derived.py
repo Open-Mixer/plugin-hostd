@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # What plugin-hostd shares with omx-contract is read from omx-contract, never typed again here: the probe runner's
-# default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES, the same words in
+# default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES of the domain param, the same words in
 # the same order, and the probe output's shared enums are the words of the contract (the qualification domain, plugin-qualify's, read through the loader). Checked twice: against the installed contract (its data and its C header), and against a scratch
 # copy of the header with the values changed, where the runner must follow and the generator must refuse to build.
 # The JSON of the protocol is written by plugin-hostd-protocol's generator (its installed source, protocolgen), built here
@@ -61,6 +61,28 @@ def contract_data(name):
                 if name in data:
                     return data[name]
     raise SystemExit("omx-contract declares no %s" % name)
+
+
+# the parameter scales are omx-contract's domain param (item PARAM_SCALES), read where a reader reads a domain: the
+# directories of PARAM_CONTRACT_PATH (the test entry, a ':' list; the Makefile names tests/fixtures/contract.d, the
+# interface of the domain until omx-contract 3.21.0 installs it), then the installed contract directory
+GOLDEN_SCALES = ["linear", "log", "stepped"]  # omx-contract's PARAM_SCALES at 8155b8d, as protocol.h spells them
+
+
+def param_scales(dirs=None):
+    """the words of PARAM_SCALES, in order, from the first directory that holds the domain param"""
+    if dirs is None:
+        dirs = [d for d in os.environ.get("PARAM_CONTRACT_PATH", "").split(":") if d] + [pkg("--variable=contractdir")]
+    for d in dirs:
+        path = os.path.join(d, "param", "param.json")
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                doc = json.load(f)
+            item = doc["components"]["schemas"].get("PARAM_SCALES")
+            if item is None:
+                raise SystemExit("the domain param of %s holds no PARAM_SCALES" % d)
+            return [w["const"] for w in item["oneOf"]]
+    raise SystemExit("no directory of %s holds the domain param" % dirs)
 
 
 def header(name="omx_contract_limits.h"):
@@ -142,10 +164,28 @@ def gen_methods(gen, contract_path):
 
 def main():
     floor = ",".join(str(r) for r in contract_data("ORACLE_FLOOR_RATES")["values"])
-    scales = contract_data("PARAM_SCALES")["ids"]
+    scales = param_scales()
+    check(scales == GOLDEN_SCALES, "(a) the domain param's PARAM_SCALES are the golden %s: %s" % (GOLDEN_SCALES, scales))
     with open(declared_protocol.variable("protocoljson")) as f:
         declared = [s["name"] for s in json.load(f)["param_scales"]]
     check(declared == scales, "the protocol's parameter scales %s are omx-contract's PARAM_SCALES %s" % (declared, scales))
+    # (c) a scratch domain param without log: the read gives two words, and the protocol's scales are no longer the domain's
+    sab = tempfile.mkdtemp(prefix="plugin-hostd-param.")
+    try:
+        src = next(os.path.join(d, "param", "param.json") for d in
+                   [d for d in os.environ.get("PARAM_CONTRACT_PATH", "").split(":") if d] + [pkg("--variable=contractdir")]
+                   if os.path.isfile(os.path.join(d, "param", "param.json")))
+        with open(src, encoding="utf-8") as f:
+            doc = json.load(f)
+        doc["components"]["schemas"]["PARAM_SCALES"]["oneOf"] = [w for w in doc["components"]["schemas"]["PARAM_SCALES"]["oneOf"] if w["const"] != "log"]
+        os.makedirs(os.path.join(sab, "param"))
+        with open(os.path.join(sab, "param", "param.json"), "w") as f:
+            json.dump(doc, f)
+        short = param_scales([sab])
+        check(short == ["linear", "stepped"] and short != declared,
+              "(c) a scratch domain param without log is what the read gives, and the protocol's scales differ from it: %s" % short)
+    finally:
+        shutil.rmtree(sab, ignore_errors=True)
 
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-contract.")
     try:
@@ -183,8 +223,9 @@ def main():
         check(renamed != ptext, "positive control: the scratch protocol.h's word was changed")
         with open(proto, "w") as f:
             f.write(renamed)
-        # both generators: plugin-hostd-protocol's of the JSON, and this tree's of its pages
-        for source, mode in ((JSON_GEN, "json"), (OWN_GEN, "regions")):
+        # this tree's generator of its pages: plugin-hostd-protocol's generator of the JSON holds no scale word of its own any
+        # more (PHD_PARAM_SCALES is written there from the domain param, M1), so only this tree's cross-check is left to refuse
+        for source, mode in ((OWN_GEN, "regions"),):
             exe = os.path.join(tmp, "gen-renamed-" + mode)
             built = build_gen(own, exe, source)
             if built.returncode == 0:
@@ -199,7 +240,7 @@ def main():
         check(swapped != text, "positive control: the scratch header's scales were swapped")
         with open(os.path.join(scratch, "omxcontract", "omx_contract_limits.h"), "w") as f:
             f.write(swapped)
-        for source in (JSON_GEN, OWN_GEN):
+        for source in (OWN_GEN,):
             built = build_gen(scratch, os.path.join(tmp, "gen-swapped"), source)
             check(built.returncode != 0 and "PARAM_SCALES" in built.stderr,
                   "%s refuses scales the contract orders otherwise: rc %d %s" % (source, built.returncode, built.stderr[-300:]))

@@ -7,10 +7,10 @@
 # make deps-check). The pkg-config file, the Makefile and the workflows read a floor with tools/dep-floor.sh <rpm name>.
 #
 # <rpm name>                      <deb name>                     <floor>
-omx-contract                      omx-contract                   3.20.0
-omx-contract-devel                libomx-contract-dev            3.20.0
-libomx-domain                     libomx-domain0                 3.20.0
-libomx-domain-devel               libomx-domain-dev              3.20.0
+omx-contract                      omx-contract                   3.21.0
+omx-contract-devel                libomx-contract-dev            3.21.0
+libomx-domain                     libomx-domain0                 3.21.0
+libomx-domain-devel               libomx-domain-dev              3.21.0
 plugin-hostd-protocol             libplugin-hostd-protocol0      0.8.0
 plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.8.0
 plugin-hostd-protocol-contract    plugin-hostd-protocol-contract 0.8.0

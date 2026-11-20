@@ -24,10 +24,10 @@ BuildRequires: plugin-hostd-protocol-devel >= 0.8.0
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: omx-contract-devel >= 3.20.0
+BuildRequires: omx-contract-devel >= 3.21.0
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
-# and this package's qualification domain through it (3.20.0 the first release that ships it); a floor only
-BuildRequires: libomx-domain-devel >= 3.20.0
+# and this package's qualification domain through it (3.21.0: the domain format its x-from words and x-requires need, and the domain param); a floor only
+BuildRequires: libomx-domain-devel >= 3.21.0
 # the reader of the qualification store, <plugin-qualification-db/pqdb.h>: the daemon reads what a plugin costs through it and
 # reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
 # declared in); a floor only
@@ -41,7 +41,7 @@ Requires: sqlite-libs >= 3.37.0
 Requires: plugin-hostd-protocol%{?_isa}
 Requires: plugin-hostd-protocol >= 0.8.0
 # the loader the daemon and the probe runner read the machine domain through, at start-up
-Requires: libomx-domain >= 3.20.0
+Requires: libomx-domain >= 3.21.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -53,7 +53,7 @@ BuildRequires: omx-clap-host-tests >= 0.34.0
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
 BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: omx-contract >= 3.20.0
+BuildRequires: omx-contract >= 3.21.0
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.8.0
@@ -107,9 +107,9 @@ Requires: omx-clap-contract >= 0.34.0
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: omx-contract >= 3.20.0
+Requires: omx-contract >= 3.21.0
 # the probe runner reads the qualification domain, which this package holds, through the loader at start-up
-Requires: libomx-domain >= 3.20.0
+Requires: libomx-domain >= 3.21.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
