@@ -78,12 +78,11 @@ def main():
     spec = open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read()
     control = open(os.path.join(ROOT, "debian", "control")).read()
     for name in ("plugin-hostd-protocol-contract", "plugin-hostd-protocol-devel"):
-        check(re.search(r"^Requires: %s >= 0\.8\.0$" % name, spec, re.M) is not None or name.endswith("devel"),
-              "(d) the spec requires %s >= 0.8.0" % name)
-        check(re.search(r"^(Build)?Requires: %s >= 0\.8\.0$" % name, spec, re.M) is not None, "(d) the spec names %s >= 0.8.0" % name)
+        check(re.search(r"^BuildRequires: %s >= 0\.8\.0$" % name, spec, re.M) is not None
+              and re.search(r"^Requires: %s >= 0\.8\.0$" % name, spec, re.M) is not None, "(d) the spec requires and builds against %s >= 0.8.0" % name)
     check("plugin-hostd-protocol-contract (>= 0.8.0~)" in control and "libplugin-hostd-protocol-dev (>= 0.8.0~)" in control,
           "(d) debian/control names plugin-hostd-protocol-contract and -dev at the same floor")
-    check(not re.search(r"plugin-hostd-protocol[a-z-]* \(?>= 0\.7\.0", spec + control), "(d) no 0.7.0 floor of protocol is left")
+    check(not re.search(r"plugin-hostd-protocol[a-z0-9-]* \(?>= 0\.7\.0", spec.split("%changelog")[0] + control), "(d) no 0.7.0 floor of protocol is left")
     return 1 if failed else 0
 
 
