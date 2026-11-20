@@ -34,6 +34,11 @@ second domain, `contract.d/probe/probe.json` (floor 1.0.0, read the same way, re
 old, shipped by `plugin-hostd-contract`; `make test-probe-domain`). The protocol header's lists give the probe the ids, and
 the words are the domain's, which the test holds to the header's, word for word.
 
+The scopes of a field dump that `describe` reads (`SCAN_FIELD_SCOPES`) are omx-clap-core's scan domain
+(`contract.d/scan/scan.json` there, shipped by `omx-clap-core-contract`, floor 1.0.0), read once at the start of `describe`
+through `scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
+absent, too old or short of a scope ends the start with 78.
+
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
 `contract.d/machine/machine.json`, and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
 `QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`) are plugin-qualify's domain,

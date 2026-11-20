@@ -417,6 +417,8 @@ static void read_idle(idle_t *rows, int *count, const cpu_set_t *pinned)
 
 /* the machine domain's band words, read once at start-up (machine_words_open): never in a real-time path */
 static machine_words g_machine;
+/* the scopes of a field dump (describe), the scan domain's words, read at the start of describe: never in a real-time path */
+static scan_words g_scan;
 
 static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
 {
@@ -2079,6 +2081,18 @@ static int describe_main(int argc, char **argv)
         return 2;
     }
     target = argv[a];
+    {
+        char why[512];
+
+        /* the scopes of a dump are the scan domain's words, read at start-up as the machine and probe domains are: a domain
+         * that is absent, invalid, too old or short of a scope ends the start-up by name */
+        if (scan_words_open(getenv("OMX_CONTRACT_PATH"), &g_scan, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": describe: %s\n", why);
+            return 78;
+        }
+        describe_scopes(&g_scan);
+    }
     if (table == NULL)
     {
         snprintf(path, sizeof(path), PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR "/plugin-hostd/formats/%s.json", format);
