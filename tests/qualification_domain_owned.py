@@ -9,9 +9,9 @@ a. golden: the document of this checkout, and the tree `make install_qualificati
    exactly the golden items with the golden words; info.x-owner and every catalog's owner are plugin-hostd;
 b. both sources agree while both exist: when QUALIFICATION_OLD_DOMAIN names a contract directory holding plugin-qualify's
    qualification domain, the two documents are equal but for the owner (skipped, and said so, when it is not set);
-c. sabotage: the installed tree with one word removed from its document is refused by the golden comparison, and so is
-   an installed tree with an item removed (the test is run against a scratch copy, the source is never edited).
-
+c. sabotage, through a real consumer read: make_report.rating_words() over a scratch copy of the installed tree with one
+   rating word removed no longer returns it (the probe's and the generator's reads of such a tree are
+   tests/qualification_domain.py arms 3 and 4, built by make; the source is never edited).
 d. packaging: the spec and debian/control name no plugin-qualify-contract (the package is pruned from the channel; no Breaks,
    Replaces, Conflicts or Provides stand in for it) and plugin-hostd-contract ships the domain, in the spec's %files and in
    debian/plugin-hostd-contract.install; packaging/deps.txt lists no plugin-qualify-contract.
@@ -19,7 +19,6 @@ d. packaging: the spec and debian/control name no plugin-qualify-contract (the p
 Environment: PKG_ROOT (the tree whose packaging arm d reads, default this one), INSTALL_CONTRACT_DIR (the installer, as the Makefile finds it), QUALIFICATION_OLD_DOMAIN (arm b). Exit 0 all green,
 1 a FAIL line.
 """
-import copy
 import json
 import os
 import shutil
@@ -115,16 +114,32 @@ def main():
             check(os.path.isfile(installed) and open(installed, "rb").read() == open(doc_path, "rb").read(),
                   "the installed document is the source, byte for byte")
             check(os.path.isfile(os.path.join(tree, "qualification", "catalogs", "ca.json")), "the catalogs are installed with it")
-            # c. one word removed from a scratch copy of the installed tree: the golden comparison refuses it
+            # c. sabotage through a real consumer read: bench/report/make_report.py's rating_words(), the call that reads the
+            # ratings, over a scratch copy of the installed tree with one word removed from the written document. (The probe's
+            # and the generator's reads of the same sabotage are tests/qualification_domain.py arms 3 and 4, built by make.)
             scratch = os.path.join(tmp, "scratch")
             shutil.copytree(tree, scratch)
-            bad = load(os.path.join(scratch, DOC))
+            path = os.path.join(scratch, DOC)
+            bad = load(path)
             item = bad["components"]["schemas"]["QUALIFICATION_MEASUREMENT_VERDICT_RATINGS"]
             item["oneOf"] = [e for e in item["oneOf"] if e["title"] != "conditional"]
-            check(words(bad) != golden, "c. a tree with one word removed is refused by the golden comparison")
-            bad2 = copy.deepcopy(load(os.path.join(scratch, DOC)))
-            del bad2["components"]["schemas"]["QUALIFICATION_PIN_VERDICTS"]
-            check(words(bad2) != golden, "c. a tree with one item removed is refused by the golden comparison")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(bad, f)
+            sys.path.insert(0, os.path.join(ROOT, "bench", "report"))
+            import make_report
+            before = os.environ.get("OMX_CONTRACT_PATH")
+            try:
+                os.environ["OMX_CONTRACT_PATH"] = tree
+                good = make_report.rating_words()
+                os.environ["OMX_CONTRACT_PATH"] = scratch
+                got = make_report.rating_words()
+            finally:
+                if before is None:
+                    os.environ.pop("OMX_CONTRACT_PATH", None)
+                else:
+                    os.environ["OMX_CONTRACT_PATH"] = before
+            check("conditional" in good and "conditional" not in got,
+                  "c. make_report.rating_words() over the sabotaged tree has lost the word it read from the intact one")
     print("qualification domain owned: %s" % ("FAILED (%d)" % failed if failed else "ok"))
     return 1 if failed else 0
 
