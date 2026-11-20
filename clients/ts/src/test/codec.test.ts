@@ -92,7 +92,7 @@ describe('the replies with a shape of their own', () => {
   });
 
   it('names every figure of an estimate', () => {
-    assert.deepEqual(protocol.readEstimate(data('resp 0 192 24.00 - 2 1 1:-544 0 - - 3')), {
+    assert.deepEqual(protocol.readEstimate(data('resp 0 192 24.00 - 2 1 1:-544 0 - - 3 warn ram-unknown')), {
       latency_frames: 192,
       cpu_percent: 24,
       ram_bytes: null,
@@ -103,6 +103,8 @@ describe('the replies with a shape of their own', () => {
       ram_added_bytes: null,
       ram_budget_bytes: null,
       ram_unknown_count: 3,
+      verdict: 'warn',
+      reason: 'ram-unknown',
     });
   });
 

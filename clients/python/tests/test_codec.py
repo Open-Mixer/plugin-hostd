@@ -94,12 +94,13 @@ class Replies(unittest.TestCase):
                          False)
 
     def test_an_estimate_names_every_figure(self):  # noqa: D102
-        e = self.protocol.read_estimate(self.data("resp 0 192 24.00 - 2 1 1:-544 0 - - 3"))
+        e = self.protocol.read_estimate(self.data("resp 0 192 24.00 - 2 1 1:-544 0 - - 3 warn ram-unknown"))
         self.assertEqual((e["latency_frames"], e["cpu_percent"], e["ram_bytes"], e["workers"], e["unknown_count"]),
                          (192, 24.0, None, 2, 1))
         self.assertEqual(e["members"], [{"member": 1, "code": -544, "name": "reply.plugin-hostd.preset-not-applied"}])
         self.assertEqual((e["ram_used_bytes"], e["ram_added_bytes"], e["ram_budget_bytes"], e["ram_unknown_count"]),
                          (0, None, None, 3))
+        self.assertEqual((e["verdict"], e["reason"]), ("warn", "ram-unknown"))
 
     def test_the_reasons_to_ask_again_are_the_reasons_the_file_declares_retry(self):  # noqa: D102
         # RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
