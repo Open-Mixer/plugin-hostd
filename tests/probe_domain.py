@@ -7,7 +7,7 @@ that the qualification store checks its record columns against. Arms 1 to 6.
 1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, version 1.0.0, every
    item PROBE_-prefixed, every item's x-since the domain's first version (1.0.0), x-codes 0..n-1 in order;
 2. the items hold exactly the words the probe can emit: PROBE_REASONS, PROBE_OUTCOMES and PROBE_STEPS the codes of the
-   protocol's PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES and PHD_PROBE_STEPS lists, PROBE_SIGNALS the signals src/probe_words.h
+   protocol's PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES and PHD_PROBE_STEPS lists, PROBE_SIGNALS the signals src/probe_words.c
    names, plus the one word the probe writes for a signal it has no name for;
 3. the probe writes the domain's words: over a scratch copy with every word renamed, a run (as it is, a --reason, and one
    that crashes) writes only renamed words at run.reason, run.outcome, steps[].step, steps[].outcome, steps[].signal and
@@ -123,12 +123,12 @@ def header_words(list_name):
 
 
 def probe_signals():
-    text = open(os.path.join(ROOT, "src", "probe_words.h")).read()
-    m = re.search(r"#define PROBE_SIGNALS\(X\)((?:[^\n]*\\\n)*[^\n]*)", text)
-    if m is None:
-        fail("arm 2: PROBE_SIGNALS is not in src/probe_words.h")
+    text = open(os.path.join(ROOT, "src", "probe_words.c")).read()
+    sig = re.findall(r"PROBE_SIGNAL_CASE\((SIG[A-Z0-9]+)\)", text)
+    if not sig:
+        fail("arm 2: probe_signal_word names no signal in src/probe_words.c")
         return []
-    return re.findall(r"X\(\w+,\s*(SIG[A-Z0-9]+)\)", m.group(1)) + [UNKNOWN_SIGNAL]
+    return sig + [UNKNOWN_SIGNAL]
 
 
 def arm2(doc):

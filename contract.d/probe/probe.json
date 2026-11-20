@@ -268,6 +268,7 @@
       "PROBE_SIGNALS": {
         "description": "The signal a child died of, as the step and the crash block name it.",
         "x-since": "1.0.0",
+        "x-c-codes": true,
         "oneOf": [
           {
             "const": "SIGSEGV",
