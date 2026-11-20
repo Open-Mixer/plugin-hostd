@@ -56,6 +56,9 @@ GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protoco
 WORDS_OPEN = "machine_words_open"
 BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
 FAMILIES = ["intel", "amd", "arm", "unknown"]
+# the probe domain is plugin-hostd-protocol's: where its contract package installs it, PROTOCOL_CONTRACT_DIR for a checkout's
+PROBE_SOURCE = os.environ.get("PROTOCOL_CONTRACT_DIR") or subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"],
+                                                                         capture_output=True, text=True).stdout.strip() or "/usr/share/omx-contract/contract.d"
 failures = []
 PROBE_ONLY = [None]  # a scratch contract directory holding this checkout's probe domain and no other, set by main()
 
@@ -474,7 +477,7 @@ def main():
     arm7()
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-machine.")
     PROBE_ONLY[0] = os.path.join(tmp, "probe-only")
-    shutil.copytree(os.path.join(ROOT, "contract.d", "probe"), os.path.join(PROBE_ONLY[0], "probe"))
+    shutil.copytree(os.path.join(PROBE_SOURCE, "probe"), os.path.join(PROBE_ONLY[0], "probe"))
     try:
         arm3(doc, tmp)
         arm5(tmp)

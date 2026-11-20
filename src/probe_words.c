@@ -36,7 +36,7 @@ int probe_words_open(const char *dirs, probe_words *w, char *why, size_t n)
         { "PROBE_REASONS", offsetof(probe_words, reason), PROBE_REASON_COUNT },
         { "PROBE_OUTCOMES", offsetof(probe_words, outcome), PROBE_OUTCOME_COUNT },
         { "PROBE_STEPS", offsetof(probe_words, step), PROBE_STEP_COUNT },
-        { "PROBE_SIGNALS", offsetof(probe_words, signal), PROBE_SIGNAL_COUNT },
+        { "PROBE_SIGNALS", offsetof(probe_words, signal), OMX_PROBE_SIGNALS_COUNT },
     };
     size_t b, i;
     int rc;
@@ -79,11 +79,25 @@ void probe_words_close(probe_words *w)
 
 const char *probe_signal_word(const probe_words *w, int sig)
 {
+    /* the signals the probe names a dead child's by: the operating system's number of each, and the domain's code of its word */
+#define PROBE_SIGNAL_CASE(signo) \
+    case signo: return w->signal[OMX_PROBE_SIGNALS_##signo];
     switch (sig)
     {
-#define X(id, signo) case signo: return w->signal[PROBE_SIGNAL_##id];
-        PROBE_SIGNALS(X)
-#undef X
-    default: return w->signal[PROBE_SIGNAL_UNKNOWN];
+        PROBE_SIGNAL_CASE(SIGSEGV)
+        PROBE_SIGNAL_CASE(SIGABRT)
+        PROBE_SIGNAL_CASE(SIGBUS)
+        PROBE_SIGNAL_CASE(SIGFPE)
+        PROBE_SIGNAL_CASE(SIGILL)
+        PROBE_SIGNAL_CASE(SIGKILL)
+        PROBE_SIGNAL_CASE(SIGTERM)
+        PROBE_SIGNAL_CASE(SIGXCPU)
+        PROBE_SIGNAL_CASE(SIGXFSZ)
+        PROBE_SIGNAL_CASE(SIGSYS)
+        PROBE_SIGNAL_CASE(SIGPIPE)
+        PROBE_SIGNAL_CASE(SIGINT)
+        PROBE_SIGNAL_CASE(SIGHUP)
+    default: return w->signal[OMX_PROBE_SIGNALS_SIGNAL];
     }
+#undef PROBE_SIGNAL_CASE
 }

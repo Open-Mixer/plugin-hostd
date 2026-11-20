@@ -6,7 +6,6 @@
 #
 #   machine 1.0.0: MACHINE_CLASS_FIELDS, MACHINE_PROFILE_FIELDS, MACHINE_CORE_BANDS, MACHINE_CLOCK_BANDS, MACHINE_ARCHES
 #   machine 1.1.0: MACHINE_FAMILIES
-#   probe   1.0.0: every item
 #   qualification 1.0.0 / 1.2.0 / 1.3.0 / 1.4.0: the items as plugin-qualify's 1.3.0 carried them, and the five of 1.4.0 (SINCE below)
 #
 # An item a domain gains later is added to SINCE with the version that adds it, or this check is red.
@@ -33,12 +32,6 @@ SINCE = {
         "MACHINE_CLOCK_BANDS": "1.0.0",
         "MACHINE_ARCHES": "1.0.0",
         "MACHINE_FAMILIES": "1.1.0",
-    },
-    "probe": {
-        "PROBE_REASONS": "1.0.0",
-        "PROBE_OUTCOMES": "1.0.0",
-        "PROBE_STEPS": "1.0.0",
-        "PROBE_SIGNALS": "1.0.0",
     },
     "qualification": {
         "QUALIFICATION_MEASUREMENT_DIMENSIONS": "1.0.0",

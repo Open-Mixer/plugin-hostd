@@ -461,7 +461,7 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
-              /usr/share/omx-contract/contract.d/machine/machine.json /usr/share/omx-contract/contract.d/probe/probe.json \
+              /usr/share/omx-contract/contract.d/machine/machine.json \
               /usr/share/omx-contract/contract.d/qualification/qualification.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
