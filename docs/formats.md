@@ -19,7 +19,7 @@ is the proof.
 
 `make install-contract` installs both tables, with omx-contract-devel's `install-contract-dir.sh`, as the package
 `plugin-hostd` of the contract directory: `<contractdir>/3/plugin-hostd/formats/{clap,lv2}.json`, with its
-`MANIFEST.json`, beside the daemon's verbs (`verbs.json`). The noarch package plugin-hostd-contract
+`MANIFEST.json`, beside the domain `plugin-hostd`, the daemon's verbs, which plugin-hostd-protocol ships. The noarch package plugin-hostd-contract
 (`plugin-hostd-contract` on Debian too) ships them, and a program that reads them at run time requires it.
 It requires omx-contract 3.2.0 or later (`Requires`, Debian `Depends`): the tables live in omx-contract's contract
 directory and are read against its schema, and 3.2.0 is the first whose source field takes an index
