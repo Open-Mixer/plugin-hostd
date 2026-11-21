@@ -585,33 +585,6 @@
           }
         ]
       },
-      "QUALIFICATION_MACHINE_CLASSES": {
-        "description": "The machine classes a host profile budgets for (plugin-qualify#114, #115): the desk, and the Raspberry Pi 4 and 5 a small console runs on.",
-        "x-since": "1.0.0",
-        "oneOf": [
-          {
-            "const": "desk",
-            "title": "desk",
-            "description": "An x86-64 desk.",
-            "x-code": 0,
-            "x-text": "An x86-64 desk."
-          },
-          {
-            "const": "raspberry-pi-4",
-            "title": "raspberryPi4",
-            "description": "A Raspberry Pi 4, aarch64.",
-            "x-code": 1,
-            "x-text": "A Raspberry Pi 4, aarch64."
-          },
-          {
-            "const": "raspberry-pi-5",
-            "title": "raspberryPi5",
-            "description": "A Raspberry Pi 5, aarch64.",
-            "x-code": 2,
-            "x-text": "A Raspberry Pi 5, aarch64."
-          }
-        ]
-      },
       "QUALIFICATION_HOST_CLASSES": {
         "description": "The classes of machine a record set was measured on, the directory a record lives in.",
         "x-since": "1.2.0",

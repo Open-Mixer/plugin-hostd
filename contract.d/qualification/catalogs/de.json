@@ -4,9 +4,6 @@
   "lang": "de",
   "owner": "plugin-hostd",
   "messages": {
-    "QUALIFICATION_MACHINE_CLASSES.desk": {"text": "Ein x86-64-Desktop.", "by": "machine", "model": "draft-prose", "source": "e238c0ae47a76ab65181d3328b4c59fba8db45bbd9c3b64e6bd3c82fbc3cff26"},
-    "QUALIFICATION_MACHINE_CLASSES.raspberry-pi-4": {"text": "Ein Raspberry Pi 4, aarch64.", "by": "machine", "model": "draft-prose", "source": "bcdf10ea8a74ac906394e5fd3801c0a3baf92aa0d8c6960ab7cb7063e1fe8952"},
-    "QUALIFICATION_MACHINE_CLASSES.raspberry-pi-5": {"text": "Ein Raspberry Pi 5, aarch64.", "by": "machine", "model": "draft-prose", "source": "8a876a353c6779af1eee312a2be5d3e6751f51d4448f7cf3fd80626349c14a38"},
     "QUALIFICATION_MEASUREMENT_COST_METHODS.block-time-percentile": {"text": "Ein Perzentil der pro Block gemessenen Wandzeit unter einem anhaltenden Stimulus, Warm-up verworfen, in Nanosekunden pro Sample.", "by": "machine", "model": "draft-prose", "source": "f525e3521ef62a10aa9c053eb6e8dcff30bda112d12c3e1e363b22c85ad61536"},
     "QUALIFICATION_MEASUREMENT_DIMENSIONS.cost": {"text": "Wie viel CPU-Zeit ein Plugin pro Block unter anhaltender Belastung verbraucht.", "by": "machine", "model": "draft-prose", "source": "44af3db68136f6e30fa6ede94c68907fbab09b0d235c8c149a21376e511b5c8b"},
     "QUALIFICATION_MEASUREMENT_DIMENSIONS.features": {"text": "Welche Fähigkeiten ein Plugin deklariert und ein Prüfer bestätigen kann, zusätzlich zu Latenz, Kosten, Stabilität und RT-Sicherheit.", "by": "machine", "model": "draft-prose", "source": "e730e997b791598ff7908cabb176fbfc125ff70274d7c382226e33e0577d268d"},
