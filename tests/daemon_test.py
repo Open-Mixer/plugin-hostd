@@ -5210,18 +5210,18 @@ def an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_wo
     try:
         ref = lambda n: clap_n(p, n)
         no_cell, no_record, unknown = (harness.CODE[k] for k in ("NO_CELL", "NO_RECORD", "UNKNOWN_PLUGIN"))
-        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d 0 - - 3" % no_cell)
+        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d 0 - - 3 warn no-cell" % no_cell)
         check(d.workers() == {}, "no worker was spawned to answer: %s" % d.workers())
         # one member, and two that share: one worker; 4 has no record at all
-        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 - 0 - - 1")
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2" % no_record)
+        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 - 0 - - 1 warn ram-unknown")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2 not-measured no-record" % no_record)
         # at 96000/128 2 has its cell and 1 and 3 have none
-        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d 0 - - 3" % (no_cell, no_cell))
+        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d 0 - - 3 not-measured no-cell" % (no_cell, no_cell))
         # a uri that names no plugin installed here is placed nowhere: 3 alone is one worker
         d.expect("estimate 48000 128 urn:plugin-hostd:test:nosuch %s clap:/nonexistent/x.clap#org.example.x" % ref(3),
-                 "resp 0 128 14.40 - 1 2 0:%d,2:%d 0 - - 3" % (unknown, unknown))
+                 "resp 0 128 14.40 - 1 2 0:%d,2:%d 0 - - 3 refuse unknown-plugin" % (unknown, unknown))
         # the same plugin twice is two members
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 - 0 - - 2")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 - 0 - - 2 warn ram-unknown")
         for bad in ("estimate", "estimate 48000 128", "estimate 0 128 %s" % ref(1), "estimate 48000 -1 %s" % ref(1),
                     "estimate x 128 %s" % ref(1)):
             d.expect(bad, "resp -902")
@@ -5239,8 +5239,8 @@ def an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure(
     try:
         ref = lambda n: clap_n(p, n)
         d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)),
-                 "resp 0 192 24.00 %d 2 1 1:%d 0 - - 3" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2" % harness.CODE["NO_RECORD"])
+                 "resp 0 192 24.00 %d 2 1 1:%d 0 - - 3 warn no-cell" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2 not-measured no-record" % harness.CODE["NO_RECORD"])
     finally:
         d.close()
         p.close()
@@ -5262,7 +5262,8 @@ def an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_coun
         cell_for(d, "org.openmixer.fault.1", 2000, measured=64, memory={"firstInstanceKb": 100 * 1024, "perInstanceKb": 10 * 1024})
         cell_for(d, "org.openmixer.fault.2", 2000, measured=64)
         cell_for(d, "org.openmixer.fault.3", 3000, declared=128, memory={"firstInstanceKb": 40 * 1024, "perInstanceKb": 40 * 1024})
-        words = lambda line: d.send(line).split()[-4:]
+        # the four memory words, before the verdict and its reason
+        words = lambda line: d.send(line).split()[-6:-2]
         check(words("estimate 48000 128 %s" % ref(1)) == ["0", str(100 * mib), str(2048 * mib), "0"], "one instance holds all it shares")
         check(words("estimate 48000 128 %s %s" % (ref(1), ref(1))) == ["0", str(110 * mib), str(2048 * mib), "0"],
               "what two instances share is counted once")
@@ -5277,6 +5278,137 @@ def an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_coun
     finally:
         d.close()
         p.close()
+
+
+# ---------------------------------------------------------------- the insert verdict of estimate (the host judges)
+
+def verdict_daemon(budget_mb=120):
+    """the host's insert verdict on the last uri of an estimate, the candidate (coordinator ruling, 2026-11-20): plugins
+    1, 2, 4 and 5 of one file pinned in-process, 3 isolated, a memory budget of budget_mb MiB. The records: 1 at
+    48000/128 (2000 ns, 64 frames, 100 MiB first and 10 per instance), 2 only at 96000/128 (1000 ns, no memory figure), 3
+    at 48000/128 (3000 ns, 128 frames declared, 40 and 40 MiB), 4 none, 5 at 48000/128 (12500 ns: 60.00 percent of a core
+    at 48 kHz, the ceiling itself; 10 and 10 MiB), and 5 again at 44100/128 in a record of its own (13606 ns: 60.00246
+    percent, which the reply writes 60.00 and is over the ceiling)"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on", "ram_budget_mb": budget_mb})
+    for n in (1, 2, 4, 5):
+        d.expect(pin_n(p, n, "in-process"), "resp 0")
+    d.expect(pin_n(p, 3, "isolated"), "resp 0")
+    cell_for(d, "org.openmixer.fault.1", 2000, measured=64, memory={"firstInstanceKb": 100 * 1024, "perInstanceKb": 10 * 1024})
+    cell_for(d, "org.openmixer.fault.2", 1000, measured=32, rate=96000)
+    cell_for(d, "org.openmixer.fault.3", 3000, declared=128, memory={"firstInstanceKb": 40 * 1024, "perInstanceKb": 40 * 1024})
+    cell_for(d, "org.openmixer.fault.5", 12500, measured=16, memory={"firstInstanceKb": 10 * 1024, "perInstanceKb": 10 * 1024})
+    put_cell(d, "org.openmixer.fault.5@1.1-0123456789ac.default.qualification.json", "org.openmixer.fault.5", 44100, 128, 13606,
+             13606 * 2, "-", 16, 10 * 1024, 10 * 1024)
+    return p, d
+
+
+def verdict_of(d, line):
+    """the last two words of an estimate's reply: the verdict and its reason"""
+    words = d.send(line).split()
+    check(len(words) == 14 and words[:2] == ["resp", "0"], "%s: an estimate reply of 12 words: %s" % (line, words))
+    return words[-2:]
+
+
+def verdict_case(line_of, want, why):
+    """one estimate through the verb, its verdict and reason held to want; line_of(ref) writes the line"""
+    p, d = verdict_daemon()
+    try:
+        line = line_of(lambda n: clap_n(p, n))
+        got = verdict_of(d, line)
+        check(got == want, "%s: %s answers %s, want %s" % (why, line, got, want))
+        check(d.workers() == {}, "no worker was spawned to judge: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_insert_verdict_golden_reply_of_a_candidate_within_every_budget():
+    """golden: 1 alone at 48000/128, budget 120 MiB: 64 frames, 9.60 percent, no history RAM, one worker, every member
+    with a figure, nothing held, 100 MiB added, the budget, no memory unknown; then the host's words, recommend within"""
+    mib = 1024 * 1024
+    p, d = verdict_daemon()
+    try:
+        d.expect("estimate 48000 128 %s" % clap_n(p, 1), "resp 0 64 9.60 - 1 0 - 0 %d %d 0 recommend within" % (100 * mib, 120 * mib))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_insert_verdict_is_within_at_the_cpu_ceiling_itself():
+    """5 alone is 12500 ns per sample at 48 kHz, 60.00 percent of one core: at the real-time admission ceiling of one core,
+    not over it, and its 10 MiB are within the budget: the host recommends"""
+    verdict_case(lambda ref: "estimate 48000 128 %s" % ref(5), ["recommend", "within"], "at the ceiling")
+
+
+@test
+def the_insert_verdict_warns_when_the_cpu_is_over_the_ceiling_of_one_core():
+    """1 then 5: (2000 + 12500) ns per sample at 48 kHz is 69.60 percent of one core, over the ceiling: warn
+    cpu-over-budget. With 3 as well the memory is over the budget too (150 MiB), and the CPU is the first reason"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(5)), ["warn", "cpu-over-budget"], "the CPU over")
+    verdict_case(lambda ref: "estimate 48000 128 %s %s %s" % (ref(1), ref(3), ref(5)), ["warn", "cpu-over-budget"],
+                 "the CPU and the memory over, the CPU first")
+
+
+@test
+def the_insert_verdict_judges_the_cpu_figure_and_not_the_word_the_reply_rounds_it_to():
+    """5 alone at 44100/128 is 13606 ns per sample, 60.00246 percent of one core: over the ceiling, though the reply
+    writes it 60.00, so the host warns cpu-over-budget; 5 at 48000/128 is 60.00 exactly, within"""
+    p, d = verdict_daemon()
+    try:
+        words = d.send("estimate 44100 128 %s" % clap_n(p, 5)).split()
+        check(words[3] == "60.00" and words[-2:] == ["warn", "cpu-over-budget"],
+              "60.00246 percent, written 60.00, is over the ceiling: %s" % words)
+        words = d.send("estimate 48000 128 %s" % clap_n(p, 5)).split()
+        check(words[3] == "60.00" and words[-2:] == ["recommend", "within"], "60.00 exactly is within: %s" % words)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_insert_verdict_warns_when_the_memory_used_and_added_is_over_the_budget():
+    """1 then 3: 100 + 40 MiB added, nothing held, over a budget of 120 MiB, the CPU 24.00 percent: warn ram-over-budget"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(3)), ["warn", "ram-over-budget"], "the memory over")
+
+
+@test
+def the_insert_verdict_warns_when_a_memory_figure_is_missing():
+    """2 alone at 96000/128 has its cost and no memory figure: warn ram-unknown"""
+    verdict_case(lambda ref: "estimate 96000 128 %s" % ref(2), ["warn", "ram-unknown"], "no memory figure")
+
+
+@test
+def the_insert_verdict_refuses_a_candidate_that_names_no_plugin_installed_here():
+    """1 then a uri that names no plugin installed here: refuse unknown-plugin, whatever the rest says"""
+    verdict_case(lambda ref: "estimate 48000 128 %s urn:plugin-hostd:test:nosuch" % ref(1), ["refuse", "unknown-plugin"],
+                 "an unknown candidate")
+    verdict_case(lambda ref: "estimate 48000 128 %s clap:/nonexistent/x.clap#org.example.x" % ref(1),
+                 ["refuse", "unknown-plugin"], "a clap: candidate whose file is not there")
+
+
+@test
+def the_insert_verdict_is_not_measured_for_a_candidate_with_no_record():
+    """1 then 4, which no qualification record names: not-measured no-record"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(4)), ["not-measured", "no-record"], "no record")
+
+
+@test
+def the_insert_verdict_is_not_measured_for_a_candidate_with_no_cell_at_the_rate():
+    """1 then 2, whose records hold no point at 48000/128: not-measured no-cell"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(2)), ["not-measured", "no-cell"], "no cell")
+
+
+@test
+def the_insert_verdict_warns_with_the_code_of_another_member_that_has_no_figure():
+    """the candidate 1 is measured, a member before it is not: the host warns with that member's word, ahead of the
+    memory it then cannot add up (4 no-record, 2 no-cell, an uninstalled uri unknown-plugin)"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(4), ref(1)), ["warn", "no-record"], "another member, no record")
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(2), ref(1)), ["warn", "no-cell"], "another member, no cell")
+    verdict_case(lambda ref: "estimate 48000 128 urn:plugin-hostd:test:nosuch %s" % ref(1), ["warn", "unknown-plugin"],
+                 "another member, not installed")
 
 
 # ---------------------------------------------------------------- the planner reads the history, and plans again
