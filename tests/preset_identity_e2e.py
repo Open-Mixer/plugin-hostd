@@ -34,11 +34,12 @@ def param_ids(count):
 
 
 def worker_code(key):
-    """a reply code omx-clap-host declares, from omx-clap-core's verbs.json in the contract directory"""
+    """a reply code omx-clap-host declares: an HOST_REPLY_CODES word of omx-clap's domain host in the contract directory"""
     contractdir = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=contractdir", "omx-contract"],
                                  capture_output=True, text=True, check=True).stdout.strip()
-    with open(os.path.join(contractdir, "3", "omx-clap", "verbs.json")) as f:
-        return "resp %d" % json.load(f)["HOST_REPLY_CODES"]["codes"][key]["resp"]
+    with open(os.path.join(contractdir, "host", "host.json")) as f:
+        words = json.load(f)["components"]["schemas"]["HOST_REPLY_CODES"]["oneOf"]
+    return "resp %d" % next(w["x-resp"] for w in words if w.get("x-name", w["title"]) == key)
 
 
 def value(d, inst, pid):

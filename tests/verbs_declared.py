@@ -130,6 +130,40 @@ def contract_dirs():
     return dirs
 
 
+# the data form of a domain's items, rebuilt by omx-contract's own reader (domainDataFiles of the installed command's
+# lib/domain.mjs, the rebuild render --with-domain runs): the file of each x-file, as the package's own table would be
+REBUILD = """
+import { readFileSync } from 'node:fs';
+const [clidir, name, path] = process.argv.slice(1);
+const { domainDataFiles } = await import('file://' + clidir + '/lib/domain.mjs');
+process.stdout.write(JSON.stringify(domainDataFiles(name, JSON.parse(readFileSync(path, 'utf8')))));
+"""
+
+
+def domain_docs(owner):
+    """the data form of every domain <owner> owns in the contract directory (omx-clap's domains omx-clap and host hold
+    its verbs, HOST_REPLY_CODES and HOST_EVENTS since the sorting pass, V15), as tables the readers here read"""
+    clidir = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=clidir", "omx-contract"],
+                            capture_output=True, text=True).stdout.strip() or "/usr/lib/omx-contract"
+    out, seen = [], set()
+    for d in contract_dirs():
+        for e in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            path = os.path.join(d, e, e + ".json")
+            if e in seen or not os.path.isfile(path):
+                continue
+            with open(path) as f:
+                doc = json.load(f)
+            if not isinstance(doc, dict) or doc.get("info", {}).get("x-owner") != owner:
+                continue
+            seen.add(e)
+            r = subprocess.run(["node", "--input-type=module", "-e", REBUILD, clidir, e, path], capture_output=True, text=True)
+            if r.returncode != 0:
+                fail("omx-contract's reader refuses the domain %s of %s: %s" % (e, owner, r.stderr.strip()[-300:]))
+                continue
+            out.extend(json.loads(text) for text in json.loads(r.stdout).values())
+    return out
+
+
 def package(name):
     """the files of a package of the contract directory, and where they were read, or (None, None)"""
     for d in contract_dirs():
@@ -142,7 +176,7 @@ def package(name):
             for rel in m["files"]:
                 with open(os.path.join(base, rel)) as f:
                     docs.append(json.load(f))
-            return docs, "%s %s from %s" % (name, m["version"], base)
+            return docs + domain_docs(name), "%s %s from %s" % (name, m["version"], base)
     return None, None
 
 
