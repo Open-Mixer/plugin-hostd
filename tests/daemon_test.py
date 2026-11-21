@@ -119,7 +119,7 @@ def hello_opens_a_session_the_daemon_grants_and_no_worker_hears():
     # the control: a worker built on the protocol library answers hello and reads a tag once granted
     got = worker_answers(["hello 1 tags", "@t1 quit_not_a_verb"])
     check(got == ["resp 0 1 tags", "@t1 not found"], "the fake worker answers hello as the library does: %r" % got)
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -220,7 +220,7 @@ def a_new_controller_starts_with_nothing_granted():
 
 @test
 def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_replayed():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -253,7 +253,7 @@ def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_re
 
 @test
 def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_the_worker_held_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -319,7 +319,7 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
 
 @test
 def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -403,7 +403,7 @@ def plain_verbs_pass_through_unchanged():
 
 @test
 def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
-    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    log = harness.scratch_path("plugin-hostd-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -434,7 +434,7 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
     verb to the worker that holds the instance and the others to every worker, and passes the worker's answer back. It
     answers -902 only while the worker does"""
     for answers, want in ((True, "resp 0"), (False, "resp -902")):
-        log = tempfile.mktemp(prefix="plugin-hostd-log.")
+        log = harness.scratch_path("plugin-hostd-log.")
         d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer" if answers else "refuse"})
         try:
             d.expect("add clap:fake#a 0", "resp 0")
@@ -481,7 +481,7 @@ def preset_show_of_an_instance_is_answered_by_the_worker_that_holds_it_whatever_
     """preset_show has two forms, told apart by their number of words: preset_show <instance> <key>, plugin-hostd's,
     goes to the worker that holds the instance alone, so a worker that does not hold it (and would answer -3) is never
     asked and never answers for it"""
-    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    log = harness.scratch_path("plugin-hostd-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -548,7 +548,7 @@ def preset_show_of_a_uri_the_adapter_holds_is_not_hidden_by_mod_hosts_refusal_of
 def preset_show_counts_a_quoted_key_as_one_word_and_asks_the_holder_alone():
     """a key that holds a space is quoted, and is one word as the worker reads it: preset_show <instance> "<key>" is
     the instance form, the holder's to answer, not a line of four words every worker is sent"""
-    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    log = harness.scratch_path("plugin-hostd-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -711,7 +711,7 @@ def a_connect_the_new_worker_cannot_make_yet_is_asked_again():
     # asked again are the worker's own log (FAKE_LOG, one "<pid> <line>" per command it received). The window is long
     # (3 s) so the replay, sent right after the restore, falls inside it on a loaded machine too; a list_connections
     # read between the restore and the retry was a race (the retry could already have landed).
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     after_ms = 3000
     d = daemon(env={"FAKE_CONNECT_AFTER_MS": str(after_ms), "FAKE_LOG": log})
 
@@ -1132,7 +1132,7 @@ def a_dropped_suspect_gives_back_the_value_it_replaced():
 
 @test
 def a_crash_well_after_the_reply_replays_the_verb_as_before():
-    marker = tempfile.mktemp(prefix="plugin-hostd-once.")
+    marker = harness.scratch_path("plugin-hostd-once.")
     d = daemon(env={"FAKE_CRASH_ONCE": marker, "FAKE_CRASH_AFTER_MS": "900"})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1645,7 +1645,7 @@ def worker_feedback_reaches_the_controller_verbatim_and_in_order():
 
 @test
 def a_respawned_worker_reports_the_same_outputs_once_each():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1679,7 +1679,7 @@ def a_respawned_worker_reports_the_same_outputs_once_each():
 
 @test
 def monitor_output_off_ends_one_monitor_and_a_respawn_does_not_replay_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1732,7 +1732,7 @@ def monitor_output_off_refuses_what_this_connection_did_not_monitor():
 
 @test
 def a_monitor_ends_with_the_connection_that_set_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1790,7 +1790,7 @@ def sent_to(log, pid=None):
 
 @test
 def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         # the verbs this test drives by name must be declared; a protocol release may declare more (a minor adds rows),
@@ -1841,7 +1841,7 @@ PORTS_DIR = os.path.join(ROOT, "tests", "fixtures")
 
 @test
 def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
     try:
         d.expect("add lv2:%s 0" % PORTS_URI, "resp 0")
@@ -1884,7 +1884,7 @@ def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param
 
 @test
 def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1910,7 +1910,7 @@ def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
 
 @test
 def track_info_is_replayed_once_after_the_add_and_before_the_state():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1950,7 +1950,7 @@ DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
 
 @test
 def the_window_verbs_go_to_the_worker_that_holds_the_instance_and_its_resp_comes_back():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env=dict(DISPLAY_ENV, FAKE_LOG=log))
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1977,7 +1977,7 @@ def the_window_verbs_go_to_the_worker_that_holds_the_instance_and_its_resp_comes
 
 @test
 def a_shown_window_is_shown_again_after_a_respawn_and_a_hidden_one_is_not():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"checkpoint_ms": 300}, env=dict(DISPLAY_ENV, FAKE_LOG=log))
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -2011,7 +2011,7 @@ def a_shown_window_is_shown_again_after_a_respawn_and_a_hidden_one_is_not():
 
 @test
 def a_daemon_with_no_display_refuses_the_window_verbs_and_sends_the_worker_nothing():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log, "DISPLAY": None, "WAYLAND_DISPLAY": ""})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -2081,7 +2081,7 @@ def from_plugin(d, since):
 
 @test
 def presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -2257,7 +2257,7 @@ NOTE_VERBS = ("note_input", "note_on", "note_off", "all_notes_off")
 
 @test
 def notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#synth 0", "resp 0")
@@ -2300,7 +2300,7 @@ def a_worker_whose_note_queue_is_full_answers_the_declared_code_and_the_daemon_p
 
 @test
 def notes_are_never_replayed():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#synth 0", "resp 0")
@@ -2322,7 +2322,7 @@ def notes_are_never_replayed():
 
 @test
 def an_lv2_instance_on_mod_host_answers_notes_by_jack_and_mod_host_never_sees_them():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:synth 0", "resp 0")
@@ -2344,7 +2344,7 @@ SETTINGS = ["set_bpb 3", "transport 1 4 140", "set_bpm 133", "transport_sync non
 
 @test
 def tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         # before any worker: kept for the first one
@@ -2411,7 +2411,7 @@ def a_worker_lost_in_its_replay_of_the_tempo_keeps_no_socket_number_of_another_w
 
 @test
 def a_tempo_the_worker_refuses_is_kept_written_and_the_worker_still_comes_back():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_SETTINGS": "1"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -4165,7 +4165,7 @@ def gains(d, ids):
 
 @test
 def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         for i in (1, 2, 3, 4):
@@ -4237,7 +4237,7 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
 @test
 def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
     """chain_members_min is 1: one isolated plugin is a chain like any other, and a chain with no member is no line"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#solo 21", "resp 21")
@@ -4269,7 +4269,7 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 def an_add_into_a_chain_goes_into_its_worker_with_no_worker_of_its_own_and_no_move():
     """add <uri> <instance> chain:<chain> (#348): the first member starts the chain's worker, the next ones join it, and the
     worker is told the order; no member ever has a worker of its own, so no state is saved and nothing is removed"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         mark = d.mark()
@@ -4318,7 +4318,7 @@ def an_add_the_chain_worker_refuses_to_run_in_the_chain_is_refused_and_left_out(
     told to expect into the chain, so nothing of it is there; a worker that does not know chain_expect refuses the order
     line instead, and the member is taken out again and the order sent as it was"""
     for no_expect in (False, True):
-        log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+        log = harness.scratch_path("plugin-hostd-fake-log.")
         env = {"FAKE_LOG": log, "FAKE_REFUSE_CHAIN_MEMBER": "3"}
         if no_expect:
             env["FAKE_NO_CHAIN_EXPECT"] = "1"
@@ -4352,8 +4352,8 @@ def a_chain_that_does_not_form_is_said_once_with_the_member_the_step_and_the_cod
     """a chain whose worker will not take its members (every replayed add refused) never forms: after
     chain_form_timeout_ms the daemon says chain_stalled once, naming the member, the step and the code it answered,
     and goes on; a chain that forms says no such thing"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
-    refuse = tempfile.mktemp(prefix="plugin-hostd-refuse-add.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
+    refuse = harness.scratch_path("plugin-hostd-refuse-add.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_ADD": refuse}, conf={"chain_form_timeout_ms": "800"})
     try:
         # a chain that forms: no stall
@@ -4438,7 +4438,7 @@ def under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_th
 
 @test
 def a_chain_of_three_runs_in_one_worker_and_its_crashed_member_is_quarantined_while_the_others_go_on_in_order():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         for i in (10, 11, 12):
@@ -4532,7 +4532,7 @@ def each_alone(d, ids):
 @test
 def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
     path = refusal_file()
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_REFUSE_CHAIN": path, "FAKE_LOG": log})
     try:
         for i in (40, 41):
@@ -4667,8 +4667,8 @@ def chain_get_reads_a_chain_back_as_declared_and_as_it_runs():
 
 @test
 def a_joiner_whose_worker_dies_saving_its_state_is_quarantined_and_does_not_join_the_chain():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
-    flag = tempfile.mktemp(prefix="plugin-hostd-save-crash.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
+    flag = harness.scratch_path("plugin-hostd-save-crash.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_SAVE_CRASH_FILE": flag})
     try:
         d.expect("add clap:fake#m2 2", "resp 2")
@@ -4700,7 +4700,7 @@ def a_joiner_whose_worker_dies_saving_its_state_is_quarantined_and_does_not_join
 
 @test
 def chain_form_leaves_out_a_member_whose_worker_dies_saving_its_state():
-    flag = tempfile.mktemp(prefix="plugin-hostd-save-crash.")
+    flag = harness.scratch_path("plugin-hostd-save-crash.")
     d = daemon(env={"FAKE_SAVE_CRASH_FILE": flag})
     try:
         d.expect("add clap:fake#m1 1 pool:p", "resp 1")
@@ -4746,7 +4746,7 @@ def chain_get_reports_no_survivor_running_while_the_chains_worker_waits_to_resta
 
 @test
 def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         for i in (1, 3, 4):
@@ -5110,7 +5110,7 @@ def plan_clear_gives_every_member_a_worker_of_its_own_and_forgets_the_plan():
 
 @test
 def a_member_that_is_removed_leaves_its_segment_and_the_worker_is_told_the_order_without_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"grouping": "on"}, env={"FAKE_LOG": log})
     try:
         for i in (1, 2, 3):

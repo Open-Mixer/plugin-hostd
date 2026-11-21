@@ -4,6 +4,7 @@ import filecmp, json, os, re, shutil, signal, socket, subprocess, sys, tempfile,
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from declared import variable
+import harness
 from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.environ["PLUGIN_HOSTD"]
@@ -167,7 +168,7 @@ def clap_own_crash_replays_bit_identically_and_the_neighbour_never_notices():
 
 @test
 def clap_one_shot_crash_in_callback_comes_back_with_its_params():
-    marker = tempfile.mktemp(prefix="plugin-hostd-once.")
+    marker = harness.scratch_path("plugin-hostd-once.")
     d = daemon(env={"STRESS_CRASH_ONCE": marker})
     try:
         d.expect("add %s 0" % STRESS, "resp 0")

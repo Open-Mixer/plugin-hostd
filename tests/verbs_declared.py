@@ -457,7 +457,7 @@ def binary_words(exe):
 def answered_by_daemon(candidates):
     """the words whose line the daemon answers without relaying it: a line of eleven words no verb takes, sent with one
     worker up, that never reaches the worker"""
-    log = tempfile.mktemp(prefix="plugin-hostd-verbs-log.")
+    log = harness.scratch_path("plugin-hostd-verbs-log.")
     s = scan_fixture.Scan(lambda **kw: Daemon(EXE, FAKE, **kw))
     d = s.daemon(env={"FAKE_LOG": log})
     try:
