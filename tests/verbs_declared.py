@@ -11,9 +11,11 @@
 #     refusal it declares from that host;
 #   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
 #     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
-# omx-clap-core's declarations are read from its package in the contract directory: the first of OMX_CONTRACT_PATH
-# (directories that stand where contractdir stands) that holds 3/omx-clap, else pkg-config's contractdir. Without
-# one the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
+# omx-clap's declarations (its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS) are read from the domains omx-clap
+# owns (omx-clap and host) in the contract directory: the first of OMX_CONTRACT_PATH (directories that stand where
+# contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
+# 3/omx-clap is read for what is left there, and an item both in the package and in a domain is refused: one source.
+# Without the package the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
@@ -164,8 +166,28 @@ def domain_docs(owner):
     return out
 
 
-def package(name):
-    """the files of a package of the contract directory, and where they were read, or (None, None)"""
+def in_both(package_docs, domain_docs_):
+    """the items a package's tables hold that a domain of the same owner holds too"""
+    held = {k for doc in domain_docs_ for k, v in doc.items() if isinstance(v, dict) and "kind" in v}
+    return {k for doc in package_docs for k, v in doc.items() if isinstance(v, dict) and "kind" in v and k in held}
+
+
+def dual_source_arm(docs, domains):
+    """sabotage: HOST_REPLY_CODES and HOST_EVENTS planted back into a copy of the package's tables are refused by in_both"""
+    planted = [dict(docs[0]) if docs else {}]
+    for doc in domains:
+        for k in ("HOST_REPLY_CODES", "HOST_EVENTS"):
+            if k in doc:
+                planted[0][k] = doc[k]
+    caught = in_both(planted + docs[1:], domains)
+    if {"HOST_REPLY_CODES", "HOST_EVENTS"} <= caught:
+        print("ok   sabotage: HOST_REPLY_CODES and HOST_EVENTS planted in omx-clap's package are refused (one source)")
+    else:
+        fail("sabotage: HOST_REPLY_CODES and HOST_EVENTS planted in omx-clap's package are not refused: %s" % sorted(caught))
+
+
+def package_tables(name):
+    """the tables of a package of the contract directory alone (its MANIFEST's files), [] when none holds it"""
     for d in contract_dirs():
         base = os.path.join(d, MAJOR, name)
         manifest = os.path.join(base, "MANIFEST.json")
@@ -176,7 +198,27 @@ def package(name):
             for rel in m["files"]:
                 with open(os.path.join(base, rel)) as f:
                     docs.append(json.load(f))
-            return docs + domain_docs(name), "%s %s from %s" % (name, m["version"], base)
+            return docs
+    return []
+
+
+def package(name):
+    """the files of a package of the contract directory and of the domains its owner owns, and where they were read,
+    or (None, None)"""
+    for d in contract_dirs():
+        base = os.path.join(d, MAJOR, name)
+        manifest = os.path.join(base, "MANIFEST.json")
+        if os.path.exists(manifest):
+            with open(manifest) as f:
+                m = json.load(f)
+            docs = []
+            for rel in m["files"]:
+                with open(os.path.join(base, rel)) as f:
+                    docs.append(json.load(f))
+            domains = domain_docs(name)
+            for item in sorted(in_both(docs, domains)):
+                fail("%s is in %s's package (%s) and in its domain: the domain is the one source" % (item, name, base))
+            return docs + domains, "%s %s from %s" % (name, m["version"], base)
     return None, None
 
 
@@ -497,6 +539,7 @@ def main():
         fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: verbs.json requires it "
              "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
         return 1
+    dual_source_arm(package_tables("omx-clap"), domain_docs("omx-clap"))
     own = verbs_of(own_docs, own_docs + docs)
     shared = verbs_of(docs, docs)
     CODE_WORDS.update(c for c, _ in codes_of(own_docs + docs).values())
