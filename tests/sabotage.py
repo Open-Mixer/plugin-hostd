@@ -2112,8 +2112,10 @@ def arm(entry, tree):
         # the qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
         sys.path.insert(0, os.path.join(ROOT, "tests"))
         import qualification_source
-        shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
-                        os.path.join(tree, "contract.d", qualification_source.DOMAIN))
+        # (this tree's contract.d, copied above, holds it already when it is the source: copied once)
+        if not os.path.isdir(os.path.join(tree, "contract.d", qualification_source.DOMAIN)):
+            shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
+                            os.path.join(tree, "contract.d", qualification_source.DOMAIN))
     elif jack == "contract":
         for d in ("src", "include", "tools", "protocol"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
