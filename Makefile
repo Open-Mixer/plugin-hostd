@@ -104,11 +104,11 @@ PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
 INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS)
 
-# the machine domain (contract.d/machine/) and plugin-qualify's qualification domain (contract.d/qualification/ there) are
+# the machine domain (contract.d/machine/) and the qualification domain (contract.d/qualification/) are
 # read at start-up through omx-contract's C loader (libomx-domain), never rendered here (src/domain_words.c, src/machine.c,
 # src/qualification_words.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a ':' list, the first
 # directory holding the domain wins) and the daemon the installed contract directory only; the tests of this tree run the
-# CLIs over this checkout's own machine document, the installed contract directory after it for plugin-qualify's
+# CLIs over this checkout's own documents, the installed contract directory after it
 DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
 DOMAIN_LIBS ?= $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
 INSTALLED_CONTRACT_DIR := $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null)
@@ -214,7 +214,7 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_qualification_domain install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
@@ -249,6 +249,14 @@ install_machine_domain:
 install_probe_domain:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_probe_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/probe $(DESTDIR)$(CONTRACTDIR)
+
+# the domain qualification (contract.d/qualification: what a qualification measures and records, with its catalogs; plugin-qualify's
+# up to its 1.4.0), installed to <contractdir>/qualification/ the same way: plugin-hostd-contract ships it, and the probe and the
+# schema generator refuse to start without it (78)
+.PHONY: install_qualification_domain
+install_qualification_domain:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_qualification_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(DESTDIR)$(CONTRACTDIR)
 
 # the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
@@ -319,10 +327,14 @@ render-verbs check-rendered:
 # the machine domain's codes header (include/plugin-hostd/machine_codes.h) is the render of the items marked x-c-codes,
 # and there is none while no item is marked: validate, fmt --check and render --check
 .PHONY: check-machine-codes
+# (the machine and probe domains, staged alone: the qualification domain names plugin-hostd-protocol's domain pin, which a
+# directory read alone cannot see; it is validated with the installed contract directory by check-contract-dir and
+# tests/qualification_pin_from.py)
 check-machine-codes:
-	$(OMX_CONTRACT) validate --contract-dir contract.d
-	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
-	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd --check
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; cp -r contract.d/machine contract.d/probe $$tmp/; \
+	$(OMX_CONTRACT) validate --contract-dir $$tmp; \
+	$(OMX_CONTRACT) fmt --check --contract-dir $$tmp; \
+	$(OMX_CONTRACT) render --target c --package machine --contract-dir $$tmp --out include/plugin-hostd --check
 
 # the machine domain is a valid document, the codes header is its render, and the installed tree opens through the
 # loader (tests/machine_domain.py; DOMAIN_CFLAGS and DOMAIN_LIBS name a loader that pkg-config does not find)
@@ -499,7 +511,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-qualification-domain test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -929,10 +941,20 @@ check-ci-guards:
 test-vocabulary:
 	python3 tests/vocabulary_derived.py
 
-# the qualification words are plugin-qualify's domain, read by the probe through the C loader: no render of it here, the
+# the qualification words are this tree's domain (contract.d/qualification), read by the probe through the C loader: no render of it here, the
 # probe's words follow a changed copy, an absent or too old domain is refused by name
 test-qualification-domain: $(PROBE) tests/probe-child tests/stress.clap
 	PROBE=./$(PROBE) python3 tests/qualification_domain.py
+
+# the domain is plugin-hostd's: its document and catalogs hold the golden words and install as the loader reads them
+.PHONY: test-qualification-domain-owned
+test-qualification-domain-owned:
+	python3 tests/qualification_domain_owned.py
+
+# QUALIFICATION_PIN_VERDICTS names plugin-hostd-protocol's pin verdict words (its domain pin), it holds no list (V12)
+.PHONY: test-qualification-pin-from
+test-qualification-pin-from:
+	OMX_CONTRACT='$(OMX_CONTRACT)' python3 tests/qualification_pin_from.py
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates

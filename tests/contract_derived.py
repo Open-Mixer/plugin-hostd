@@ -29,7 +29,7 @@ DOMAIN_CFLAGS = (os.environ["DOMAIN_CFLAGS"] if "DOMAIN_CFLAGS" in os.environ el
 DOMAIN_LIBS = (os.environ["DOMAIN_LIBS"] if "DOMAIN_LIBS" in os.environ else
                subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
 # the CLIs read the machine domain from OMX_CONTRACT_PATH: this checkout's own document
-# (then the installed contract directory, where plugin-qualify's qualification domain is)
+# (then the installed contract directory)
 MACHINE_ENV = dict(os.environ, OMX_CONTRACT_PATH=":".join(
     [os.path.join(ROOT, "contract.d")] + [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d] +
     [subprocess.run([PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()]))

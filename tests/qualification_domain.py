@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The qualification words are plugin-qualify's domain (contract.d/qualification/qualification.json there, its items
-# QUALIFICATION_*): plugin-hostd ships no document of it and no render of it, and the probe reads it at start-up through
-# the C loader (omx_domain_open, floor 1.1.0). Held here:
+# The qualification words are plugin-hostd's domain (contract.d/qualification/qualification.json, its items
+# QUALIFICATION_*; plugin-qualify's up to its 1.4.0): plugin-hostd ships the document and no render of it, and the probe
+# reads it at start-up through the C loader (omx_domain_open, floor 1.1.0). Held here:
 #   1. no qualification_vocabulary.h exists, is named by a source, a build rule, a package or a workflow;
-#   2. this package ships no qualification document of its own;
+#   2. this tree holds the qualification document (the golden words are tests/qualification_domain_owned.py's);
 #   3. the words the probe writes are the domain's: a scratch copy of the domain with three words renamed, the probe pointed
 #      at it (--contract-dir, the probe's test entry), writes the renamed words;
 #   4. a domain that is absent, below the floor, or without a word the probe writes ends the run with the loader's code and
@@ -63,8 +63,8 @@ def main():
         named += ["%s:%d" % (f, n) for n, line in enumerate(text.splitlines(), 1) if "qualification_vocabulary" in line]
     check(not named, "nothing names qualification_vocabulary: %s" % named[:6])
     # 2. no document of its own
-    check(not os.path.exists(os.path.join(ROOT, "contract.d", "qualification")), "no contract.d/qualification here: the domain is plugin-qualify's")
-    check(not any(f.startswith("contract.d/qualification") for f in files), "no qualification document is tracked")
+    check(os.path.isfile(os.path.join(ROOT, "contract.d", "qualification", "qualification.json")), "contract.d/qualification is here: the domain is plugin-hostd's")
+    check(any(f == "contract.d/qualification/qualification.json" for f in files), "the qualification document is tracked")
 
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-qualification.")
     try:

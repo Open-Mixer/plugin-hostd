@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import unittest
+import unittest.mock
 
 import make_report as m
 
@@ -372,6 +373,71 @@ class Case(unittest.TestCase):
             self.assertEqual(json.load(fh)["prs"][0]["repo"], "o/r")
         with self.assertRaises(SystemExit):
             m.fetch_prs(facts, out, run=lambda *a, **k: R(1, ""))
+
+
+class RatingWords(Case):
+    """The verdict ratings are the words of the `qualification` domain (QUALIFICATION_MEASUREMENT_VERDICT_RATINGS, owner
+    plugin-hostd), read through the report's own reader; none is typed here. The golden words were frozen from the domain
+    when plugin-qualify owned it (1.4.0, plugin-qualify 2d6aefc)."""
+
+    GOLDEN = {"suitable": "suitable", "conditional": "conditional", "unknown": "unknown", "unsuitable": "unsuitable"}
+
+    def scratch_domain(self, rename):
+        """a contract directory holding this checkout's domain with rating words renamed ({old: new}); the path of the directory"""
+        out = os.path.join(self.d, "contract")
+        shutil.copytree(os.path.join(m.REPO, "contract.d", "qualification"), os.path.join(out, "qualification"))
+        path = os.path.join(out, "qualification", "qualification.json")
+        with open(path) as f:
+            doc = json.load(f)
+        for e in doc["components"]["schemas"]["QUALIFICATION_MEASUREMENT_VERDICT_RATINGS"]["oneOf"]:
+            if e["const"] in rename:
+                e["const"] = rename[e["const"]]
+        with open(path, "w") as f:
+            json.dump(doc, f)
+        return out
+
+    @contextlib.contextmanager
+    def contract_path(self, path):
+        before = os.environ.get("OMX_CONTRACT_PATH")
+        os.environ["OMX_CONTRACT_PATH"] = path
+        try:
+            yield
+        finally:
+            if before is None:
+                del os.environ["OMX_CONTRACT_PATH"]
+            else:
+                os.environ["OMX_CONTRACT_PATH"] = before
+
+    def test_golden_ratings_are_the_domains(self):
+        self.assertEqual(m.rating_words(), self.GOLDEN)
+
+    def test_qdocs_count_the_domains_words(self):
+        self.write("q/a.json", {"verdicts": [{"rating": "suitable"}, {"rating": "unsuitable", "deciding": "r1"}]})
+        errs = []
+        r = m.parse_qdocs(os.path.join(self.d, "q"), errs)
+        self.assertEqual((errs, r["counts"], r["reasons"]), ([], {"suitable": 1, "unsuitable": 1}, {"r1": 1}))
+
+    def test_sabotage_a_domain_with_a_renamed_rating_changes_the_result(self):
+        # the word of "suitable" is "fit" in the scratch domain: "fit" needs no deciding reason, "suitable" is no rating
+        scratch = self.scratch_domain({"suitable": "fit"})
+        self.write("q/a.json", {"verdicts": [{"rating": "fit"}, {"rating": "unsuitable", "deciding": "r1"}]})
+        with self.contract_path(scratch):
+            self.assertEqual(m.rating_words()["suitable"], "fit")
+            errs = []
+            r = m.parse_qdocs(os.path.join(self.d, "q"), errs)
+        self.assertEqual((errs, r["counts"], r["reasons"]), ([], {"fit": 1, "unsuitable": 1}, {"r1": 1}))
+        self.write("e/zy-qpilot.out", "exit=0 seconds=1\n-- verdict summary\n    3 fit\n    2 unsuitable\n-- sample\nh\n-- stderr\n")
+        with self.contract_path(scratch):
+            q = m.parse_qpilot(os.path.join(self.d, "e"))
+        self.assertEqual(q["counts"], {"fit": 3, "unsuitable": 2})
+
+    def test_a_domain_without_the_ratings_is_refused_by_name(self):
+        empty = os.path.join(self.d, "none")
+        os.makedirs(empty)
+        with self.contract_path(empty), unittest.mock.patch.object(m, "REPO", empty):
+            with self.assertRaises(SystemExit) as raised:
+                m.rating_words()
+        self.assertIn("qualification", str(raised.exception))
 
 
 if __name__ == "__main__":

@@ -671,7 +671,7 @@ static memlock_t g_lock;
 /* the lock preload, as --lock-preload names it */
 static const char *g_lock_preload = PROBE_LOCK_PRELOAD;
 
-/* The qualification words a run writes: plugin-qualify's domain (qualification_words.h), read once at start-up, the words
+/* The qualification words a run writes: the qualification domain (qualification_words.h), read once at start-up, the words
  * of these keys as the domain writes them, held by the open handle for the life of the process. Never read in a real-time
  * path. */
 static struct

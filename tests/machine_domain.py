@@ -209,7 +209,7 @@ def renamed(doc):
 
 
 def with_qualification(contract_dir):
-    """the test entry for the probe and the generator, which read plugin-qualify's qualification domain and this checkout's
+    """the test entry for the probe and the generator, which read the qualification domain and this checkout's
     probe domain as well: the machine directory under test first, a directory that holds the probe domain alone, the
     directory that holds the qualification domain"""
     return contract_dir + ":" + PROBE_ONLY[0] + ":" + qualification_source.source_dir()
