@@ -2093,6 +2093,7 @@ def a_clap_worker_is_started_with_clap_path_so_browsing_a_plugin_outside_the_def
         d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_PRESET_NEEDS_CLAP_PATH": p.dir})
         try:
             d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
             d.expect("preset_list 0", "resp 2")
         finally:
             d.close()
@@ -3420,6 +3421,116 @@ def store_lines(p):
         return [l.split() for l in f if l.strip()]
 
 
+def spool_requests(p):
+    """the qualify spool beside the store: the request files, by name, each as its lines"""
+    spool = os.path.join(os.path.dirname(p.store), "qualify")
+    if not os.path.isdir(spool):
+        return {}
+    out = {}
+    for name in sorted(os.listdir(spool)):
+        with open(os.path.join(spool, name)) as f:
+            out[name] = [l.rstrip("\n") for l in f if l.strip()]
+    return out
+
+
+@test
+def a_first_add_with_no_verdict_is_bypassed_and_asks_for_one_check_R_112():
+    """R-112: under first-use a plugin with no verdict is not instantiated in any worker: the add answers, the instance
+    exists, no worker holds it and none ever saw it, one request for its quick check is in the spool beside the store
+    with the files the daemon hashed, and qualify_requested says so once however often it is added again"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(d.workers() == {}, "no worker holds the bypassed insert: %s" % d.workers())
+        check(p.received() == [], "no worker was asked anything, its code is loaded by none: %s" % p.received())
+        d.wait_event("qualify_requested %s" % p.clap_uri)
+        req = spool_requests(p)
+        check(len(req) == 1, "exactly one request is in the spool: %s" % req)
+        lines = list(req.values())[0]
+        check(lines == ["uri %s" % p.clap_uri, "file omx-fault.clap %s" % sha(p.clap)],
+              "the request names the uri and the file it hashed: %s" % lines)
+        check(not [n for n in os.listdir(os.path.join(os.path.dirname(p.store), "qualify")) if not n.endswith(".request")],
+              "no temporary file is left in the spool")
+        d.expect("instance_info 0", resp("WORKER_SPAWN"))
+        d.expect("remove 0", "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        check(len(spool_requests(p)) == 1, "at most one request per plugin until a verdict lands: %s" % spool_requests(p))
+        check(len([e for e in d.events if e.startswith("qualify_requested")]) == 1,
+              "qualify_requested is said once: %s" % d.events)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_verdict_that_passes_makes_the_bypassed_insert_live_by_itself_R_112():
+    """the service writes a pin with verdict=isolated; the daemon reloads it, the request is answered, and the insert is
+    in a worker of its own with no restart and no verb about the instance"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(d.workers() == {}, "bypassed first")
+        d.wait_event("qualify_requested %s" % p.clap_uri)
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "isolated")]})
+        wait_for(lambda: d.send("worker_list") != "resp 0" and d.workers() != {}, "the worker of the passed insert")
+        w = d.holder(0)[1]
+        check(w["place"] == "own" and w["state"] == "up", "it is live in a worker of its own: %s" % w)
+        check(spool_requests(p) == {}, "its request is answered: %s" % spool_requests(p))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_refused_verdict_keeps_the_insert_bypassed_until_pin_accept_R_112():
+    """a refusal is recorded and the plugin stays bypassed and listed: an add of it answers -516, no worker saw it;
+    pin_accept makes the bypassed instance live alone in a worker of its own"""
+    p = Plugins()
+    refused = resp("PIN_REFUSED")
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.wait_event("qualify_requested %s" % p.clap_uri)
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "refused")]})
+        d.expect("pin_reload", "resp 0")
+        d.expect("add %s 1" % p.clap_uri, refused)
+        check(d.workers() == {} and p.received() == [], "still no worker: %s %s" % (d.workers(), p.received()))
+        check(spool_requests(p) == {}, "a verdict, a refusal too, answers the request: %s" % spool_requests(p))
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        w = d.holder(0)[1]
+        check(w["place"] == "own" and w["inst"] == [0], "after pin_accept it is live, alone: %s" % w)
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+        d.expect("add %s 2" % p.clap_uri, refused)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_live_insert_whose_verdict_turns_refused_keeps_playing_R_112():
+    """the verdict of a live instance that a later check refuses does not cut it; nor does one landing after the
+    operator accepted override the choice"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "isolated")]})
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "refused")]})
+        d.expect("pin_reload", "resp 0")
+        w = d.holder(0)[1]
+        check(w["state"] == "up" and w["inst"] == [0], "the live insert keeps playing: %s" % w)
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        check(d.holder(1)[1]["place"] == "own", "an accepted plugin's refusal stays advice: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
 @test
 def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
     p = Plugins()
@@ -3428,6 +3539,9 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
         d.expect("policy_set * pool:shared", "resp 0")
         d.expect("add %s 0" % p.clap_uri, "resp 0")
         d.expect("add %s 1" % LV2_URI, "resp 1")
+        check(d.workers() == {}, "R-112: with no verdict neither is in a worker: %s" % d.workers())
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        d.expect("pin_accept %s" % LV2_URI, "resp 0")
         check(own_worker_of(d, 0) and own_worker_of(d, 1), "unpinned plugins run isolated, not in the policy's pool: %s"
               % d.workers())
         got = [c.split()[0] for _, c in p.received()]
@@ -3536,6 +3650,7 @@ def a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted():
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
         d.expect("remove 0", "resp 0")
         good = open(p.clap, "rb").read()
         write(p.clap, good[:-1] + b"X")
@@ -3562,6 +3677,8 @@ def a_layout_that_changed_after_first_use_is_refused_with_an_event():
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        writes_landed(d)
     finally:
         d.close()
     d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_LAYOUT_DEFAULT": "0.25"})
@@ -5698,6 +5815,7 @@ def a_clap_file_whose_name_holds_a_space_is_added_bare_quoted_or_encoded_and_pin
     try:
         d.expect("add %s 0" % raw, "resp 0")
         d.expect("add %s 1 own spaced" % raw, "resp 1")
+        d.expect('pin_accept "%s"' % raw, "resp 0")
         adds = [c for c in sent_to(env["FAKE_LOG"]) if c.startswith("add ")]
         check(adds[:1] == ['add "%s" 0' % raw], "the worker is given the whole path, one quoted word: %s" % adds)
         check(len(adds) == 2 and adds[1].startswith('add "%s" 1' % raw) and adds[1].endswith("spaced"),
@@ -5774,6 +5892,7 @@ def a_worker_with_no_display_gives_qt_the_offscreen_platform_and_keeps_the_users
             d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
             try:
                 d.expect("add %s %d" % (p.clap_uri, n), "resp %d" % n)
+                d.expect("pin_accept %s" % p.clap_uri, "resp 0")
                 envs = worker_environ(d)
                 check(envs and all(e.get(b"QT_QPA_PLATFORM") == want for e in envs),
                       "%s: the worker's QT_QPA_PLATFORM is %s, wanted %s" % (env, [e.get(b"QT_QPA_PLATFORM") for e in envs], want))
@@ -6636,7 +6755,9 @@ def a_reload_after_a_learned_pin_reads_the_store_that_holds_it():
     d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
-        check(in_flight(mark), "positive control: the store's write is in flight when the reload comes")
+        # the add no longer starts a worker (R-112), so it returns before the writer's thread has begun the fsync: the
+        # control waits for it to begin, which it does as the 2 s fsync the reload must outwait
+        wait_for(lambda: in_flight(mark), "positive control: the store's write is in flight when the reload comes")
         d.expect("pin_reload", "resp 0")
         # the next learned pin's write holds what the reload left in memory
         d.expect("add %s 1" % other_uri, "resp 1")
