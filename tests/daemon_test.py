@@ -706,20 +706,42 @@ def connections_are_replayed_and_disconnect_forgets():
 
 @test
 def a_connect_the_new_worker_cannot_make_yet_is_asked_again():
-    d = daemon(env={"FAKE_CONNECT_AFTER_MS": "400"})
+    # the fake refuses a connect (-205) until FAKE_CONNECT_AFTER_MS after its own start. What is proved is read from
+    # events, never from a sleep: the connect the respawned worker was sent while new, its refusal and the connect
+    # asked again are the worker's own log (FAKE_LOG, one "<pid> <line>" per command it received). The window is long
+    # (3 s) so the replay, sent right after the restore, falls inside it on a loaded machine too; a list_connections
+    # read between the restore and the retry was a race (the retry could already have landed).
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    after_ms = 3000
+    d = daemon(env={"FAKE_CONNECT_AFTER_MS": str(after_ms), "FAKE_LOG": log})
+
+    def connects(pid):
+        if not os.path.exists(log):
+            return []
+        with open(log) as f:
+            return [l for l in f if l.startswith("%d connect " % pid)]
     try:
         d.expect("add fake:a 0", "resp 0")
-        time.sleep(0.5)
-        d.expect("connect effect_0:out_1 system:playback_1", "resp 0")
+        # the first worker's own window: asked until it is past it (the daemon answers the worker's -205 while new)
+        wait_for(lambda: d.send("connect effect_0:out_1 system:playback_1") == "resp 0", "the first worker to take the connect",
+                 after_ms / 1000.0 + 5)
         d.expect("list_connections", "resp 0 effect_0:out_1>system:playback_1")
         _, w = d.holder(0)
         mark = d.mark()
         os.kill(w["pid"], signal.SIGKILL)
         d.wait_event("instance_restored 0 ", since=mark)
-        check(d.send("list_connections") == "resp 0", "the worker refused the connect while it was new")
-        wait_for(lambda: d.send("list_connections") == "resp 0 effect_0:out_1>system:playback_1", "the connection to come back", 5)
+        _, w2 = d.holder(0)
+        check(w2["pid"] != w["pid"], "the instance is held by a new worker")
+        # the connection comes back, and the new worker's log shows it was asked more than once: refused while new, then
+        # asked again
+        wait_for(lambda: d.send("list_connections") == "resp 0 effect_0:out_1>system:playback_1", "the connection to come back",
+                 after_ms / 1000.0 + 5)
+        sent = connects(w2["pid"])
+        check(len(sent) >= 2, "the new worker refused the connect while it was new and was asked again: %s" % sent)
     finally:
         d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 
 @test
