@@ -5882,7 +5882,8 @@ def the_scan_files_the_panel_under_the_descriptors_name_and_panel_get_answers_fr
         d.expect("add lv2:%s 1" % LV2_COMPRESSOR, "resp 1")
         wait_for(lambda: panel_answered(d, "lv2:" + LV2_COMPRESSOR, panel_name(s.lv2_name())), "the LV2 panel")
         check(json.load(open(panel_name(s.lv2_name()))) == {"plugin": {"format": "lv2", "id": LV2_COMPRESSOR},
-                                                            "panel": None}, "an LV2 plugin's panel is null")
+                                                            "panel": None, "meters": []},
+              "an LV2 plugin's panel is null, its meters none")
         d.expect("panel_get", "resp -902")
         d.expect("panel_get clap:fake#x", resp("DESCRIPTOR_ABSENT"))
         # a descriptor in place with no panel (filed before the panel stage was): absent until an add scans the panel
@@ -5902,6 +5903,39 @@ def the_scan_files_the_panel_under_the_descriptors_name_and_panel_get_answers_fr
         check(answered(d, s.clap_uri, other), "the descriptor stands")
         check("the scan wrote no panel" in d.log(), "stderr says so: %s" % d.log()[-400:])
         check(os.listdir(os.path.join(s.dir, "other", "panels")) == [], "no file is left behind")
+    finally:
+        d.close()
+        s.close()
+
+
+@test
+def the_panel_file_resolves_the_meters_its_displays_index():
+    # the reply's own consistency: every meter id a display of the panel names (its meterIds) is the id of one row of
+    # the file's meters, each a row of the descriptor's meters[] shape for the scan's meter of that id, and no row no
+    # display names
+    s = Scan()
+    d = s.daemon()
+    try:
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        name = s.clap_name()
+        wait_for(lambda: panel_answered(d, s.clap_uri, panel_name(name)), "panel_get answers %s" % panel_name(name))
+        doc = json.load(open(panel_name(name)))
+        named = [i for disp in doc["panel"]["displays"] for i in disp.get("meterIds", []) if i is not None]
+        check(named, "the fixture's panel indexes meters: %s" % doc["panel"]["displays"])
+        check(isinstance(doc.get("meters"), list), "the panel file carries meters: its keys are %s" % sorted(doc))
+        carried = {m["id"]: m for m in doc["meters"]}
+        check(len(carried) == len(doc["meters"]), "one row per meter id: %s" % doc["meters"])
+        missing = sorted(set(named) - set(carried))
+        check(not missing, "a display names meter ids %s the panel file does not carry (it carries %s)"
+              % (missing, sorted(carried)))
+        check(set(carried) == set(named), "the file carries the meters its displays index and no other: %s, named %s"
+              % (sorted(carried), named))
+        scan = json.load(open(os.path.join(FIELDS, "clap-panel-scan.json")))
+        rows = {m["id"]: m for m in scan["files"][0]["plugins"][0]["meters"]}
+        check(all(list(carried[i]) == ["id", "symbol", "kind", "channels", "unit", "min", "max", "scale"]
+                  and carried[i]["symbol"] == rows[i]["name"] and carried[i]["kind"] == rows[i]["kind"]
+                  and carried[i]["channels"] == rows[i]["channels"] for i in carried),
+              "each row is the descriptor's meters[] row of the scan's meter of that id: %s" % doc["meters"])
     finally:
         d.close()
         s.close()

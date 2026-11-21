@@ -1046,8 +1046,19 @@ static int check_meters(entry_t *const *meters, size_t nm, entry_t *const *contr
     return 0;
 }
 
-/* one item of meters[] (omx-contract docs/descriptors.md): a gain reduction in dB, a level in dBFS (clap.meters/1's
- * kinds); clap.meters/1 states no scale, so the scale is unknown as an unstated CLAP scale is */
+/* one meter row, the shape of meters[] (omx-contract docs/descriptors.md): a gain reduction in dB, a level in dBFS
+ * (clap.meters/1's kinds); clap.meters/1 states no scale, so the scale is unknown as an unstated CLAP scale is. The
+ * descriptor's meters[] and the panel file's meters are both written here, so a reader reads one shape. id, min and
+ * max are JSON numbers, sym and kind JSON strings, each as its literal */
+static void meter_row(sb_t *b, const char *id, const char *sym, const char *kind, long channels, const char *min,
+                      const char *max)
+{
+    sb_printf(b, "{\"id\": %s, \"symbol\": %s, \"kind\": %s, \"channels\": %ld, \"unit\": \"%s\", \"min\": %s, "
+                 "\"max\": %s, \"scale\": \"unknown\"}",
+              id, sym, kind, channels, !strcmp(kind, "\"gain-reduction\"") ? "dB" : "dBFS", min, max);
+}
+
+/* one item of meters[] */
 static int put_meter(sb_t *b, const entry_t *e, int first)
 {
     const char *id = get(e, "meters[].id"), *sym = get(e, "meters[].symbol"), *kind = meter_kind(e);
@@ -1059,10 +1070,8 @@ static int put_meter(sb_t *b, const entry_t *e, int first)
         return refuse("%s states no channel", e->scope);
     if (min == NULL || max == NULL)
         return refuse("%s states no display %s", e->scope, min ? "maximum" : "minimum");
-    sb_printf(b, "%s\n    {\"id\": %s, \"symbol\": %s, \"kind\": %s, \"channels\": %ld, \"unit\": \"%s\", \"min\": %s, "
-                 "\"max\": %s, \"scale\": \"unknown\"}",
-              first ? "" : ",", id, sym, kind, meter_channels(e), !strcmp(kind, "\"gain-reduction\"") ? "dB" : "dBFS",
-              min, max);
+    sb_printf(b, "%s\n    ", first ? "" : ",");
+    meter_row(b, id, sym, kind, meter_channels(e), min, max);
     return 0;
 }
 
@@ -1313,6 +1322,109 @@ static const cJSON *scanned_plugin(const cJSON *scan, const char *id, size_t *fi
     return NULL;
 }
 
+/* a display's meter id, a whole number from 0 to UINT32_MAX (clap_id), or -1 for one that is none or no such number */
+static long long meter_id_of(const cJSON *v)
+{
+    if (!cJSON_IsNumber(v) || v->valuedouble < 0 || v->valuedouble > 4294967295.0 || v->valuedouble != (double)(long long)v->valuedouble)
+        return -1;
+    return (long long)v->valuedouble;
+}
+
+/* whether a display of the panel names the meter id in its meterIds (a null id names none) */
+static int meter_indexed(const cJSON *panel, long long id)
+{
+    const cJSON *displays = jget(panel, "displays");
+    size_t i, k;
+
+    for (i = 0; displays && cJSON_IsArray(displays) && i < jcount(displays); i++)
+    {
+        const cJSON *ids = jget(jkid(displays, i), "meterIds");
+
+        for (k = 0; ids && cJSON_IsArray(ids) && k < jcount(ids); k++)
+            if (meter_id_of(jkid(ids, k)) == id)
+                return 1;
+    }
+    return 0;
+}
+
+/* one of the scan's meters (omx-clap-scan --json: {id, name, kind, flags, channels, min, max}) as a row of the
+ * descriptor's meters[], read as describe reads the same fields of the dump (data/formats/clap.json): the id, min and
+ * max as they are, the name through output-symbol, the kind by its word (gain-reduction or level; describe refuses any
+ * other), the flags dropped */
+static int panel_meter(sb_t *out, const cJSON *m, long long id, const char *plugin_id)
+{
+    const cJSON *kind = jget(m, "kind"), *ch = jget(m, "channels");
+    const char *name = jstr(m, "name");
+    char sym[256], ids[24], *min = literal(jget(m, "min")), *max = literal(jget(m, "max"));
+    int rc = 0;
+
+    snprintf(ids, sizeof(ids), "%lld", id);
+    if (name == NULL || transforms_output_symbol(NULL, name, sym, sizeof(sym)) != TRANSFORMS_OK)
+        rc = refuse("meter %s of %s: its name gives no output symbol", ids, plugin_id);
+    else if (!cJSON_IsString(kind) || (strcmp(kind->valuestring, "gain-reduction") && strcmp(kind->valuestring, "level")))
+        rc = refuse("meter %s of %s: a kind the descriptor has no word for", ids, plugin_id);
+    else if (!cJSON_IsNumber(ch) || ch->valuedouble < 1 || ch->valuedouble != (double)(long)ch->valuedouble)
+        rc = refuse("meter %s of %s states no channel", ids, plugin_id);
+    else if (min == NULL || max == NULL || !cJSON_IsNumber(jget(m, "min")) || !cJSON_IsNumber(jget(m, "max")))
+        rc = refuse("meter %s of %s states no display %s", ids, plugin_id, min && cJSON_IsNumber(jget(m, "min")) ? "maximum" : "minimum");
+    else
+    {
+        char kw[32];
+
+        snprintf(kw, sizeof(kw), "\"%s\"", kind->valuestring);
+        meter_row(out, ids, sym, kw, (long)ch->valuedouble, min, max);
+    }
+    free(min);
+    free(max);
+    return rc;
+}
+
+/* ,"meters": [...] of the panel file (plugin-hostd-protocol's PHD_PANEL_FILE_KEYS): the plugin's clap.meters/1 meters
+ * the panel's displays index, in the scan's order, each a row of the descriptor's meters[] shape with the same id and
+ * values, so the file resolves its own displays and a reader reads one meter shape. A display naming a meter id no
+ * meter of the scan carries is refused: the file never names a meter it does not hold. */
+static int panel_meters(const cJSON *plugin, const cJSON *panel, const char *id, sb_t *out)
+{
+    const cJSON *meters = jget(plugin, "meters"), *displays = jget(panel, "displays");
+    size_t i, k, n = meters && cJSON_IsArray(meters) ? jcount(meters) : 0, put = 0;
+
+    for (i = 0; displays && cJSON_IsArray(displays) && i < jcount(displays); i++)
+    {
+        const cJSON *ids = jget(jkid(displays, i), "meterIds");
+
+        for (k = 0; ids && cJSON_IsArray(ids) && k < jcount(ids); k++)
+        {
+            const cJSON *v = jkid(ids, k);
+            long long want = meter_id_of(v);
+            size_t m;
+
+            if (cJSON_IsNull(v))
+                continue;
+            if (want < 0)
+                return refuse("the panel of %s: display %zu names a meter id that is no clap_id", id, i);
+            for (m = 0; m < n && meter_id_of(jget(jkid(meters, m), "id")) != want; m++)
+                ;
+            if (m == n)
+                return refuse("the panel of %s: display %zu names meter %lld, which the scan's meters do not carry%s",
+                              id, i, want, meters ? "" : " (the scan prints no meters)");
+        }
+    }
+    SBL(out, ", \"meters\": [");
+    for (i = 0; i < n; i++)
+    {
+        long long mid = meter_id_of(jget(jkid(meters, i), "id"));
+
+        if (mid < 0 || !meter_indexed(panel, mid))
+            continue;
+        if (put++)
+            SBL(out, ", ");
+        if (panel_meter(out, jkid(meters, i), mid, id) != 0)
+            return -1;
+    }
+    SBL(out, "]");
+    return 0;
+}
+
 int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size)
 {
     const char *format = describe_format(target), *id = describe_id(target), *error;
@@ -1332,7 +1444,7 @@ int describe_panel(const char *scan_json, const char *target, sb_t *out, char *w
     /* the panel description is a CLAP extension: an LV2 plugin serves none */
     if (!strcmp(format, "lv2"))
     {
-        SBL(out, "null}\n");
+        SBL(out, "null, \"meters\": []}\n");
         return 0;
     }
     if ((scan = jparse(scan_json)) == NULL || !cJSON_IsObject(scan))
@@ -1363,6 +1475,11 @@ int describe_panel(const char *scan_json, const char *target, sb_t *out, char *w
         }
     }
     sb_put(out, raw, len);
+    if (panel_meters(plugin, panel, id, out) != 0)
+    {
+        cJSON_Delete(scan);
+        return -1;
+    }
     SBL(out, "}\n");
     cJSON_Delete(scan);
     return 0;
