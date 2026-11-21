@@ -26,18 +26,18 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/timing_load_test.py (ruling 2026-11-11: a timing proof warns on a loaded node and fails on a quiet one)
 # The declared protocol is plugin-hostd-protocol's. An arm that breaks one of its headers (include/plugin-hostd/ and a
 # name of PROTOCOL_HEADERS below) breaks a copy of the installed headers in the arm's tree, which -Iinclude finds before
-# the installed ones (tests/declared.py, overlay); an arm that breaks protocol-data/verbs.json breaks a copy of the
-# installed verbs.json and renders it into that copy, as plugin-hostd-protocol renders it.
+# the installed ones (tests/declared.py, overlay); an arm that breaks the domain plugin-hostd (the words of the protocol) breaks a copy of the
+# installed document, protocol-data/contract.d/plugin-hostd/plugin-hostd.json, and renders it into that copy, as plugin-hostd-protocol renders it.
 PROTOCOL_HEADERS = set(declared.headers())
-PROTOCOL_VERBS = "protocol-data/verbs.json"
+PROTOCOL_VERBS = "protocol-data/contract.d/plugin-hostd/plugin-hostd.json"
 
 
 def protocol_overlay(tree, path):
     """the copy of the declared protocol an arm on path breaks, made in tree; True when one was made"""
     if path == PROTOCOL_VERBS:
         declared.overlay(tree)
-        os.makedirs(os.path.join(tree, "protocol-data"), exist_ok=True)
-        shutil.copy(declared.verbs_json(), os.path.join(tree, PROTOCOL_VERBS))
+        os.makedirs(os.path.dirname(os.path.join(tree, PROTOCOL_VERBS)), exist_ok=True)
+        shutil.copy(declared.domain_json(), os.path.join(tree, PROTOCOL_VERBS))
         declared.render_overlay(tree, os.path.join(tree, PROTOCOL_VERBS))
         return True
     if path.startswith("include/plugin-hostd/") and os.path.basename(path) in PROTOCOL_HEADERS:
@@ -1033,16 +1033,19 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
-    # the declared verbs (data/verbs.json) against the daemon on its socket, and the sources against the declaration
+    # the declared verbs (the domain plugin-hostd of plugin-hostd-protocol) against the daemon on its socket, and the sources against the declaration
     ("a declared format is not the grammar the daemon answers", PROTOCOL_VERBS,
-     '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
+     '"x-format": "chain_get %i",', '"x-format": "chain_get %i %i",', "verbs_declared", "verbs"),
     ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h",
      "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-522)", "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-101)",
      "verbs_declared", "verbs"),
     ("a number omx-clap-core names is named again by plugin-hostd", PROTOCOL_VERBS,
-     '    "codes": {\n      "placementInvalid": {',
-     '    "codes": {\n      "invalidOperation": {\n        "code": "reply.plugin-hostd.invalid-operation",\n'
-     '        "resp": -902,\n        "doc": "a second name for -902"\n      },\n      "placementInvalid": {',
+     '\n        ]\n      },\n      "PLUGIN_HOSTD_VERBS": {',
+     ',\n          {\n            "const": "reply.plugin-hostd.invalid-operation",\n            "title": "invalidOperation",\n'
+     '            "description": "a second name for -902",\n            "x-code": 39,\n'
+     '            "x-text": "The operation is not valid here; choose another.",\n            "x-args": [],\n'
+     '            "x-name": "invalidOperation",\n            "x-resp": -902\n          }'
+     '\n        ]\n      },\n      "PLUGIN_HOSTD_VERBS": {',
      "verbs_declared", "verbs"),
     ("the daemon reads another word than the one omx-clap-core declares for the worker's xruns", "include/plugin-hostd/protocol.h",
      '#define PHD_EVENT_XRUNS                   "xruns"', '#define PHD_EVENT_XRUNS                   "xrun"',
@@ -1915,7 +1918,7 @@ def run_verbs_test(tree, name):
         env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE,
                    PROBE=os.path.join(tree, "plugin-hostd-probe"))
         if os.path.exists(os.path.join(tree, PROTOCOL_VERBS)):
-            env["PLUGIN_HOSTD_VERBS"] = os.path.join(tree, PROTOCOL_VERBS)
+            env["PLUGIN_HOSTD_DOMAIN"] = os.path.join(tree, PROTOCOL_VERBS)
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_declared.py")], env=env, capture_output=True,
                            text=True, timeout=300)
     return p.returncode, p.stdout + p.stderr + ("ok   %s\n" % name if p.returncode == 0 else "")
