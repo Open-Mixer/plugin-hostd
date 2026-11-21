@@ -885,6 +885,7 @@ check-no-moved-packages:
 test: check-protocol-floor
 check-protocol-floor:
 	python3 tests/protocol_floor.py
+	python3 tests/pin_words_floor.py
 
 # a workflow step the runner may be unable to run fails where it cannot run it (#107)
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not
