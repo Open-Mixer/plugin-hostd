@@ -105,8 +105,9 @@ PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
 INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS)
 
 # the machine domain (contract.d/machine/) and plugin-qualify's qualification domain (contract.d/qualification/ there) are
-# read at start-up through omx-contract's C loader (libomx-domain), never rendered here (src/domain_words.c, src/machine.c,
-# src/qualification_words.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a ':' list, the first
+# read at start-up through omx-contract's C loader (libomx-domain) (src/domain_words.c, src/machine.c,
+# src/qualification_words.c); of the machine domain only the codes of the items marked x-c-codes (the band counts and the
+# family ids of src/machine.h) are rendered, include/plugin-hostd/machine_codes.h. The probe and the generator read OMX_CONTRACT_PATH (their test entry: a ':' list, the first
 # directory holding the domain wins) and the daemon the installed contract directory only; the tests of this tree run the
 # CLIs over this checkout's own machine document, the installed contract directory after it for plugin-qualify's
 DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
@@ -316,8 +317,9 @@ render-verbs check-rendered:
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 
-# the machine domain's codes header (include/plugin-hostd/machine_codes.h) is the render of the items marked x-c-codes,
-# and there is none while no item is marked: validate, fmt --check and render --check
+# the machine domain's codes header (include/plugin-hostd/machine_codes.h) is the render of the items marked x-c-codes
+# (MACHINE_CORE_BANDS, MACHINE_CLOCK_BANDS, MACHINE_FAMILIES; src/machine.h takes its counts and ids from it): validate,
+# fmt --check and render --check
 .PHONY: check-machine-codes
 check-machine-codes:
 	$(OMX_CONTRACT) validate --contract-dir contract.d

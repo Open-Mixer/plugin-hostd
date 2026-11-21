@@ -19,6 +19,11 @@ arms 1 to 8.
    probe writes the domain's word (a scratch copy with every family renamed gives the renamed word), and a domain short of
    a family is refused by item at start-up.
 
+9. the call-level read (machine_words_open, sorting pass V7): the family ids and the band counts of the call are the golden
+   ones frozen from the hand copy (intel 0, amd 1, arm 2, unknown 3; counts 6, 5, 4), they are the codes of the domain's
+   own header (include/plugin-hostd/machine_codes.h, one source: no hand-written enum or count in src/machine.h), and a
+   domain whose family codes are swapped is refused by item at the call.
+
 Environment: OMX_CONTRACT (the command, default omx-contract), INSTALL_CONTRACT_DIR (the installer, default found by
 pkg-config), DOMAIN_CFLAGS and DOMAIN_LIBS (the loader, default pkg-config libomx-domain), CC. Exit 0 all green, 1 a
 FAIL line. Arms 3, 5 and 6 also take PROBE (default ./plugin-hostd-probe), PROBE_CHILD (tests/probe-child), STRESS_CLAP
@@ -276,7 +281,7 @@ def arm5(tmp):
     libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
     contract = os.environ.get("CONTRACT_CFLAGS") or run(["pkg-config", "--cflags", "omx-contract"]).stdout.strip()
     exe = os.path.join(tmp, WORDS_OPEN)
-    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-o", exe,
+    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-Iinclude", "-o", exe,
                                                     "tests/machine_words_open.c", "src/machine.c", "src/domain_words.c"]
     b = run(cc + shlex.split(contract) + shlex.split(cflags) + shlex.split(libs))
     if b.returncode != 0:
@@ -392,6 +397,75 @@ def arm8(doc, tmp):
         ok("arm 8: MACHINE_FAMILIES holds the probe's families and the probe writes the domain's word")
 
 
+GOLDEN_FAMILIES = "intel:0,amd:1,arm:2,unknown:3"
+GOLDEN_COUNTS = "6,5,4"
+
+
+def words_open(dirs, tmp):
+    """the call: tests/machine_words_open.c over machine_words_open(dirs); the process, or None when it does not build"""
+    cflags = os.environ.get("DOMAIN_CFLAGS") or run(["pkg-config", "--cflags", "libomx-domain"]).stdout.strip()
+    libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
+    contract = os.environ.get("CONTRACT_CFLAGS") or run(["pkg-config", "--cflags", "omx-contract"]).stdout.strip()
+    exe = os.path.join(tmp, WORDS_OPEN + "-9")
+    if not os.path.exists(exe):
+        cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-Iinclude",
+                                                        "-o", exe, "tests/machine_words_open.c", "src/machine.c", "src/domain_words.c"]
+        b = run(cc + shlex.split(contract) + shlex.split(cflags) + shlex.split(libs))
+        if b.returncode != 0:
+            fail("arm 9: tests/machine_words_open.c does not build: %s" % b.stderr.strip()[-300:])
+            return None
+    return subprocess.run([exe, dirs], cwd=ROOT, capture_output=True, text=True)
+
+
+def arm9(doc, tmp):
+    before = len(failures)
+    if doc is None:
+        return
+    # (a) golden, frozen from the hand copy of src/machine.h
+    p = words_open(fixture(tmp, "nine-as-is"), tmp)
+    if p is None:
+        return
+    if p.returncode != 0 or (" family=" + GOLDEN_FAMILIES) not in p.stdout or not p.stdout.strip().endswith(" counts=" + GOLDEN_COUNTS):
+        fail("arm 9 (a): the call does not give the golden family ids %s and counts %s: rc %d %s" %
+             (GOLDEN_FAMILIES, GOLDEN_COUNTS, p.returncode, (p.stdout + p.stderr).strip()))
+    # (b) the call's ids and counts are the domain's own header, which is the domain
+    codes = {}
+    counts = {}
+    if os.path.isfile(HEADER):
+        text = open(HEADER).read()
+        counts = {k: int(v) for k, v in re.findall(r"#define OMX_(MACHINE_[A-Z_]+)_COUNT (\d+)u?\b", text)}
+        codes = {k: int(v) for k, v in re.findall(r"#define OMX_MACHINE_FAMILIES_([A-Z0-9_]+) (\d+)u?\b", text)}
+    else:
+        fail("arm 9 (b): include/plugin-hostd/machine_codes.h does not exist")
+    want = {w["title"].upper(): w["x-code"] for w in doc["components"]["schemas"]["MACHINE_FAMILIES"]["oneOf"]}
+    codes.pop("COUNT", None)
+    if codes != want:
+        fail("arm 9 (b): the header's family codes %s are not the domain's %s" % (codes, want))
+    got = ",".join(str(counts.get(k, "-")) for k in ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS", "MACHINE_FAMILIES"))
+    if got != GOLDEN_COUNTS:
+        fail("arm 9 (b): the header's counts %s are not the golden %s" % (got, GOLDEN_COUNTS))
+    # no hand copy: the enum and the counts of src/machine.h are written from the header
+    machine_h = open(os.path.join(ROOT, "src", "machine.h")).read()
+    if "machine_codes.h" not in machine_h:
+        fail("arm 9 (b): src/machine.h does not include the domain's machine_codes.h")
+    if re.search(r"#define MACHINE_(CORE|CLOCK)_BAND_COUNT\s+\d", machine_h) or re.search(r"MACHINE_FAMILY_INTEL\s*[,}]", machine_h):
+        fail("arm 9 (b): src/machine.h still holds a hand-written count or family enum")
+
+    # (c) sabotage: a temporary domain whose first two family codes are swapped is refused by item at the call
+    def swapped(d):
+        one = d["components"]["schemas"]["MACHINE_FAMILIES"]["oneOf"]
+        one[0]["x-code"], one[1]["x-code"] = one[1]["x-code"], one[0]["x-code"]
+
+    p = words_open(fixture(tmp, "nine-swapped", swapped), tmp)
+    if p is None:
+        return
+    if not (p.returncode == 1 and "MACHINE_FAMILIES" in p.stdout and p.stdout.startswith("refused")):
+        fail("arm 9 (c): a domain with swapped family codes is not refused by item at the call: rc %d %s" %
+             (p.returncode, (p.stdout + p.stderr).strip()))
+    if len(failures) == before:
+        ok("arm 9: the call's family ids and counts are the golden ones, the header's, and a swapped domain is refused")
+
+
 def main():
     doc = load()
     arm1(doc)
@@ -406,6 +480,7 @@ def main():
         arm5(tmp)
         arm6(doc, tmp)
         arm8(doc, tmp)
+        arm9(doc, tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return 1 if failures else 0
