@@ -265,26 +265,26 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
         # a 32-band binding in three lines, as a controller sends one that does not fit a line
         thirds = []
         for k in range(3):
-            terms = " ".join("band_freq.%d=f%d:hz band_gain.%d=g%d:db band_q.%d=q%d band_type.%d=t%d@bell|lowshelf" % ((b,) * 8)
+            terms = " ".join("band_freq.%d=f%d:Hz band_gain.%d=g%d:dB band_q.%d=q%d band_type.%d=t%d@bell|lowshelf" % ((b,) * 8)
                              for b in range(k * 11, min(32, (k + 1) * 11)))
             thirds.append("curve_bind 1 0 eq_response eq " + terms)
             d.expect(thirds[-1], "resp 0")
         d.expect("curve_points 1 0 64", "resp 0 1 0,128")
         # a term replaced: the binding is the same terms
-        d.expect("curve_bind 1 0 eq_response eq band_freq.0=f0:hz", "resp 0")
+        d.expect("curve_bind 1 0 eq_response eq band_freq.0=f0:Hz", "resp 0")
         d.expect("curve_points 1 0 64", "resp 0 1 0,128")
         # a second display, a transfer curve that is then started again by another family, and a third that is cleared
-        d.expect("curve_bind 1 1 transfer_curve dynamics threshold=thr:db ratio=r:ratio knee=k:db", "resp 0")
-        d.expect("curve_bind 1 1 transfer_curve gate threshold=thr:db range=rg:db", "resp 0")
+        d.expect("curve_bind 1 1 transfer_curve dynamics threshold=thr:dB ratio=r:ratio knee=k:dB", "resp 0")
+        d.expect("curve_bind 1 1 transfer_curve gate threshold=thr:dB range=rg:dB", "resp 0")
         d.expect("curve_points 1 1 9", "resp 0 1 1,2")
-        d.expect("curve_bind 1 2 transfer_curve dynamics threshold=thr:db ratio=r:ratio", "resp 0")
+        d.expect("curve_bind 1 2 transfer_curve dynamics threshold=thr:dB ratio=r:ratio", "resp 0")
         d.expect("curve_bind 1 2 clear", "resp 0")
         d.expect("curve_points 1 2 9", "resp -537")
         # the first third sent again, as a panel that opens again sends it
         d.expect(thirds[0], "resp 0")
         # refused by the worker: the ledger keeps nothing of it
-        d.expect("curve_bind 1 3 transfer_curve dynamics threshold=nope:db", "resp -103")
-        d.expect("curve_bind 7 0 transfer_curve dynamics threshold=thr:db", "resp -3")
+        d.expect("curve_bind 1 3 transfer_curve dynamics threshold=nope:dB", "resp -103")
+        d.expect("curve_bind 7 0 transfer_curve dynamics threshold=thr:dB", "resp -3")
         d.expect("curve_points 7 0 9", "resp -3")
         d.expect("curve_bind 1 0", "resp -902")
         d.expect("curve_points 1 0", "resp -902")
@@ -306,8 +306,8 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
         with open(log) as f:
             replayed = [l.split(" ", 1)[1] for l in f.read().splitlines() if l.startswith("%d curve_bind" % wb2["pid"])]
         # display 0's four lines (the third sent again last, once), display 1's gate, nothing of 2 and 3, in order
-        want = [thirds[1], thirds[2], "curve_bind 1 0 eq_response eq band_freq.0=f0:hz",
-                "curve_bind 1 1 transfer_curve gate threshold=thr:db range=rg:db", thirds[0]]
+        want = [thirds[1], thirds[2], "curve_bind 1 0 eq_response eq band_freq.0=f0:Hz",
+                "curve_bind 1 1 transfer_curve gate threshold=thr:dB range=rg:dB", thirds[0]]
         check(replayed == want, "the respawn was given %r, not %r" % (replayed, want))
         # remove drops the binding with the instance: a new add of the same number holds none
         d.expect("remove 1", "resp 0")
