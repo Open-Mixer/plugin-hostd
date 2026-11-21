@@ -76,7 +76,7 @@
 
 #include <linux/capability.h>
 
-#include <omxcontract/omx_contract_limits.h>
+#include <omxdsp/omxdsp_definitions.h>
 #include <omxcontract/omx_vocabulary.h>
 #include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
@@ -417,6 +417,8 @@ static void read_idle(idle_t *rows, int *count, const cpu_set_t *pinned)
 
 /* the machine domain's band words, read once at start-up (machine_words_open): never in a real-time path */
 static machine_words g_machine;
+/* the scopes of a field dump (describe), the scan domain's words, read at the start of describe: never in a real-time path */
+static scan_words g_scan;
 
 static void put_machine(sb_t *b, const cpu_set_t *pinned, int pinned_by_option)
 {
@@ -671,7 +673,7 @@ static memlock_t g_lock;
 /* the lock preload, as --lock-preload names it */
 static const char *g_lock_preload = PROBE_LOCK_PRELOAD;
 
-/* The qualification words a run writes: plugin-qualify's domain (qualification_words.h), read once at start-up, the words
+/* The qualification words a run writes: the qualification domain (qualification_words.h), read once at start-up, the words
  * of these keys as the domain writes them, held by the open handle for the life of the process. Never read in a real-time
  * path. */
 static struct
@@ -1986,7 +1988,7 @@ static void put_memory(sb_t *b, const cJSON *cost, const char *rate)
     sb_printf(b, "}");
 }
 
-/* the rates a run measures at when it is given none: omx-contract's ORACLE_FLOOR_RATES, every kernel oracle's floor */
+/* the rates a run measures at when it is given none: omx-dsp's ORACLE_FLOOR_RATES, every kernel oracle's floor */
 static const unsigned g_floor_rates[] = OMX_ORACLE_FLOOR_RATES_INIT;
 
 static const char *floor_rates(void)
@@ -2079,6 +2081,18 @@ static int describe_main(int argc, char **argv)
         return 2;
     }
     target = argv[a];
+    {
+        char why[512];
+
+        /* the scopes of a dump are the scan domain's words, read at start-up as the machine and probe domains are: a domain
+         * that is absent, invalid, too old or short of a scope ends the start-up by name */
+        if (scan_words_open(getenv("OMX_CONTRACT_PATH"), &g_scan, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, RUNNER_NAME ": describe: %s\n", why);
+            return 78;
+        }
+        describe_scopes(&g_scan);
+    }
     if (table == NULL)
     {
         snprintf(path, sizeof(path), PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR "/plugin-hostd/formats/%s.json", format);

@@ -124,7 +124,7 @@ H2, `grouping on`, pins checked, a verdict per plugin, then `plan 1 <instances>`
 plugin-hostd's planner reads each plugin's pin and cost, and its running history on this machine, and decides which
 runs of consecutive plugins share a worker. A run of two or more becomes a chain of place `chain:1.<k>`, `k` counting
 the segments from 0. A plugin that shares with no neighbour, an isolated one among them, is placed `own`. `plan_get`
-says why each plugin was left alone ([data/grouping.json](../data/grouping.json) lists the reasons). With the setting
+says why each plugin was left alone ([the domain plugin-hostd/grouping](../contract.d/plugin-hostd/grouping/grouping.json) lists the reasons). With the setting
 `grouping` off, the default, the plan is only answered and nothing moves.
 
 `grp8` runs comp, drive, delay, drive, comp, comp, drive, delay, with every drive pinned isolated and the rest
