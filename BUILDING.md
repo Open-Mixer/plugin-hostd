@@ -92,7 +92,7 @@ The verbs the daemon adds to mod-host's protocol, and the codes they answer, are
 A refusal number omx-clap-host answers too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is
 named once, by omx-clap-core's `reply.host.*` codes: `make test-verbs-declared` reads the daemon's verbs from that
 package and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
-first directory of `OMX_CONTRACT_PATH` that holds each; an item left in omx-clap's package as well is refused.
+first directory of `OMX_CONTRACT_PATH` that holds each; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from those domains only (one in the package is refused, one missing from the domains fails).
 
 The words of this tree's domains `plugin-hostd/grouping` and `plugin-hostd/history` (`contract.d/plugin-hostd/`) are rendered by `omx-contract render`
 into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make render-verbs` rewrites it and records

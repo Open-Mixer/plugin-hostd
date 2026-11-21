@@ -14,7 +14,8 @@
 # omx-clap's declarations (its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS) are read from the domains omx-clap
 # owns (omx-clap and host) in the contract directory: the first of OMX_CONTRACT_PATH (directories that stand where
 # contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
-# 3/omx-clap is read for what is left there, and an item both in the package and in a domain is refused: one source.
+# 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from
+# its domains only: one in the package is refused by name, and one no domain holds fails by name.
 # Without the package the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
@@ -166,24 +167,57 @@ def domain_docs(owner):
     return out
 
 
-def in_both(package_docs, domain_docs_):
-    """the items a package's tables hold that a domain of the same owner holds too"""
-    held = {k for doc in domain_docs_ for k, v in doc.items() if isinstance(v, dict) and "kind" in v}
-    return {k for doc in package_docs for k, v in doc.items() if isinstance(v, dict) and "kind" in v and k in held}
+# the items that left omx-clap's package for its domains (the sorting pass, V15): its verbs (domain omx-clap) and its
+# reply codes, track kinds and events (domain host), read from the domains only
+MOVED = ("OMX_CLAP_CORE_SHARED_VERBS", "OMX_CLAP_HOST_VERBS", "HOST_REPLY_CODES", "HOST_TRACK_KINDS", "HOST_EVENTS")
 
 
-def dual_source_arm(docs, domains):
-    """sabotage: HOST_REPLY_CODES and HOST_EVENTS planted back into a copy of the package's tables are refused by in_both"""
-    planted = [dict(docs[0]) if docs else {}]
-    for doc in domains:
-        for k in ("HOST_REPLY_CODES", "HOST_EVENTS"):
-            if k in doc:
-                planted[0][k] = doc[k]
-    caught = in_both(planted + docs[1:], domains)
-    if {"HOST_REPLY_CODES", "HOST_EVENTS"} <= caught:
-        print("ok   sabotage: HOST_REPLY_CODES and HOST_EVENTS planted in omx-clap's package are refused (one source)")
+def items_of(docs):
+    return {k for doc in docs for k, v in doc.items() if isinstance(v, dict) and "kind" in v}
+
+
+def moved_refusals(package_docs, domain_docs_):
+    """why the moved items are not read from the domains alone: each one a package table holds (whether or not a
+    domain holds it too), and each one no domain holds; [] when every moved item is a domain's and none the package's"""
+    in_package, in_domains = items_of(package_docs), items_of(domain_docs_)
+    out = ["%s is in omx-clap's package: it is read from omx-clap's domains only" % k for k in MOVED if k in in_package]
+    out += ["%s is in no domain of omx-clap: it is read from omx-clap's domains only" % k for k in MOVED if k not in in_domains]
+    return out
+
+
+def moved_arms(docs, domains):
+    """sabotage, three arms: HOST_EVENTS planted in a copy of the package's tables is refused while the domain holds it,
+    and refused (with the domain's absence named) when the domain's copy is removed too; and every moved item in the
+    package with every domain emptied"""
+    events = next((doc["HOST_EVENTS"] for doc in domains if "HOST_EVENTS" in doc), None)
+    if events is None:
+        fail("sabotage: no domain of omx-clap holds HOST_EVENTS to plant")
+        return
+    planted = [dict(docs[0], HOST_EVENTS=events) if docs else {"HOST_EVENTS": events}] + docs[1:]
+    got = moved_refusals(planted, domains)
+    if any(r.startswith("HOST_EVENTS is in omx-clap's package") for r in got):
+        print("ok   sabotage: HOST_EVENTS planted in omx-clap's package is refused by name, the domain holding it too")
     else:
-        fail("sabotage: HOST_REPLY_CODES and HOST_EVENTS planted in omx-clap's package are not refused: %s" % sorted(caught))
+        fail("sabotage: HOST_EVENTS planted in omx-clap's package is not refused: %s" % got)
+    without = [{k: v for k, v in doc.items() if k != "HOST_EVENTS"} for doc in domains]
+    got = moved_refusals(planted, without)
+    if any(r.startswith("HOST_EVENTS is in omx-clap's package") for r in got) and \
+            any(r.startswith("HOST_EVENTS is in no domain") for r in got):
+        print("ok   sabotage: HOST_EVENTS in the package alone, the domain's copy removed, is refused and its absence named")
+    else:
+        fail("sabotage: HOST_EVENTS in the package alone is read from the old home: %s" % got)
+    # every moved item in a copy of the package's tables, every domain emptied: each is refused in the package and
+    # named missing from the domains
+    held = {k: v for doc in domains for k, v in doc.items() if k in MOVED}
+    full = [dict(docs[0], **held) if docs else dict(held)] + docs[1:]
+    got = moved_refusals(full, [])
+    missing = [k for k in MOVED if not (any(r.startswith(k + " is in omx-clap's package") for r in got) and
+                                        any(r.startswith(k + " is in no domain") for r in got))]
+    if len(held) == len(MOVED) and not missing:
+        print("ok   sabotage: the domains emptied and the package holding the verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and "
+              "HOST_EVENTS: each refused in the package and named missing from the domains")
+    else:
+        fail("sabotage: with the domains emptied the package's copy is read for %s (planted %s)" % (missing, sorted(held)))
 
 
 def package_tables(name):
@@ -216,8 +250,11 @@ def package(name):
                 with open(os.path.join(base, rel)) as f:
                     docs.append(json.load(f))
             domains = domain_docs(name)
-            for item in sorted(in_both(docs, domains)):
-                fail("%s is in %s's package (%s) and in its domain: the domain is the one source" % (item, name, base))
+            if name == "omx-clap":
+                for why in moved_refusals(docs, domains):
+                    fail("%s (%s)" % (why, base))
+                # the moved items are read from the domains alone, never from the package's tables
+                docs = [{k: v for k, v in doc.items() if k not in MOVED} for doc in docs]
             return docs + domains, "%s %s from %s" % (name, m["version"], base)
     return None, None
 
@@ -539,7 +576,7 @@ def main():
         fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: verbs.json requires it "
              "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
         return 1
-    dual_source_arm(package_tables("omx-clap"), domain_docs("omx-clap"))
+    moved_arms(package_tables("omx-clap"), domain_docs("omx-clap"))
     own = verbs_of(own_docs, own_docs + docs)
     shared = verbs_of(docs, docs)
     CODE_WORDS.update(c for c, _ in codes_of(own_docs + docs).values())
