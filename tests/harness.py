@@ -107,6 +107,10 @@ def alive(pid):
 # The ceilings below are generous on purpose: a wait ends on the thing it waits for (the daemon's reply, its feedback
 # line, a process state), never on a count of milliseconds, so a loaded runner costs time and not a verdict.
 CEILING = 60.0
+# The controller's reply timeout: a prompt answer. A reply that waits on work the daemon bounds itself — a first-run
+# add waits for a worker to come up (ready_timeout_ms) and learns its pin — is waited for up to CEILING, a bound for a
+# hang, by the test that asks for it (plugin-hostd#108: on a host at load 40-53 a first-run answer came after this).
+REPLY_TIMEOUT = 10.0
 
 
 def wait_for(cond, what, timeout=CEILING, step=0.02, timing=False):
@@ -188,7 +192,7 @@ class Daemon:
         self.events = []
         self.lock = threading.Lock()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
-        self.client = plugin_hostd_client.Client(self.sock)
+        self.client = plugin_hostd_client.Client(self.sock, REPLY_TIMEOUT)
         self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10) if feedback else None
         if self.fb:
             self.fb.settimeout(None)   # silence on the feedback port is not an error
@@ -200,7 +204,7 @@ class Daemon:
         if self.fb:
             self.fb.close()
         self.sock = socket.create_connection(("127.0.0.1", self.cmd_port), timeout=10)
-        self.client = plugin_hostd_client.Client(self.sock)
+        self.client = plugin_hostd_client.Client(self.sock, REPLY_TIMEOUT)
         if self.fb:
             self.fb = socket.create_connection(("127.0.0.1", self.fb_port), timeout=10)
             self.fb.settimeout(None)
@@ -226,20 +230,23 @@ class Daemon:
                 with self.lock:
                     self.events.append(line.decode())
 
-    def send(self, msg):
+    def send(self, msg, timeout=None):
+        """the reply; `timeout` is the bound to wait for it, REPLY_TIMEOUT (a prompt answer) when None. A reply that
+        waits on work the daemon bounds itself — a first-run add waits for its worker to come up — names CEILING, a
+        bound for a hang, so a slow host is told apart from a daemon that never answers (plugin-hostd#108)"""
         try:
-            return self.client.send(msg)
+            return self.client.send(msg, timeout)
         except ConnectionError:
             raise Fail("daemon closed on " + msg)
 
-    def ok(self, msg, expect=None):
-        r = self.send(msg)
+    def ok(self, msg, expect=None, timeout=None):
+        r = self.send(msg, timeout)
         check(r == (expect if expect is not None else r) and r.startswith("resp") and
               (expect is not None or not r.startswith("resp -")), "%s -> %r (wanted %r)" % (msg, r, expect or "resp >= 0"))
         return r
 
-    def expect(self, msg, expect):
-        r = self.send(msg)
+    def expect(self, msg, expect, timeout=None):
+        r = self.send(msg, timeout)
         check(r == expect, "%s -> %r, wanted %r" % (msg, r, expect))
 
     def until_ok(self, msg, timeout=30.0):
