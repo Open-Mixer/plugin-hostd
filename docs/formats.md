@@ -187,7 +187,15 @@ What the tables leave to `describe`:
 - a CLAP port that is not main is `aux`; a control's `unit` is `unknown` when no row sets it, its `scale` `unknown`
   on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
-  `toggle` defaults to its default being non-zero;
+  `toggle` defaults to the nearer of its two positions, true from 0.5 up;
+- a scanned parameter's kind follows omx-contract's one rule (its `docs/descriptors.md`, "A scanned CLAP parameter's
+  kind"), which `share/omx-contract/clap-kind-vectors.json` holds and `tests/describe_clap_kind_vectors_test.py` runs
+  `describe` through, vector by vector: a parameter flagged an enumeration (`CLAP_PARAM_IS_ENUM`) or with value texts is
+  a `choice`, whatever its range; else one whose merged scale is stepped (the contract entry's word when it has one, else
+  `CLAP_PARAM_IS_STEPPED`), from 0 to 1, with a step of 1 (the contract entry's `step` when it states one; stepped means
+  whole positions, so 1 is implied) is a `toggle`, CLAP stating a boolean in no other way, and a panel that draws it as a
+  switch is right to; else a `travel` with the merged scale word. The same words read the same on LV2, where a port's
+  own `lv2:toggled` or `pprops:trigger` record gives its kind before the rule is asked;
 - a CLAP parameter's contract entry (`org.openmixer.param-contract/1`) gives its `symbol`, its unit (a contract unit
   `none` is the plugin stating none: `unknown`), its scale, and its `step` when the step is not 0 (0 is a continuous
   travel, written as no step);
