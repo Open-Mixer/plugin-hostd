@@ -184,3 +184,24 @@ parameter goes to the plugin's own, and the event `instance_verb_dropped <instan
 `<ms>` being the age of the reply when the death was seen. The instance that sent it is blamed like the one whose
 command was in flight: its crash is counted, and in a pool it is quarantined and leaves the pool alone. A death
 outside the window replays everything, as before.
+
+Moving a data table to its owner domain
+---------------------------------------
+
+The history keys (V18) and the two format tables (V19) took the same steps, in one commit each, no copy of the old place left:
+
+1. The item moves to `contract.d/<owner>/<name>/<name>.json`, the domain named by the item's prefix (`PLUGIN_HOSTD_CLAP_MAP`
+   is in `plugin-hostd/clap`): a header (`$id` `https://openmixer.org/contract/<owner>/<name>`, `info.version`,
+   `x-owner`, `x-stability`) over the item, its old `kind` as `x-kind` (`words`, or `sheet` for a table whose `x-value` is
+   the old value verbatim), its `doc` as `description`, `since` as `x-since`, and `x-file` the data path it came from.
+   `git rm` the data file; `omx-contract validate --installed` and `fmt --check` over the staged domain must stay green.
+2. Install it: add the domain to `VOCABULARY_DOMAINS` (its words render the vocabulary header, which must stay byte
+   identical) or, for a table nothing renders, to `FORMAT_DOMAINS`; `install_vocabulary_domains` installs both.
+3. Move every reader in the same commit: `git grep` the old path and the item name over `src`, `tests`, `docs`, `doc`,
+   `packaging`, `debian` and `.github`; the tests reach the new file through one helper (`tests/format_tables.py`,
+   `tests/domain_render.py`), never a path of their own. The spec, `debian/control` and the package-list checks of
+   `ci.yml` name the new install path, and the spec and `debian/changelog` carry a line under the release.
+4. A call-level test holds it: the content equals the old file's (its sha256, frozen at the commit before), the install lands at
+   the domain path and nowhere under the old one, the old file is gone, and the reader refuses the old shape
+   (`tests/history_domain.py`, `tests/format_domains.py`). Break the new document in a scratch copy and see the test red.
+5. Prove the consumer on a copy of the stage box: the repo that reads it runs its own target against your installed domains.
