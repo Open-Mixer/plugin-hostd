@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.8
+Version: 0.21.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -206,6 +206,9 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_domain_dir}/plugin-hostd/
 
 %changelog
+* Sun Nov 22 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.0-1
+- Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V21, V24 and V25.
+
 * Thu Nov 19 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.8-1
 - Floors, at the releases this one is built and run against, floors only:
   plugin-hostd-protocol (and -devel, -contract) >= 0.7.0 (was 0.5.9),
