@@ -2068,8 +2068,8 @@ static int describe_main(int argc, char **argv)
     if (a + 1 != argc || argv[a][0] == '-' || (format = describe_format(argv[a])) == NULL || o.wall_s <= 0)
     {
         fprintf(stderr, "usage: " RUNNER_NAME " describe [options] clap:<path>#<id> | lv2:<uri>\n"
-                        "  --table FILE         the format's table (default " PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR
-                        "/plugin-hostd/formats/<format>.json)\n"
+                        "  --table FILE         the format's table (default " PROBE_CONTRACTDIR
+                        "/plugin-hostd/<format>/<format>.json)\n"
                         "  --fields-from FILE   a recorded field dump, in place of running the child\n"
                         "  --contract-dir DIR   the contract directory whose role tables give a CLAP control its\n"
                         "                       meaning (default $OMX_CONTRACT_PATH, else " PROBE_CONTRACTDIR ")\n"
@@ -2095,7 +2095,7 @@ static int describe_main(int argc, char **argv)
     }
     if (table == NULL)
     {
-        snprintf(path, sizeof(path), PROBE_CONTRACTDIR "/" PROBE_CONTRACT_MAJOR "/plugin-hostd/formats/%s.json", format);
+        snprintf(path, sizeof(path), PROBE_CONTRACTDIR "/plugin-hostd/%s/%s.json", format, format);
         table = path;
     }
     if (read_file(table, &table_text) != 0)

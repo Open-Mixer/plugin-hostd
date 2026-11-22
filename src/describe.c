@@ -253,17 +253,21 @@ static int load_roles(const char *dir, roles_t *r)
 
 static int load_table(const char *text, table_t *t)
 {
-    cJSON *doc = jparse(text), *item = NULL, *rows;
+    cJSON *doc = jparse(text), *items, *item = NULL, *map, *rows;
     size_t i, k;
 
     if (doc == NULL || !cJSON_IsObject(doc))
         return refuse("the table is not one JSON object");
-    for (i = 0; i < jcount(doc) && item == NULL; i++)
-        if (cJSON_IsObject(jkid(doc, i)) && jstr(jkid(doc, i), "kind") && !strcmp(jstr(jkid(doc, i), "kind"), "formatMap"))
-            item = jkid(doc, i);
-    if (item == NULL || (rows = jget(item, "rows")) == NULL || !cJSON_IsObject(rows))
-        return refuse("the table holds no formatMap item with rows");
-    t->format = jstr(item, "format");
+    /* the table is the sheet of a domain (plugin-hostd/clap, plugin-hostd/lv2): components.schemas holds one item whose
+     * x-kind is sheet, and its x-value is the map, { format, rows } */
+    items = jget(jget(doc, "components"), "schemas");
+    for (i = 0; items != NULL && cJSON_IsObject(items) && i < jcount(items) && item == NULL; i++)
+        if (cJSON_IsObject(jkid(items, i)) && jstr(jkid(items, i), "x-kind") && !strcmp(jstr(jkid(items, i), "x-kind"), "sheet"))
+            item = jkid(items, i);
+    if (item == NULL || (map = jget(item, "x-value")) == NULL || !cJSON_IsObject(map) || (rows = jget(map, "rows")) == NULL ||
+        !cJSON_IsObject(rows))
+        return refuse("the table holds no sheet item whose value has rows");
+    t->format = jstr(map, "format");
     if (t->format == NULL || (strcmp(t->format, "clap") && strcmp(t->format, "lv2")))
         return refuse("the table's format is neither clap nor lv2");
     t->rows = calloc(jcount(rows), sizeof(row_t));

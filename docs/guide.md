@@ -337,7 +337,7 @@ Turtle, read when they are asked (the manifest and the files it names with `rdfs
 `rdfs:label`; a further page, "Name 2", for each 8 past the first), one page named Controls for the control inputs in
 no group, the pages in the order their group first appears; outputs and `pprops:notOnGUI` ports are on no page, a slot
 is the port's symbol, and the section is empty. `param_info` answers a control port from its own statements: its
-`units:unit` (the words of `data/formats/lv2.json`, empty for a port with none), `stepped` for an integer, toggled or
+`units:unit` (the words of the domain `plugin-hostd/lv2`, empty for a port with none), `stepped` for an integer, toggled or
 enumeration port, `log` for a `pprops:logarithmic` port whose bounds are positive and `linear` otherwise, its
 `lv2:minimum`, `lv2:maximum` and `lv2:default` (a toggled port's are 0, 1 and 0 when it states none), a step of 1 for
 a stepped port and 0 for the others, and its symbol. `-511` stays the answer for a port with a unit the table has no

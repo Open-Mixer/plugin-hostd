@@ -2148,7 +2148,7 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
     elif jack == "verbs":
         # the declaration, what renders and builds from it, and the tests that read it
-        for d in ("data", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
+        for d in ("contract.d", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)

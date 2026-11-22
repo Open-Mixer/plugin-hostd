@@ -14,10 +14,11 @@ import json, os, stat, subprocess, sys, tempfile
 
 import jsonschema
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
-TABLES = os.path.join(ROOT, "data", "formats")
 # the contract directory describe reads role tables from: the fixture, never what the machine has installed
 CONTRACT_DIR = os.path.join(ROOT, "tests", "fixtures", "contract-dir")
 CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixture.controls",
@@ -48,7 +49,7 @@ def schema_path():
 
 def describe(target, dump=None, table=None, extra=(), contract_dir=CONTRACT_DIR):
     fmt = target.split(":", 1)[0]
-    cmd = [PROBE, "describe", "--table", table or os.path.join(TABLES, fmt + ".json"),
+    cmd = [PROBE, "describe", "--table", table or format_tables.path(fmt),
            "--contract-dir", contract_dir] + list(extra)
     if dump is not None:
         cmd += ["--fields-from", dump]
@@ -152,7 +153,7 @@ def main():
         # refusals: each exits 2 and names what it refuses
         lv2 = open(os.path.join(FIELDS, "lv2-compressor.tsv")).read()
         clap = open(os.path.join(FIELDS, "clap-controls.tsv")).read()
-        table = json.load(open(os.path.join(TABLES, "clap.json")))
+        table = format_tables.load("clap")
 
         def refused(what, target, dump_text, want, table_doc=None):
             t = scratch(tmp, "table.json", json.dumps(table_doc)) if table_doc else None
@@ -169,14 +170,14 @@ def main():
         refused("a value a transform cannot read", CASES["clap-controls"],
                 clap + "param:0\tclap_plugin_params.value_to_text\tSine\n", "scale-points refuses")
         refused("a target of the other format", "clap:x.clap#id", lv2, "the table is lv2's",
-                json.load(open(os.path.join(TABLES, "lv2.json"))))
+                format_tables.load("lv2"))
         bad = json.loads(json.dumps(table))
-        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["CLAP_PORT_MONO"]["word"]["values"] = {"CLAP_PORT_MONO": "stereo"}
-        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["CLAP_PORT_STEREO"]["word"]["values"] = {"CLAP_PORT_STEREO": "stereo",
+        format_tables.rows(bad, "clap")["CLAP_PORT_MONO"]["word"]["values"] = {"CLAP_PORT_MONO": "stereo"}
+        format_tables.rows(bad, "clap")["CLAP_PORT_STEREO"]["word"]["values"] = {"CLAP_PORT_STEREO": "stereo",
                                                                                      "CLAP_PORT_X": "stereo"}
         refused("a lookup not one to one", CASES["clap-controls"], clap, "CLAP_PORT_STEREO: a lookup whose values", bad)
         bad = json.loads(json.dumps(table))
-        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["clap_param_info.module"]["word"]["transform"] = "module-path"
+        format_tables.rows(bad, "clap")["clap_param_info.module"]["word"]["transform"] = "module-path"
         refused("a transform outside TRANSFORMS(X)", CASES["clap-controls"], clap, "module-path", bad)
 
         # a malformed document is refused whole, with the table's own words: text after the value, an unfinished value, no value
@@ -205,11 +206,11 @@ def main():
               "a dump with a panel gives each role's control its meaning from the fixture table, and nothing else "
               "(%d: %s)" % (r.returncode, r.stderr.strip()))
         bad = json.loads(json.dumps(table))
-        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_role.role"]["word"]["transform"] = "identity"
+        format_tables.rows(bad, "clap")["omx_clap_panel_role.role"]["word"]["transform"] = "identity"
         refused("a role row made a word by another transform", CASES["clap-controls"], clap + panel_dump,
                 "dropped, never a word or the bag", bad)
         bad = json.loads(json.dumps(table))
-        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_control.widget"] = {
+        format_tables.rows(bad, "clap")["omx_clap_panel_control.widget"] = {
             "from": "omx_clap_ext.h#omx_clap_panel_control.widget",
             "word": {"word": "controls[].meaning", "transform": "role-to-meaning"}}
         refused("another panel row made a word, even by role-to-meaning", CASES["clap-controls"], clap + panel_dump,
@@ -236,7 +237,7 @@ def main():
                 "omx_clap_panel_control.colour")
         refused("a panel scope of the other format", CASES["lv2-compressor"], lv2 + "section:0\tlv2:name\tx\n", "section:0")
         bad = json.loads(json.dumps(table))
-        bad["PLUGIN_HOSTD_CLAP_MAP"]["rows"]["omx_clap_panel_control.widget"] = {
+        format_tables.rows(bad, "clap")["omx_clap_panel_control.widget"] = {
             "from": "omx_clap_ext.h#omx_clap_panel_control.widget", "extension": True}
         refused("a panel field the table carries", CASES["clap-controls"], clap + panel_dump, "is dropped, never", bad)
 

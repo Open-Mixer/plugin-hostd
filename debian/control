@@ -59,11 +59,11 @@ Architecture: all
 Depends: omx-clap-contract (>= 0.34.0~), plugin-db-contract (>= 0.5.0~), omx-contract (>= 3.21.0~), plugin-hostd-protocol-contract (>= 0.8.0~), ${misc:Depends}
 Description: plugin-hostd's format tables, read at run time
  plugin-hostd's package of omx-contract's contract directory: the format
- tables a scan maps a CLAP or LV2 plugin through (formats/clap.json,
- formats/lv2.json), the keys of the running history and the reasons a plan
- gives for a plugin it leaves alone (the domains plugin-hostd/history and
- plugin-hostd/grouping), under
- /usr/share/omx-contract/contract.d/3/plugin-hostd. A program that reads
+ tables a scan maps a CLAP or LV2 plugin through (the domains
+ plugin-hostd/clap and plugin-hostd/lv2), the keys of the running history and
+ the reasons a plan gives for a plugin it leaves alone (the domains
+ plugin-hostd/history and plugin-hostd/grouping), under
+ /usr/share/omx-contract/contract.d/plugin-hostd. A program that reads
  them at run time depends on this package, never on the development one.
  .
  Its documentation is on openmixer.org.

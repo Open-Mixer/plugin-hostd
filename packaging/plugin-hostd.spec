@@ -119,11 +119,11 @@ Requires: libomx-domain >= 3.21.0
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
-a scan maps a CLAP or LV2 plugin through (formats/clap.json, formats/lv2.json),
-the keys of the
+a scan maps a CLAP or LV2 plugin through (the domains plugin-hostd/clap and
+plugin-hostd/lv2), the keys of the
 running history and the reasons a plan gives for a plugin it leaves alone (the
 domains plugin-hostd/history and plugin-hostd/grouping), under
-%{omx_contract_dir}/plugin-hostd. A program that reads them at run
+%{omx_contract_domain_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
@@ -202,12 +202,19 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_domain_dir}/machine/
 # the domain qualification (contract.d/qualification), what a qualification measures and records, the same way
 %{omx_contract_domain_dir}/qualification/
-# the domains under plugin-hostd/ (contract.d/plugin-hostd: grouping, history), the words this tree renders its vocabulary from
+# the domains under plugin-hostd/ (contract.d/plugin-hostd: clap, grouping, history, lv2): the format tables and the words this tree renders its vocabulary from
 %{omx_contract_domain_dir}/plugin-hostd/
 
 %changelog
 * Sun Nov 22 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.0-1
-- Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V21, V24 and V25.
+- Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V19, V21, V24 and V25.
+- V19: the format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP are the
+  domains plugin-hostd/clap and plugin-hostd/lv2, each a sheet holding its map,
+  installed to <contractdir>/plugin-hostd/<format>/<format>.json. The old place,
+  3/plugin-hostd/formats/{clap,lv2}.json, is gone, and so is data/: the package
+  plugin-hostd of the contract directory keeps its MANIFEST.json, with no file.
+  plugin-hostd-probe describe reads the domain's document. omx-plugins >= its
+  b76722d2 reads the tables there.
 
 * Thu Nov 19 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.8-1
 - Floors, at the releases this one is built and run against, floors only:

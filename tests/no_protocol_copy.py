@@ -45,7 +45,7 @@ MARKS = [
 ]
 # where the marks are looked for: the sources, the headers, the tables and the tools; the docs and the recorded
 # evidence quote the protocol, and the fuzz harnesses type mod-host's words on purpose
-SCANNED = ("src", "include", "data", "protocol", "tools", "tests", "fuzz")
+SCANNED = ("src", "include", "contract.d", "protocol", "tools", "tests", "fuzz")
 SUFFIXES = (".c", ".h", ".json", ".py", ".in")
 SKIP = {os.path.join("tests", "no_protocol_copy.py")}
 
@@ -76,7 +76,7 @@ def self_test():
         ("include/plugin-hostd/protocol.h", "#ifndef PLUGIN_HOSTD_PROTOCOL_H\n#define PLUGIN_HOSTD_PROTOCOL_H\n#endif\n"),
         ("src/verbs_copy.h", "#define PHD_VERBS(X) \\\n    X(A, \"a\", \"\", \"\", \"\")\n"),
         ("include/plugin-hostd/old_verbs.h", '#define OMX_VERB_CHAIN_FMT "chain %i %i ..."\n'),
-        ("data/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
+        ("contract.d/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
         ("clients/python/plugin_hostd_protocol/__init__.py", "class Protocol:\n    pass\n"),
         ("tools/paths.h", '#define PHD_DEFAULT_LV2_PATH "/usr/lib/lv2"\n'),
     ]
