@@ -14,7 +14,7 @@ BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: plugin-db-devel >= 0.4.7
+BuildRequires: plugin-db-devel >= 0.5.0
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
@@ -90,7 +90,7 @@ Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
 Requires: plugin-hostd-protocol-devel >= 0.8.0
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: plugin-db-devel >= 0.4.7
+Requires: plugin-db-devel >= 0.5.0
 
 %description devel
 The pin header, the words of the grouping planner and the running history,

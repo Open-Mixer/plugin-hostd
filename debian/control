@@ -2,7 +2,7 @@ Source: plugin-hostd
 Section: sound
 Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
-Build-Depends: debhelper-compat (= 13), libplugin-hostd-protocol-dev (>= 0.8.0~), libomx-contract-dev (>= 3.21.0~), libomx-domain-dev (>= 3.21.0~), libplugin-qualification-db-dev (>= 2026111901~), libsqlite3-dev (>= 3.37.0~), omx-clap-contract (>= 0.34.0~) <!nocheck>, plugin-db-contract (>= 0.5.0~) <!nocheck>, omx-clap-host-tests (>= 0.34.0~) <!nocheck>, libomxdsp-dev (>= 0.34.0~), omx-contract (>= 3.21.0~) <!nocheck>, plugin-hostd-protocol-contract (>= 0.8.0~) <!nocheck>, plugin-db-dev (>= 0.4.7~), libcjson-dev, pkgconf, python3
+Build-Depends: debhelper-compat (= 13), libplugin-hostd-protocol-dev (>= 0.8.0~), libomx-contract-dev (>= 3.21.0~), libomx-domain-dev (>= 3.21.0~), libplugin-qualification-db-dev (>= 2026111901~), libsqlite3-dev (>= 3.37.0~), omx-clap-contract (>= 0.34.0~) <!nocheck>, plugin-db-contract (>= 0.5.0~) <!nocheck>, omx-clap-host-tests (>= 0.34.0~) <!nocheck>, libomxdsp-dev (>= 0.34.0~), omx-contract (>= 3.21.0~) <!nocheck>, plugin-hostd-protocol-contract (>= 0.8.0~) <!nocheck>, plugin-db-dev (>= 0.5.0~), libcjson-dev, pkgconf, python3
 Standards-Version: 4.6.2
 Homepage: https://github.com/Open-Mixer/plugin-hostd
 Rules-Requires-Root: no
@@ -44,7 +44,7 @@ Description: stand-in plugin worker to test a program that drives plugin-hostd
 Package: plugin-hostd-dev
 Section: libdevel
 Architecture: all
-Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.8.0~), plugin-db-dev (>= 0.4.7~), ${misc:Depends}
+Depends: plugin-hostd-contract (= ${source:Version}), libplugin-hostd-protocol-dev (>= 0.8.0~), plugin-db-dev (>= 0.5.0~), ${misc:Depends}
 Description: C headers to drive plugin-hostd from your own controller
  The words of the grouping planner and the running history,
  and the schemas of the probe output and of a preset file. The protocol a
