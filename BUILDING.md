@@ -87,11 +87,11 @@ The daemon's verbs
 ------------------
 
 The verbs the daemon adds to mod-host's protocol, and the codes they answer, are declared in plugin-hostd-protocol's
-the domain `plugin-hostd` of omx-contract's contract directory
-(`contract.d/plugin-hostd/plugin-hostd.json`, shipped by `plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
+`data/verbs.json`, a `verbs` item of omx-contract's contract directory installed as its package
+`plugin-hostd-protocol` (`plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
 A refusal number omx-clap-host answers too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is
 named once, by omx-clap-core's `reply.host.*` codes: `make test-verbs-declared` reads the daemon's verbs from that
-domain and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
+package and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
 first directory of `OMX_CONTRACT_PATH` that holds each; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from those domains only (one in the package is refused, one missing from the domains fails).
 
 The words of this tree's domains `plugin-hostd/grouping` and `plugin-hostd/history` (`contract.d/plugin-hostd/`) are rendered by `omx-contract render`
@@ -115,9 +115,9 @@ ledger, replay to the byte, attribution, quarantine, the storm bound,
 
 The verbs are read from their declarations, never spelled: mod-host's from the
 command formats of `mod-host.h`, the daemon's own from plugin-hostd-protocol's
-domain `plugin-hostd` through the rendered header. `tests/verbs_contract.py` fails on a C string
+`verbs.json` through the rendered header. `tests/verbs_contract.py` fails on a C string
 that starts with one, and `tests/perturbation.py` renames a verb in a scratch
-copy of that domain's document and of `mod-host.h` and requires the rebuilt daemon to answer the new name and
+copy of that `verbs.json` and of `mod-host.h` and requires the rebuilt daemon to answer the new name and
 not the old.
 
     make test-jack OMX_CLAP_HOST=<omx-clap-host> [MOD_HOST=<mod-host> LV2_DIR=<lv2 path> LV2_URI=<a stereo effect> LV2_BUNDLE=<its bundle dir> LV2_PARAM=<a control taking 0.25>]
