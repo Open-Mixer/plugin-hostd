@@ -45,8 +45,8 @@ Inputs
 | Settings file (`-c`, `$PLUGIN_HOSTD_CONF`, `~/.config/plugin-hostd.conf`) | local user | trusted: `mod_host`, `clap_host` and `probe` name programs the daemon executes |
 | Pin store, `<pin_store>.accepted`, `pin_file`, history file | local user (and the daemon) | trusted |
 | `pins_dir` (`/usr/share/plugin-hostd/pins.d/*.pins`) | packager | trusted as it is |
-| Qualification records (`qualification_dir`) | plugin-qualify, local user | trusted; read with a 4 MiB cap |
-| Environment: `PATH`, `HOME`, `XDG_*`, `LV2_PATH`, `CLAP_PATH`, `OMX_DESCRIPTOR_DIR`, `OMX_QUALIFICATION_DIR`, `DISPLAY`/`WAYLAND_DISPLAY` | local user | trusted; inherited by every worker |
+| Qualification store (read through libplugin-qualification-db, the system store as root, else the user's) | plugin-qualify, local user | trusted; opened read-only by the library, which refuses a store of another schema |
+| Environment: `PATH`, `HOME`, `XDG_*`, `LV2_PATH`, `CLAP_PATH`, `OMX_DESCRIPTOR_DIR`, `DISPLAY`/`WAYLAND_DISPLAY` | local user | trusted; inherited by every worker |
 | Audio and MIDI | any JACK client | never read by the daemon; reach the plugin inside its worker |
 
 A loaded plugin is arbitrary code running as the daemon's user inside its worker. The code assumes nothing about it
@@ -93,8 +93,7 @@ What the code assumes and enforces
   of the bundle or is absolute is never matched by a pin; a manifest using `@base` is refused with `-509`.
 - Pinned LV2 plugins get a worker of their own whose LV2 world is narrowed to the plugin's bundle (`src/lv2.c`,
   `src/supervisor.c`); this limits what the worker loads, not what the plugin can do.
-- Settings: values longer than their field are refused; `bind_address` must parse as IPv4 (`src/conf.c`). `descriptor_dir` and
-  `qualification_dir` are created mode 0700 and an unwritable one stops the daemon (`-528`). Descriptor temp files are created
+- Settings: values longer than their field are refused; `bind_address` must parse as IPv4 (`src/conf.c`). `descriptor_dir` is created mode 0700 and an unwritable one stops the daemon (`-528`). Descriptor temp files are created
   `O_EXCL` mode 0600 (`src/descriptors.c`); the history file is mode 0600.
 - Windows: `show_external_ui` is refused with `-902` when the daemon has neither `WAYLAND_DISPLAY` nor `DISPLAY`.
 

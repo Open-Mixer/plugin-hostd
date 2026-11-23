@@ -1,3 +1,58 @@
+plugin-hostd (0.20.8) unstable; urgency=medium
+
+  * Floors, at the releases this one is built and run against, floors only:
+    plugin-hostd-protocol (and -devel, -contract) >= 0.7.0 (was 0.5.9),
+    omx-clap-core-contract, omx-clap-host-tests and omx-clap-host >= 0.33.1
+    (were 0.32.5). Since 0.20.7 the ceilings are gone from every dependency,
+    omx-contract is >= 3.20.0 (was 3.18.0), and two dependencies are new:
+    libomx-domain (and -devel) >= 3.20.0, the loader of the contract's
+    domains, and plugin-qualify-contract >= 0.20.6, the data package that
+    holds the qualification domain (#161, #166, #167).
+  * Conflicts dropped: plugin-hostd-contract no longer Breaks and Replaces
+    plugin-hostd-dev (<< version) in debian/control; no relation between our
+    own packages remains, and the package check in ci.yml asserts there is
+    none. The spec carried no Conflicts.
+  * The machine domain, contract.d/machine, is plugin-hostd's: the daemon and
+    the probe read the machine words through the loader, MACHINE_FAMILIES is
+    the domain's, and x-since is the domain version that added an item (#166,
+    #170, #176).
+  * The probe domain 1.0.0, contract.d/probe: the reasons, outcomes, steps and
+    signals a probe run writes, read at start-up (#173).
+  * The qualification words are plugin-qualify's domain, read through the
+    loader; no render here (#167).
+  * A worker the daemon stops is asked to leave before it is killed, so it
+    closes its JACK client, and is stopped without the daemon waiting for it
+    to leave (#148, #152).
+  * The vocabulary is rendered with omx-contract 3.19.1 (#154).
+  * Schema addresses: the descriptor writer, its fixtures and the probe-output
+    schema name https://openmixer.org/schema/ (#158).
+  * Dependency floors are declared once, in packaging/deps.txt, floors only;
+    the spec and debian/control are rendered from it (#161).
+  * Documentation gates: Doxygen for the C headers with a baseline that only
+    shrinks, and ruff D1 on the Python clients; the daemon's core headers are
+    documented (#135, #145, #147).
+  * tests: the bundle rule's one-directory arm can fail; test-consumer names
+    its failing step and pkg-config's reason; the package jobs run a named
+    smoke and the dead shard machinery is gone; an arm whose command fails is
+    a named FAIL; the chain-refusal arm tells a refusal from a death again
+    (#137, #141, #142, #159, #164).
+  * The daemon reads qualifications through libplugin-qualification-db
+    (>= 2026111901, with sqlite >= 3.37.0 as a build and run floor), no record
+    file is read any more, the qualification_dir key does nothing and the
+    daemon makes no qualification directory (#180).
+  * The plugin address formats are read from plugin-db's domain, not typed in
+    the probe-output template; plugin-db is >= 0.4.7 (#178, #180).
+  * A worker stopped twice leaves one entry in the stopped-worker list, and
+    the list grows instead of dropping past 64 (#181, #153).
+  * The TypeScript client's codec command decides run or imported with
+    isMain, also through a symlinked bin; omx-contract there is a floor only
+    (#185).
+  * CI: Fedora 45 only, the contract rpm's file list holds the machine and
+    probe domains, the deb jobs run on the arm64 runner from check-matrix and
+    the deb smoke takes the OpenMixer channel (#178, #183).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Thu, 19 Nov 2026 12:00:00 +0000
+
 plugin-hostd (0.20.7) unstable; urgency=medium
 
   * Built and run against the 3.18.0 pass's releases, every floor at the

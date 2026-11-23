@@ -60,7 +60,7 @@ jobs:
     # a backstop: fuzz-run spends 60 s on each harness and fuzz-sabotage runs seeds only, so the job ends well inside it
     timeout-minutes: 30
     container:
-      image: fedora:44
+      image: fedora:45
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since

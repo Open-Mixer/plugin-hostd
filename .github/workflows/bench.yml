@@ -21,14 +21,38 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # the deb cells come from the one list every OpenMixer check reads (check-matrix, ruling D25): the development set
+  # is trixie arm64, run on the ARM runner, since the -dev debs are arm64-only and an amd64 container cannot install them
+  checks:
+    name: which deb cells this run covers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deb: ${{ steps.m.outputs.deb }}
+      deb-count: ${{ steps.m.outputs.deb-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          deb-releases: '["trixie"]'
+          deb-arches: '["amd64", "arm64"]'
+          x86-runner: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+
   # the daemon the smoke run drives is this run's: built here, as ci.yml's deb job builds it, and installed from these
   # files. The channel serves the rest; by name it serves plugin-hostd only for a version it has published on that cell
   debs:
-    name: plugin-hostd's DEBs (trixie, amd64) for the smoke run
-    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: plugin-hostd's DEBs (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}) for the smoke run
+    needs: checks
+    if: needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     container:
-      image: debian:trixie
+      image: ${{ matrix.cell.image }}
     defaults:
       run:
         shell: bash
@@ -66,18 +90,22 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-bench-debs
+          name: plugin-hostd-bench-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: debs/*.deb
           if-no-files-found: error
           retention-days: 1
 
   bench:
-    name: harness check and smoke run
-    needs: debs
-    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: harness check and smoke run (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }})
+    needs: [checks, debs]
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     container:
-      image: debian:trixie
+      image: ${{ matrix.cell.image }}
       # jackd's first segment (/dev/shm/jack-0-0) is about 103 MB: with Docker's 64 MB default its metadata DB cannot
       # open and the private servers of the xrun probe and the smoke run never start (#81's box proof)
       options: --shm-size=256m
@@ -97,7 +125,7 @@ jobs:
         run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - uses: actions/download-artifact@v4
         with:
-          name: plugin-hostd-bench-debs
+          name: plugin-hostd-bench-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: debs
 
       - name: Install this run's plugin-hostd, and the other hosts, JACK and the plugins from the OpenMixer channel

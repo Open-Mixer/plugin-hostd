@@ -64,7 +64,7 @@
           ]
         },
         "reason": {
-          "enum": [@PHD_PROBE_REASONS@]
+          "enum": [@PROBE_REASONS@]
         },
         "protocol": {
           "type": "object",
@@ -130,10 +130,7 @@
       "additionalProperties": false,
       "properties": {
         "format": {
-          "enum": [
-            "clap",
-            "lv2"
-          ]
+          "enum": [@PLUGIN_DB_ADDRESS_FORMATS@]
         },
         "id": {
           "type": "string",
@@ -239,10 +236,10 @@
               "type": "string"
             },
             "coreBand": {
-              "enum": [@OMX_MACHINE_CORE_BANDS@]
+              "enum": [@MACHINE_CORE_BANDS@]
             },
             "clockBand": {
-              "enum": [@OMX_MACHINE_CLOCK_BANDS@]
+              "enum": [@MACHINE_CLOCK_BANDS@]
             },
             "preemptRt": {
               "type": "boolean"
@@ -392,7 +389,7 @@
           "type": "object"
         },
         "realtime": {
-          "enum": [@OMX_RESOURCE_THREAD_SCHEDULING@]
+          "enum": [@QUALIFICATION_RESOURCE_THREAD_SCHEDULING@]
         }
       }
     },
@@ -571,7 +568,8 @@
       "additionalProperties": false,
       "properties": {
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": [@PROBE_SIGNALS@]
         },
         "topFrame": {
           "type": "string"
@@ -668,7 +666,7 @@
   },
   "$defs": {
     "voiceBasis": {
-      "enum": [@OMX_MEASUREMENT_VOICE_BASES@]
+      "enum": [@QUALIFICATION_MEASUREMENT_VOICE_BASES@]
     },
     "realtime": {
       "description": "How the measured child was scheduled: the class and priority are what the kernel reported for it after its exec (observed), never what was asked for; a class of none is a valid measurement taken without real time, and says why.",
@@ -682,7 +680,7 @@
       "additionalProperties": false,
       "properties": {
         "class": {
-          "enum": [@OMX_RESOURCE_THREAD_SCHEDULING@]
+          "enum": [@QUALIFICATION_RESOURCE_THREAD_SCHEDULING@]
         },
         "priority": {
           "type": "integer",
@@ -813,7 +811,7 @@
       "pattern": "^[0-9a-f]{64}$"
     },
     "outcome": {
-      "enum": [@PHD_PROBE_OUTCOMES@]
+      "enum": [@PROBE_OUTCOMES@]
     },
     "limitName": {
       "enum": [@PHD_PROBE_LIMIT_NAMES@]
@@ -859,7 +857,7 @@
       "additionalProperties": false,
       "properties": {
         "step": {
-          "enum": [@PHD_PROBE_STEPS@]
+          "enum": [@PROBE_STEPS@]
         },
         "rate": {
           "type": "integer"
@@ -875,7 +873,8 @@
           "minimum": 0
         },
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": [@PROBE_SIGNALS@]
         },
         "exitStatus": {
           "type": "integer"
@@ -925,7 +924,7 @@
               "minimum": 0
             },
             "method": {
-              "enum": [@OMX_MEASUREMENT_LATENCY_METHODS@]
+              "enum": [@QUALIFICATION_MEASUREMENT_LATENCY_METHODS@]
             },
             "heard": {
               "description": "A note-onset latency's: whether the note sounded, so an onset that never came is not read as one.",

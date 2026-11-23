@@ -26,9 +26,27 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick). A pull request runs the plain test
-# tier and one package arm (fc44 x86_64, trixie amd64). make sabotage, bookworm and the release dry run run on push to
+# tier and one package arm (fc45 x86_64, trixie arm64). make sabotage, bookworm and the release dry run run on push to
 # main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
+  # the deb cells come from the one list every OpenMixer check reads (check-matrix, ruling D25): the development set
+  # is trixie arm64, run on the ARM runner, since the -dev debs are arm64-only and an amd64 container cannot install them
+  checks:
+    name: which deb cells this run covers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deb: ${{ steps.m.outputs.deb }}
+      deb-count: ${{ steps.m.outputs.deb-count }}
+    steps:
+      - id: m
+        uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
+        with:
+          wave: ${{ vars.OMX_RELEASE_MATRIX }}
+          deb-releases: '["bookworm", "trixie"]'
+          deb-arches: '["amd64", "arm64"]'
+          x86-runner: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+
   # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
   # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
   changes:
@@ -75,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
-      image: fedora:44
+      image: fedora:45
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
       # CAP_SYS_RESOURCE lets the probe test raise RLIMIT_RTPRIO and RLIMIT_MEMLOCK as LimitRTPRIO= and LimitMEMLOCK= do,
       # so it measures at the highest SCHED_FIFO priority with its memory locked. Not CAP_SYS_NICE: the worker_env test
@@ -126,7 +144,7 @@ jobs:
       # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
       # none, and its base package carries the catalog
       - name: The protocol's Catalan catalog, where a language pack carries it
-        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False --skip-unavailable plugin-hostd-protocol-langpack-ca
+        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False plugin-hostd-protocol-langpack-ca
 
       - name: Build
         run: make
@@ -222,7 +240,7 @@ jobs:
     runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     container:
-      image: fedora:44
+      image: fedora:45
       options: --cap-add SYS_NICE
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
@@ -271,11 +289,17 @@ jobs:
           done
 
   jack2:
-    name: build and test over JACK2's jackd (x86_64)
-    runs-on: ubuntu-latest
+    name: build and test over JACK2's jackd (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }})
+    needs: checks
+    if: needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     container:
-      image: debian:trixie
+      image: ${{ matrix.cell.image }}
       # the jack test runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
@@ -338,10 +362,9 @@ jobs:
       - name: Name what this job does not run
         run: |
           echo "The LV2 steps of test-jack2 are NOT run here: mod-host itself (not just its protocol library) is not built in this job, and Debian does not package it."
-          echo "An aarch64 run of this job is not here either: this is x86_64 only, a separate step for later."
 
   rpm:
-    name: RPMs (fc44, ${{ matrix.arch }}), installed in a clean root
+    name: RPMs (fc45, ${{ matrix.arch }}), installed in a clean root
     needs: changes
     if: needs.changes.outputs.packages == 'true'
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
@@ -349,9 +372,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
+        arch: [x86_64]
     container:
-      image: fedora:44
+      image: fedora:45
       # the clean root gets a /proc and a /dev of its own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
@@ -438,6 +461,13 @@ jobs:
               /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
               /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
+              /usr/share/omx-contract/contract.d/machine/machine.json /usr/share/omx-contract/contract.d/probe/probe.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/es.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/fr.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/it.json \
+              /usr/share/omx-contract/contract.d/machine/catalogs/pt.json \
               /usr/share/doc/plugin-hostd-contract/README.md /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
@@ -515,28 +545,26 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-rpms-fc44-${{ matrix.arch }}
+          name: plugin-hostd-ci-rpms-fc45-${{ matrix.arch }}
           path: rpms/plugin-hostd-[0-9]*.rpm
           if-no-files-found: error
           retention-days: 1
 
   deb:
-    name: DEBs (${{ matrix.suite }}, ${{ matrix.arch }}), built and linted
-    needs: changes
-    if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: DEBs (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}), built and linted
+    needs: [changes, checks]
+    if: needs.changes.outputs.packages == 'true' && needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
-        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     defaults:
       run:
         shell: bash
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
@@ -571,15 +599,6 @@ jobs:
 
       - uses: Open-Mixer/.github/.github/actions/build-deb@openmixer-v1
 
-      # the data packages plugin-hostd-contract depends on are the channel's, not Debian's: the clean container
-      # installs them from here, like the protocol library; omx-contract too, whose schema reads the tables (#165)
-      - name: Fetch the contract data packages of the channel
-        run: |
-          set -euo pipefail
-          mkdir -p dep-debs
-          (cd dep-debs && bounded-install apt-get download libplugin-hostd-protocol0 libplugin-hostd-protocol-dev plugin-hostd-protocol-contract plugin-db-dev \
-            omx-clap-core-contract omx-contract-data omx-contract)
-
       # what the smoke test runs the installed package against, built here for the architecture
       - name: Build the smoke test fixtures
         run: |
@@ -591,37 +610,29 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: |
             debs/*.deb
-            dep-debs/libplugin-hostd-protocol0_*.deb
-            dep-debs/libplugin-hostd-protocol-dev_*.deb
-            dep-debs/plugin-hostd-protocol-contract_*.deb
-            dep-debs/plugin-db-dev_*.deb
-            dep-debs/omx-clap-core-contract_*.deb
-            dep-debs/omx-contract-data_*.deb
-            dep-debs/omx-contract_*.deb
             smoke
           if-no-files-found: error
           retention-days: 1
 
   deb-smoke:
-    name: DEBs (${{ matrix.suite }}, ${{ matrix.arch }}), installed in a clean container
-    needs: deb
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: DEBs (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}), installed in a clean container
+    needs: [deb, checks]
+    if: needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
-        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
-    # nothing but the distribution: a dependency the package forgot to declare is missing here
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
+    # nothing but the distribution and the OpenMixer channel: a dependency the package forgot to declare is missing here
     defaults:
       run:
         shell: bash
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
@@ -635,13 +646,18 @@ jobs:
         run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - uses: actions/download-artifact@v4
         with:
-          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
 
-      - name: Install the package with its dependencies from the distribution
+      # the packages Depend on the channel's (libomx-domain0, plugin-db-dev, the contract data): apt resolves the whole
+      # closure from the channel, so no list of them is kept here to fall behind the floors
+      - name: Add the OpenMixer channel
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+
+      - name: Install the package with its dependencies from the distribution and the channel
         run: |
           set -euo pipefail
           bounded-install apt-get update -qq
-          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb ./dep-debs/libplugin-hostd-protocol0_*.deb ./dep-debs/libplugin-hostd-protocol-dev_*.deb ./dep-debs/plugin-hostd-protocol-contract_*.deb ./dep-debs/plugin-db-dev_*.deb ./dep-debs/omx-clap-core-contract_*.deb ./dep-debs/omx-contract-data_*.deb ./dep-debs/omx-contract_*.deb python3
+          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb python3
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
@@ -655,8 +671,8 @@ jobs:
           for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json; do
             grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
           done
-          dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces | tee breaks.txt
-          test "$(grep -c '^\(Breaks\|Replaces\): plugin-hostd-dev (<< ' breaks.txt)" = 2
+          # no Breaks, Replaces or Conflicts between our own packages (owner rule 2026-11-16)
+          test -z "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces Conflicts)"
           for p in plugin-hostd plugin-hostd-dev; do
             dpkg-deb -f debs/${p}_*.deb Depends | grep -q 'plugin-hostd-contract (= '
           done
@@ -693,7 +709,7 @@ jobs:
           set -euo pipefail
           version=$(dpkg-query -W -f='${Version}' plugin-hostd)
           plugin-hostd -V | tee v.txt
-          grep -q "version: ${version%%~*}\$" v.txt
+          grep -q "version: ${version%%[+~-]*}\$" v.txt
           ldd /usr/bin/plugin-hostd | tee ldd.txt
           ! grep -q 'not found' ldd.txt
           grep -q 'libplugin-hostd-protocol\.so\.0 => /' ldd.txt
@@ -719,22 +735,20 @@ jobs:
   # page's LV2 block runs an LV2 URI with `lv2_worker omx-clap-host`, and --audio then measures the gain of a sine that
   # went through that instance.
   own-host-page:
-    name: own-host page (${{ matrix.suite }}, ${{ matrix.arch }}), run as written in a clean container
-    needs: [changes, deb]
-    if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
+    name: own-host page (${{ matrix.cell.suite }}, ${{ matrix.cell.arch }}), run as written in a clean container
+    needs: [changes, deb, checks]
+    if: needs.changes.outputs.packages == 'true' && needs.checks.outputs.deb-count != '0'
+    runs-on: ${{ matrix.cell.runner }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        # ruling D25: bookworm is a full cell, served its floors only at the wave-end full release
-        suite: ${{ fromJSON((github.event_name == 'pull_request' || vars.OMX_RELEASE_MATRIX != 'full') && '["trixie"]' || '["bookworm", "trixie"]') }}
-        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["amd64"]' || '["amd64", "arm64"]') }}
+        cell: ${{ fromJSON(needs.checks.outputs.deb) }}
     defaults:
       run:
         shell: bash
     container:
-      image: debian:${{ matrix.suite }}
+      image: ${{ matrix.cell.image }}
     steps:
       # every package manager call below runs bounded (tools/bounded-install.sh): a hung mirror is a fast red
       # naming it, never a hang to timeout-minutes. The wrapper is fetched first and copied onto PATH, since
@@ -757,7 +771,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: plugin-hostd-ci-debs-${{ matrix.suite }}-${{ matrix.arch }}
+          name: plugin-hostd-ci-debs-${{ matrix.cell.suite }}-${{ matrix.cell.arch }}
           path: /tmp/run-artifact
 
       # the page's apt-get install takes plugin-hostd and plugin-hostd-contract from this run, never the channel's
@@ -782,7 +796,7 @@ jobs:
           mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" /tmp/own-host
           cd /tmp/own-host
           python3 "$GITHUB_WORKSPACE/tests/own_host_page.py" run --audio
-          test "$(dpkg --print-architecture)" = "${{ matrix.arch }}"
+          test "$(dpkg --print-architecture)" = "${{ matrix.cell.arch }}"
           # the page ran this run's daemon, not a released one
           test "$(dpkg-query -W -f='${Version}' plugin-hostd)" = "$(cat /tmp/run-version)"
           test "$(dpkg-query -W -f='${Version}' plugin-hostd-contract)" = "$(cat /tmp/run-version)"
@@ -803,7 +817,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
-      image: fedora:44
+      image: fedora:45
       # the chain runs the daemon and its workers in a user, net, pid and mount namespace of their own
       options: --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined
     steps:
@@ -916,3 +930,10 @@ jobs:
     with:
       publish: false
       arm: false  # aarch64/arm64 build at release only
+
+  pr-fixes-issue:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: Open-Mixer/.github/.github/workflows/pr-fixes-issue.yml@openmixer-v1
