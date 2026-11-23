@@ -1792,7 +1792,7 @@
                   "db": "dB",
                   "pc": "%",
                   "hz": "Hz",
-                  "coef": "x",
+                  "coef": "coef",
                   "oct": "oct",
                   "cent": "cents",
                   "semitone12TET": "st",
