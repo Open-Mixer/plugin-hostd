@@ -85,6 +85,10 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
         src = os.path.join(installed, "3", package)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, "3", package))
+        elif os.path.isdir(os.path.join(installed, package)):
+            # an owner that installs only domains (plugin-db from 0.5.0, V11: no package directory) is read as the domain
+            # of its name, as the installed contract directory answers the floor
+            shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
     for domain in ("lv2", "clap"):
         src = os.path.join(installed, domain)
         if os.path.isdir(src):
