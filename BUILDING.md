@@ -27,16 +27,31 @@ installed). The schema major the contract directory is read under is the pkg-con
 file's `schema_major`, never typed in this tree. The runner's
 default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
-`PARAM_SCALES`. The probe output schema takes the words it shares with the
-contract (`MEASUREMENT_LATENCY_METHODS`, `MEASUREMENT_VOICE_BASES`,
-`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `RESOURCE_THREAD_SCHEDULING`) from
-the vocabulary header: `protocol/probe-output.schema.in` names each as an
-`@OMX_<ITEM>@` token and holds no list of its own. `make test-vocabulary` holds
-each of those enums of the generated schema to the installed contract's
-`omx-vocabulary.schema.json`, word for word and in order. `make
-test-contract` checks both, against the installed contract and against a copy
-of its header with the values changed. Nothing is linked: the header holds
-values only.
+`PARAM_SCALES`.
+
+The words a probe run writes (`PROBE_REASONS`, `PROBE_OUTCOMES`, `PROBE_STEPS`, `PROBE_SIGNALS`) are this tree's
+second domain, `contract.d/probe/probe.json` (floor 1.0.0, read the same way, refused by name with 78 when absent or too
+old, shipped by `plugin-hostd-contract`; `make test-probe-domain`). The protocol header's lists give the probe the ids, and
+the words are the domain's, which the test holds to the header's, word for word.
+
+The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
+`contract.d/machine/machine.json`, and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
+`QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`) are plugin-qualify's domain,
+`contract.d/qualification/qualification.json` there: this tree ships no copy and no render of the second. Both are read
+through one function, `domain_words_open` (`src/domain_words.c`), over omx-contract's C loader (`libomx-domain`,
+`pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel` 3.20.0 or later; floor 1.1.0 for both).
+The probe runner opens both once at start-up and ends it with status 78 and the loader's code, naming the domain, when
+one is absent, invalid or older. The probe and the schema generator read `OMX_CONTRACT_PATH` (a ':' list, the first
+directory holding the domain wins: their test entry, which the Makefile points at this checkout's `contract.d`
+followed by the installed contract directory); the daemon reads the installed contract directory only, where
+`plugin-hostd-contract` installs the machine domain. plugin-qualify's data package (`plugin-qualify-contract`, 0.20.6 or
+later) installs the qualification domain and this package requires it, so a build that runs the tests needs it
+installed, or a checkout's `contract.d` in `OMX_CONTRACT_PATH`. `protocol/probe-output.schema.in` names each shared
+word list as a `@PROBE_<ITEM>@`, `@MACHINE_<ITEM>@` or `@QUALIFICATION_<ITEM>@` token and holds no list of its own. `make test-vocabulary`
+holds every enum of the generated schema to its source, word for word and in order; `make test-machine-domain` and
+`make test-qualification-domain` hold the probe's and the generator's words to a changed copy of each domain and its
+refusals by name; `make test-contract` checks the contract's own items, against the installed contract and against a
+copy of its header with the values changed.
 
 Building without omx-clap-core
 ------------------------------
@@ -71,8 +86,11 @@ package and omx-clap-core's from its package of the contract directory (`omx-cla
 directory of `OMX_CONTRACT_PATH` that holds one.
 
 The words of this tree's own tables (`data/grouping.json`, `data/history.json`) are rendered by `omx-contract render`
-into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make render-verbs` rewrites it and `make
-check-rendered` fails on any drift. `make install-contract` installs `data/` as the package `plugin-hostd` of the
+into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make render-verbs` rewrites it and records
+the omx-contract version that rendered it beside it (`plugin_hostd_vocabulary.h.rendered-with`), and `make
+check-rendered` fails on any drift. The package builds run `make check-rendered RENDERED_COMPARE=recorded`: with
+another omx-contract installed than the recorded one, the header is not compared and the check says so, so a release
+tag builds the same after the channel serves a newer omx-contract. `make install-contract` installs `data/` as the package `plugin-hostd` of the
 contract directory. The noarch package `plugin-hostd-contract` carries those files, and `plugin-hostd` and
 `plugin-hostd-devel` (`plugin-hostd-dev`) require it at the same version.
 

@@ -10,6 +10,7 @@
 # through plugin-hostd --pin-files, which the add's pin check and plugin-qualify share: its "root" line.
 set -u
 daemon=${1:-./plugin-hostd}
+listing=$(realpath "${2:-tests/scandir-listing.so}")
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failed=0
@@ -41,28 +42,25 @@ root_of() {
     "$daemon" -c "$work/conf" --pin-files "$uri" 2>"$work/err" | sed -n 's/^root //p'
 }
 
-# 1. one directory whose listing order is not the byte order of two identical bundles' names: the byte-order first.
-# The names are tried until the filesystem lists them otherwise than byte order (tmpfs lists the newest first, ext4 by
-# a hash of the name)
-found=
-for k in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    dir=$work/order$k
-    mkdir -p "$dir"
-    bundle "$dir/m$k-a.lv2"
-    bundle "$dir/m$k-b.lv2"
-    listed=$(ls -f "$dir" | grep '\.lv2$' | head -1)
-    if [ "$listed" != "m$k-a.lv2" ]; then
-        found=$dir/m$k-a.lv2
-        break
-    fi
-done
-if [ -z "$found" ]; then
-    check 1 "a directory listing two bundles otherwise than in byte order (none of 20 pairs)"
-else
-    got=$(root_of "$(dirname "$found")")
-    [ "$got" = "$found" ]; check $? "of equal versions in one directory, the first in byte order of names ($(basename "$found")), not the one the directory lists first ($listed): got ${got:-none}"
-fi
-
+# 1. one directory listing two identical bundles: the byte-order first, whatever order the directory lists them in. The
+# listing is the test's, not the filesystem's (most list a small directory sorted, which would leave this arm proving
+# nothing): tests/scandir-listing.so, preloaded, is the daemon's scandir and lists in the order it sets before the
+# daemon's own comparator sorts. Its mark says the listing was the test's; its sabotage, SCANDIR_DROP_ORDER=1, drops
+# the daemon's comparator, and the arm must then see the listing's first bundle, not the byte-order first.
+dir=$work/order
+bundle "$dir/m-a.lv2"
+bundle "$dir/m-b.lv2"
+listed_root() { # <path> [<drop the order: 1>]: the root the daemon picks under the test's listing
+    printf 'lv2_path %s\n' "$1" > "$work/conf"
+    : > "$work/mark"
+    SCANDIR_MARK=$work/mark SCANDIR_DROP_ORDER=${2:-0} LD_PRELOAD=$listing "$daemon" -c "$work/conf" --pin-files "$uri" \
+        2>"$work/err" | sed -n 's/^root //p'
+}
+got=$(listed_root "$dir")
+grep -qxF "$dir" "$work/mark"; check $? "the listing is the test's: the preloaded scandir listed $dir"
+[ "$got" = "$dir/m-a.lv2" ]; check $? "of equal versions in one directory, the first in byte order of names (m-a.lv2): got ${got:-none}"
+dropped=$(listed_root "$dir" 1)
+[ "$dropped" = "$dir/m-b.lv2" ]; check $? "arm: a daemon that takes the listing as it comes picks the listing's first (m-b.lv2), so the check above can fail: got ${dropped:-none}"
 # 2. a newer version later on the path wins over an older one earlier; minor before micro; none stated is 0
 first=$work/path1; second=$work/path2
 bundle "$first/old.lv2" "0 1"
