@@ -116,6 +116,48 @@ static void rpc_to_mute(int closes, int *status, int64_t *rpc_ms, int64_t *took_
     close(fd);
 }
 
+/* more workers stopped at once than any fixed table held (it held 64): every one is still known as stopped by us when it
+ * is reaped, the first as much as the last. The workers close on SIGTERM and are left unreaped, as on_death leaves them. */
+#define MANY 200
+static void many_stopped(void)
+{
+    pid_t pids[MANY];
+    int fds[MANY], n, ours = 0, status;
+
+    for (n = 0; n < MANY; n++)
+        pids[n] = spawn_mute(1, &fds[n]);
+    usleep(200000); /* the handlers are installed before the first SIGTERM */
+    for (n = 0; n < MANY; n++)
+        proc_term(pids[n]);
+    for (n = 0; n < MANY; n++)
+    {
+        while (waitpid(pids[n], &status, 0) < 0 && errno == EINTR)
+            ;
+        ours += proc_stopped_by_us(pids[n]);
+        close(fds[n]);
+    }
+    check(ours == MANY, "every one of 200 workers stopped at once is still known as stopped by us (not just the last 64)");
+    check(proc_stopped_by_us(pids[0]) == 0, "and an entry is consumed once, not kept for a pid that is gone");
+}
+
+/* a worker stopped twice (the supervisor's paths can reach one pid more than once) has ONE entry: the second proc_term
+ * adds none and keeps the first's kill time, so once it is reaped no entry is left to read a reused pid as stopped by us. */
+static void term_twice(void)
+{
+    int fd, status;
+    pid_t pid = spawn_mute(0, &fd);
+
+    usleep(200000);
+    proc_term(pid);
+    proc_term(pid);
+    kill(pid, SIGKILL);
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+        ;
+    check(proc_stopped_by_us(pid) == 1, "a worker stopped twice is known as stopped by us");
+    check(proc_stopped_by_us(pid) == 0, "and has one entry, not a duplicate left behind after it is reaped");
+    close(fd);
+}
+
 int main(void)
 {
     int status = 0, result = 0;
@@ -134,6 +176,9 @@ int main(void)
     check(rpc < PROC_TERM_GRACE_MS / 2, "proc_rpc returns when the timeout ends, not after the grace");
     check(took >= 200 + PROC_TERM_GRACE_MS - 50 && took < 200 + PROC_TERM_GRACE_MS + 1500,
           "and the kill comes with the grace, bounded: not before it, and not long after");
+
+    many_stopped();
+    term_twice();
 
     if (failures)
         printf("proc_term: %d failed\n", failures);

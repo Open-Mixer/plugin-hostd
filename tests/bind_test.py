@@ -56,7 +56,7 @@ def start(tmp, args=(), conf=(), ports=None):
     with open(path, "w") as f:
         for k, v in (("mod_host", FAKE), ("clap_host", FAKE), ("state_root", tmp), ("require_pins", 0), ("pins_dir", ""),
                      ("history_file", tmp + "/history"), ("descriptor_dir", tmp + "/descriptors"),
-                     ("qualification_dir", tmp + "/qualification"), ("probe", tmp + "/no-probe")) + tuple(conf):
+                     ("probe", tmp + "/no-probe")) + tuple(conf):
             f.write("%s %s\n" % (k, v))
     p = subprocess.Popen([EXE, "-n", "-p", str(cmd), "-f", str(fb), "-c", path, *args], stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)

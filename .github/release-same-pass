@@ -2,6 +2,7 @@
 # channel-installability gate reports a breakage they cause or suffer instead of failing on it. Reviewed like code;
 # goes away with this release branch, so it can never excuse a break in a later pass.
 #
-# plugin-hostd-full 0.20.6, as published, requires plugin-hostd = 0.20.6 exactly; plugin-hostd-full 0.20.7 releases
-# after plugin-hostd 0.20.7 in the same pass, from its own release branch.
+# plugin-hostd-full 0.20.7, as published, requires omx-clap-host below 0.33 and plugin-hostd below 0.21; plugin-hostd
+# 0.20.8 requires omx-clap-core-contract >= 0.33.1 (through plugin-hostd-contract), so the two cannot be installed
+# together until plugin-hostd-full releases after this one in the same pass, from its own release branch.
 plugin-hostd-full
