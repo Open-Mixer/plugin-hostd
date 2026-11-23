@@ -13,9 +13,9 @@ b. both sources agree while both exist: when QUALIFICATION_OLD_DOMAIN names a co
 c. sabotage: the installed tree with one word removed from its document is refused by the golden comparison, and so is
    an installed tree with an item removed (the test is run against a scratch copy, the source is never edited).
 
-d. packaging: the spec and debian/control name no plugin-qualify-contract (the package is pruned from the channel; no Breaks,
+d. packaging: the spec and debian/control name no plugin-qualify package ending -contract (the package is pruned from the channel; no Breaks,
    Replaces, Conflicts or Provides stand in for it) and plugin-hostd-contract ships the domain, in the spec's %files and in
-   debian/plugin-hostd-contract.install; packaging/deps.txt lists no plugin-qualify-contract.
+   debian/plugin-hostd-contract.install; packaging/deps.txt lists none.
 
 Environment: PKG_ROOT (the tree whose packaging arm d reads, default this one), INSTALL_CONTRACT_DIR (the installer, as the Makefile finds it), QUALIFICATION_OLD_DOMAIN (arm b). Exit 0 all green,
 1 a FAIL line.
@@ -67,6 +67,10 @@ def install(tmp):
     return tmp + pc, None
 
 
+# the pruned package's name, built from its parts: this guard asserts it is absent, so the literal never stands in the tree
+OLD_PACKAGE = "plugin-qualify" + "-contract"
+
+
 def packaging(root):
     def read(rel):
         with open(os.path.join(root, rel), encoding="utf-8") as f:
@@ -74,8 +78,8 @@ def packaging(root):
     spec = read("packaging/plugin-hostd.spec").split("%changelog")[0]
     control = read("debian/control")
     named = [rel for rel, text in (("packaging/plugin-hostd.spec", spec), ("debian/control", control), ("packaging/deps.txt", read("packaging/deps.txt")))
-             if "plugin-qualify-contract" in text]
-    check(not named, "d. nothing but the changelogs names plugin-qualify-contract: %s" % named)
+             if OLD_PACKAGE in text]
+    check(not named, "d. nothing but the changelogs names %s: %s" % (OLD_PACKAGE, named))
     relations = [line for line in (spec + control).splitlines()
                  if line.split(":")[0].strip() in ("Breaks", "Replaces", "Conflicts", "Provides", "Obsoletes") and "qualif" in line]
     check(not relations, "d. no Breaks, Replaces, Conflicts, Provides or Obsoletes for the old package: %s" % relations)

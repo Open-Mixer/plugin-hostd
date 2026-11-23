@@ -15,11 +15,12 @@
 #                             domain is read from: a ':' list, the first directory holding scan/ wins
 import json, os, shutil, subprocess, sys, tempfile
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
 CONTRACT_DIR = os.path.join(ROOT, "tests", "fixtures", "contract-dir")
-TABLES = os.path.join(ROOT, "data", "formats")
 GOLDEN = ["plugin", "param", "audio_in", "audio_out", "note_in", "note_out", "port", "panel", "section", "control", "role",
           "display", "placement_default", "meter"]
 NO_INDEX = {"plugin", "panel"}
@@ -49,7 +50,7 @@ def describe_line(fmt, scope, dirs, tmp):
         f.write("# omx-clap-scan --fields 1\n%s\tno_such_field\tx\n" % scope)
     target = {"clap": "clap:controls.clap#org.example.x", "lv2": "lv2:urn:example:x"}[fmt]
     env = dict(os.environ, OMX_CONTRACT_PATH=dirs)
-    return subprocess.run([PROBE, "describe", "--table", os.path.join(TABLES, fmt + ".json"), "--contract-dir", CONTRACT_DIR,
+    return subprocess.run([PROBE, "describe", "--table", format_tables.path(fmt), "--contract-dir", CONTRACT_DIR,
                            "--fields-from", dump, target], capture_output=True, text=True, timeout=60, env=env)
 
 

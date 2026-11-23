@@ -1,3 +1,16 @@
+plugin-hostd (0.21.0) unstable; urgency=medium
+
+  * Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V19, V21, V24 and V25.
+  * V19: the format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP are
+    the domains plugin-hostd/clap and plugin-hostd/lv2, each a sheet holding
+    its map, installed to <contractdir>/plugin-hostd/<format>/<format>.json.
+    The old place, 3/plugin-hostd/formats/{clap,lv2}.json, is gone, and so is
+    data/: the package plugin-hostd of the contract directory keeps its
+    MANIFEST.json, with no file. plugin-hostd-probe describe reads the
+    domain's document.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sun, 22 Nov 2026 12:30:00 +0100
+
 plugin-hostd (0.20.8) unstable; urgency=medium
 
   * Floors, at the releases this one is built and run against, floors only:

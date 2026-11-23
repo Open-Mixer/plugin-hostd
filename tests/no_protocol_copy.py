@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # the paths that moved to plugin-hostd-protocol
 MOVED = [
     "protocol/plugin-hostd.json", "protocol/mod-host.json", "protocol/plugin-hostd.schema.json",
-    "protocol/plugin-hostd-protocol.json", "data/verbs.json", "contract.d/plugin-hostd/plugin-hostd.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
+    "protocol/plugin-hostd-protocol.json", "data/verbs.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
     "include/plugin-hostd/protocol.h", "include/plugin-hostd/search_paths.h",
     "include/plugin-hostd/plugin_hostd_host_verbs.h", "include/plugin-hostd/plugin_hostd_protocol_host_verbs.h",
     "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_host_verbs.h",
@@ -41,12 +41,11 @@ MARKS = [
     (re.compile(r"^#\s*define\s+PHD_DEFAULT_(LV2|CLAP)_PATH\b", re.M), "a search list of search_paths.h"),
     (re.compile(r"^#\s*define\s+OMX_VERB_[A-Z0-9_]+_FMT\b", re.M), "a rendered verb table"),
     (re.compile(r'"kind":\s*"verbs"'), "a verbs item of the contract"),
-    (re.compile(r'"x-kind":\s*"verbs"'), "a verbs item of a domain"),
     (re.compile(r'^\s*"protocol":\s*"(plugin-hostd|mod-host|plugin-hostd-protocol)",?\s*$', re.M), "a protocol JSON"),
 ]
 # where the marks are looked for: the sources, the headers, the tables and the tools; the docs and the recorded
 # evidence quote the protocol, and the fuzz harnesses type mod-host's words on purpose
-SCANNED = ("src", "include", "data", "contract.d", "protocol", "tools", "tests", "fuzz")
+SCANNED = ("src", "include", "contract.d", "protocol", "tools", "tests", "fuzz")
 SUFFIXES = (".c", ".h", ".json", ".py", ".in")
 SKIP = {os.path.join("tests", "no_protocol_copy.py")}
 
@@ -77,8 +76,7 @@ def self_test():
         ("include/plugin-hostd/protocol.h", "#ifndef PLUGIN_HOSTD_PROTOCOL_H\n#define PLUGIN_HOSTD_PROTOCOL_H\n#endif\n"),
         ("src/verbs_copy.h", "#define PHD_VERBS(X) \\\n    X(A, \"a\", \"\", \"\", \"\")\n"),
         ("include/plugin-hostd/old_verbs.h", '#define OMX_VERB_CHAIN_FMT "chain %i %i ..."\n'),
-        ("data/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
-        ("contract.d/plugin-hostd/plugin-hostd.json", '{\n  "x-kind": "verbs"\n}\n'),
+        ("contract.d/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
         ("clients/python/plugin_hostd_protocol/__init__.py", "class Protocol:\n    pass\n"),
         ("tools/paths.h", '#define PHD_DEFAULT_LV2_PATH "/usr/lib/lv2"\n'),
     ]

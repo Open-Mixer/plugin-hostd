@@ -13,14 +13,16 @@
 #                                                       renamed) red naming its field, then the tables as they are green
 #
 # The TERMs are the items of the domain <contract-dir>/<lv2|clap>/<lv2|clap>.json; contract-dir is pkg-config's
-# contractdir of omx-contract, the schema omx-contract.schema.json in its datadir; the tables are this tree's data/formats/.
+# contractdir of omx-contract, the schema omx-contract.schema.json in its datadir; the tables are this tree's domains plugin-hostd/clap and plugin-hostd/lv2 (contract.d/plugin-hostd/).
 import argparse, copy, json, os, re, subprocess, sys, tempfile
 
 import jsonschema
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
-MAPS = {"clap": "PLUGIN_HOSTD_CLAP_MAP", "lv2": "PLUGIN_HOSTD_LV2_MAP"}
+MAPS = format_tables.ITEMS
 OUTBOUND = ("identity", "lookup")
 
 
@@ -97,10 +99,11 @@ class Schema:
 
 def check(fmt, table, installed, schema, names):
     """(lines, reds, counts): every field of the format with its row's class, and what is red."""
-    item = table.get(MAPS[fmt])
-    if not isinstance(item, dict) or item.get("kind") != "formatMap" or item.get("format") != fmt:
-        return [], ["%s: no formatMap %s of format %s" % (fmt, MAPS[fmt], fmt)], {}
-    rows = item.get("rows", {})
+    item = table.get("components", {}).get("schemas", {}).get(MAPS[fmt])
+    value = item.get("x-value") if isinstance(item, dict) else None
+    if not isinstance(value, dict) or item.get("x-kind") != "sheet" or value.get("format") != fmt:
+        return [], ["%s: no sheet %s of format %s" % (fmt, MAPS[fmt], fmt)], {}
+    rows = value.get("rows", {})
     lines, reds, counts = [], [], {"mapped": 0, "extension": 0, "dropped": 0}
     red = lambda field, why: reds.append("RED %s %s: %s" % (fmt, field, why))
     covers = {}
@@ -196,7 +199,7 @@ def self_test(opts):
     failed = 0
     for fmt in ("clap", "lv2"):
         table = opts.tables[fmt]
-        rows = table[MAPS[fmt]]["rows"]
+        rows = format_tables.rows(table, fmt)
         mapped = [k for k, r in rows.items() if "word" in r and "term" in r]
         lookup = next(k for k in mapped if rows[k]["word"]["transform"] == "lookup")
         removed, misspelt, renamed = mapped[0], mapped[len(mapped) // 2], lookup
@@ -204,7 +207,7 @@ def self_test(opts):
         def arm(what, edit, names):
             nonlocal failed
             broken = copy.deepcopy(table)
-            edit(broken[MAPS[fmt]]["rows"])
+            edit(format_tables.rows(broken, fmt))
             reds = run(fmt, broken, opts, quiet=True)
             ok = reds and all(any(n in r for r in reds) for n in names)
             print("self-test %s %s: %s" % (fmt, what, "red, naming %s" % " ".join(names) if ok else "NOT RED"))
@@ -257,7 +260,7 @@ def main():
         sys.exit("format_coverage: no contract directory: install omx-contract-devel or pass --contract-dir")
     opts.schema = Schema(opts.schema)
     opts.names = transforms(opts.transforms)
-    opts.tables = {f: json.load(open(os.path.join(ROOT, "data", "formats", f + ".json"))) for f in MAPS}
+    opts.tables = {f: format_tables.load(f) for f in MAPS}
     opts.installed = {f: terms(opts.contract_dir, opts.major, f) for f in MAPS}
     if opts.self_test:
         sys.exit(1 if self_test(opts) else 0)

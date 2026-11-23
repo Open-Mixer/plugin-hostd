@@ -255,16 +255,24 @@ install_qualification_domain:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_qualification_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(DESTDIR)$(CONTRACTDIR)
 
-# the domains the vocabulary renders (VOCABULARY_DOMAINS: plugin-hostd/grouping, plugin-hostd/history), installed to <contractdir>/<domain>/ the
-# same way: plugin-hostd-contract ships them, and a reader of the words (plugin-hostd-protocol's clients) reads them there
+# the domains the vocabulary renders (VOCABULARY_DOMAINS: plugin-hostd/grouping, plugin-hostd/history) and the domains of the
+# format tables (FORMAT_DOMAINS: plugin-hostd/clap, plugin-hostd/lv2, each a sheet whose value is the map { format, rows }
+# of docs/formats.md), installed to <contractdir>/<domain>/ the same way: plugin-hostd-contract ships them, and a reader
+# of the words (plugin-hostd-protocol's clients) or of the tables (omx-plugins' generators) reads them there
+FORMAT_DOMAINS = plugin-hostd/clap plugin-hostd/lv2
+# the top-level domains of this tree (installed by install_machine_domain and install_qualification_domain), the ones its MANIFEST.json names
+OWNER_DOMAINS = machine qualification
 .PHONY: install_vocabulary_domains
 install_vocabulary_domains:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_vocabulary_domains: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
-	for d in $(VOCABULARY_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $(DESTDIR)$(CONTRACTDIR) || exit 1; done
+	for d in $(VOCABULARY_DOMAINS) $(FORMAT_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $(DESTDIR)$(CONTRACTDIR) || exit 1; done
 
-# the format tables (data/formats/, docs/formats.md) this tree owns, installed as the
-# package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
-# MANIFEST.json naming this version and the tree they came from; plugin-hostd-contract ships them. contractdir and the
+# the package plugin-hostd of omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/: a MANIFEST.json
+# naming this version and no file (this tree's contract is domains alone: the install script's --owner form), which is
+# also what tells omx-contract's reader that the directory <contractdir>/plugin-hostd/ holds the domains
+# plugin-hostd/<name> and is no domain of its own. The manifest lists the owner's top-level domains (OWNER_DOMAINS): the
+# reader takes a domain name of one segment there, so plugin-hostd/clap and the other nested domains are not listed.
+# plugin-hostd-contract ships it with the domains. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
 # it is not installed. The schema major is omx-contract's, read from its pkg-config file (schema_major, omx-contract 3.9.0
 # or later) and never typed here: a recipe that needs it fails naming the missing variable when no omx-contract-devel
@@ -277,20 +285,20 @@ INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=d
 .PHONY: install-contract
 install-contract:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
-	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $(DESTDIR)$(CONTRACTDIR) data
+	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) $(DESTDIR)$(CONTRACTDIR) $(OWNER_DOMAINS)
 
-# the contract directory as a reader of it sees it: install-contract into a staging directory, then omx-contract validate
-# of the staged package together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
+# the contract directory as a reader of it sees it: the domains and install-contract into a staging directory, then omx-contract validate
+# of the staged package and domains together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
 # red on any table the installed schema refuses (#165; tests/format_coverage.py walks the schema for the words, never
 # for the row keys). An absent omx-contract command is red, never a skip
 .PHONY: check-contract-dir
 check-contract-dir:
 	@command -v $(OMX_CONTRACT) >/dev/null || { echo "$@: no $(OMX_CONTRACT) command: install omx-contract 3.2.0 or later" >&2; exit 1; }
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	$(MAKE) --no-print-directory install-contract DESTDIR=$$tmp >/dev/null; \
+	$(MAKE) --no-print-directory install_machine_domain install_qualification_domain install_vocabulary_domains install-contract DESTDIR=$$tmp >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(CONTRACTDIR)$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) $(OMX_CONTRACT) validate --installed
 
-# the words of this tree's tables (data/), rendered by omx-contract as the package installs them, beside the packages of
+# the words of this tree's domains (VOCABULARY_DOMAINS), rendered by omx-contract as the package installs them, beside the packages of
 # OMX_CONTRACT_PATH and of the installed contract directory: the C names the planner and the history read
 # (plugin_hostd_vocabulary.h). `make render-verbs` writes them and records the omx-contract that rendered them
 # (RENDERED_WITH), `make check-rendered` fails on any drift. A package build sets RENDERED_COMPARE=recorded: with
@@ -301,7 +309,7 @@ OMX_CONTRACT ?= omx-contract
 # the grouping words are the domain plugin-hostd/grouping (contract.d/plugin-hostd/grouping): the planner's reasons are its
 # words in its order, the vocabulary header is its render byte for byte, a renamed word in a scratch domain is the
 # render's and the planner's, and plugin-hostd-protocol's Python client holds the same words (tests/grouping_domain.py)
-.PHONY: test-grouping-domain test-history-domain test-history-domain
+.PHONY: test-grouping-domain test-history-domain
 # the history keys are the domain plugin-hostd/history the same way: history_line writes its words in its order, the
 # header is its render, a renamed key in a scratch domain is history_line's (tests/history_domain.py)
 test-history-domain:
@@ -311,9 +319,14 @@ test-history-domain:
 test-grouping-domain: tests/planner-test
 	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' \
 	  CC='$(CC)' CFLAGS='$(CFLAGS) $(INCS)' python3 tests/grouping_domain.py
+# the format tables are the domains plugin-hostd/clap and plugin-hostd/lv2: sheets holding their rows as data/formats did, installed
+# to <contractdir>/plugin-hostd/<format>/, and read by describe from the domain's document (tests/format_domains.py)
+.PHONY: test-format-domains
+test-format-domains: $(PROBE)
+	PROBE=./$(PROBE) MAKE='$(MAKE)' python3 tests/format_domains.py
 # the domains whose words the vocabulary renders (contract.d/<domain>, each item's x-file the data path it came from):
 # omx-contract's render reads each with --with-domain (repeated), rebuilding its data files into the package this tree
-# installs from data/, so the vocabulary renders as its data form did, its banner naming each domain's document
+# installs, so the vocabulary renders as its data form did, its banner naming each domain's document
 VOCABULARY_DOMAINS = plugin-hostd/grouping plugin-hostd/history
 RENDERED_WITH = $(RENDERED).rendered-with
 RENDERED_COMPARE ?= always
@@ -324,7 +337,8 @@ render-verbs check-rendered:
 	if [ $@ = check-rendered ] && [ "$(RENDERED_COMPARE)" = recorded ] && [ -n "$$recorded" ] && [ "$$renderer" != "$$recorded" ]; then \
 	  echo "$(RENDERED) is rendered with omx-contract $$recorded; $$renderer is installed: not compared"; exit 0; fi; \
 	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	sh $(INSTALL_CONTRACT_DIR) $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) data $$tmp data >/dev/null; \
+	for d in $(OWNER_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $$tmp >/dev/null; done; \
+	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) $$tmp $(OWNER_DOMAINS) >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed $(foreach d,$(VOCABULARY_DOMAINS),--with-domain contract.d/$(d)) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
@@ -513,7 +527,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -882,12 +896,10 @@ check-floors-only:
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
 
-# the words of the protocol are read from plugin-hostd-protocol's domain plugin-hostd (tests/declared_domain.py); the
-# plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
+# the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
 test: check-protocol-floor
 check-protocol-floor:
-	python3 tests/declared_domain.py
 	python3 tests/protocol_floor.py
 	python3 tests/pin_words_floor.py
 

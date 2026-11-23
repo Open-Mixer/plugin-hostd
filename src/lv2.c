@@ -855,7 +855,7 @@ typedef struct PORTS_T {
     int n;
 } ports_t;
 
-/* units: the words param_info answers, as data/formats/lv2.json maps them */
+/* units: the words param_info answers, as the domain plugin-hostd/lv2 maps them */
 static const struct { const char *iri; const char *word; } g_unit[] = {
     { NS_UNITS "bpm", "bpm" },          { NS_UNITS "cent", "cents" },   { NS_UNITS "coef", "x" },
     { NS_UNITS "db", "dB" },            { NS_UNITS "degree", "deg" },   { NS_UNITS "frame", "frames" },

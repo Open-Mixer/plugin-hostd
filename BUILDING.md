@@ -87,11 +87,11 @@ The daemon's verbs
 ------------------
 
 The verbs the daemon adds to mod-host's protocol, and the codes they answer, are declared in plugin-hostd-protocol's
-the domain `plugin-hostd` of omx-contract's contract directory
-(`contract.d/plugin-hostd/plugin-hostd.json`, shipped by `plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
+`data/verbs.json`, a `verbs` item of omx-contract's contract directory installed as its package
+`plugin-hostd-protocol` (`plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
 A refusal number omx-clap-host answers too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is
 named once, by omx-clap-core's `reply.host.*` codes: `make test-verbs-declared` reads the daemon's verbs from that
-domain and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
+package and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
 first directory of `OMX_CONTRACT_PATH` that holds each; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from those domains only (one in the package is refused, one missing from the domains fails).
 
 The words of this tree's domains `plugin-hostd/grouping` and `plugin-hostd/history` (`contract.d/plugin-hostd/`) are rendered by `omx-contract render`
@@ -99,8 +99,8 @@ into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make
 the omx-contract version that rendered it beside it (`plugin_hostd_vocabulary.h.rendered-with`), and `make
 check-rendered` fails on any drift. The package builds run `make check-rendered RENDERED_COMPARE=recorded`: with
 another omx-contract installed than the recorded one, the header is not compared and the check says so, so a release
-tag builds the same after the channel serves a newer omx-contract. `make install-contract` installs `data/` as the package `plugin-hostd` of the
-contract directory. The noarch package `plugin-hostd-contract` carries those files, and `plugin-hostd` and
+tag builds the same after the channel serves a newer omx-contract. `make install` installs the domains of `contract.d/plugin-hostd/` (the format tables `clap` and `lv2`, `grouping`, `history`) and `make install-contract` the
+package `plugin-hostd` of the contract directory (a `MANIFEST.json` with no file). The noarch package `plugin-hostd-contract` carries those files, and `plugin-hostd` and
 `plugin-hostd-devel` (`plugin-hostd-dev`) require it at the same version.
 
 Tests
@@ -115,9 +115,9 @@ ledger, replay to the byte, attribution, quarantine, the storm bound,
 
 The verbs are read from their declarations, never spelled: mod-host's from the
 command formats of `mod-host.h`, the daemon's own from plugin-hostd-protocol's
-domain `plugin-hostd` through the rendered header. `tests/verbs_contract.py` fails on a C string
+`verbs.json` through the rendered header. `tests/verbs_contract.py` fails on a C string
 that starts with one, and `tests/perturbation.py` renames a verb in a scratch
-copy of that domain's document and of `mod-host.h` and requires the rebuilt daemon to answer the new name and
+copy of that `verbs.json` and of `mod-host.h` and requires the rebuilt daemon to answer the new name and
 not the old.
 
     make test-jack OMX_CLAP_HOST=<omx-clap-host> [MOD_HOST=<mod-host> LV2_DIR=<lv2 path> LV2_URI=<a stereo effect> LV2_BUNDLE=<its bundle dir> LV2_PARAM=<a control taking 0.25>]
@@ -184,3 +184,24 @@ parameter goes to the plugin's own, and the event `instance_verb_dropped <instan
 `<ms>` being the age of the reply when the death was seen. The instance that sent it is blamed like the one whose
 command was in flight: its crash is counted, and in a pool it is quarantined and leaves the pool alone. A death
 outside the window replays everything, as before.
+
+Moving a data table to its owner domain
+---------------------------------------
+
+The history keys (V18) and the two format tables (V19) took the same steps, in one commit each, no copy of the old place left:
+
+1. The item moves to `contract.d/<owner>/<name>/<name>.json`, the domain named by the item's prefix (`PLUGIN_HOSTD_CLAP_MAP`
+   is in `plugin-hostd/clap`): a header (`$id` `https://openmixer.org/contract/<owner>/<name>`, `info.version`,
+   `x-owner`, `x-stability`) over the item, its old `kind` as `x-kind` (`words`, or `sheet` for a table whose `x-value` is
+   the old value verbatim), its `doc` as `description`, `since` as `x-since`, and `x-file` the data path it came from.
+   `git rm` the data file; `omx-contract validate --installed` and `fmt --check` over the staged domain must stay green.
+2. Install it: add the domain to `VOCABULARY_DOMAINS` (its words render the vocabulary header, which must stay byte
+   identical) or, for a table nothing renders, to `FORMAT_DOMAINS`; `install_vocabulary_domains` installs both.
+3. Move every reader in the same commit: `git grep` the old path and the item name over `src`, `tests`, `docs`, `doc`,
+   `packaging`, `debian` and `.github`; the tests reach the new file through one helper (`tests/format_tables.py`,
+   `tests/domain_render.py`), never a path of their own. The spec, `debian/control` and the package-list checks of
+   `ci.yml` name the new install path, and the spec and `debian/changelog` carry a line under the release.
+4. A call-level test holds it: the content equals the old file's (its sha256, frozen at the commit before), the install lands at
+   the domain path and nowhere under the old one, the old file is gone, and the reader refuses the old shape
+   (`tests/history_domain.py`, `tests/format_domains.py`). Break the new document in a scratch copy and see the test red.
+5. Prove the consumer on a copy of the stage box: the repo that reads it runs its own target against your installed domains.

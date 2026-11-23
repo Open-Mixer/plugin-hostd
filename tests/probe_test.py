@@ -12,6 +12,8 @@ try:
 except ImportError:
     sys.exit("the probe runner test needs python3-jsonschema (dnf install python3-jsonschema, apt install python3-jsonschema)")
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 CHILD = os.path.abspath(os.environ.get("PROBE_CHILD", os.path.join(ROOT, "tests", "probe-child")))
@@ -1005,7 +1007,7 @@ def a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_wi
     memlock = 2 << 20 if hard == resource.RLIM_INFINITY else min(hard, 2 << 20)
     # the fake child is no scanner: describe refuses its output, and its limits are what is read
     subprocess.run(["prlimit", "--memlock=%d:%d" % (memlock, memlock), "--", PROBE, "describe", "--table",
-                    os.path.join(ROOT, "data", "formats", "clap.json"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
+                    format_tables.path("clap"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
                    env=dict(os.environ, PROBE_CHILD_LIMITS=seen), capture_output=True, text=True, timeout=30)
     check(os.path.exists(seen), "the describe child did not run")
     got = json.load(open(seen))
