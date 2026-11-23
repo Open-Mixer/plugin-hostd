@@ -19,11 +19,17 @@ arms 1 to 8.
    probe writes the domain's word (a scratch copy with every family renamed gives the renamed word), and a domain short of
    a family is refused by item at start-up.
 
+9. the call-level read (machine_words_open, sorting pass V7): the family ids and the band counts of the call are the golden
+   ones frozen from the hand copy (intel 0, amd 1, arm 2, unknown 3; counts 6, 5, 4), they are the codes of the domain's
+   own header (include/plugin-hostd/machine_codes.h, one source: no hand-written enum or count in src/machine.h), and a
+   domain whose family codes are swapped is refused by item at the call.
+
 Environment: OMX_CONTRACT (the command, default omx-contract), INSTALL_CONTRACT_DIR (the installer, default found by
 pkg-config), DOMAIN_CFLAGS and DOMAIN_LIBS (the loader, default pkg-config libomx-domain), CC. Exit 0 all green, 1 a
 FAIL line. Arms 3, 5 and 6 also take PROBE (default ./plugin-hostd-probe), PROBE_CHILD (tests/probe-child), STRESS_CLAP
 (tests/stress.clap) and GEN (tools/protocol-gen), built by make test-machine-domain.
 """
+import atexit
 import glob
 import json
 import os
@@ -35,6 +41,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract_views  # noqa: E402
 import qualification_source  # noqa: E402
 from tree_files import tracked as tree_tracked  # noqa: E402
 
@@ -51,6 +58,9 @@ GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protoco
 WORDS_OPEN = "machine_words_open"
 BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
 FAMILIES = ["intel", "amd", "arm", "unknown"]
+# the probe domain is plugin-hostd-protocol's: where its contract package installs it, PROTOCOL_CONTRACT_DIR for a checkout's
+PROBE_SOURCE = os.environ.get("PROTOCOL_CONTRACT_DIR") or subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"],
+                                                                         capture_output=True, text=True).stdout.strip() or "/usr/share/omx-contract/contract.d"
 failures = []
 PROBE_ONLY = [None]  # a scratch contract directory holding this checkout's probe domain and no other, set by main()
 
@@ -77,16 +87,31 @@ def load():
         return None
 
 
+_ALONE = []
+
+
+def machine_alone():
+    """a scratch contract directory holding this checkout's machine domain alone (removed at exit)"""
+    if not _ALONE:
+        tmp = tempfile.mkdtemp(prefix="machine-alone-")
+        atexit.register(shutil.rmtree, tmp, True)
+        _ALONE.append(contract_views.domain_only(tmp, "machine"))
+    return _ALONE[0]
+
+
 def arm1(doc):
     if doc is None:
         return
     before = len(failures)
-    r = run(OMX + ["validate", "--contract-dir", "contract.d"])
+    # the machine domain staged alone: contract.d holds the qualification domain (which names other owners' domains) and
+    # the vocabulary domains under plugin-hostd/ (read beside the package plugin-hostd), which a directory read alone refuses
+    alone = machine_alone()
+    r = run(OMX + ["validate", "--contract-dir", alone])
     if r.returncode != 0:
-        fail("arm 1: omx-contract validate --contract-dir contract.d: %s" % (r.stderr.strip() or r.stdout.strip()))
-    r = run(OMX + ["fmt", "--check", "--contract-dir", "contract.d"])
+        fail("arm 1: omx-contract validate of contract.d/machine: %s" % (r.stderr.strip() or r.stdout.strip()))
+    r = run(OMX + ["fmt", "--check", "--contract-dir", alone])
     if r.returncode != 0:
-        fail("arm 1: omx-contract fmt --check --contract-dir contract.d: %s" % (r.stderr.strip() or r.stdout.strip()))
+        fail("arm 1: omx-contract fmt --check of contract.d/machine: %s" % (r.stderr.strip() or r.stdout.strip()))
     if doc.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         fail("arm 1: $schema is %r, not the 2020-12 schema" % doc.get("$schema"))
     if doc.get("$id") != "https://openmixer.org/contract/machine":
@@ -137,7 +162,7 @@ def arm4(doc):
     for name in marked:
         if not any(name in open(os.path.join(ROOT, f), errors="replace").read() for f in glob.glob(os.path.join(ROOT, "src", "*.c"))):
             fail("arm 4: %s is marked x-c-codes and no file of src/ names it" % name)
-    r = run(OMX + ["render", "--target", "c", "--package", "machine", "--contract-dir", "contract.d", "--out", "include/plugin-hostd", "--check"])
+    r = run(OMX + ["render", "--target", "c", "--package", "machine", "--contract-dir", machine_alone(), "--out", "include/plugin-hostd", "--check"])
     if r.returncode != 0:
         fail("arm 4: omx-contract render --check: %s" % (r.stderr.strip() or r.stdout.strip()))
     if len(failures) == before:
@@ -209,10 +234,14 @@ def renamed(doc):
 
 
 def with_qualification(contract_dir):
-    """the test entry for the probe and the generator, which read plugin-qualify's qualification domain and this checkout's
+    """the test entry for the probe and the generator, which read the qualification domain and this checkout's
     probe domain as well: the machine directory under test first, a directory that holds the probe domain alone, the
     directory that holds the qualification domain"""
-    return contract_dir + ":" + PROBE_ONLY[0] + ":" + qualification_source.source_dir()
+    # this checkout's qualification domain alone (contract.d holds the machine domain too, which an absent or renamed one
+    # under test is not to find), then the installed domains the generator reads (plugin-db's, the pin domain)
+    tmp = os.path.dirname(PROBE_ONLY[0])
+    return ":".join([contract_dir, PROBE_ONLY[0], contract_views.domain_only(tmp, "qualification"),
+                     contract_views.installed_without(tmp, ("machine", "probe", "qualification"))])
 
 
 def run_probe(contract_dir, tmp):
@@ -276,7 +305,7 @@ def arm5(tmp):
     libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
     contract = os.environ.get("CONTRACT_CFLAGS") or run(["pkg-config", "--cflags", "omx-contract"]).stdout.strip()
     exe = os.path.join(tmp, WORDS_OPEN)
-    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-o", exe,
+    cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-Iinclude", "-o", exe,
                                                     "tests/machine_words_open.c", "src/machine.c", "src/domain_words.c"]
     b = run(cc + shlex.split(contract) + shlex.split(cflags) + shlex.split(libs))
     if b.returncode != 0:
@@ -392,6 +421,75 @@ def arm8(doc, tmp):
         ok("arm 8: MACHINE_FAMILIES holds the probe's families and the probe writes the domain's word")
 
 
+GOLDEN_FAMILIES = "intel:0,amd:1,arm:2,unknown:3"
+GOLDEN_COUNTS = "6,5,4"
+
+
+def words_open(dirs, tmp):
+    """the call: tests/machine_words_open.c over machine_words_open(dirs); the process, or None when it does not build"""
+    cflags = os.environ.get("DOMAIN_CFLAGS") or run(["pkg-config", "--cflags", "libomx-domain"]).stdout.strip()
+    libs = os.environ.get("DOMAIN_LIBS") or run(["pkg-config", "--libs", "libomx-domain"]).stdout.strip()
+    contract = os.environ.get("CONTRACT_CFLAGS") or run(["pkg-config", "--cflags", "omx-contract"]).stdout.strip()
+    exe = os.path.join(tmp, WORDS_OPEN + "-9")
+    if not os.path.exists(exe):
+        cc = shlex.split(os.environ.get("CC", "cc")) + ["-Wall", "-Wextra", "-Werror", "-std=gnu99", "-D_GNU_SOURCE", "-Isrc", "-Iinclude",
+                                                        "-o", exe, "tests/machine_words_open.c", "src/machine.c", "src/domain_words.c"]
+        b = run(cc + shlex.split(contract) + shlex.split(cflags) + shlex.split(libs))
+        if b.returncode != 0:
+            fail("arm 9: tests/machine_words_open.c does not build: %s" % b.stderr.strip()[-300:])
+            return None
+    return subprocess.run([exe, dirs], cwd=ROOT, capture_output=True, text=True)
+
+
+def arm9(doc, tmp):
+    before = len(failures)
+    if doc is None:
+        return
+    # (a) golden, frozen from the hand copy of src/machine.h
+    p = words_open(fixture(tmp, "nine-as-is"), tmp)
+    if p is None:
+        return
+    if p.returncode != 0 or (" family=" + GOLDEN_FAMILIES) not in p.stdout or not p.stdout.strip().endswith(" counts=" + GOLDEN_COUNTS):
+        fail("arm 9 (a): the call does not give the golden family ids %s and counts %s: rc %d %s" %
+             (GOLDEN_FAMILIES, GOLDEN_COUNTS, p.returncode, (p.stdout + p.stderr).strip()))
+    # (b) the call's ids and counts are the domain's own header, which is the domain
+    codes = {}
+    counts = {}
+    if os.path.isfile(HEADER):
+        text = open(HEADER).read()
+        counts = {k: int(v) for k, v in re.findall(r"#define OMX_(MACHINE_[A-Z_]+)_COUNT (\d+)u?\b", text)}
+        codes = {k: int(v) for k, v in re.findall(r"#define OMX_MACHINE_FAMILIES_([A-Z0-9_]+) (\d+)u?\b", text)}
+    else:
+        fail("arm 9 (b): include/plugin-hostd/machine_codes.h does not exist")
+    want = {w["title"].upper(): w["x-code"] for w in doc["components"]["schemas"]["MACHINE_FAMILIES"]["oneOf"]}
+    codes.pop("COUNT", None)
+    if codes != want:
+        fail("arm 9 (b): the header's family codes %s are not the domain's %s" % (codes, want))
+    got = ",".join(str(counts.get(k, "-")) for k in ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS", "MACHINE_FAMILIES"))
+    if got != GOLDEN_COUNTS:
+        fail("arm 9 (b): the header's counts %s are not the golden %s" % (got, GOLDEN_COUNTS))
+    # no hand copy: the enum and the counts of src/machine.h are written from the header
+    machine_h = open(os.path.join(ROOT, "src", "machine.h")).read()
+    if "machine_codes.h" not in machine_h:
+        fail("arm 9 (b): src/machine.h does not include the domain's machine_codes.h")
+    if re.search(r"#define MACHINE_(CORE|CLOCK)_BAND_COUNT\s+\d", machine_h) or re.search(r"MACHINE_FAMILY_INTEL\s*[,}]", machine_h):
+        fail("arm 9 (b): src/machine.h still holds a hand-written count or family enum")
+
+    # (c) sabotage: a temporary domain whose first two family codes are swapped is refused by item at the call
+    def swapped(d):
+        one = d["components"]["schemas"]["MACHINE_FAMILIES"]["oneOf"]
+        one[0]["x-code"], one[1]["x-code"] = one[1]["x-code"], one[0]["x-code"]
+
+    p = words_open(fixture(tmp, "nine-swapped", swapped), tmp)
+    if p is None:
+        return
+    if not (p.returncode == 1 and "MACHINE_FAMILIES" in p.stdout and p.stdout.startswith("refused")):
+        fail("arm 9 (c): a domain with swapped family codes is not refused by item at the call: rc %d %s" %
+             (p.returncode, (p.stdout + p.stderr).strip()))
+    if len(failures) == before:
+        ok("arm 9: the call's family ids and counts are the golden ones, the header's, and a swapped domain is refused")
+
+
 def main():
     doc = load()
     arm1(doc)
@@ -400,12 +498,13 @@ def main():
     arm7()
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-machine.")
     PROBE_ONLY[0] = os.path.join(tmp, "probe-only")
-    shutil.copytree(os.path.join(ROOT, "contract.d", "probe"), os.path.join(PROBE_ONLY[0], "probe"))
+    shutil.copytree(os.path.join(PROBE_SOURCE, "probe"), os.path.join(PROBE_ONLY[0], "probe"))
     try:
         arm3(doc, tmp)
         arm5(tmp)
         arm6(doc, tmp)
         arm8(doc, tmp)
+        arm9(doc, tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return 1 if failures else 0
