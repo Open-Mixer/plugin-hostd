@@ -14,7 +14,7 @@
 #   d. plugin-hostd-probe describe reads the domain document; the old data shape (a formatMap item at the top), the
 #      sheet form and a map with no rows are refused, exit 2, naming the missing map
 #   e. the pairs follow the owner: describe over a contract directory whose plugin-db lv2 domain maps units:db to dBu,
-#      whose omx-param-contract maps the code db to dBu, writes dBu where the installed owners give dB; an owner's
+#      whose omx-param-contract swaps the codes db and dbu, writes dBu where the installed owners give dB; an owner's
 #      domain lacking the mapping item is refused naming the item; a M5 row that carries values is refused
 # Environment: PROBE, MAKE, CONTRACTDIR (the installed contract directory, default pkg-config's) (make test-format-domains).
 import hashlib
@@ -144,7 +144,9 @@ with tempfile.TemporaryDirectory(prefix="format-domains-") as tmp:
                 if w["const"] == "dB":
                     w["const"] = "dBu"
         else:
-            schemas["OMX_PARAM_CONTRACT_UNIT_IDS"]["x-value"]["db"] = "dBu"
+            # swapped with dbu, so the mapping stays one to one
+            ids = schemas["OMX_PARAM_CONTRACT_UNIT_IDS"]["x-value"]
+            ids["db"], ids["dbu"] = ids["dbu"], ids["db"]
         scratch = os.path.join(tmp, "owners-" + fmt)
         shutil.copytree(fixture_dir, scratch)
         os.makedirs(os.path.join(scratch, domain))
