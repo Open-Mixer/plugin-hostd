@@ -42,8 +42,7 @@ class hostd:
         conf = os.path.join(out, "plugin-hostd.conf")
         settings = {"mod_host": "/usr/local/bin/mod-host", "clap_host": "omx-clap-host", "lv2_worker": "omx-clap-host",
                     "require_pins": 0, "state_root": os.path.join(out, "state"),
-                    "descriptor_dir": os.path.join(out, "descriptors"),
-                    "qualification_dir": os.path.join(out, "qualification")}
+                    "descriptor_dir": os.path.join(out, "descriptors")}
         settings.update(conf_extra)
         with open(conf, "w") as f:
             for k, v in settings.items():

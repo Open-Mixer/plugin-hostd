@@ -78,11 +78,9 @@ class Scan:
         os.chmod(self.scanner, 0o755)
         self.log = os.path.join(self.dir, "scans.log")
         self.descriptors = os.path.join(self.dir, "descriptors")
-        self.qualification = os.path.join(self.dir, "qualification")
 
     def daemon(self, conf=None, env=None):
-        c = {"probe": self.scanner, "lv2_path": self.lv2_dir, "descriptor_dir": self.descriptors,
-             "qualification_dir": self.qualification}
+        c = {"probe": self.scanner, "lv2_path": self.lv2_dir, "descriptor_dir": self.descriptors}
         c.update(conf or {})
         e = {"SCAN_LOG": self.log}
         e.update(env or {})

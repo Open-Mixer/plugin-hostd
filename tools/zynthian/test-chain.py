@@ -104,7 +104,6 @@ class daemon:
         if E2E:
             # a namespace's root is root: the system directories of descriptors are not this run's to write
             settings["descriptor_dir"] = os.path.join(self.tmp, "descriptors")
-            settings["qualification_dir"] = os.path.join(self.tmp, "qualification")
             settings["lv2_path"] = chain_lv2_path()
         with open(conf, "w") as f:
             for k, v in settings.items():

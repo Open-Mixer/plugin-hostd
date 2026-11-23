@@ -40,6 +40,7 @@
  *   state_save <dir>            aborts before the reply while the file FAKE_SAVE_CRASH_FILE names exists (only in a worker that holds the instance the file names)
  *   param_set <n> crashnow <v>  v other than 0 aborts before the reply, with the command on the wire
  *   param_set <n> hang <v>      v other than 0 never answers
+ *   param_set <n> wedge <v>     v other than 0 never answers and ignores SIGTERM, as a worker stuck in a plugin does
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
  *                               as a jack client does for a port it has not been told of yet
  *   list_connections            "resp 0 <a>><b> ..."
@@ -712,6 +713,12 @@ static void receive(msg_t *msg)
     {
         if (!strcmp(tok[2], "hang") && strcmp(tok[3], "0"))
             sleep(60);
+        if (!strcmp(tok[2], "wedge") && strcmp(tok[3], "0"))
+        {
+            signal(SIGTERM, SIG_IGN);
+            for (;;)
+                pause();
+        }
         if (!strcmp(tok[2], "crashnow") && atof(tok[3]) != 0.0)
             crash();
         set_param(&g_inst[n], tok[2], tok[3]);

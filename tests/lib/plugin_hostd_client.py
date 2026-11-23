@@ -7,22 +7,22 @@ imports: a command is one line ended by a NUL, a reply is one NUL-ended line. In
     c.send(line)                the reply; ConnectionError when the peer closes, socket.timeout when none comes in time
     c.try_send(line, timeout)   (reply, None), or (None, 'closed' | 'timeout' | 'oserror <why>'): a test that expects a death
     c.expect(line, wanted)      the reply, AssertionError when it is not wanted
-"""
+"""  # noqa: D205
 import socket
 import time
 
 
-class Client:
-    def __init__(self, sock, timeout=10.0):
+class Client:  # noqa: D101
+    def __init__(self, sock, timeout=10.0):  # noqa: D107
         self.sock = sock
         self.timeout = timeout
         self.buf = b""
 
     @classmethod
-    def connect(cls, port, host="127.0.0.1", timeout=10.0):
+    def connect(cls, port, host="127.0.0.1", timeout=10.0):  # noqa: D102
         return cls(socket.create_connection((host, port), timeout=timeout), timeout)
 
-    def send(self, line, timeout=None):
+    def send(self, line, timeout=None):  # noqa: D102
         self.sock.sendall(line.encode() + b"\0")
         end = time.monotonic() + (self.timeout if timeout is None else timeout)
         while b"\0" not in self.buf:
@@ -37,7 +37,7 @@ class Client:
         reply, self.buf = self.buf.split(b"\0", 1)
         return reply.decode(errors="replace")
 
-    def try_send(self, line, timeout=None):
+    def try_send(self, line, timeout=None):  # noqa: D102
         try:
             return self.send(line, timeout), None
         except socket.timeout:
@@ -47,11 +47,11 @@ class Client:
         except OSError as e:
             return None, "oserror %s" % e
 
-    def expect(self, line, wanted):
+    def expect(self, line, wanted):  # noqa: D102
         reply = self.send(line)
         if reply != wanted:
             raise AssertionError("%s -> %r, wanted %r" % (line, reply, wanted))
         return reply
 
-    def close(self):
+    def close(self):  # noqa: D102
         self.sock.close()

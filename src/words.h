@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file words.h
+ * @brief The declarations of words.h.
+ */
+
 #ifndef WORDS_H
 #define WORDS_H
 
