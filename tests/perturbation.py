@@ -214,7 +214,7 @@ def main():
         declared.overlay(tree)
         header = os.path.join(tree, "include", "plugin-hostd", "protocol.h")
         text = open(header).read()
-        declaration = os.path.join(tree, "protocol-data", "contract.d", "plugin-hostd", "plugin-hostd.json")
+        declaration = os.path.join(tree, "protocol-data", "contract.d", "plugin-hostd-protocol", "plugin-hostd-protocol.json")
         os.makedirs(os.path.dirname(declaration))
         shutil.copy(declared.domain_json(), declaration)
         verbs = open(declaration).read()
