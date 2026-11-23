@@ -1579,6 +1579,9 @@ def a_nice_the_daemon_cannot_apply_is_logged():
         print("skip a_nice_the_daemon_cannot_apply_is_logged: this identity has CAP_SYS_NICE, which RLIMIT_NICE does not bind")
         return
     own = os.getpriority(os.PRIO_PROCESS, 0)
+    if own + 3 > 19:  # a suite run under nice 17-19 (a desk's nice -n 19) has no nice above its own to give
+        print("skip a_nice_the_daemon_cannot_apply_is_logged: this run's nice is %d, and %d is above 19" % (own, own + 3))
+        return
     d = daemon(rlimits={resource.RLIMIT_NICE: (0, 0)})
     try:
         d.expect("worker_env lv2 - %d" % (own + 3), "resp 0")
