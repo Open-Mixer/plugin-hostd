@@ -5,7 +5,8 @@
 # The format tables are the domains plugin-hostd/clap and plugin-hostd/lv2 (contract.d/plugin-hostd/<format>/<format>.json),
 # the sorting pass row V19:
 #   a. each domain is a header ($id, info.x-owner plugin-hostd) over its one item PLUGIN_HOSTD_<F>_MAP, a sheet whose x-value
-#      is { format, rows }, the rows byte for byte (their sha256, canonical) those of data/formats/<f>.json at fac7531
+#      is { format, rows }, the rows byte for byte (their sha256, canonical) those of data/formats/<f>.json at fac7531, but for
+#      the one value omx-contract 3.22.0 renamed (V23d): the coef unit's word is coef, where fac7531 wrote x
 #   b. data/formats is gone, and `make install_vocabulary_domains` into a scratch contract directory puts the documents at
 #      <contractdir>/plugin-hostd/<f>/<f>.json and nothing under <contractdir>/3/plugin-hostd/formats
 #   c. plugin-hostd-probe describe reads the domain document; the old data shape (a formatMap item at the top) and a
@@ -38,6 +39,29 @@ def digest(rows):
     return hashlib.sha256(json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+# V23d (omx-contract 3.22.0): the unit "x" is coef. The rows are fac7531's with that one value renamed; undone here, so the
+# digest still proves the rest byte for byte, and counted, so a second rename or a lost one is red
+RENAMED = {"clap": "coef", "lv2": "units:coef"}
+
+
+def as_at_fac7531(rows, key):
+    rows = json.loads(json.dumps(rows))
+    seen = []
+
+    def walk(v):
+        if isinstance(v, dict):
+            if v.get("word") == "controls[].travel.unit" and isinstance(v.get("values"), dict) and v["values"].get(key) == "coef":
+                v["values"][key] = "x"
+                seen.append(key)
+            for w in v.values():
+                walk(w)
+        elif isinstance(v, list):
+            for w in v:
+                walk(w)
+    walk(rows)
+    return rows, len(seen)
+
+
 for fmt, (count, want) in GOLDEN.items():
     doc = format_tables.load(fmt)
     item = format_tables.sheet(doc, fmt)
@@ -46,8 +70,10 @@ for fmt, (count, want) in GOLDEN.items():
           "%s: the document is the domain plugin-hostd/%s, owned by plugin-hostd" % (fmt, fmt))
     check(list(doc["components"]["schemas"]) == [format_tables.ITEMS[fmt]] and item.get("x-kind") == "sheet"
           and item["x-value"].get("format") == fmt, "%s: one item %s, a sheet of format %s" % (fmt, format_tables.ITEMS[fmt], fmt))
-    check(len(rows) == count and digest(rows) == want, "%s: its %d rows are those of data/formats/%s.json at fac7531 (%d, %s)"
-          % (fmt, count, fmt, len(rows), digest(rows)[:12]))
+    old, renamed = as_at_fac7531(rows, RENAMED[fmt])
+    check(renamed == 1, "%s: the coef unit's word is coef, once (V23d), %d found" % (fmt, renamed))
+    check(len(old) == count and digest(old) == want, "%s: its %d rows are those of data/formats/%s.json at fac7531, coef for x (%d, %s)"
+          % (fmt, count, fmt, len(old), digest(old)[:12]))
 check(not os.path.exists(os.path.join(ROOT, "data", "formats")), "data/formats is gone: one source per table")
 
 with tempfile.TemporaryDirectory(prefix="format-domains-") as tmp:
