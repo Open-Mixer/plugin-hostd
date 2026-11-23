@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+name: docs
+# The generated reference of this repository (`make docs-site`), built by dispatch and published at each
+# release tag under https://www.openmixer.org/reference/<repo>/<version>/ and .../latest/ by the organisation's one
+# docs workflow (Open-Mixer/.github docs/docs-publish.md).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    uses: Open-Mixer/.github/.github/workflows/docs-publish.yml@openmixer-v1
+    secrets: inherit
