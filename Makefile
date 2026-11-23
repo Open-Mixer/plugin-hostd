@@ -896,10 +896,12 @@ check-floors-only:
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
 
-# the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
+# the words of the protocol are read from the domain plugin-hostd-protocol (tests/declared_domain.py); the
+# plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
 test: check-protocol-floor
 check-protocol-floor:
+	python3 tests/declared_domain.py
 	python3 tests/protocol_floor.py
 	python3 tests/pin_words_floor.py
 
