@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # the paths that moved to plugin-hostd-protocol
 MOVED = [
     "protocol/plugin-hostd.json", "protocol/mod-host.json", "protocol/plugin-hostd.schema.json",
-    "protocol/plugin-hostd-protocol.json", "data/verbs.json", "contract.d/plugin-hostd/plugin-hostd.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
+    "protocol/plugin-hostd-protocol.json", "data/verbs.json", "contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
     "include/plugin-hostd/protocol.h", "include/plugin-hostd/search_paths.h",
     "include/plugin-hostd/plugin_hostd_host_verbs.h", "include/plugin-hostd/plugin_hostd_protocol_host_verbs.h",
     "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_host_verbs.h",
@@ -78,7 +78,7 @@ def self_test():
         ("src/verbs_copy.h", "#define PHD_VERBS(X) \\\n    X(A, \"a\", \"\", \"\", \"\")\n"),
         ("include/plugin-hostd/old_verbs.h", '#define OMX_VERB_CHAIN_FMT "chain %i %i ..."\n'),
         ("contract.d/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
-        ("contract.d/plugin-hostd/plugin-hostd.json", '{\n  "x-kind": "verbs"\n}\n'),
+        ("contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json", '{\n  "x-kind": "verbs"\n}\n'),
         ("clients/python/plugin_hostd_protocol/__init__.py", "class Protocol:\n    pass\n"),
         ("tools/paths.h", '#define PHD_DEFAULT_LV2_PATH "/usr/lib/lv2"\n'),
     ]

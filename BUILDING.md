@@ -87,8 +87,8 @@ The daemon's verbs
 ------------------
 
 The verbs the daemon adds to mod-host's protocol, and the codes they answer, are declared in plugin-hostd-protocol's
-the domain `plugin-hostd` of omx-contract's contract directory
-(`contract.d/plugin-hostd/plugin-hostd.json`, shipped by `plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
+domain `plugin-hostd-protocol` of omx-contract's contract directory
+(`contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json`, shipped by `plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
 A refusal number omx-clap-host answers too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is
 named once, by omx-clap-core's `reply.host.*` codes: `make test-verbs-declared` reads the daemon's verbs from that
 domain and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
@@ -115,7 +115,7 @@ ledger, replay to the byte, attribution, quarantine, the storm bound,
 
 The verbs are read from their declarations, never spelled: mod-host's from the
 command formats of `mod-host.h`, the daemon's own from plugin-hostd-protocol's
-domain `plugin-hostd` through the rendered header. `tests/verbs_contract.py` fails on a C string
+domain `plugin-hostd-protocol` through the rendered header. `tests/verbs_contract.py` fails on a C string
 that starts with one, and `tests/perturbation.py` renames a verb in a scratch
 copy of that domain's document and of `mod-host.h` and requires the rebuilt daemon to answer the new name and
 not the old.

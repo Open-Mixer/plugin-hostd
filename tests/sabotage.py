@@ -26,10 +26,10 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/timing_load_test.py (ruling 2026-11-11: a timing proof warns on a loaded node and fails on a quiet one)
 # The declared protocol is plugin-hostd-protocol's. An arm that breaks one of its headers (include/plugin-hostd/ and a
 # name of PROTOCOL_HEADERS below) breaks a copy of the installed headers in the arm's tree, which -Iinclude finds before
-# the installed ones (tests/declared.py, overlay); an arm that breaks the domain plugin-hostd (the words of the protocol) breaks a copy of the
-# installed document, protocol-data/contract.d/plugin-hostd/plugin-hostd.json, and renders it into that copy, as plugin-hostd-protocol renders it.
+# the installed ones (tests/declared.py, overlay); an arm that breaks the domain plugin-hostd-protocol (the words of the protocol) breaks a copy of the
+# installed document, protocol-data/contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json, and renders it into that copy, as plugin-hostd-protocol renders it.
 PROTOCOL_HEADERS = set(declared.headers())
-PROTOCOL_VERBS = "protocol-data/contract.d/plugin-hostd/plugin-hostd.json"
+PROTOCOL_VERBS = "protocol-data/contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json"
 
 
 def protocol_overlay(tree, path):
@@ -1033,19 +1033,19 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
-    # the declared verbs (the domain plugin-hostd of plugin-hostd-protocol) against the daemon on its socket, and the sources against the declaration
+    # the declared verbs (the domain plugin-hostd-protocol) against the daemon on its socket, and the sources against the declaration
     ("a declared format is not the grammar the daemon answers", PROTOCOL_VERBS,
      '"x-format": "chain_get %i",', '"x-format": "chain_get %i %i",', "verbs_declared", "verbs"),
     ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h",
      "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-522)", "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-101)",
      "verbs_declared", "verbs"),
     ("a number omx-clap-core names is named again by plugin-hostd", PROTOCOL_VERBS,
-     '\n        ]\n      },\n      "PLUGIN_HOSTD_VERBS": {',
+     '\n        ]\n      },\n      "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": {',
      ',\n          {\n            "const": "reply.plugin-hostd.invalid-operation",\n            "title": "invalidOperation",\n'
      '            "description": "a second name for -902",\n            "x-code": 39,\n'
      '            "x-text": "The operation is not valid here; choose another.",\n            "x-args": [],\n'
      '            "x-name": "invalidOperation",\n            "x-resp": -902\n          }'
-     '\n        ]\n      },\n      "PLUGIN_HOSTD_VERBS": {',
+     '\n        ]\n      },\n      "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": {',
      "verbs_declared", "verbs"),
     ("the daemon reads another word than the one omx-clap-core declares for the worker's xruns", "include/plugin-hostd/protocol.h",
      '#define PHD_EVENT_XRUNS                   "xruns"', '#define PHD_EVENT_XRUNS                   "xrun"',

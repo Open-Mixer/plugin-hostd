@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The verbs plugin-hostd declares (plugin-hostd-protocol's domain plugin-hostd, read from the contract directory through omx-contract's rebuild)
+# The verbs plugin-hostd declares (the domain plugin-hostd-protocol, read from the contract directory through omx-contract's rebuild)
 # and the ones omx-clap-core declares for both hosts, held to the daemon on its socket:
 #   - every verb the declarations give plugin-hostd as required or optional answers a well-formed line, one that its
 #     declared format takes, with its declared reply (an optional one may refuse with a code it declares), and a
@@ -16,7 +16,7 @@
 # contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
 # 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from
 # its domains only: one in the package is refused by name, and one no domain holds fails by name.
-# Without the package the run fails: the domain plugin-hostd requires it. The run names which source it read. The headers are read as the compiler
+# Without the package the run fails: the domain plugin-hostd-protocol requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
@@ -559,7 +559,7 @@ def main():
     own_docs = [protocol_files.verbs()]
     docs, source = package("omx-clap")
     if not docs:
-        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: the domain plugin-hostd requires it "
+        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: the domain plugin-hostd-protocol requires it "
              "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
         return 1
     moved_arms(package_tables("omx-clap"), domain_docs("omx-clap"))

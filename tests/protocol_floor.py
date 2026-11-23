@@ -3,7 +3,7 @@
 # The plugin-hostd-protocol floor is high enough: packaging/deps.txt declares it once (tools/protocol-floor.sh reads it;
 # deps-render holds every file that writes it to that), and the sources use an OMX_VERB_* of the
 # protocol's verb group that carries its own `since`, which is a release of plugin-hostd-protocol, so the floor is at
-# or above the largest `since` of what they use. PLUGIN_HOSTD_VERBS' own `since` counts plugin-hostd's releases, from
+# or above the largest `since` of what they use. PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS' own `since` counts plugin-hostd's releases, from
 # before the protocol was a package of its own, and the verbs it held then carry none: they are all in the first one
 # (0.2.0). A verb added to it since carries its own, a release of plugin-hostd-protocol (node_label, 0.5.6), and counts
 # as the protocol group's do.
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import declared
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GROUP = "PLUGIN_HOSTD_PROTOCOL_VERBS"
+GROUP = "PLUGIN_HOSTD_PROTOCOL_LIBRARY_VERBS"
 
 
 def version(s):
@@ -28,7 +28,7 @@ def macro(verb):
 def group_since(verbs):
     """{macro of a verb of the group: the protocol release that first declares it}"""
     out = {macro(v["verb"]): v["since"] for v in verbs[GROUP]["verbs"].values()}
-    out.update({macro(v["verb"]): v["since"] for v in verbs["PLUGIN_HOSTD_VERBS"]["verbs"].values() if v.get("since")})
+    out.update({macro(v["verb"]): v["since"] for v in verbs["PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS"]["verbs"].values() if v.get("since")})
     return out
 
 

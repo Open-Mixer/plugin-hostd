@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Where the declared protocol is read from. It is plugin-hostd-protocol's (0.3.0 or later, before 0.4), never this tree's: the
 # headers through pkg-config's Cflags of plugin-hostd-protocol, the JSON documents through its variables, and the
-# daemon's verbs from its domain plugin-hostd of omx-contract's contract directory (plugin-hostd-protocol#26). Without an installed
+# daemon's verbs from the domain plugin-hostd-protocol of omx-contract's contract directory (plugin-hostd-protocol#26). Without an installed
 # plugin-hostd-protocol, a checkout of it at PROTOCOL_DIR (default ../plugin-hostd-protocol) stands in, as the Makefile
 # does. A tree's own include/plugin-hostd/ comes first, so a scratch tree that holds a changed copy of the headers
 # (tests/sabotage.py, tests/perturbation.py) is read before the installed ones, as the compiler reads them.
@@ -78,12 +78,12 @@ def contract_dirs():
     return dirs
 
 
-DOMAIN = "plugin-hostd"
+DOMAIN = "plugin-hostd-protocol"
 
 
 def domain_json():
-    """the document of the domain plugin-hostd, the words of the protocol: PLUGIN_HOSTD_DOMAIN, else the first contract
-    directory that holds it, else the checkout's contract.d/plugin-hostd"""
+    """the document of the domain plugin-hostd-protocol, the words of the protocol: PLUGIN_HOSTD_DOMAIN, else the first contract
+    directory that holds it, else the checkout's contract.d/plugin-hostd-protocol"""
     if os.environ.get("PLUGIN_HOSTD_DOMAIN"):
         return os.environ["PLUGIN_HOSTD_DOMAIN"]
     for d in contract_dirs():
@@ -116,7 +116,7 @@ def rebuild(name, path):
 
 def verbs():
     """the daemon's verbs, reply codes and extensions in their data form (kind, since, doc, then codes, verbs or words;
-    "requires"), as omx-contract rebuilds them from the domain plugin-hostd"""
+    "requires"), as omx-contract rebuilds them from the domain plugin-hostd-protocol"""
     return json.loads(rebuild(DOMAIN, domain_json())["verbs.json"])
 
 
@@ -132,7 +132,7 @@ def overlay(tree):
 
 
 def render_overlay(tree, domain):
-    """the words of a changed copy of the domain plugin-hostd (domain, a file under a contract.d/plugin-hostd of its own)
+    """the words of a changed copy of the domain plugin-hostd-protocol (domain, a file under a contract.d/plugin-hostd-protocol of its own)
     rendered as omx-contract renders them for plugin-hostd-protocol, into the overlay of tree (overlay() first): the
     headers the daemon is then built against"""
     import shutil
