@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # What describe writes is read by omx-contract's own loader. The `$schema` of a descriptor is the one address the
-# loader accepts (https://openmixer.org/schema/omx-contract/omx-contract.schema.json): a literal here, never
-# the constant of src/describe.c, so a moved address is a red test. Each recorded dump's descriptor is also put in a
-# contract directory and read by loadContractDir, when OMX_CONTRACT_LOADER names omx-contract's built contract-dir.mjs.
+# loader accepts, https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json with the major only in the
+# path (omx-contract#106): a literal here, never the constant of src/describe.c, so a moved address is a red test.
+# Each recorded dump's descriptor is also put in a contract directory and read by loadContractDir, when
+# OMX_CONTRACT_LOADER names omx-contract's built contract-dir.mjs.
 # A scanned descriptor is never installed, so the copy the loader reads says origin "authored": the loader must get
 # past its `$schema` check, and any refusal it gives must be another one.
 #   describe_loader_test.py   PROBE is the runner (default ./plugin-hostd-probe)
@@ -13,7 +14,7 @@ PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
 CONTRACT_DIR = os.path.join(ROOT, "tests", "fixtures", "contract-dir")
 LOADER = os.environ.get("OMX_CONTRACT_LOADER")
-SCHEMA = "https://openmixer.org/schema/omx-contract/omx-contract.schema.json"
+SCHEMA = "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json"
 CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixture.controls",
          "lv2-compressor": "lv2:urn:example:compressor", "lv2-eq": "lv2:urn:example:eq"}
 failed = 0
