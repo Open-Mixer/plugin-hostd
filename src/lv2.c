@@ -633,6 +633,7 @@ char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *u
 #define NS_CORE   "http://lv2plug.in/ns/lv2core#"
 #define NS_PPROPS "http://lv2plug.in/ns/ext/port-props#"
 #define NS_UNITS  "http://lv2plug.in/ns/extensions/units#"
+#define OM_UNITS  "urn:openmixer:unit#"
 #define NS_PG     "http://lv2plug.in/ns/ext/port-groups#"
 #define NS_RDFS   "http://www.w3.org/2000/01/rdf-schema#"
 #define RDF_TYPE  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -855,14 +856,21 @@ typedef struct PORTS_T {
     int n;
 } ports_t;
 
-/* units: the words param_info answers, as the domain plugin-hostd/lv2 maps them */
+/* units: the standard unit id param_info answers for each LV2 unit, a const of omx-contract's PARAM_UNITS, as plugin-db's
+ * LV2_UNIT_IDS (every unit term of LV2_UNITS_TERMS) and LV2_OPENMIXER_UNIT_IDS map them (plugin-hostd#215 D1); a unit
+ * this table does not name has no standard id, and its port has no checked contract */
 static const struct { const char *iri; const char *word; } g_unit[] = {
-    { NS_UNITS "bpm", "bpm" },          { NS_UNITS "cent", "cents" },   { NS_UNITS "coef", "coef" },
+    { NS_UNITS "bar", "bar" },          { NS_UNITS "beat", "beat" },    { NS_UNITS "bpm", "bpm" },
+    { NS_UNITS "cent", "cents" },       { NS_UNITS "cm", "cm" },        { NS_UNITS "coef", "coef" },
     { NS_UNITS "db", "dB" },            { NS_UNITS "degree", "deg" },   { NS_UNITS "frame", "frames" },
-    { NS_UNITS "hz", "Hz" },            { NS_UNITS "midiNote", "midiNote" }, { NS_UNITS "min", "min" },
-    { NS_UNITS "ms", "ms" },            { NS_UNITS "oct", "oct" },      { NS_UNITS "pc", "%" },
-    { NS_UNITS "s", "s" },              { NS_UNITS "semitone12TET", "st" },
-    { "urn:openmixer:unit#dBFS", "dBFS" }, { "urn:openmixer:unit#LUFS", "LUFS" },
+    { NS_UNITS "hz", "Hz" },            { NS_UNITS "inch", "inch" },    { NS_UNITS "khz", "kHz" },
+    { NS_UNITS "km", "km" },            { NS_UNITS "m", "m" },          { NS_UNITS "mhz", "MHz" },
+    { NS_UNITS "midiNote", "midiNote" }, { NS_UNITS "mile", "mile" },   { NS_UNITS "min", "min" },
+    { NS_UNITS "mm", "mm" },            { NS_UNITS "ms", "ms" },        { NS_UNITS "oct", "oct" },
+    { NS_UNITS "pc", "percent" },       { NS_UNITS "s", "s" },          { NS_UNITS "semitone12TET", "st" },
+    /* LV2_OPENMIXER_UNIT_IDS: a urn:openmixer:unit# name is matched in any case, as plugin-qualify reads it */
+    { OM_UNITS "dbfs", "dBFS" },        { OM_UNITS "lufs", "LUFS" },    { OM_UNITS "ratio", "ratio" },
+    { OM_UNITS "dbu", "dBu" },          { OM_UNITS "dboct", "dB-oct" },
 };
 
 static const char *unit_word(const char *iri)
@@ -870,7 +878,7 @@ static const char *unit_word(const char *iri)
     size_t n;
 
     for (n = 0; n < sizeof(g_unit) / sizeof(*g_unit); n++)
-        if (!strcmp(iri, g_unit[n].iri))
+        if (strncmp(g_unit[n].iri, OM_UNITS, sizeof(OM_UNITS) - 1) ? !strcmp(iri, g_unit[n].iri) : !strcasecmp(iri, g_unit[n].iri))
             return g_unit[n].word;
     return NULL;
 }
@@ -1099,7 +1107,7 @@ char *lv2_param_info(int id, const char *symbol)
         {
             scale = p->integer || p->toggled || p->enumeration ? "stepped" :
                     p->logarithmic && p->min > 0 && p->max > 0 ? "log" : "linear";
-            quoted(unit, sizeof(unit), p->unit ? p->unit : "");
+            quoted(unit, sizeof(unit), p->unit ? p->unit : "none"); /* a port that states no unit: PARAM_UNITS' none */
             reply = NULL;
             if (asprintf(&reply, "resp 0 %s %s %.9g %.9g %.9g %d %s", unit, scale, p->min, p->max, p->def,
                          !strcmp(scale, "stepped"), p->symbol) < 0)
