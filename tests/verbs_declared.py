@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The verbs plugin-hostd declares (plugin-hostd-protocol's verbs.json, read from its package of the contract directory)
+# The verbs plugin-hostd declares (plugin-hostd-protocol's domain plugin-hostd, read from the contract directory through omx-contract's rebuild)
 # and the ones omx-clap-core declares for both hosts, held to the daemon on its socket:
 #   - every verb the declarations give plugin-hostd as required or optional answers a well-formed line, one that its
 #     declared format takes, with its declared reply (an optional one may refuse with a code it declares), and a
@@ -16,7 +16,7 @@
 # contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
 # 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from
 # its domains only: one in the package is refused by name, and one no domain holds fails by name.
-# Without the package the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
+# Without the package the run fails: the domain plugin-hostd requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
@@ -33,7 +33,7 @@ from harness import Daemon, Fail, check, wait_for
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", os.path.join(ROOT, "plugin-hostd")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
-OWN = protocol_files.verbs_json()
+OWN = protocol_files.domain_json()
 # the tree whose headers the daemon under test was built against (tests/sabotage.py builds in a scratch tree)
 TREE = os.path.dirname(EXE)
 MAJOR = "3"
@@ -133,21 +133,9 @@ def contract_dirs():
     return dirs
 
 
-# the data form of a domain's items, rebuilt by omx-contract's own reader (domainDataFiles of the installed command's
-# lib/domain.mjs, the rebuild render --with-domain runs): the file of each x-file, as the package's own table would be
-REBUILD = """
-import { readFileSync } from 'node:fs';
-const [clidir, name, path] = process.argv.slice(1);
-const { domainDataFiles } = await import('file://' + clidir + '/lib/domain.mjs');
-process.stdout.write(JSON.stringify(domainDataFiles(name, JSON.parse(readFileSync(path, 'utf8')))));
-"""
-
-
 def domain_docs(owner):
     """the data form of every domain <owner> owns in the contract directory (omx-clap's domains omx-clap and host hold
     its verbs, HOST_REPLY_CODES and HOST_EVENTS since the sorting pass, V15), as tables the readers here read"""
-    clidir = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=clidir", "omx-contract"],
-                            capture_output=True, text=True).stdout.strip() or "/usr/lib/omx-contract"
     out, seen = [], set()
     for d in contract_dirs():
         for e in sorted(os.listdir(d)) if os.path.isdir(d) else []:
@@ -159,11 +147,10 @@ def domain_docs(owner):
             if not isinstance(doc, dict) or doc.get("info", {}).get("x-owner") != owner:
                 continue
             seen.add(e)
-            r = subprocess.run(["node", "--input-type=module", "-e", REBUILD, clidir, e, path], capture_output=True, text=True)
-            if r.returncode != 0:
-                fail("omx-contract's reader refuses the domain %s of %s: %s" % (e, owner, r.stderr.strip()[-300:]))
-                continue
-            out.extend(json.loads(text) for text in json.loads(r.stdout).values())
+            try:
+                out.extend(json.loads(text) for text in protocol_files.rebuild(e, path).values())
+            except RuntimeError as err:
+                fail(str(err))
     return out
 
 
@@ -569,11 +556,10 @@ def check_both(declared):
 
 
 def main():
-    with open(OWN) as f:
-        own_docs = [json.load(f)]
+    own_docs = [protocol_files.verbs()]
     docs, source = package("omx-clap")
     if not docs:
-        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: verbs.json requires it "
+        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: the domain plugin-hostd requires it "
              "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
         return 1
     moved_arms(package_tables("omx-clap"), domain_docs("omx-clap"))
