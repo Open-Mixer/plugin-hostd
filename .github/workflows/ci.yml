@@ -113,7 +113,8 @@ jobs:
       - name: Install the build tools
         run: |
           bounded-install dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema \
+            nodejs26 nodejs26-bin nodejs26-npm
 
       - uses: actions/checkout@v4
       # the floors packaging/deps.txt declares are the ones the spec and debian/control state, with no ceiling
