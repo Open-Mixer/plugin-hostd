@@ -2041,7 +2041,7 @@ static int describe_main(int argc, char **argv)
     options_t o = { .child = DESCRIBE_CHILD, .wall_s = 60, .cpu_s = 50, .files = 256, .data_bytes = 4LL << 30,
                     .file_bytes = 64LL << 20, .grace_ms = 300 };
     const char *table = NULL, *fields = NULL, *contract_dir = NULL, *target, *format;
-    char path[PATH_MAX], roles_dir[PATH_MAX], why[512];
+    char path[PATH_MAX], roles_dir[PATH_MAX], owner_dirs[2 * PATH_MAX + 2], why[512];
     sb_t table_text = { 0 }, dump = { 0 }, out = { 0 };
     int a, pages = 0;
 
@@ -2072,7 +2072,9 @@ static int describe_main(int argc, char **argv)
                         "/plugin-hostd/<format>/<format>.json)\n"
                         "  --fields-from FILE   a recorded field dump, in place of running the child\n"
                         "  --contract-dir DIR   the contract directory whose role tables give a CLAP control its\n"
-                        "                       meaning (default $OMX_CONTRACT_PATH, else " PROBE_CONTRACTDIR ")\n"
+                        "                       meaning, and whose format owners' domains give a unit or a\n"
+                        "                       designation its standard word (default $OMX_CONTRACT_PATH, else\n"
+                        "                       " PROBE_CONTRACTDIR "; an owner's domain it lacks is read from there)\n"
                         "  --child PROGRAM      the program that writes the dump (default " DESCRIBE_CHILD ")\n"
                         "  --log FILE           the child's stderr (default discarded)\n"
                         "  --wall-s N           the child's wall clock (default 60)\n"
@@ -2138,6 +2140,10 @@ static int describe_main(int argc, char **argv)
     if (contract_dir == NULL && (contract_dir = getenv("OMX_CONTRACT_PATH")) != NULL && *contract_dir == '\0')
         contract_dir = NULL;
     snprintf(roles_dir, sizeof(roles_dir), "%s/" PROBE_CONTRACT_MAJOR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);
+    /* the format owners' domains, whose mappings give a unit-id or designation-meaning row its pairs: that directory
+     * first, then the installed one (docs/formats.md, Lookup values the owners publish) */
+    snprintf(owner_dirs, sizeof(owner_dirs), "%s:" PROBE_CONTRACTDIR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);
+    describe_owners(owner_dirs);
     if ((pages ? describe_pages : describe_dump)(table_text.s, dump.s, target, roles_dir, &out, why, sizeof(why)) != 0)
     {
         fprintf(stderr, RUNNER_NAME ": describe: %s: %s\n", target, why);

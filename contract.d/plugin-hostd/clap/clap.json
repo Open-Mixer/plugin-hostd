@@ -12,1828 +12,2926 @@
       "PLUGIN_HOSTD_CLAP_MAP": {
         "description": "How a CLAP plugin's field dump (omx-clap-scan --fields) becomes a scanned descriptor, and, read backwards, what a generator writes a CLAP face from: every CLAP term and struct field, each mapped to a descriptor word, carried in the extension bag or dropped by its ruling (docs/formats.md).",
         "x-since": "0.7.0",
-        "x-kind": "sheet",
+        "x-kind": "map",
         "x-file": "formats/clap.json",
-        "x-value": {
-          "format": "clap",
-          "rows": {
-            "CLAP_AMBISONIC_NORMALIZATION_MAXN": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationMaxn",
-              "extension": true
-            },
-            "CLAP_AMBISONIC_NORMALIZATION_N2D": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationN2d",
-              "extension": true
-            },
-            "CLAP_AMBISONIC_NORMALIZATION_N3D": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationN3d",
-              "extension": true
-            },
-            "CLAP_AMBISONIC_NORMALIZATION_SN2D": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationSn2d",
-              "extension": true
-            },
-            "CLAP_AMBISONIC_NORMALIZATION_SN3D": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationSn3d",
-              "extension": true
-            },
-            "CLAP_AMBISONIC_ORDERING_ACN": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicOrderingAcn",
-              "extension": true
-            },
-            "CLAP_AMBISONIC_ORDERING_FUMA": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicOrderingFuma",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORTS_RESCAN_CHANNEL_COUNT": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanChannelCount",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORTS_RESCAN_FLAGS": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanFlags",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORTS_RESCAN_IN_PLACE_PAIR": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanInPlacePair",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORTS_RESCAN_LIST": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanList",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORTS_RESCAN_NAMES": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanNames",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORTS_RESCAN_PORT_TYPE": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanPortType",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORT_IS_MAIN": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortIsMain",
-              "word": {
-                "word": "ports[].role",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_AUDIO_PORT_IS_MAIN": "main"
-                }
+        "x-format": "clap",
+        "oneOf": [
+          {
+            "const": "CLAP_AMBISONIC_NORMALIZATION_MAXN",
+            "title": "CLAP_AMBISONIC_NORMALIZATION_MAXN",
+            "x-code": 0,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationMaxn",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AMBISONIC_NORMALIZATION_N2D",
+            "title": "CLAP_AMBISONIC_NORMALIZATION_N2D",
+            "x-code": 1,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationN2d",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AMBISONIC_NORMALIZATION_N3D",
+            "title": "CLAP_AMBISONIC_NORMALIZATION_N3D",
+            "x-code": 2,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationN3d",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AMBISONIC_NORMALIZATION_SN2D",
+            "title": "CLAP_AMBISONIC_NORMALIZATION_SN2D",
+            "x-code": 3,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationSn2d",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AMBISONIC_NORMALIZATION_SN3D",
+            "title": "CLAP_AMBISONIC_NORMALIZATION_SN3D",
+            "x-code": 4,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicNormalizationSn3d",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AMBISONIC_ORDERING_ACN",
+            "title": "CLAP_AMBISONIC_ORDERING_ACN",
+            "x-code": 5,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicOrderingAcn",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AMBISONIC_ORDERING_FUMA",
+            "title": "CLAP_AMBISONIC_ORDERING_FUMA",
+            "x-code": 6,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonicOrderingFuma",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORTS_RESCAN_CHANNEL_COUNT",
+            "title": "CLAP_AUDIO_PORTS_RESCAN_CHANNEL_COUNT",
+            "x-code": 7,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanChannelCount",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORTS_RESCAN_FLAGS",
+            "title": "CLAP_AUDIO_PORTS_RESCAN_FLAGS",
+            "x-code": 8,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanFlags",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORTS_RESCAN_IN_PLACE_PAIR",
+            "title": "CLAP_AUDIO_PORTS_RESCAN_IN_PLACE_PAIR",
+            "x-code": 9,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanInPlacePair",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORTS_RESCAN_LIST",
+            "title": "CLAP_AUDIO_PORTS_RESCAN_LIST",
+            "x-code": 10,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanList",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORTS_RESCAN_NAMES",
+            "title": "CLAP_AUDIO_PORTS_RESCAN_NAMES",
+            "x-code": 11,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanNames",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORTS_RESCAN_PORT_TYPE",
+            "title": "CLAP_AUDIO_PORTS_RESCAN_PORT_TYPE",
+            "x-code": 12,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortsRescanPortType",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORT_IS_MAIN",
+            "title": "CLAP_AUDIO_PORT_IS_MAIN",
+            "x-code": 13,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortIsMain",
+            "x-word": {
+              "word": "ports[].role",
+              "transform": "lookup",
+              "values": {
+                "CLAP_AUDIO_PORT_IS_MAIN": "main"
               }
-            },
-            "CLAP_AUDIO_PORT_PREFERS_64BITS": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortPrefers64bits",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORT_REQUIRES_COMMON_SAMPLE_SIZE": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortRequiresCommonSampleSize",
-              "extension": true
-            },
-            "CLAP_AUDIO_PORT_SUPPORTS_64BITS": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortSupports64bits",
-              "extension": true
-            },
-            "CLAP_BEATTIME_FACTOR": {
-              "term": "CLAP_FIXEDPOINT_TERMS#beattimeFactor",
-              "extension": true
-            },
-            "CLAP_COLOR_TRANSPARENT": {
-              "term": "CLAP_COLOR_TERMS#colorTransparent",
-              "extension": true
-            },
-            "CLAP_CONTEXT_MENU_ITEM_BEGIN_SUBMENU": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemBeginSubmenu",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemBeginSubmenu out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_ITEM_CHECK_ENTRY": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemCheckEntry",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemCheckEntry out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_ITEM_END_SUBMENU": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEndSubmenu",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEndSubmenu out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_ITEM_ENTRY": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEntry",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEntry out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_ITEM_SEPARATOR": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemSeparator",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemSeparator out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_ITEM_TITLE": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemTitle",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemTitle out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_TARGET_KIND_GLOBAL": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindGlobal",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindGlobal out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CONTEXT_MENU_TARGET_KIND_PARAM": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindParam",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindParam out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_CORE_EVENT_SPACE_ID": {
-              "term": "CLAP_EVENTS_TERMS#coreEventSpaceId",
-              "extension": true
-            },
-            "CLAP_EVENT_DONT_RECORD": {
-              "term": "CLAP_EVENTS_TERMS#eventDontRecord",
-              "extension": true
-            },
-            "CLAP_EVENT_IS_LIVE": {
-              "term": "CLAP_EVENTS_TERMS#eventIsLive",
-              "extension": true
-            },
-            "CLAP_EVENT_MIDI": {
-              "term": "CLAP_EVENTS_TERMS#eventMidi",
-              "extension": true
-            },
-            "CLAP_EVENT_MIDI2": {
-              "term": "CLAP_EVENTS_TERMS#eventMidi2",
-              "extension": true
-            },
-            "CLAP_EVENT_MIDI_SYSEX": {
-              "term": "CLAP_EVENTS_TERMS#eventMidiSysex",
-              "extension": true
-            },
-            "CLAP_EVENT_NOTE_CHOKE": {
-              "term": "CLAP_EVENTS_TERMS#eventNoteChoke",
-              "extension": true
-            },
-            "CLAP_EVENT_NOTE_END": {
-              "term": "CLAP_EVENTS_TERMS#eventNoteEnd",
-              "extension": true
-            },
-            "CLAP_EVENT_NOTE_EXPRESSION": {
-              "term": "CLAP_EVENTS_TERMS#eventNoteExpression",
-              "extension": true
-            },
-            "CLAP_EVENT_NOTE_OFF": {
-              "term": "CLAP_EVENTS_TERMS#eventNoteOff",
-              "extension": true
-            },
-            "CLAP_EVENT_NOTE_ON": {
-              "term": "CLAP_EVENTS_TERMS#eventNoteOn",
-              "extension": true
-            },
-            "CLAP_EVENT_PARAM_GESTURE_BEGIN": {
-              "term": "CLAP_EVENTS_TERMS#eventParamGestureBegin",
-              "extension": true
-            },
-            "CLAP_EVENT_PARAM_GESTURE_END": {
-              "term": "CLAP_EVENTS_TERMS#eventParamGestureEnd",
-              "extension": true
-            },
-            "CLAP_EVENT_PARAM_MOD": {
-              "term": "CLAP_EVENTS_TERMS#eventParamMod",
-              "extension": true
-            },
-            "CLAP_EVENT_PARAM_VALUE": {
-              "term": "CLAP_EVENTS_TERMS#eventParamValue",
-              "extension": true
-            },
-            "CLAP_EVENT_TRANSPORT": {
-              "term": "CLAP_EVENTS_TERMS#eventTransport",
-              "extension": true
-            },
-            "CLAP_EVENT_TRIGGER": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#eventTrigger",
-              "extension": true
-            },
-            "CLAP_EXT_AMBISONIC": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic/3",
-              "extension": true
-            },
-            "CLAP_EXT_AMBISONIC_COMPAT": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic.draft/3",
-              "extension": true
-            },
-            "CLAP_EXT_AUDIO_PORTS": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#audio-ports",
-              "extension": true
-            },
-            "CLAP_EXT_AUDIO_PORTS_ACTIVATION": {
-              "term": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_TERMS#audio-ports-activation/2",
-              "extension": true
-            },
-            "CLAP_EXT_AUDIO_PORTS_ACTIVATION_COMPAT": {
-              "term": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_TERMS#audio-ports-activation/draft-2",
-              "extension": true
-            },
-            "CLAP_EXT_AUDIO_PORTS_CONFIG": {
-              "term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config",
-              "extension": true
-            },
-            "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO": {
-              "term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config-info/1",
-              "extension": true
-            },
-            "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO_COMPAT": {
-              "term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config-info/draft-0",
-              "extension": true
-            },
-            "CLAP_EXT_BACKGROUND_ACTIVATION": {
-              "term": "CLAP_EXT_DRAFT_BACKGROUND_ACTIVATION_TERMS#background-activation/1",
-              "extension": true
-            },
-            "CLAP_EXT_BACKGROUND_PROGRESS": {
-              "term": "CLAP_EXT_DRAFT_BACKGROUND_PROGRESS_TERMS#background-progress/1",
-              "extension": true
-            },
-            "CLAP_EXT_BACKGROUND_STATE_CONTEXT": {
-              "term": "CLAP_EXT_DRAFT_BACKGROUND_STATE_CONTEXT_TERMS#background-state-context/1",
-              "extension": true
-            },
-            "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS": {
-              "term": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_TERMS#configurable-audio-ports/1",
-              "extension": true
-            },
-            "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT": {
-              "term": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_TERMS#configurable-audio-ports.draft1",
-              "extension": true
-            },
-            "CLAP_EXT_CONTEXT_MENU": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu/1",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu/1 out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_EXT_CONTEXT_MENU_COMPAT": {
-              "term": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu.draft/0",
-              "dropped": {
-                "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu.draft/0 out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_EXT_EVENT_REGISTRY": {
-              "term": "CLAP_EXT_EVENT_REGISTRY_TERMS#event-registry",
-              "extension": true
-            },
-            "CLAP_EXT_EXTENSIBLE_AUDIO_PORTS": {
-              "term": "CLAP_EXT_DRAFT_EXTENSIBLE_AUDIO_PORTS_TERMS#extensible-audio-ports/1",
-              "extension": true
-            },
-            "CLAP_EXT_FLUSH_EVENTS": {
-              "term": "CLAP_EXT_DRAFT_FLUSH_EVENTS_TERMS#flush-events/1",
-              "extension": true
-            },
-            "CLAP_EXT_GAIN_ADJUSTMENT_METERING": {
-              "term": "CLAP_EXT_DRAFT_GAIN_ADJUSTMENT_METERING_TERMS#gain-adjustment-metering/0",
-              "extension": true
-            },
-            "CLAP_EXT_GUI": {
-              "term": "CLAP_EXT_GUI_TERMS#gui",
-              "dropped": {
-                "ruling": "CLAP_EXT_GUI_TERMS#gui out-of-scope: Never in the console (GUI ruling 2026-10-19); native windows in the standalone omx-clap-host are #180 (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_EXT_LATENCY": {
-              "term": "CLAP_EXT_LATENCY_TERMS#latency",
-              "word": {
-                "word": "latency.reports",
-                "transform": "flag"
-              }
-            },
-            "CLAP_EXT_LOG": {
-              "term": "CLAP_EXT_LOG_TERMS#log",
-              "extension": true
-            },
-            "CLAP_EXT_MINI_CURVE_DISPLAY": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#mini-curve-display/3",
-              "extension": true
-            },
-            "CLAP_EXT_NOTE_NAME": {
-              "term": "CLAP_EXT_NOTE_NAME_TERMS#note-name",
-              "extension": true
-            },
-            "CLAP_EXT_NOTE_PORTS": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#note-ports",
-              "extension": true
-            },
-            "CLAP_EXT_OCTAVE_NUMBER": {
-              "term": "CLAP_EXT_DRAFT_OCTAVE_NUMBER_TERMS#octave-number/1",
-              "extension": true
-            },
-            "CLAP_EXT_PARAMS": {
-              "term": "CLAP_EXT_PARAMS_TERMS#params",
-              "extension": true
-            },
-            "CLAP_EXT_PARAMS_ORIGIN": {
-              "term": "CLAP_EXT_DRAFT_PARAMS_ORIGIN_TERMS#params-origin/1",
-              "extension": true
-            },
-            "CLAP_EXT_PARAM_HOVERED": {
-              "term": "CLAP_EXT_DRAFT_PARAM_HOVERED_TERMS#param-hovered/1",
-              "extension": true
-            },
-            "CLAP_EXT_PARAM_INDICATION": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#param-indication/4",
-              "extension": true
-            },
-            "CLAP_EXT_PARAM_INDICATION_COMPAT": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#param-indication.draft/4",
-              "extension": true
-            },
-            "CLAP_EXT_POSIX_FD_SUPPORT": {
-              "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posix-fd-support",
-              "extension": true
-            },
-            "CLAP_EXT_PRESET_LOAD": {
-              "term": "CLAP_EXT_PRESET_LOAD_TERMS#preset-load/2",
-              "extension": true
-            },
-            "CLAP_EXT_PRESET_LOAD_COMPAT": {
-              "term": "CLAP_EXT_PRESET_LOAD_TERMS#preset-load.draft/2",
-              "extension": true
-            },
-            "CLAP_EXT_PROJECT_LOCATION": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#project-location/2",
-              "extension": true
-            },
-            "CLAP_EXT_REMOTE_CONTROLS": {
-              "term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remote-controls/2",
-              "extension": true
-            },
-            "CLAP_EXT_REMOTE_CONTROLS_COMPAT": {
-              "term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remote-controls.draft/2",
-              "extension": true
-            },
-            "CLAP_EXT_RENDER": {
-              "term": "CLAP_EXT_RENDER_TERMS#render",
-              "extension": true
-            },
-            "CLAP_EXT_RESOURCE_DIRECTORY": {
-              "term": "CLAP_EXT_DRAFT_RESOURCE_DIRECTORY_TERMS#resource-directory/1",
-              "extension": true
-            },
-            "CLAP_EXT_SCRATCH_MEMORY": {
-              "term": "CLAP_EXT_DRAFT_SCRATCH_MEMORY_TERMS#scratch-memory/1",
-              "extension": true
-            },
-            "CLAP_EXT_STATE": {
-              "term": "CLAP_EXT_STATE_TERMS#state",
-              "extension": true
-            },
-            "CLAP_EXT_STATE_CONTEXT": {
-              "term": "CLAP_EXT_STATE_CONTEXT_TERMS#state-context/2",
-              "extension": true
-            },
-            "CLAP_EXT_SURROUND": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surround/4",
-              "extension": true
-            },
-            "CLAP_EXT_SURROUND_COMPAT": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surround.draft/4",
-              "extension": true
-            },
-            "CLAP_EXT_TAIL": {
-              "term": "CLAP_EXT_TAIL_TERMS#tail",
-              "extension": true
-            },
-            "CLAP_EXT_THREAD_CHECK": {
-              "term": "CLAP_EXT_THREAD_CHECK_TERMS#thread-check",
-              "extension": true
-            },
-            "CLAP_EXT_THREAD_POOL": {
-              "term": "CLAP_EXT_THREAD_POOL_TERMS#thread-pool",
-              "extension": true
-            },
-            "CLAP_EXT_TIMER_SUPPORT": {
-              "term": "CLAP_EXT_TIMER_SUPPORT_TERMS#timer-support",
-              "extension": true
-            },
-            "CLAP_EXT_TRACK_INFO": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#track-info/1",
-              "extension": true
-            },
-            "CLAP_EXT_TRACK_INFO_COMPAT": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#track-info.draft/1",
-              "extension": true
-            },
-            "CLAP_EXT_TRANSPORT_CONTROL": {
-              "term": "CLAP_EXT_DRAFT_TRANSPORT_CONTROL_TERMS#transport-control/2",
-              "extension": true
-            },
-            "CLAP_EXT_TRIGGERS": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggers/1",
-              "extension": true
-            },
-            "CLAP_EXT_TUNING": {
-              "term": "CLAP_EXT_DRAFT_TUNING_TERMS#tuning/2",
-              "extension": true
-            },
-            "CLAP_EXT_UNDO": {
-              "term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo/4",
-              "dropped": {
-                "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_EXT_UNDO_CONTEXT": {
-              "term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_context/4",
-              "dropped": {
-                "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_context/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_EXT_UNDO_DELTA": {
-              "term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_delta/4",
-              "dropped": {
-                "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_delta/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_EXT_VOICE_INFO": {
-              "term": "CLAP_EXT_VOICE_INFO_TERMS#voice-info",
-              "extension": true
-            },
-            "CLAP_EXT_WEBVIEW": {
-              "term": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview/3",
-              "dropped": {
-                "ruling": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview/3 out-of-scope: A plugin's own UI, as `gui` (GUI ruling 2026-10-19) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
-              }
-            },
-            "CLAP_INVALID_ID": {
-              "term": "CLAP_ID_TERMS#invalidId",
-              "extension": true
-            },
-            "CLAP_LOG_DEBUG": {
-              "term": "CLAP_EXT_LOG_TERMS#logDebug",
-              "extension": true
-            },
-            "CLAP_LOG_ERROR": {
-              "term": "CLAP_EXT_LOG_TERMS#logError",
-              "extension": true
-            },
-            "CLAP_LOG_FATAL": {
-              "term": "CLAP_EXT_LOG_TERMS#logFatal",
-              "extension": true
-            },
-            "CLAP_LOG_HOST_MISBEHAVING": {
-              "term": "CLAP_EXT_LOG_TERMS#logHostMisbehaving",
-              "extension": true
-            },
-            "CLAP_LOG_INFO": {
-              "term": "CLAP_EXT_LOG_TERMS#logInfo",
-              "extension": true
-            },
-            "CLAP_LOG_PLUGIN_MISBEHAVING": {
-              "term": "CLAP_EXT_LOG_TERMS#logPluginMisbehaving",
-              "extension": true
-            },
-            "CLAP_LOG_WARNING": {
-              "term": "CLAP_EXT_LOG_TERMS#logWarning",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_AXIS_NAME_CHANGED": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayAxisNameChanged",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_CHANGED": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveChanged",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_REDUCTION": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindGainReduction",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_RESPONSE": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindGainResponse",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_PHASE_RESPONSE": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindPhaseResponse",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TIME_SERIES": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindTimeSeries",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TRANSFER_CURVE": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindTransferCurve",
-              "extension": true
-            },
-            "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_UNSPECIFIED": {
-              "term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindUnspecified",
-              "extension": true
-            },
-            "CLAP_NAME_SIZE": {
-              "term": "CLAP_STRING_SIZES_TERMS#nameSize",
-              "extension": true
-            },
-            "CLAP_NOTE_DIALECT_CLAP": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectClap",
-              "word": {
-                "word": "ports[].dialects",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_NOTE_DIALECT_CLAP": "clap"
-                }
-              }
-            },
-            "CLAP_NOTE_DIALECT_MIDI": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidi",
-              "word": {
-                "word": "ports[].dialects",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_NOTE_DIALECT_MIDI": "midi"
-                }
-              }
-            },
-            "CLAP_NOTE_DIALECT_MIDI2": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidi2",
-              "word": {
-                "word": "ports[].dialects",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_NOTE_DIALECT_MIDI2": "midi2"
-                }
-              }
-            },
-            "CLAP_NOTE_DIALECT_MIDI_MPE": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidiMpe",
-              "word": {
-                "word": "ports[].dialects",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_NOTE_DIALECT_MIDI_MPE": "midiMpe"
-                }
-              }
-            },
-            "CLAP_NOTE_EXPRESSION_BRIGHTNESS": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionBrightness",
-              "extension": true
-            },
-            "CLAP_NOTE_EXPRESSION_EXPRESSION": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionExpression",
-              "extension": true
-            },
-            "CLAP_NOTE_EXPRESSION_PAN": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionPan",
-              "extension": true
-            },
-            "CLAP_NOTE_EXPRESSION_PRESSURE": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionPressure",
-              "extension": true
-            },
-            "CLAP_NOTE_EXPRESSION_TUNING": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionTuning",
-              "extension": true
-            },
-            "CLAP_NOTE_EXPRESSION_VIBRATO": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionVibrato",
-              "extension": true
-            },
-            "CLAP_NOTE_EXPRESSION_VOLUME": {
-              "term": "CLAP_EVENTS_TERMS#noteExpressionVolume",
-              "extension": true
-            },
-            "CLAP_NOTE_PORTS_RESCAN_ALL": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#notePortsRescanAll",
-              "extension": true
-            },
-            "CLAP_NOTE_PORTS_RESCAN_NAMES": {
-              "term": "CLAP_EXT_NOTE_PORTS_TERMS#notePortsRescanNames",
-              "extension": true
-            },
-            "CLAP_PARAM_CLEAR_ALL": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramClearAll",
-              "extension": true
-            },
-            "CLAP_PARAM_CLEAR_AUTOMATIONS": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramClearAutomations",
-              "extension": true
-            },
-            "CLAP_PARAM_CLEAR_MODULATIONS": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramClearModulations",
-              "extension": true
-            },
-            "CLAP_PARAM_INDICATION_AUTOMATION_NONE": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationNone",
-              "extension": true
-            },
-            "CLAP_PARAM_INDICATION_AUTOMATION_OVERRIDING": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationOverriding",
-              "extension": true
-            },
-            "CLAP_PARAM_INDICATION_AUTOMATION_PLAYING": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationPlaying",
-              "extension": true
-            },
-            "CLAP_PARAM_INDICATION_AUTOMATION_PRESENT": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationPresent",
-              "extension": true
-            },
-            "CLAP_PARAM_INDICATION_AUTOMATION_RECORDING": {
-              "term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationRecording",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_AUTOMATABLE": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatable",
-              "word": {
-                "word": "controls[].automatable",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PARAM_IS_AUTOMATABLE": true
-                }
-              }
-            },
-            "CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerChannel",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_AUTOMATABLE_PER_KEY": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerKey",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerNoteId",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_AUTOMATABLE_PER_PORT": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerPort",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_BYPASS": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsBypass",
-              "word": {
-                "word": "controls[].meaning",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PARAM_IS_BYPASS": "bypass"
-                }
-              }
-            },
-            "CLAP_PARAM_IS_ENUM": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsEnum",
-              "word": {
-                "word": "controls[].kind",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PARAM_IS_ENUM": "choice"
-                }
-              }
-            },
-            "CLAP_PARAM_IS_HIDDEN": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsHidden",
-              "word": {
-                "word": "controls[].hidden",
-                "transform": "flag"
-              }
-            },
-            "CLAP_PARAM_IS_MODULATABLE": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatable",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerChannel",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_MODULATABLE_PER_KEY": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerKey",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerNoteId",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_MODULATABLE_PER_PORT": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerPort",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_PERIODIC": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsPeriodic",
-              "extension": true
-            },
-            "CLAP_PARAM_IS_READONLY": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsReadonly",
-              "word": {
-                "word": "controls[].readonly",
-                "transform": "flag"
-              }
-            },
-            "CLAP_PARAM_IS_STEPPED": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramIsStepped",
-              "word": {
-                "word": "controls[].travel.scale",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PARAM_IS_STEPPED": "stepped"
-                }
-              }
-            },
-            "CLAP_PARAM_REQUIRES_PROCESS": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramRequiresProcess",
-              "extension": true
-            },
-            "CLAP_PARAM_RESCAN_ALL": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramRescanAll",
-              "extension": true
-            },
-            "CLAP_PARAM_RESCAN_INFO": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramRescanInfo",
-              "extension": true
-            },
-            "CLAP_PARAM_RESCAN_TEXT": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramRescanText",
-              "extension": true
-            },
-            "CLAP_PARAM_RESCAN_VALUES": {
-              "term": "CLAP_EXT_PARAMS_TERMS#paramRescanValues",
-              "extension": true
-            },
-            "CLAP_PATH_SIZE": {
-              "term": "CLAP_STRING_SIZES_TERMS#pathSize",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FACTORY_ID": {
-              "term": "CLAP_FACTORY_PLUGIN_FACTORY_TERMS#plugin-factory",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_AMBISONIC": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#ambisonic",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_ANALYZER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#analyzer",
-              "word": {
-                "word": "plugin.features",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PLUGIN_FEATURE_ANALYZER": "analyzer"
-                }
-              }
-            },
-            "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#audio-effect",
-              "word": {
-                "word": "plugin.features",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT": "audio-effect"
-                }
-              }
-            },
-            "CLAP_PLUGIN_FEATURE_CHORUS": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#chorus",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_COMPRESSOR": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#compressor",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_DEESSER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#de-esser",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_DELAY": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#delay",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_DISTORTION": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#distortion",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_DRUM": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#drum",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_DRUM_MACHINE": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#drum-machine",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_EQUALIZER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#equalizer",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_EXPANDER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#expander",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_FILTER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#filter",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_FLANGER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#flanger",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_FREQUENCY_SHIFTER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#frequency-shifter",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_GATE": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#gate",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_GLITCH": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#glitch",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_GRANULAR": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#granular",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_INSTRUMENT": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#instrument",
-              "word": {
-                "word": "plugin.features",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PLUGIN_FEATURE_INSTRUMENT": "instrument"
-                }
-              }
-            },
-            "CLAP_PLUGIN_FEATURE_LIMITER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#limiter",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_MASTERING": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#mastering",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_MIXING": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#mixing",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_MONO": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#mono",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_MULTI_EFFECTS": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#multi-effects",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_NOTE_DETECTOR": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#note-detector",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_NOTE_EFFECT": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#note-effect",
-              "word": {
-                "word": "plugin.features",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PLUGIN_FEATURE_NOTE_EFFECT": "note-effect"
-                }
-              }
-            },
-            "CLAP_PLUGIN_FEATURE_PHASER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#phaser",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_PHASE_VOCODER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#phase-vocoder",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_PITCH_CORRECTION": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#pitch-correction",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_PITCH_SHIFTER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#pitch-shifter",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_RESTORATION": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#restoration",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_REVERB": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#reverb",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_SAMPLER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#sampler",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_STEREO": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#stereo",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_SURROUND": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#surround",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_SYNTHESIZER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#synthesizer",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_TRANSIENT_SHAPER": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#transient-shaper",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_TREMOLO": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#tremolo",
-              "extension": true
-            },
-            "CLAP_PLUGIN_FEATURE_UTILITY": {
-              "term": "CLAP_PLUGIN_FEATURES_TERMS#utility",
-              "extension": true
-            },
-            "CLAP_PLUGIN_INVALIDATION_FACTORY_ID": {
-              "term": "CLAP_FACTORY_DRAFT_PLUGIN_INVALIDATION_TERMS#plugin-invalidation-factory/1",
-              "extension": true
-            },
-            "CLAP_PLUGIN_STATE_CONVERTER_FACTORY_ID": {
-              "term": "CLAP_FACTORY_DRAFT_PLUGIN_STATE_CONVERTER_TERMS#plugin-state-converter-factory/1",
-              "extension": true
-            },
-            "CLAP_PORT_AMBISONIC": {
-              "term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic",
-              "extension": true
-            },
-            "CLAP_PORT_MONO": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#mono",
-              "word": {
-                "word": "ports[].layout",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PORT_MONO": "mono"
-                }
-              }
-            },
-            "CLAP_PORT_STEREO": {
-              "term": "CLAP_EXT_AUDIO_PORTS_TERMS#stereo",
-              "word": {
-                "word": "ports[].layout",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PORT_STEREO": "stereo"
-                }
-              }
-            },
-            "CLAP_PORT_SURROUND": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surround",
-              "word": {
-                "word": "ports[].layout",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_PORT_SURROUND": "surround"
-                }
-              }
-            },
-            "CLAP_POSIX_FD_ERROR": {
-              "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdError",
-              "extension": true
-            },
-            "CLAP_POSIX_FD_READ": {
-              "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdRead",
-              "extension": true
-            },
-            "CLAP_POSIX_FD_WRITE": {
-              "term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdWrite",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_FACTORY_ID": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#preset-discovery-factory/2",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#preset-discovery-factory/draft-2",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_IS_DEMO_CONTENT": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsDemoContent",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_IS_FACTORY_CONTENT": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsFactoryContent",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_IS_FAVORITE": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsFavorite",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_IS_USER_CONTENT": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsUserContent",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_LOCATION_FILE": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryLocationFile",
-              "extension": true
-            },
-            "CLAP_PRESET_DISCOVERY_LOCATION_PLUGIN": {
-              "term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryLocationPlugin",
-              "extension": true
-            },
-            "CLAP_PROCESS_CONTINUE": {
-              "term": "CLAP_PROCESS_TERMS#processContinue",
-              "extension": true
-            },
-            "CLAP_PROCESS_CONTINUE_IF_NOT_QUIET": {
-              "term": "CLAP_PROCESS_TERMS#processContinueIfNotQuiet",
-              "extension": true
-            },
-            "CLAP_PROCESS_ERROR": {
-              "term": "CLAP_PROCESS_TERMS#processError",
-              "extension": true
-            },
-            "CLAP_PROCESS_SLEEP": {
-              "term": "CLAP_PROCESS_TERMS#processSleep",
-              "extension": true
-            },
-            "CLAP_PROCESS_TAIL": {
-              "term": "CLAP_PROCESS_TERMS#processTail",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_AUDIO_TRACK": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationAudioTrack",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_DEVICE": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationDevice",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_HAS_COLOR": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHasColor",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_HAS_INDEX": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHasIndex",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_HYBRID_TRACK": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHybridTrack",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_INSTUMENT_TRACK": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationInstumentTrack",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_MASTER_TRACK": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationMasterTrack",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_NESTED_DEVICE_CHAIN": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationNestedDeviceChain",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_PROJECT": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationProject",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_RETURN_TRACK": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationReturnTrack",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_TRACK": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationTrack",
-              "extension": true
-            },
-            "CLAP_PROJECT_LOCATION_TRACK_GROUP": {
-              "term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationTrackGroup",
-              "extension": true
-            },
-            "CLAP_REMOTE_CONTROLS_COUNT": {
-              "term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remoteControlsCount",
-              "extension": true
-            },
-            "CLAP_RENDER_OFFLINE": {
-              "term": "CLAP_EXT_RENDER_TERMS#renderOffline",
-              "extension": true
-            },
-            "CLAP_RENDER_REALTIME": {
-              "term": "CLAP_EXT_RENDER_TERMS#renderRealtime",
-              "extension": true
-            },
-            "CLAP_SECTIME_FACTOR": {
-              "term": "CLAP_FIXEDPOINT_TERMS#sectimeFactor",
-              "extension": true
-            },
-            "CLAP_STATE_CONTEXT_FOR_DUPLICATE": {
-              "term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForDuplicate",
-              "extension": true
-            },
-            "CLAP_STATE_CONTEXT_FOR_PRESET": {
-              "term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForPreset",
-              "extension": true
-            },
-            "CLAP_STATE_CONTEXT_FOR_PROJECT": {
-              "term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForProject",
-              "extension": true
-            },
-            "CLAP_SURROUND_BC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundBc",
-              "extension": true
-            },
-            "CLAP_SURROUND_BL": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundBl",
-              "extension": true
-            },
-            "CLAP_SURROUND_BR": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundBr",
-              "extension": true
-            },
-            "CLAP_SURROUND_FC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundFc",
-              "extension": true
-            },
-            "CLAP_SURROUND_FL": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundFl",
-              "extension": true
-            },
-            "CLAP_SURROUND_FLC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundFlc",
-              "extension": true
-            },
-            "CLAP_SURROUND_FR": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundFr",
-              "extension": true
-            },
-            "CLAP_SURROUND_FRC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundFrc",
-              "extension": true
-            },
-            "CLAP_SURROUND_LFE": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundLfe",
-              "extension": true
-            },
-            "CLAP_SURROUND_SL": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundSl",
-              "extension": true
-            },
-            "CLAP_SURROUND_SR": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundSr",
-              "extension": true
-            },
-            "CLAP_SURROUND_TBC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTbc",
-              "extension": true
-            },
-            "CLAP_SURROUND_TBL": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTbl",
-              "extension": true
-            },
-            "CLAP_SURROUND_TBR": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTbr",
-              "extension": true
-            },
-            "CLAP_SURROUND_TC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTc",
-              "extension": true
-            },
-            "CLAP_SURROUND_TFC": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTfc",
-              "extension": true
-            },
-            "CLAP_SURROUND_TFL": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTfl",
-              "extension": true
-            },
-            "CLAP_SURROUND_TFR": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTfr",
-              "extension": true
-            },
-            "CLAP_SURROUND_TSL": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTsl",
-              "extension": true
-            },
-            "CLAP_SURROUND_TSR": {
-              "term": "CLAP_EXT_SURROUND_TERMS#surroundTsr",
-              "extension": true
-            },
-            "CLAP_TIMESTAMP_UNKNOWN": {
-              "term": "CLAP_TIMESTAMP_TERMS#timestampUnknown",
-              "extension": true
-            },
-            "CLAP_TRACK_INFO_HAS_AUDIO_CHANNEL": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasAudioChannel",
-              "extension": true
-            },
-            "CLAP_TRACK_INFO_HAS_TRACK_COLOR": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasTrackColor",
-              "extension": true
-            },
-            "CLAP_TRACK_INFO_HAS_TRACK_NAME": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasTrackName",
-              "extension": true
-            },
-            "CLAP_TRACK_INFO_IS_FOR_BUS": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForBus",
-              "extension": true
-            },
-            "CLAP_TRACK_INFO_IS_FOR_MASTER": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForMaster",
-              "extension": true
-            },
-            "CLAP_TRACK_INFO_IS_FOR_RETURN_TRACK": {
-              "term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForReturnTrack",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_HAS_BEATS_TIMELINE": {
-              "term": "CLAP_EVENTS_TERMS#transportHasBeatsTimeline",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_HAS_SECONDS_TIMELINE": {
-              "term": "CLAP_EVENTS_TERMS#transportHasSecondsTimeline",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_HAS_TEMPO": {
-              "term": "CLAP_EVENTS_TERMS#transportHasTempo",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_HAS_TIME_SIGNATURE": {
-              "term": "CLAP_EVENTS_TERMS#transportHasTimeSignature",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_IS_LOOP_ACTIVE": {
-              "term": "CLAP_EVENTS_TERMS#transportIsLoopActive",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_IS_PLAYING": {
-              "term": "CLAP_EVENTS_TERMS#transportIsPlaying",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_IS_RECORDING": {
-              "term": "CLAP_EVENTS_TERMS#transportIsRecording",
-              "extension": true
-            },
-            "CLAP_TRANSPORT_IS_WITHIN_PRE_ROLL": {
-              "term": "CLAP_EVENTS_TERMS#transportIsWithinPreRoll",
-              "extension": true
-            },
-            "CLAP_TRIGGER_CLEAR_ALL": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerClearAll",
-              "extension": true
-            },
-            "CLAP_TRIGGER_CLEAR_AUTOMATIONS": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerClearAutomations",
-              "extension": true
-            },
-            "CLAP_TRIGGER_IS_AUTOMATABLE_PER_CHANNEL": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerChannel",
-              "extension": true
-            },
-            "CLAP_TRIGGER_IS_AUTOMATABLE_PER_KEY": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerKey",
-              "extension": true
-            },
-            "CLAP_TRIGGER_IS_AUTOMATABLE_PER_NOTE_ID": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerNoteId",
-              "extension": true
-            },
-            "CLAP_TRIGGER_IS_AUTOMATABLE_PER_PORT": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerPort",
-              "extension": true
-            },
-            "CLAP_TRIGGER_RESCAN_ALL": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerRescanAll",
-              "extension": true
-            },
-            "CLAP_TRIGGER_RESCAN_INFO": {
-              "term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerRescanInfo",
-              "extension": true
-            },
-            "CLAP_VERSION": {
-              "term": "CLAP_VERSION_TERMS#version",
-              "extension": true
-            },
-            "CLAP_VERSION_MAJOR": {
-              "term": "CLAP_VERSION_TERMS#versionMajor",
-              "extension": true
-            },
-            "CLAP_VERSION_MINOR": {
-              "term": "CLAP_VERSION_TERMS#versionMinor",
-              "extension": true
-            },
-            "CLAP_VERSION_REVISION": {
-              "term": "CLAP_VERSION_TERMS#versionRevision",
-              "extension": true
-            },
-            "CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES": {
-              "term": "CLAP_EXT_VOICE_INFO_TERMS#voiceInfoSupportsOverlappingNotes",
-              "extension": true
-            },
-            "CLAP_WINDOW_API_COCOA": {
-              "term": "CLAP_EXT_GUI_TERMS#cocoa",
-              "dropped": {
-                "ruling": "CLAP_EXT_GUI_TERMS#cocoa out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
-              }
-            },
-            "CLAP_WINDOW_API_UIKIT": {
-              "term": "CLAP_EXT_GUI_TERMS#uikit",
-              "dropped": {
-                "ruling": "CLAP_EXT_GUI_TERMS#uikit out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
-              }
-            },
-            "CLAP_WINDOW_API_WAYLAND": {
-              "term": "CLAP_EXT_GUI_TERMS#wayland",
-              "dropped": {
-                "ruling": "CLAP_EXT_GUI_TERMS#wayland out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
-              }
-            },
-            "CLAP_WINDOW_API_WEBVIEW": {
-              "term": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview",
-              "dropped": {
-                "ruling": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
-              }
-            },
-            "CLAP_WINDOW_API_WIN32": {
-              "term": "CLAP_EXT_GUI_TERMS#win32",
-              "dropped": {
-                "ruling": "CLAP_EXT_GUI_TERMS#win32 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
-              }
-            },
-            "CLAP_WINDOW_API_X11": {
-              "term": "CLAP_EXT_GUI_TERMS#x11",
-              "dropped": {
-                "ruling": "CLAP_EXT_GUI_TERMS#x11 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
-              }
-            },
-            "clap_audio_port_info.channel_count": {
-              "from": "clap/ext/audio-ports.h#clap_audio_port_info.channel_count",
-              "word": {
-                "word": "ports[].channels",
-                "transform": "identity"
-              }
-            },
-            "clap_audio_port_info.flags": {
-              "from": "clap/ext/audio-ports.h#clap_audio_port_info.flags",
-              "extension": true
-            },
-            "clap_audio_port_info.id": {
-              "from": "clap/ext/audio-ports.h#clap_audio_port_info.id",
-              "word": {
-                "word": "ports[].id",
-                "transform": "identity"
-              }
-            },
-            "clap_audio_port_info.in_place_pair": {
-              "from": "clap/ext/audio-ports.h#clap_audio_port_info.in_place_pair",
-              "extension": true
-            },
-            "clap_audio_port_info.name": {
-              "from": "clap/ext/audio-ports.h#clap_audio_port_info.name",
-              "word": {
-                "word": "ports[].name",
-                "transform": "identity"
-              }
-            },
-            "clap_audio_port_info.port_type": {
-              "from": "clap/ext/audio-ports.h#clap_audio_port_info.port_type",
-              "extension": true
-            },
-            "clap_entry": {
-              "from": "clap/entry.h#clap_entry",
-              "word": {
-                "word": "source.from",
-                "transform": "identity"
-              }
-            },
-            "clap_meter_info.channel_count": {
-              "from": "clap_meters.h#clap_meter_info.channel_count",
-              "word": {
-                "word": "meters[].channels",
-                "transform": "identity"
-              }
-            },
-            "clap_meter_info.flags": {
-              "from": "clap_meters.h#clap_meter_info.flags",
-              "extension": true
-            },
-            "clap_meter_info.id": {
-              "from": "clap_meters.h#clap_meter_info.id",
-              "word": {
-                "word": "meters[].id",
-                "transform": "identity"
-              }
-            },
-            "clap_meter_info.kind": {
-              "from": "clap_meters.h#clap_meter_info.kind",
-              "word": {
-                "word": "meters[].kind",
-                "transform": "lookup",
-                "values": {
-                  "CLAP_METER_KIND_GAIN_REDUCTION": "gain-reduction",
-                  "CLAP_METER_KIND_LEVEL": "level"
-                }
-              }
-            },
-            "clap_meter_info.max_value": {
-              "from": "clap_meters.h#clap_meter_info.max_value",
-              "word": {
-                "word": "meters[].max",
-                "transform": "identity"
-              }
-            },
-            "clap_meter_info.min_value": {
-              "from": "clap_meters.h#clap_meter_info.min_value",
-              "word": {
-                "word": "meters[].min",
-                "transform": "identity"
-              }
-            },
-            "clap_meter_info.name": {
-              "from": "clap_meters.h#clap_meter_info.name",
-              "word": {
-                "word": "meters[].symbol",
-                "transform": "output-symbol"
-              }
-            },
-            "clap_note_port_info.id": {
-              "from": "clap/ext/note-ports.h#clap_note_port_info.id",
-              "word": {
-                "word": "ports[].id",
-                "transform": "identity"
-              }
-            },
-            "clap_note_port_info.name": {
-              "from": "clap/ext/note-ports.h#clap_note_port_info.name",
-              "word": {
-                "word": "ports[].name",
-                "transform": "identity"
-              }
-            },
-            "clap_note_port_info.preferred_dialect": {
-              "from": "clap/ext/note-ports.h#clap_note_port_info.preferred_dialect",
-              "extension": true
-            },
-            "clap_note_port_info.supported_dialects": {
-              "from": "clap/ext/note-ports.h#clap_note_port_info.supported_dialects",
-              "extension": true
-            },
-            "clap_param_info.cookie": {
-              "from": "clap/ext/params.h#clap_param_info.cookie",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: a runtime handle the host passes back, no fact of the plugin"
-              }
-            },
-            "clap_param_info.default_value": {
-              "from": "clap/ext/params.h#clap_param_info.default_value",
-              "word": {
-                "word": "controls[].travel.default",
-                "transform": "identity"
-              }
-            },
-            "clap_param_info.flags": {
-              "from": "clap/ext/params.h#clap_param_info.flags",
-              "extension": true
-            },
-            "clap_param_info.id": {
-              "from": "clap/ext/params.h#clap_param_info.id",
-              "word": {
-                "word": "controls[].id",
-                "transform": "identity"
-              }
-            },
-            "clap_param_info.max_value": {
-              "from": "clap/ext/params.h#clap_param_info.max_value",
-              "word": {
-                "word": "controls[].travel.max",
-                "transform": "identity"
-              }
-            },
-            "clap_param_info.min_value": {
-              "from": "clap/ext/params.h#clap_param_info.min_value",
-              "word": {
-                "word": "controls[].travel.min",
-                "transform": "identity"
-              }
-            },
-            "clap_param_info.module": {
-              "from": "clap/ext/params.h#clap_param_info.module",
-              "word": {
-                "word": "controls[].group",
-                "transform": "group-path"
-              }
-            },
-            "clap_param_info.name": {
-              "from": "clap/ext/params.h#clap_param_info.name",
-              "word": {
-                "word": "controls[].name",
-                "transform": "identity"
-              }
-            },
-            "clap_plugin.get_extension": {
-              "from": "clap/plugin.h#clap_plugin.get_extension",
-              "extension": true
-            },
-            "clap_plugin_descriptor.description": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.description",
-              "word": {
-                "word": "plugin.doc",
-                "transform": "identity"
-              }
-            },
-            "clap_plugin_descriptor.features": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.features",
-              "extension": true
-            },
-            "clap_plugin_descriptor.id": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.id",
-              "word": {
-                "word": "plugin.id",
-                "transform": "identity"
-              }
-            },
-            "clap_plugin_descriptor.manual_url": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.manual_url",
-              "extension": true
-            },
-            "clap_plugin_descriptor.name": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.name",
-              "word": {
-                "word": "plugin.name",
-                "transform": "identity"
-              }
-            },
-            "clap_plugin_descriptor.support_url": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.support_url",
-              "extension": true
-            },
-            "clap_plugin_descriptor.url": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.url",
-              "extension": true
-            },
-            "clap_plugin_descriptor.vendor": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.vendor",
-              "word": {
-                "word": "plugin.vendor",
-                "transform": "identity"
-              }
-            },
-            "clap_plugin_descriptor.version": {
-              "from": "clap/plugin.h#clap_plugin_descriptor.version",
-              "word": {
-                "word": "plugin.version",
-                "transform": "identity"
-              }
-            },
-            "clap_plugin_latency.get": {
-              "from": "clap/ext/latency.h#clap_plugin_latency.get",
-              "extension": true
-            },
-            "clap_plugin_params.value_to_text": {
-              "from": "clap/ext/params.h#clap_plugin_params.value_to_text",
-              "word": {
-                "word": "controls[].labels",
-                "transform": "scale-points"
-              }
-            },
-            "clap_voice_info.flags": {
-              "from": "clap/ext/voice-info.h#clap_voice_info.flags",
-              "extension": true
-            },
-            "clap_voice_info.voice_capacity": {
-              "from": "clap/ext/voice-info.h#clap_voice_info.voice_capacity",
-              "extension": true
-            },
-            "clap_voice_info.voice_count": {
-              "from": "clap/ext/voice-info.h#clap_voice_info.voice_count",
-              "word": {
-                "word": "instrument.voices",
-                "transform": "identity"
-              }
-            },
-            "omx_clap_panel_control.label": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.label",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_control.label_key": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.label_key",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_control.param_id": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.param_id",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_control.section": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.section",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_control.visible_mask": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.visible_mask",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_control.visible_param_id": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.visible_param_id",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_control.widget": {
-              "from": "omx_clap_ext.h#omx_clap_panel_control.widget",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.curve_index": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.curve_index",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.floor_db": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.floor_db",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.floor_param_id": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.floor_param_id",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.kind": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.kind",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.label": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.label",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.label_key": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.label_key",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.meter_ids[0]": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.meter_ids[0]",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.meter_ids[1]": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.meter_ids[1]",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.section": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.section",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_display.source": {
-              "from": "omx_clap_ext.h#omx_clap_panel_display.source",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_placement_default.param_id": {
-              "from": "omx_clap_ext.h#omx_clap_panel_placement_default.param_id",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_placement_default.placement": {
-              "from": "omx_clap_ext.h#omx_clap_panel_placement_default.placement",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_placement_default.value": {
-              "from": "omx_clap_ext.h#omx_clap_panel_placement_default.value",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_role.index": {
-              "from": "omx_clap_ext.h#omx_clap_panel_role.index",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_role.param_id": {
-              "from": "omx_clap_ext.h#omx_clap_panel_role.param_id",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_role.role": {
-              "from": "omx_clap_ext.h#omx_clap_panel_role.role",
-              "word": {
-                "word": "controls[].meaning",
-                "transform": "role-to-meaning"
-              }
-            },
-            "omx_clap_panel_section.key": {
-              "from": "omx_clap_ext.h#omx_clap_panel_section.key",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_section.label": {
-              "from": "omx_clap_ext.h#omx_clap_panel_section.label",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_panel_section.label_key": {
-              "from": "omx_clap_ext.h#omx_clap_panel_section.label_key",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_param_contract_entry.scale": {
-              "from": "omx_clap_ext.h#omx_clap_param_contract_entry.scale",
-              "word": {
-                "word": "controls[].travel.scale",
-                "transform": "lookup",
-                "values": {
-                  "linear": "linear",
-                  "log": "log",
-                  "stepped": "stepped"
-                }
-              }
-            },
-            "omx_clap_param_contract_entry.step": {
-              "from": "omx_clap_ext.h#omx_clap_param_contract_entry.step",
-              "word": {
-                "word": "controls[].travel.step",
-                "transform": "identity"
-              }
-            },
-            "omx_clap_param_contract_entry.symbol": {
-              "from": "omx_clap_ext.h#omx_clap_param_contract_entry.symbol",
-              "word": {
-                "word": "controls[].symbol",
-                "transform": "identity"
-              }
-            },
-            "omx_clap_param_contract_entry.unit": {
-              "from": "omx_clap_ext.h#omx_clap_param_contract_entry.unit",
-              "word": {
-                "word": "controls[].travel.unit",
-                "transform": "lookup",
-                "values": {
-                  "s": "s",
-                  "ms": "ms",
-                  "min": "min",
-                  "db": "dB",
-                  "pc": "%",
-                  "hz": "Hz",
-                  "coef": "coef",
-                  "oct": "oct",
-                  "cent": "cents",
-                  "semitone12TET": "st",
-                  "frame": "frames",
-                  "bpm": "bpm",
-                  "midiNote": "midiNote",
-                  "degree": "deg",
-                  "dbfs": "dBFS",
-                  "ratio": "ratio",
-                  "lufs": "LUFS"
-                }
-              }
-            },
-            "omx_clap_plugin_panel_description.count": {
-              "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.count",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_plugin_panel_description.family": {
-              "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.family",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_plugin_panel_description.fingerprint": {
-              "from": "omx_clap_ext.h#omx_clap_plugin_panel_description.fingerprint",
-              "dropped": {
-                "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
-              }
-            },
-            "omx_clap_plugin_param_contract_ext.fingerprint": {
-              "from": "omx_clap_ext.h#omx_clap_plugin_param_contract_ext.fingerprint",
-              "extension": true
-            },
-            "omx_clap_plugin_param_contract_ext.version": {
-              "from": "omx_clap_ext.h#omx_clap_plugin_param_contract_ext.version",
-              "extension": true
             }
+          },
+          {
+            "const": "CLAP_AUDIO_PORT_PREFERS_64BITS",
+            "title": "CLAP_AUDIO_PORT_PREFERS_64BITS",
+            "x-code": 14,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortPrefers64bits",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORT_REQUIRES_COMMON_SAMPLE_SIZE",
+            "title": "CLAP_AUDIO_PORT_REQUIRES_COMMON_SAMPLE_SIZE",
+            "x-code": 15,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortRequiresCommonSampleSize",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_AUDIO_PORT_SUPPORTS_64BITS",
+            "title": "CLAP_AUDIO_PORT_SUPPORTS_64BITS",
+            "x-code": 16,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audioPortSupports64bits",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_BEATTIME_FACTOR",
+            "title": "CLAP_BEATTIME_FACTOR",
+            "x-code": 17,
+            "x-term": "CLAP_FIXEDPOINT_TERMS#beattimeFactor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_COLOR_TRANSPARENT",
+            "title": "CLAP_COLOR_TRANSPARENT",
+            "x-code": 18,
+            "x-term": "CLAP_COLOR_TERMS#colorTransparent",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_ITEM_BEGIN_SUBMENU",
+            "title": "CLAP_CONTEXT_MENU_ITEM_BEGIN_SUBMENU",
+            "x-code": 19,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemBeginSubmenu",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemBeginSubmenu out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_ITEM_CHECK_ENTRY",
+            "title": "CLAP_CONTEXT_MENU_ITEM_CHECK_ENTRY",
+            "x-code": 20,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemCheckEntry",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemCheckEntry out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_ITEM_END_SUBMENU",
+            "title": "CLAP_CONTEXT_MENU_ITEM_END_SUBMENU",
+            "x-code": 21,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEndSubmenu",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEndSubmenu out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_ITEM_ENTRY",
+            "title": "CLAP_CONTEXT_MENU_ITEM_ENTRY",
+            "x-code": 22,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEntry",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemEntry out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_ITEM_SEPARATOR",
+            "title": "CLAP_CONTEXT_MENU_ITEM_SEPARATOR",
+            "x-code": 23,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemSeparator",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemSeparator out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_ITEM_TITLE",
+            "title": "CLAP_CONTEXT_MENU_ITEM_TITLE",
+            "x-code": 24,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemTitle",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuItemTitle out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_TARGET_KIND_GLOBAL",
+            "title": "CLAP_CONTEXT_MENU_TARGET_KIND_GLOBAL",
+            "x-code": 25,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindGlobal",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindGlobal out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CONTEXT_MENU_TARGET_KIND_PARAM",
+            "title": "CLAP_CONTEXT_MENU_TARGET_KIND_PARAM",
+            "x-code": 26,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindParam",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#contextMenuTargetKindParam out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_CORE_EVENT_SPACE_ID",
+            "title": "CLAP_CORE_EVENT_SPACE_ID",
+            "x-code": 27,
+            "x-term": "CLAP_EVENTS_TERMS#coreEventSpaceId",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_DONT_RECORD",
+            "title": "CLAP_EVENT_DONT_RECORD",
+            "x-code": 28,
+            "x-term": "CLAP_EVENTS_TERMS#eventDontRecord",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_IS_LIVE",
+            "title": "CLAP_EVENT_IS_LIVE",
+            "x-code": 29,
+            "x-term": "CLAP_EVENTS_TERMS#eventIsLive",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_MIDI",
+            "title": "CLAP_EVENT_MIDI",
+            "x-code": 30,
+            "x-term": "CLAP_EVENTS_TERMS#eventMidi",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_MIDI2",
+            "title": "CLAP_EVENT_MIDI2",
+            "x-code": 31,
+            "x-term": "CLAP_EVENTS_TERMS#eventMidi2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_MIDI_SYSEX",
+            "title": "CLAP_EVENT_MIDI_SYSEX",
+            "x-code": 32,
+            "x-term": "CLAP_EVENTS_TERMS#eventMidiSysex",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_NOTE_CHOKE",
+            "title": "CLAP_EVENT_NOTE_CHOKE",
+            "x-code": 33,
+            "x-term": "CLAP_EVENTS_TERMS#eventNoteChoke",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_NOTE_END",
+            "title": "CLAP_EVENT_NOTE_END",
+            "x-code": 34,
+            "x-term": "CLAP_EVENTS_TERMS#eventNoteEnd",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_NOTE_EXPRESSION",
+            "title": "CLAP_EVENT_NOTE_EXPRESSION",
+            "x-code": 35,
+            "x-term": "CLAP_EVENTS_TERMS#eventNoteExpression",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_NOTE_OFF",
+            "title": "CLAP_EVENT_NOTE_OFF",
+            "x-code": 36,
+            "x-term": "CLAP_EVENTS_TERMS#eventNoteOff",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_NOTE_ON",
+            "title": "CLAP_EVENT_NOTE_ON",
+            "x-code": 37,
+            "x-term": "CLAP_EVENTS_TERMS#eventNoteOn",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_PARAM_GESTURE_BEGIN",
+            "title": "CLAP_EVENT_PARAM_GESTURE_BEGIN",
+            "x-code": 38,
+            "x-term": "CLAP_EVENTS_TERMS#eventParamGestureBegin",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_PARAM_GESTURE_END",
+            "title": "CLAP_EVENT_PARAM_GESTURE_END",
+            "x-code": 39,
+            "x-term": "CLAP_EVENTS_TERMS#eventParamGestureEnd",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_PARAM_MOD",
+            "title": "CLAP_EVENT_PARAM_MOD",
+            "x-code": 40,
+            "x-term": "CLAP_EVENTS_TERMS#eventParamMod",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_PARAM_VALUE",
+            "title": "CLAP_EVENT_PARAM_VALUE",
+            "x-code": 41,
+            "x-term": "CLAP_EVENTS_TERMS#eventParamValue",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_TRANSPORT",
+            "title": "CLAP_EVENT_TRANSPORT",
+            "x-code": 42,
+            "x-term": "CLAP_EVENTS_TERMS#eventTransport",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EVENT_TRIGGER",
+            "title": "CLAP_EVENT_TRIGGER",
+            "x-code": 43,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#eventTrigger",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AMBISONIC",
+            "title": "CLAP_EXT_AMBISONIC",
+            "x-code": 44,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic/3",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AMBISONIC_COMPAT",
+            "title": "CLAP_EXT_AMBISONIC_COMPAT",
+            "x-code": 45,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic.draft/3",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AUDIO_PORTS",
+            "title": "CLAP_EXT_AUDIO_PORTS",
+            "x-code": 46,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#audio-ports",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AUDIO_PORTS_ACTIVATION",
+            "title": "CLAP_EXT_AUDIO_PORTS_ACTIVATION",
+            "x-code": 47,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_TERMS#audio-ports-activation/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_COMPAT",
+            "title": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_COMPAT",
+            "x-code": 48,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_ACTIVATION_TERMS#audio-ports-activation/draft-2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AUDIO_PORTS_CONFIG",
+            "title": "CLAP_EXT_AUDIO_PORTS_CONFIG",
+            "x-code": 49,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO",
+            "title": "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO",
+            "x-code": 50,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config-info/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO_COMPAT",
+            "title": "CLAP_EXT_AUDIO_PORTS_CONFIG_INFO_COMPAT",
+            "x-code": 51,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_CONFIG_TERMS#audio-ports-config-info/draft-0",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_BACKGROUND_ACTIVATION",
+            "title": "CLAP_EXT_BACKGROUND_ACTIVATION",
+            "x-code": 52,
+            "x-term": "CLAP_EXT_DRAFT_BACKGROUND_ACTIVATION_TERMS#background-activation/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_BACKGROUND_PROGRESS",
+            "title": "CLAP_EXT_BACKGROUND_PROGRESS",
+            "x-code": 53,
+            "x-term": "CLAP_EXT_DRAFT_BACKGROUND_PROGRESS_TERMS#background-progress/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_BACKGROUND_STATE_CONTEXT",
+            "title": "CLAP_EXT_BACKGROUND_STATE_CONTEXT",
+            "x-code": 54,
+            "x-term": "CLAP_EXT_DRAFT_BACKGROUND_STATE_CONTEXT_TERMS#background-state-context/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS",
+            "title": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS",
+            "x-code": 55,
+            "x-term": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_TERMS#configurable-audio-ports/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT",
+            "title": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_COMPAT",
+            "x-code": 56,
+            "x-term": "CLAP_EXT_CONFIGURABLE_AUDIO_PORTS_TERMS#configurable-audio-ports.draft1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_CONTEXT_MENU",
+            "title": "CLAP_EXT_CONTEXT_MENU",
+            "x-code": 57,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu/1",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu/1 out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_EXT_CONTEXT_MENU_COMPAT",
+            "title": "CLAP_EXT_CONTEXT_MENU_COMPAT",
+            "x-code": 58,
+            "x-term": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu.draft/0",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_CONTEXT_MENU_TERMS#context-menu.draft/0 out-of-scope: The console draws its own menus (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_EXT_EVENT_REGISTRY",
+            "title": "CLAP_EXT_EVENT_REGISTRY",
+            "x-code": 59,
+            "x-term": "CLAP_EXT_EVENT_REGISTRY_TERMS#event-registry",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_EXTENSIBLE_AUDIO_PORTS",
+            "title": "CLAP_EXT_EXTENSIBLE_AUDIO_PORTS",
+            "x-code": 60,
+            "x-term": "CLAP_EXT_DRAFT_EXTENSIBLE_AUDIO_PORTS_TERMS#extensible-audio-ports/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_FLUSH_EVENTS",
+            "title": "CLAP_EXT_FLUSH_EVENTS",
+            "x-code": 61,
+            "x-term": "CLAP_EXT_DRAFT_FLUSH_EVENTS_TERMS#flush-events/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_GAIN_ADJUSTMENT_METERING",
+            "title": "CLAP_EXT_GAIN_ADJUSTMENT_METERING",
+            "x-code": 62,
+            "x-term": "CLAP_EXT_DRAFT_GAIN_ADJUSTMENT_METERING_TERMS#gain-adjustment-metering/0",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_GUI",
+            "title": "CLAP_EXT_GUI",
+            "x-code": 63,
+            "x-term": "CLAP_EXT_GUI_TERMS#gui",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_GUI_TERMS#gui out-of-scope: Never in the console (GUI ruling 2026-10-19); native windows in the standalone omx-clap-host are #180 (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_EXT_LATENCY",
+            "title": "CLAP_EXT_LATENCY",
+            "x-code": 64,
+            "x-term": "CLAP_EXT_LATENCY_TERMS#latency",
+            "x-word": {
+              "word": "latency.reports",
+              "transform": "flag"
+            }
+          },
+          {
+            "const": "CLAP_EXT_LOG",
+            "title": "CLAP_EXT_LOG",
+            "x-code": 65,
+            "x-term": "CLAP_EXT_LOG_TERMS#log",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_MINI_CURVE_DISPLAY",
+            "title": "CLAP_EXT_MINI_CURVE_DISPLAY",
+            "x-code": 66,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#mini-curve-display/3",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_NOTE_NAME",
+            "title": "CLAP_EXT_NOTE_NAME",
+            "x-code": 67,
+            "x-term": "CLAP_EXT_NOTE_NAME_TERMS#note-name",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_NOTE_PORTS",
+            "title": "CLAP_EXT_NOTE_PORTS",
+            "x-code": 68,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#note-ports",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_OCTAVE_NUMBER",
+            "title": "CLAP_EXT_OCTAVE_NUMBER",
+            "x-code": 69,
+            "x-term": "CLAP_EXT_DRAFT_OCTAVE_NUMBER_TERMS#octave-number/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PARAMS",
+            "title": "CLAP_EXT_PARAMS",
+            "x-code": 70,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#params",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PARAMS_ORIGIN",
+            "title": "CLAP_EXT_PARAMS_ORIGIN",
+            "x-code": 71,
+            "x-term": "CLAP_EXT_DRAFT_PARAMS_ORIGIN_TERMS#params-origin/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PARAM_HOVERED",
+            "title": "CLAP_EXT_PARAM_HOVERED",
+            "x-code": 72,
+            "x-term": "CLAP_EXT_DRAFT_PARAM_HOVERED_TERMS#param-hovered/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PARAM_INDICATION",
+            "title": "CLAP_EXT_PARAM_INDICATION",
+            "x-code": 73,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#param-indication/4",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PARAM_INDICATION_COMPAT",
+            "title": "CLAP_EXT_PARAM_INDICATION_COMPAT",
+            "x-code": 74,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#param-indication.draft/4",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_POSIX_FD_SUPPORT",
+            "title": "CLAP_EXT_POSIX_FD_SUPPORT",
+            "x-code": 75,
+            "x-term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posix-fd-support",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PRESET_LOAD",
+            "title": "CLAP_EXT_PRESET_LOAD",
+            "x-code": 76,
+            "x-term": "CLAP_EXT_PRESET_LOAD_TERMS#preset-load/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PRESET_LOAD_COMPAT",
+            "title": "CLAP_EXT_PRESET_LOAD_COMPAT",
+            "x-code": 77,
+            "x-term": "CLAP_EXT_PRESET_LOAD_TERMS#preset-load.draft/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_PROJECT_LOCATION",
+            "title": "CLAP_EXT_PROJECT_LOCATION",
+            "x-code": 78,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#project-location/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_REMOTE_CONTROLS",
+            "title": "CLAP_EXT_REMOTE_CONTROLS",
+            "x-code": 79,
+            "x-term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remote-controls/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_REMOTE_CONTROLS_COMPAT",
+            "title": "CLAP_EXT_REMOTE_CONTROLS_COMPAT",
+            "x-code": 80,
+            "x-term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remote-controls.draft/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_RENDER",
+            "title": "CLAP_EXT_RENDER",
+            "x-code": 81,
+            "x-term": "CLAP_EXT_RENDER_TERMS#render",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_RESOURCE_DIRECTORY",
+            "title": "CLAP_EXT_RESOURCE_DIRECTORY",
+            "x-code": 82,
+            "x-term": "CLAP_EXT_DRAFT_RESOURCE_DIRECTORY_TERMS#resource-directory/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_SCRATCH_MEMORY",
+            "title": "CLAP_EXT_SCRATCH_MEMORY",
+            "x-code": 83,
+            "x-term": "CLAP_EXT_DRAFT_SCRATCH_MEMORY_TERMS#scratch-memory/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_STATE",
+            "title": "CLAP_EXT_STATE",
+            "x-code": 84,
+            "x-term": "CLAP_EXT_STATE_TERMS#state",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_STATE_CONTEXT",
+            "title": "CLAP_EXT_STATE_CONTEXT",
+            "x-code": 85,
+            "x-term": "CLAP_EXT_STATE_CONTEXT_TERMS#state-context/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_SURROUND",
+            "title": "CLAP_EXT_SURROUND",
+            "x-code": 86,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surround/4",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_SURROUND_COMPAT",
+            "title": "CLAP_EXT_SURROUND_COMPAT",
+            "x-code": 87,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surround.draft/4",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TAIL",
+            "title": "CLAP_EXT_TAIL",
+            "x-code": 88,
+            "x-term": "CLAP_EXT_TAIL_TERMS#tail",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_THREAD_CHECK",
+            "title": "CLAP_EXT_THREAD_CHECK",
+            "x-code": 89,
+            "x-term": "CLAP_EXT_THREAD_CHECK_TERMS#thread-check",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_THREAD_POOL",
+            "title": "CLAP_EXT_THREAD_POOL",
+            "x-code": 90,
+            "x-term": "CLAP_EXT_THREAD_POOL_TERMS#thread-pool",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TIMER_SUPPORT",
+            "title": "CLAP_EXT_TIMER_SUPPORT",
+            "x-code": 91,
+            "x-term": "CLAP_EXT_TIMER_SUPPORT_TERMS#timer-support",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TRACK_INFO",
+            "title": "CLAP_EXT_TRACK_INFO",
+            "x-code": 92,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#track-info/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TRACK_INFO_COMPAT",
+            "title": "CLAP_EXT_TRACK_INFO_COMPAT",
+            "x-code": 93,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#track-info.draft/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TRANSPORT_CONTROL",
+            "title": "CLAP_EXT_TRANSPORT_CONTROL",
+            "x-code": 94,
+            "x-term": "CLAP_EXT_DRAFT_TRANSPORT_CONTROL_TERMS#transport-control/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TRIGGERS",
+            "title": "CLAP_EXT_TRIGGERS",
+            "x-code": 95,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggers/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_TUNING",
+            "title": "CLAP_EXT_TUNING",
+            "x-code": 96,
+            "x-term": "CLAP_EXT_DRAFT_TUNING_TERMS#tuning/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_UNDO",
+            "title": "CLAP_EXT_UNDO",
+            "x-code": 97,
+            "x-term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo/4",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_EXT_UNDO_CONTEXT",
+            "title": "CLAP_EXT_UNDO_CONTEXT",
+            "x-code": 98,
+            "x-term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_context/4",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_context/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_EXT_UNDO_DELTA",
+            "title": "CLAP_EXT_UNDO_DELTA",
+            "x-code": 99,
+            "x-term": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_delta/4",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_DRAFT_UNDO_TERMS#undo_delta/4 out-of-scope: The console keeps its own undo (ruled 2026-10-19, #95) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_EXT_VOICE_INFO",
+            "title": "CLAP_EXT_VOICE_INFO",
+            "x-code": 100,
+            "x-term": "CLAP_EXT_VOICE_INFO_TERMS#voice-info",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_EXT_WEBVIEW",
+            "title": "CLAP_EXT_WEBVIEW",
+            "x-code": 101,
+            "x-term": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview/3",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview/3 out-of-scope: A plugin's own UI, as `gui` (GUI ruling 2026-10-19) (omx-clap-core doc/reference.md, FreeMixer/omx-clap-core#95)."
+            }
+          },
+          {
+            "const": "CLAP_INVALID_ID",
+            "title": "CLAP_INVALID_ID",
+            "x-code": 102,
+            "x-term": "CLAP_ID_TERMS#invalidId",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_DEBUG",
+            "title": "CLAP_LOG_DEBUG",
+            "x-code": 103,
+            "x-term": "CLAP_EXT_LOG_TERMS#logDebug",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_ERROR",
+            "title": "CLAP_LOG_ERROR",
+            "x-code": 104,
+            "x-term": "CLAP_EXT_LOG_TERMS#logError",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_FATAL",
+            "title": "CLAP_LOG_FATAL",
+            "x-code": 105,
+            "x-term": "CLAP_EXT_LOG_TERMS#logFatal",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_HOST_MISBEHAVING",
+            "title": "CLAP_LOG_HOST_MISBEHAVING",
+            "x-code": 106,
+            "x-term": "CLAP_EXT_LOG_TERMS#logHostMisbehaving",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_INFO",
+            "title": "CLAP_LOG_INFO",
+            "x-code": 107,
+            "x-term": "CLAP_EXT_LOG_TERMS#logInfo",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_PLUGIN_MISBEHAVING",
+            "title": "CLAP_LOG_PLUGIN_MISBEHAVING",
+            "x-code": 108,
+            "x-term": "CLAP_EXT_LOG_TERMS#logPluginMisbehaving",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_LOG_WARNING",
+            "title": "CLAP_LOG_WARNING",
+            "x-code": 109,
+            "x-term": "CLAP_EXT_LOG_TERMS#logWarning",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_AXIS_NAME_CHANGED",
+            "title": "CLAP_MINI_CURVE_DISPLAY_AXIS_NAME_CHANGED",
+            "x-code": 110,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayAxisNameChanged",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_CHANGED",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_CHANGED",
+            "x-code": 111,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveChanged",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_REDUCTION",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_REDUCTION",
+            "x-code": 112,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindGainReduction",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_RESPONSE",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_GAIN_RESPONSE",
+            "x-code": 113,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindGainResponse",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_PHASE_RESPONSE",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_PHASE_RESPONSE",
+            "x-code": 114,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindPhaseResponse",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TIME_SERIES",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TIME_SERIES",
+            "x-code": 115,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindTimeSeries",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TRANSFER_CURVE",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_TRANSFER_CURVE",
+            "x-code": 116,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindTransferCurve",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_UNSPECIFIED",
+            "title": "CLAP_MINI_CURVE_DISPLAY_CURVE_KIND_UNSPECIFIED",
+            "x-code": 117,
+            "x-term": "CLAP_EXT_DRAFT_MINI_CURVE_DISPLAY_TERMS#miniCurveDisplayCurveKindUnspecified",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NAME_SIZE",
+            "title": "CLAP_NAME_SIZE",
+            "x-code": 118,
+            "x-term": "CLAP_STRING_SIZES_TERMS#nameSize",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_DIALECT_CLAP",
+            "title": "CLAP_NOTE_DIALECT_CLAP",
+            "x-code": 119,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectClap",
+            "x-word": {
+              "word": "ports[].dialects",
+              "transform": "lookup",
+              "values": {
+                "CLAP_NOTE_DIALECT_CLAP": "clap"
+              }
+            }
+          },
+          {
+            "const": "CLAP_NOTE_DIALECT_MIDI",
+            "title": "CLAP_NOTE_DIALECT_MIDI",
+            "x-code": 120,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidi",
+            "x-word": {
+              "word": "ports[].dialects",
+              "transform": "lookup",
+              "values": {
+                "CLAP_NOTE_DIALECT_MIDI": "midi"
+              }
+            }
+          },
+          {
+            "const": "CLAP_NOTE_DIALECT_MIDI2",
+            "title": "CLAP_NOTE_DIALECT_MIDI2",
+            "x-code": 121,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidi2",
+            "x-word": {
+              "word": "ports[].dialects",
+              "transform": "lookup",
+              "values": {
+                "CLAP_NOTE_DIALECT_MIDI2": "midi2"
+              }
+            }
+          },
+          {
+            "const": "CLAP_NOTE_DIALECT_MIDI_MPE",
+            "title": "CLAP_NOTE_DIALECT_MIDI_MPE",
+            "x-code": 122,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#noteDialectMidiMpe",
+            "x-word": {
+              "word": "ports[].dialects",
+              "transform": "lookup",
+              "values": {
+                "CLAP_NOTE_DIALECT_MIDI_MPE": "midiMpe"
+              }
+            }
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_BRIGHTNESS",
+            "title": "CLAP_NOTE_EXPRESSION_BRIGHTNESS",
+            "x-code": 123,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionBrightness",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_EXPRESSION",
+            "title": "CLAP_NOTE_EXPRESSION_EXPRESSION",
+            "x-code": 124,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionExpression",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_PAN",
+            "title": "CLAP_NOTE_EXPRESSION_PAN",
+            "x-code": 125,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionPan",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_PRESSURE",
+            "title": "CLAP_NOTE_EXPRESSION_PRESSURE",
+            "x-code": 126,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionPressure",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_TUNING",
+            "title": "CLAP_NOTE_EXPRESSION_TUNING",
+            "x-code": 127,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionTuning",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_VIBRATO",
+            "title": "CLAP_NOTE_EXPRESSION_VIBRATO",
+            "x-code": 128,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionVibrato",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_EXPRESSION_VOLUME",
+            "title": "CLAP_NOTE_EXPRESSION_VOLUME",
+            "x-code": 129,
+            "x-term": "CLAP_EVENTS_TERMS#noteExpressionVolume",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_PORTS_RESCAN_ALL",
+            "title": "CLAP_NOTE_PORTS_RESCAN_ALL",
+            "x-code": 130,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#notePortsRescanAll",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_NOTE_PORTS_RESCAN_NAMES",
+            "title": "CLAP_NOTE_PORTS_RESCAN_NAMES",
+            "x-code": 131,
+            "x-term": "CLAP_EXT_NOTE_PORTS_TERMS#notePortsRescanNames",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_CLEAR_ALL",
+            "title": "CLAP_PARAM_CLEAR_ALL",
+            "x-code": 132,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramClearAll",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_CLEAR_AUTOMATIONS",
+            "title": "CLAP_PARAM_CLEAR_AUTOMATIONS",
+            "x-code": 133,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramClearAutomations",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_CLEAR_MODULATIONS",
+            "title": "CLAP_PARAM_CLEAR_MODULATIONS",
+            "x-code": 134,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramClearModulations",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_INDICATION_AUTOMATION_NONE",
+            "title": "CLAP_PARAM_INDICATION_AUTOMATION_NONE",
+            "x-code": 135,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationNone",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_INDICATION_AUTOMATION_OVERRIDING",
+            "title": "CLAP_PARAM_INDICATION_AUTOMATION_OVERRIDING",
+            "x-code": 136,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationOverriding",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_INDICATION_AUTOMATION_PLAYING",
+            "title": "CLAP_PARAM_INDICATION_AUTOMATION_PLAYING",
+            "x-code": 137,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationPlaying",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_INDICATION_AUTOMATION_PRESENT",
+            "title": "CLAP_PARAM_INDICATION_AUTOMATION_PRESENT",
+            "x-code": 138,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationPresent",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_INDICATION_AUTOMATION_RECORDING",
+            "title": "CLAP_PARAM_INDICATION_AUTOMATION_RECORDING",
+            "x-code": 139,
+            "x-term": "CLAP_EXT_PARAM_INDICATION_TERMS#paramIndicationAutomationRecording",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_AUTOMATABLE",
+            "title": "CLAP_PARAM_IS_AUTOMATABLE",
+            "x-code": 140,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatable",
+            "x-word": {
+              "word": "controls[].automatable",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PARAM_IS_AUTOMATABLE": true
+              }
+            }
+          },
+          {
+            "const": "CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL",
+            "title": "CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL",
+            "x-code": 141,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerChannel",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_AUTOMATABLE_PER_KEY",
+            "title": "CLAP_PARAM_IS_AUTOMATABLE_PER_KEY",
+            "x-code": 142,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerKey",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID",
+            "title": "CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID",
+            "x-code": 143,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerNoteId",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_AUTOMATABLE_PER_PORT",
+            "title": "CLAP_PARAM_IS_AUTOMATABLE_PER_PORT",
+            "x-code": 144,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsAutomatablePerPort",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_BYPASS",
+            "title": "CLAP_PARAM_IS_BYPASS",
+            "x-code": 145,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsBypass",
+            "x-word": {
+              "word": "controls[].meaning",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PARAM_IS_BYPASS": "bypass"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PARAM_IS_ENUM",
+            "title": "CLAP_PARAM_IS_ENUM",
+            "x-code": 146,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsEnum",
+            "x-word": {
+              "word": "controls[].kind",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PARAM_IS_ENUM": "choice"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PARAM_IS_HIDDEN",
+            "title": "CLAP_PARAM_IS_HIDDEN",
+            "x-code": 147,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsHidden",
+            "x-word": {
+              "word": "controls[].hidden",
+              "transform": "flag"
+            }
+          },
+          {
+            "const": "CLAP_PARAM_IS_MODULATABLE",
+            "title": "CLAP_PARAM_IS_MODULATABLE",
+            "x-code": 148,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatable",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL",
+            "title": "CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL",
+            "x-code": 149,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerChannel",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_MODULATABLE_PER_KEY",
+            "title": "CLAP_PARAM_IS_MODULATABLE_PER_KEY",
+            "x-code": 150,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerKey",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID",
+            "title": "CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID",
+            "x-code": 151,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerNoteId",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_MODULATABLE_PER_PORT",
+            "title": "CLAP_PARAM_IS_MODULATABLE_PER_PORT",
+            "x-code": 152,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsModulatablePerPort",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_PERIODIC",
+            "title": "CLAP_PARAM_IS_PERIODIC",
+            "x-code": 153,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsPeriodic",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_IS_READONLY",
+            "title": "CLAP_PARAM_IS_READONLY",
+            "x-code": 154,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsReadonly",
+            "x-word": {
+              "word": "controls[].readonly",
+              "transform": "flag"
+            }
+          },
+          {
+            "const": "CLAP_PARAM_IS_STEPPED",
+            "title": "CLAP_PARAM_IS_STEPPED",
+            "x-code": 155,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramIsStepped",
+            "x-word": {
+              "word": "controls[].travel.scale",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PARAM_IS_STEPPED": "stepped"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PARAM_REQUIRES_PROCESS",
+            "title": "CLAP_PARAM_REQUIRES_PROCESS",
+            "x-code": 156,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramRequiresProcess",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_RESCAN_ALL",
+            "title": "CLAP_PARAM_RESCAN_ALL",
+            "x-code": 157,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramRescanAll",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_RESCAN_INFO",
+            "title": "CLAP_PARAM_RESCAN_INFO",
+            "x-code": 158,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramRescanInfo",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_RESCAN_TEXT",
+            "title": "CLAP_PARAM_RESCAN_TEXT",
+            "x-code": 159,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramRescanText",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PARAM_RESCAN_VALUES",
+            "title": "CLAP_PARAM_RESCAN_VALUES",
+            "x-code": 160,
+            "x-term": "CLAP_EXT_PARAMS_TERMS#paramRescanValues",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PATH_SIZE",
+            "title": "CLAP_PATH_SIZE",
+            "x-code": 161,
+            "x-term": "CLAP_STRING_SIZES_TERMS#pathSize",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FACTORY_ID",
+            "title": "CLAP_PLUGIN_FACTORY_ID",
+            "x-code": 162,
+            "x-term": "CLAP_FACTORY_PLUGIN_FACTORY_TERMS#plugin-factory",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_AMBISONIC",
+            "title": "CLAP_PLUGIN_FEATURE_AMBISONIC",
+            "x-code": 163,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#ambisonic",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_ANALYZER",
+            "title": "CLAP_PLUGIN_FEATURE_ANALYZER",
+            "x-code": 164,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#analyzer",
+            "x-word": {
+              "word": "plugin.features",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PLUGIN_FEATURE_ANALYZER": "analyzer"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT",
+            "title": "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT",
+            "x-code": 165,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#audio-effect",
+            "x-word": {
+              "word": "plugin.features",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PLUGIN_FEATURE_AUDIO_EFFECT": "audio-effect"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_CHORUS",
+            "title": "CLAP_PLUGIN_FEATURE_CHORUS",
+            "x-code": 166,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#chorus",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_COMPRESSOR",
+            "title": "CLAP_PLUGIN_FEATURE_COMPRESSOR",
+            "x-code": 167,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#compressor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_DEESSER",
+            "title": "CLAP_PLUGIN_FEATURE_DEESSER",
+            "x-code": 168,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#de-esser",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_DELAY",
+            "title": "CLAP_PLUGIN_FEATURE_DELAY",
+            "x-code": 169,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#delay",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_DISTORTION",
+            "title": "CLAP_PLUGIN_FEATURE_DISTORTION",
+            "x-code": 170,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#distortion",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_DRUM",
+            "title": "CLAP_PLUGIN_FEATURE_DRUM",
+            "x-code": 171,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#drum",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_DRUM_MACHINE",
+            "title": "CLAP_PLUGIN_FEATURE_DRUM_MACHINE",
+            "x-code": 172,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#drum-machine",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_EQUALIZER",
+            "title": "CLAP_PLUGIN_FEATURE_EQUALIZER",
+            "x-code": 173,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#equalizer",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_EXPANDER",
+            "title": "CLAP_PLUGIN_FEATURE_EXPANDER",
+            "x-code": 174,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#expander",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_FILTER",
+            "title": "CLAP_PLUGIN_FEATURE_FILTER",
+            "x-code": 175,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#filter",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_FLANGER",
+            "title": "CLAP_PLUGIN_FEATURE_FLANGER",
+            "x-code": 176,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#flanger",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_FREQUENCY_SHIFTER",
+            "title": "CLAP_PLUGIN_FEATURE_FREQUENCY_SHIFTER",
+            "x-code": 177,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#frequency-shifter",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_GATE",
+            "title": "CLAP_PLUGIN_FEATURE_GATE",
+            "x-code": 178,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#gate",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_GLITCH",
+            "title": "CLAP_PLUGIN_FEATURE_GLITCH",
+            "x-code": 179,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#glitch",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_GRANULAR",
+            "title": "CLAP_PLUGIN_FEATURE_GRANULAR",
+            "x-code": 180,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#granular",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_INSTRUMENT",
+            "title": "CLAP_PLUGIN_FEATURE_INSTRUMENT",
+            "x-code": 181,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#instrument",
+            "x-word": {
+              "word": "plugin.features",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PLUGIN_FEATURE_INSTRUMENT": "instrument"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_LIMITER",
+            "title": "CLAP_PLUGIN_FEATURE_LIMITER",
+            "x-code": 182,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#limiter",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_MASTERING",
+            "title": "CLAP_PLUGIN_FEATURE_MASTERING",
+            "x-code": 183,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#mastering",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_MIXING",
+            "title": "CLAP_PLUGIN_FEATURE_MIXING",
+            "x-code": 184,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#mixing",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_MONO",
+            "title": "CLAP_PLUGIN_FEATURE_MONO",
+            "x-code": 185,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#mono",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_MULTI_EFFECTS",
+            "title": "CLAP_PLUGIN_FEATURE_MULTI_EFFECTS",
+            "x-code": 186,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#multi-effects",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_NOTE_DETECTOR",
+            "title": "CLAP_PLUGIN_FEATURE_NOTE_DETECTOR",
+            "x-code": 187,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#note-detector",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_NOTE_EFFECT",
+            "title": "CLAP_PLUGIN_FEATURE_NOTE_EFFECT",
+            "x-code": 188,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#note-effect",
+            "x-word": {
+              "word": "plugin.features",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PLUGIN_FEATURE_NOTE_EFFECT": "note-effect"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_PHASER",
+            "title": "CLAP_PLUGIN_FEATURE_PHASER",
+            "x-code": 189,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#phaser",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_PHASE_VOCODER",
+            "title": "CLAP_PLUGIN_FEATURE_PHASE_VOCODER",
+            "x-code": 190,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#phase-vocoder",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_PITCH_CORRECTION",
+            "title": "CLAP_PLUGIN_FEATURE_PITCH_CORRECTION",
+            "x-code": 191,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#pitch-correction",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_PITCH_SHIFTER",
+            "title": "CLAP_PLUGIN_FEATURE_PITCH_SHIFTER",
+            "x-code": 192,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#pitch-shifter",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_RESTORATION",
+            "title": "CLAP_PLUGIN_FEATURE_RESTORATION",
+            "x-code": 193,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#restoration",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_REVERB",
+            "title": "CLAP_PLUGIN_FEATURE_REVERB",
+            "x-code": 194,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#reverb",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_SAMPLER",
+            "title": "CLAP_PLUGIN_FEATURE_SAMPLER",
+            "x-code": 195,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#sampler",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_STEREO",
+            "title": "CLAP_PLUGIN_FEATURE_STEREO",
+            "x-code": 196,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#stereo",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_SURROUND",
+            "title": "CLAP_PLUGIN_FEATURE_SURROUND",
+            "x-code": 197,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#surround",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_SYNTHESIZER",
+            "title": "CLAP_PLUGIN_FEATURE_SYNTHESIZER",
+            "x-code": 198,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#synthesizer",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_TRANSIENT_SHAPER",
+            "title": "CLAP_PLUGIN_FEATURE_TRANSIENT_SHAPER",
+            "x-code": 199,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#transient-shaper",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_TREMOLO",
+            "title": "CLAP_PLUGIN_FEATURE_TREMOLO",
+            "x-code": 200,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#tremolo",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_FEATURE_UTILITY",
+            "title": "CLAP_PLUGIN_FEATURE_UTILITY",
+            "x-code": 201,
+            "x-term": "CLAP_PLUGIN_FEATURES_TERMS#utility",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_INVALIDATION_FACTORY_ID",
+            "title": "CLAP_PLUGIN_INVALIDATION_FACTORY_ID",
+            "x-code": 202,
+            "x-term": "CLAP_FACTORY_DRAFT_PLUGIN_INVALIDATION_TERMS#plugin-invalidation-factory/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PLUGIN_STATE_CONVERTER_FACTORY_ID",
+            "title": "CLAP_PLUGIN_STATE_CONVERTER_FACTORY_ID",
+            "x-code": 203,
+            "x-term": "CLAP_FACTORY_DRAFT_PLUGIN_STATE_CONVERTER_TERMS#plugin-state-converter-factory/1",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PORT_AMBISONIC",
+            "title": "CLAP_PORT_AMBISONIC",
+            "x-code": 204,
+            "x-term": "CLAP_EXT_AMBISONIC_TERMS#ambisonic",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PORT_MONO",
+            "title": "CLAP_PORT_MONO",
+            "x-code": 205,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#mono",
+            "x-word": {
+              "word": "ports[].layout",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PORT_MONO": "mono"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PORT_STEREO",
+            "title": "CLAP_PORT_STEREO",
+            "x-code": 206,
+            "x-term": "CLAP_EXT_AUDIO_PORTS_TERMS#stereo",
+            "x-word": {
+              "word": "ports[].layout",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PORT_STEREO": "stereo"
+              }
+            }
+          },
+          {
+            "const": "CLAP_PORT_SURROUND",
+            "title": "CLAP_PORT_SURROUND",
+            "x-code": 207,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surround",
+            "x-word": {
+              "word": "ports[].layout",
+              "transform": "lookup",
+              "values": {
+                "CLAP_PORT_SURROUND": "surround"
+              }
+            }
+          },
+          {
+            "const": "CLAP_POSIX_FD_ERROR",
+            "title": "CLAP_POSIX_FD_ERROR",
+            "x-code": 208,
+            "x-term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdError",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_POSIX_FD_READ",
+            "title": "CLAP_POSIX_FD_READ",
+            "x-code": 209,
+            "x-term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdRead",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_POSIX_FD_WRITE",
+            "title": "CLAP_POSIX_FD_WRITE",
+            "x-code": 210,
+            "x-term": "CLAP_EXT_POSIX_FD_SUPPORT_TERMS#posixFdWrite",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_FACTORY_ID",
+            "title": "CLAP_PRESET_DISCOVERY_FACTORY_ID",
+            "x-code": 211,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#preset-discovery-factory/2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT",
+            "title": "CLAP_PRESET_DISCOVERY_FACTORY_ID_COMPAT",
+            "x-code": 212,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#preset-discovery-factory/draft-2",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_IS_DEMO_CONTENT",
+            "title": "CLAP_PRESET_DISCOVERY_IS_DEMO_CONTENT",
+            "x-code": 213,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsDemoContent",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_IS_FACTORY_CONTENT",
+            "title": "CLAP_PRESET_DISCOVERY_IS_FACTORY_CONTENT",
+            "x-code": 214,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsFactoryContent",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_IS_FAVORITE",
+            "title": "CLAP_PRESET_DISCOVERY_IS_FAVORITE",
+            "x-code": 215,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsFavorite",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_IS_USER_CONTENT",
+            "title": "CLAP_PRESET_DISCOVERY_IS_USER_CONTENT",
+            "x-code": 216,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryIsUserContent",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_LOCATION_FILE",
+            "title": "CLAP_PRESET_DISCOVERY_LOCATION_FILE",
+            "x-code": 217,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryLocationFile",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PRESET_DISCOVERY_LOCATION_PLUGIN",
+            "title": "CLAP_PRESET_DISCOVERY_LOCATION_PLUGIN",
+            "x-code": 218,
+            "x-term": "CLAP_FACTORY_PRESET_DISCOVERY_TERMS#presetDiscoveryLocationPlugin",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROCESS_CONTINUE",
+            "title": "CLAP_PROCESS_CONTINUE",
+            "x-code": 219,
+            "x-term": "CLAP_PROCESS_TERMS#processContinue",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROCESS_CONTINUE_IF_NOT_QUIET",
+            "title": "CLAP_PROCESS_CONTINUE_IF_NOT_QUIET",
+            "x-code": 220,
+            "x-term": "CLAP_PROCESS_TERMS#processContinueIfNotQuiet",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROCESS_ERROR",
+            "title": "CLAP_PROCESS_ERROR",
+            "x-code": 221,
+            "x-term": "CLAP_PROCESS_TERMS#processError",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROCESS_SLEEP",
+            "title": "CLAP_PROCESS_SLEEP",
+            "x-code": 222,
+            "x-term": "CLAP_PROCESS_TERMS#processSleep",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROCESS_TAIL",
+            "title": "CLAP_PROCESS_TAIL",
+            "x-code": 223,
+            "x-term": "CLAP_PROCESS_TERMS#processTail",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_AUDIO_TRACK",
+            "title": "CLAP_PROJECT_LOCATION_AUDIO_TRACK",
+            "x-code": 224,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationAudioTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_DEVICE",
+            "title": "CLAP_PROJECT_LOCATION_DEVICE",
+            "x-code": 225,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationDevice",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_HAS_COLOR",
+            "title": "CLAP_PROJECT_LOCATION_HAS_COLOR",
+            "x-code": 226,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHasColor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_HAS_INDEX",
+            "title": "CLAP_PROJECT_LOCATION_HAS_INDEX",
+            "x-code": 227,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHasIndex",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_HYBRID_TRACK",
+            "title": "CLAP_PROJECT_LOCATION_HYBRID_TRACK",
+            "x-code": 228,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationHybridTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_INSTUMENT_TRACK",
+            "title": "CLAP_PROJECT_LOCATION_INSTUMENT_TRACK",
+            "x-code": 229,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationInstumentTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_MASTER_TRACK",
+            "title": "CLAP_PROJECT_LOCATION_MASTER_TRACK",
+            "x-code": 230,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationMasterTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_NESTED_DEVICE_CHAIN",
+            "title": "CLAP_PROJECT_LOCATION_NESTED_DEVICE_CHAIN",
+            "x-code": 231,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationNestedDeviceChain",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_PROJECT",
+            "title": "CLAP_PROJECT_LOCATION_PROJECT",
+            "x-code": 232,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationProject",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_RETURN_TRACK",
+            "title": "CLAP_PROJECT_LOCATION_RETURN_TRACK",
+            "x-code": 233,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationReturnTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_TRACK",
+            "title": "CLAP_PROJECT_LOCATION_TRACK",
+            "x-code": 234,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_PROJECT_LOCATION_TRACK_GROUP",
+            "title": "CLAP_PROJECT_LOCATION_TRACK_GROUP",
+            "x-code": 235,
+            "x-term": "CLAP_EXT_DRAFT_PROJECT_LOCATION_TERMS#projectLocationTrackGroup",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_REMOTE_CONTROLS_COUNT",
+            "title": "CLAP_REMOTE_CONTROLS_COUNT",
+            "x-code": 236,
+            "x-term": "CLAP_EXT_REMOTE_CONTROLS_TERMS#remoteControlsCount",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_RENDER_OFFLINE",
+            "title": "CLAP_RENDER_OFFLINE",
+            "x-code": 237,
+            "x-term": "CLAP_EXT_RENDER_TERMS#renderOffline",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_RENDER_REALTIME",
+            "title": "CLAP_RENDER_REALTIME",
+            "x-code": 238,
+            "x-term": "CLAP_EXT_RENDER_TERMS#renderRealtime",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SECTIME_FACTOR",
+            "title": "CLAP_SECTIME_FACTOR",
+            "x-code": 239,
+            "x-term": "CLAP_FIXEDPOINT_TERMS#sectimeFactor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_STATE_CONTEXT_FOR_DUPLICATE",
+            "title": "CLAP_STATE_CONTEXT_FOR_DUPLICATE",
+            "x-code": 240,
+            "x-term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForDuplicate",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_STATE_CONTEXT_FOR_PRESET",
+            "title": "CLAP_STATE_CONTEXT_FOR_PRESET",
+            "x-code": 241,
+            "x-term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForPreset",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_STATE_CONTEXT_FOR_PROJECT",
+            "title": "CLAP_STATE_CONTEXT_FOR_PROJECT",
+            "x-code": 242,
+            "x-term": "CLAP_EXT_STATE_CONTEXT_TERMS#stateContextForProject",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_BC",
+            "title": "CLAP_SURROUND_BC",
+            "x-code": 243,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundBc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_BL",
+            "title": "CLAP_SURROUND_BL",
+            "x-code": 244,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundBl",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_BR",
+            "title": "CLAP_SURROUND_BR",
+            "x-code": 245,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundBr",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_FC",
+            "title": "CLAP_SURROUND_FC",
+            "x-code": 246,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundFc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_FL",
+            "title": "CLAP_SURROUND_FL",
+            "x-code": 247,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundFl",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_FLC",
+            "title": "CLAP_SURROUND_FLC",
+            "x-code": 248,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundFlc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_FR",
+            "title": "CLAP_SURROUND_FR",
+            "x-code": 249,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundFr",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_FRC",
+            "title": "CLAP_SURROUND_FRC",
+            "x-code": 250,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundFrc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_LFE",
+            "title": "CLAP_SURROUND_LFE",
+            "x-code": 251,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundLfe",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_SL",
+            "title": "CLAP_SURROUND_SL",
+            "x-code": 252,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundSl",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_SR",
+            "title": "CLAP_SURROUND_SR",
+            "x-code": 253,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundSr",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TBC",
+            "title": "CLAP_SURROUND_TBC",
+            "x-code": 254,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTbc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TBL",
+            "title": "CLAP_SURROUND_TBL",
+            "x-code": 255,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTbl",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TBR",
+            "title": "CLAP_SURROUND_TBR",
+            "x-code": 256,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTbr",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TC",
+            "title": "CLAP_SURROUND_TC",
+            "x-code": 257,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TFC",
+            "title": "CLAP_SURROUND_TFC",
+            "x-code": 258,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTfc",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TFL",
+            "title": "CLAP_SURROUND_TFL",
+            "x-code": 259,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTfl",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TFR",
+            "title": "CLAP_SURROUND_TFR",
+            "x-code": 260,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTfr",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TSL",
+            "title": "CLAP_SURROUND_TSL",
+            "x-code": 261,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTsl",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_SURROUND_TSR",
+            "title": "CLAP_SURROUND_TSR",
+            "x-code": 262,
+            "x-term": "CLAP_EXT_SURROUND_TERMS#surroundTsr",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TIMESTAMP_UNKNOWN",
+            "title": "CLAP_TIMESTAMP_UNKNOWN",
+            "x-code": 263,
+            "x-term": "CLAP_TIMESTAMP_TERMS#timestampUnknown",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRACK_INFO_HAS_AUDIO_CHANNEL",
+            "title": "CLAP_TRACK_INFO_HAS_AUDIO_CHANNEL",
+            "x-code": 264,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasAudioChannel",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRACK_INFO_HAS_TRACK_COLOR",
+            "title": "CLAP_TRACK_INFO_HAS_TRACK_COLOR",
+            "x-code": 265,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasTrackColor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRACK_INFO_HAS_TRACK_NAME",
+            "title": "CLAP_TRACK_INFO_HAS_TRACK_NAME",
+            "x-code": 266,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoHasTrackName",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRACK_INFO_IS_FOR_BUS",
+            "title": "CLAP_TRACK_INFO_IS_FOR_BUS",
+            "x-code": 267,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForBus",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRACK_INFO_IS_FOR_MASTER",
+            "title": "CLAP_TRACK_INFO_IS_FOR_MASTER",
+            "x-code": 268,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForMaster",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRACK_INFO_IS_FOR_RETURN_TRACK",
+            "title": "CLAP_TRACK_INFO_IS_FOR_RETURN_TRACK",
+            "x-code": 269,
+            "x-term": "CLAP_EXT_TRACK_INFO_TERMS#trackInfoIsForReturnTrack",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_HAS_BEATS_TIMELINE",
+            "title": "CLAP_TRANSPORT_HAS_BEATS_TIMELINE",
+            "x-code": 270,
+            "x-term": "CLAP_EVENTS_TERMS#transportHasBeatsTimeline",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_HAS_SECONDS_TIMELINE",
+            "title": "CLAP_TRANSPORT_HAS_SECONDS_TIMELINE",
+            "x-code": 271,
+            "x-term": "CLAP_EVENTS_TERMS#transportHasSecondsTimeline",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_HAS_TEMPO",
+            "title": "CLAP_TRANSPORT_HAS_TEMPO",
+            "x-code": 272,
+            "x-term": "CLAP_EVENTS_TERMS#transportHasTempo",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_HAS_TIME_SIGNATURE",
+            "title": "CLAP_TRANSPORT_HAS_TIME_SIGNATURE",
+            "x-code": 273,
+            "x-term": "CLAP_EVENTS_TERMS#transportHasTimeSignature",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_IS_LOOP_ACTIVE",
+            "title": "CLAP_TRANSPORT_IS_LOOP_ACTIVE",
+            "x-code": 274,
+            "x-term": "CLAP_EVENTS_TERMS#transportIsLoopActive",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_IS_PLAYING",
+            "title": "CLAP_TRANSPORT_IS_PLAYING",
+            "x-code": 275,
+            "x-term": "CLAP_EVENTS_TERMS#transportIsPlaying",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_IS_RECORDING",
+            "title": "CLAP_TRANSPORT_IS_RECORDING",
+            "x-code": 276,
+            "x-term": "CLAP_EVENTS_TERMS#transportIsRecording",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRANSPORT_IS_WITHIN_PRE_ROLL",
+            "title": "CLAP_TRANSPORT_IS_WITHIN_PRE_ROLL",
+            "x-code": 277,
+            "x-term": "CLAP_EVENTS_TERMS#transportIsWithinPreRoll",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_CLEAR_ALL",
+            "title": "CLAP_TRIGGER_CLEAR_ALL",
+            "x-code": 278,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerClearAll",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_CLEAR_AUTOMATIONS",
+            "title": "CLAP_TRIGGER_CLEAR_AUTOMATIONS",
+            "x-code": 279,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerClearAutomations",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_CHANNEL",
+            "title": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_CHANNEL",
+            "x-code": 280,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerChannel",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_KEY",
+            "title": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_KEY",
+            "x-code": 281,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerKey",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_NOTE_ID",
+            "title": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_NOTE_ID",
+            "x-code": 282,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerNoteId",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_PORT",
+            "title": "CLAP_TRIGGER_IS_AUTOMATABLE_PER_PORT",
+            "x-code": 283,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerIsAutomatablePerPort",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_RESCAN_ALL",
+            "title": "CLAP_TRIGGER_RESCAN_ALL",
+            "x-code": 284,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerRescanAll",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_TRIGGER_RESCAN_INFO",
+            "title": "CLAP_TRIGGER_RESCAN_INFO",
+            "x-code": 285,
+            "x-term": "CLAP_EXT_DRAFT_TRIGGERS_TERMS#triggerRescanInfo",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_VERSION",
+            "title": "CLAP_VERSION",
+            "x-code": 286,
+            "x-term": "CLAP_VERSION_TERMS#version",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_VERSION_MAJOR",
+            "title": "CLAP_VERSION_MAJOR",
+            "x-code": 287,
+            "x-term": "CLAP_VERSION_TERMS#versionMajor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_VERSION_MINOR",
+            "title": "CLAP_VERSION_MINOR",
+            "x-code": 288,
+            "x-term": "CLAP_VERSION_TERMS#versionMinor",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_VERSION_REVISION",
+            "title": "CLAP_VERSION_REVISION",
+            "x-code": 289,
+            "x-term": "CLAP_VERSION_TERMS#versionRevision",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES",
+            "title": "CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES",
+            "x-code": 290,
+            "x-term": "CLAP_EXT_VOICE_INFO_TERMS#voiceInfoSupportsOverlappingNotes",
+            "x-extension": true
+          },
+          {
+            "const": "CLAP_WINDOW_API_COCOA",
+            "title": "CLAP_WINDOW_API_COCOA",
+            "x-code": 291,
+            "x-term": "CLAP_EXT_GUI_TERMS#cocoa",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_GUI_TERMS#cocoa out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+            }
+          },
+          {
+            "const": "CLAP_WINDOW_API_UIKIT",
+            "title": "CLAP_WINDOW_API_UIKIT",
+            "x-code": 292,
+            "x-term": "CLAP_EXT_GUI_TERMS#uikit",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_GUI_TERMS#uikit out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+            }
+          },
+          {
+            "const": "CLAP_WINDOW_API_WAYLAND",
+            "title": "CLAP_WINDOW_API_WAYLAND",
+            "x-code": 293,
+            "x-term": "CLAP_EXT_GUI_TERMS#wayland",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_GUI_TERMS#wayland out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+            }
+          },
+          {
+            "const": "CLAP_WINDOW_API_WEBVIEW",
+            "title": "CLAP_WINDOW_API_WEBVIEW",
+            "x-code": 294,
+            "x-term": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_DRAFT_WEBVIEW_TERMS#webview out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+            }
+          },
+          {
+            "const": "CLAP_WINDOW_API_WIN32",
+            "title": "CLAP_WINDOW_API_WIN32",
+            "x-code": 295,
+            "x-term": "CLAP_EXT_GUI_TERMS#win32",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_GUI_TERMS#win32 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+            }
+          },
+          {
+            "const": "CLAP_WINDOW_API_X11",
+            "title": "CLAP_WINDOW_API_X11",
+            "x-code": 296,
+            "x-term": "CLAP_EXT_GUI_TERMS#x11",
+            "x-dropped": {
+              "ruling": "CLAP_EXT_GUI_TERMS#x11 out-of-scope: The console draws every panel: no plugin UI runs in the console (GUI ruling 2026-10-19; native windows only in the standalone omx-clap-host, FreeMixer/omx-clap-core#180)."
+            }
+          },
+          {
+            "const": "clap_audio_port_info.channel_count",
+            "title": "clap_audio_port_info.channel_count",
+            "x-code": 297,
+            "x-from": "clap/ext/audio-ports.h#clap_audio_port_info.channel_count",
+            "x-word": {
+              "word": "ports[].channels",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_audio_port_info.flags",
+            "title": "clap_audio_port_info.flags",
+            "x-code": 298,
+            "x-from": "clap/ext/audio-ports.h#clap_audio_port_info.flags",
+            "x-extension": true
+          },
+          {
+            "const": "clap_audio_port_info.id",
+            "title": "clap_audio_port_info.id",
+            "x-code": 299,
+            "x-from": "clap/ext/audio-ports.h#clap_audio_port_info.id",
+            "x-word": {
+              "word": "ports[].id",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_audio_port_info.in_place_pair",
+            "title": "clap_audio_port_info.in_place_pair",
+            "x-code": 300,
+            "x-from": "clap/ext/audio-ports.h#clap_audio_port_info.in_place_pair",
+            "x-extension": true
+          },
+          {
+            "const": "clap_audio_port_info.name",
+            "title": "clap_audio_port_info.name",
+            "x-code": 301,
+            "x-from": "clap/ext/audio-ports.h#clap_audio_port_info.name",
+            "x-word": {
+              "word": "ports[].name",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_audio_port_info.port_type",
+            "title": "clap_audio_port_info.port_type",
+            "x-code": 302,
+            "x-from": "clap/ext/audio-ports.h#clap_audio_port_info.port_type",
+            "x-extension": true
+          },
+          {
+            "const": "clap_entry",
+            "title": "clap_entry",
+            "x-code": 303,
+            "x-from": "clap/entry.h#clap_entry",
+            "x-word": {
+              "word": "source.from",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_meter_info.channel_count",
+            "title": "clap_meter_info.channel_count",
+            "x-code": 304,
+            "x-from": "clap_meters.h#clap_meter_info.channel_count",
+            "x-word": {
+              "word": "meters[].channels",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_meter_info.flags",
+            "title": "clap_meter_info.flags",
+            "x-code": 305,
+            "x-from": "clap_meters.h#clap_meter_info.flags",
+            "x-extension": true
+          },
+          {
+            "const": "clap_meter_info.id",
+            "title": "clap_meter_info.id",
+            "x-code": 306,
+            "x-from": "clap_meters.h#clap_meter_info.id",
+            "x-word": {
+              "word": "meters[].id",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_meter_info.kind",
+            "title": "clap_meter_info.kind",
+            "x-code": 307,
+            "x-from": "clap_meters.h#clap_meter_info.kind",
+            "x-word": {
+              "word": "meters[].kind",
+              "transform": "lookup",
+              "values": {
+                "CLAP_METER_KIND_GAIN_REDUCTION": "gain-reduction",
+                "CLAP_METER_KIND_LEVEL": "level"
+              }
+            }
+          },
+          {
+            "const": "clap_meter_info.max_value",
+            "title": "clap_meter_info.max_value",
+            "x-code": 308,
+            "x-from": "clap_meters.h#clap_meter_info.max_value",
+            "x-word": {
+              "word": "meters[].max",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_meter_info.min_value",
+            "title": "clap_meter_info.min_value",
+            "x-code": 309,
+            "x-from": "clap_meters.h#clap_meter_info.min_value",
+            "x-word": {
+              "word": "meters[].min",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_meter_info.name",
+            "title": "clap_meter_info.name",
+            "x-code": 310,
+            "x-from": "clap_meters.h#clap_meter_info.name",
+            "x-word": {
+              "word": "meters[].symbol",
+              "transform": "output-symbol"
+            }
+          },
+          {
+            "const": "clap_note_port_info.id",
+            "title": "clap_note_port_info.id",
+            "x-code": 311,
+            "x-from": "clap/ext/note-ports.h#clap_note_port_info.id",
+            "x-word": {
+              "word": "ports[].id",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_note_port_info.name",
+            "title": "clap_note_port_info.name",
+            "x-code": 312,
+            "x-from": "clap/ext/note-ports.h#clap_note_port_info.name",
+            "x-word": {
+              "word": "ports[].name",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_note_port_info.preferred_dialect",
+            "title": "clap_note_port_info.preferred_dialect",
+            "x-code": 313,
+            "x-from": "clap/ext/note-ports.h#clap_note_port_info.preferred_dialect",
+            "x-extension": true
+          },
+          {
+            "const": "clap_note_port_info.supported_dialects",
+            "title": "clap_note_port_info.supported_dialects",
+            "x-code": 314,
+            "x-from": "clap/ext/note-ports.h#clap_note_port_info.supported_dialects",
+            "x-extension": true
+          },
+          {
+            "const": "clap_param_info.cookie",
+            "title": "clap_param_info.cookie",
+            "x-code": 315,
+            "x-from": "clap/ext/params.h#clap_param_info.cookie",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: a runtime handle the host passes back, no fact of the plugin"
+            }
+          },
+          {
+            "const": "clap_param_info.default_value",
+            "title": "clap_param_info.default_value",
+            "x-code": 316,
+            "x-from": "clap/ext/params.h#clap_param_info.default_value",
+            "x-word": {
+              "word": "controls[].travel.default",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_param_info.flags",
+            "title": "clap_param_info.flags",
+            "x-code": 317,
+            "x-from": "clap/ext/params.h#clap_param_info.flags",
+            "x-extension": true
+          },
+          {
+            "const": "clap_param_info.id",
+            "title": "clap_param_info.id",
+            "x-code": 318,
+            "x-from": "clap/ext/params.h#clap_param_info.id",
+            "x-word": {
+              "word": "controls[].id",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_param_info.max_value",
+            "title": "clap_param_info.max_value",
+            "x-code": 319,
+            "x-from": "clap/ext/params.h#clap_param_info.max_value",
+            "x-word": {
+              "word": "controls[].travel.max",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_param_info.min_value",
+            "title": "clap_param_info.min_value",
+            "x-code": 320,
+            "x-from": "clap/ext/params.h#clap_param_info.min_value",
+            "x-word": {
+              "word": "controls[].travel.min",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_param_info.module",
+            "title": "clap_param_info.module",
+            "x-code": 321,
+            "x-from": "clap/ext/params.h#clap_param_info.module",
+            "x-word": {
+              "word": "controls[].group",
+              "transform": "group-path"
+            }
+          },
+          {
+            "const": "clap_param_info.name",
+            "title": "clap_param_info.name",
+            "x-code": 322,
+            "x-from": "clap/ext/params.h#clap_param_info.name",
+            "x-word": {
+              "word": "controls[].name",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_plugin.get_extension",
+            "title": "clap_plugin.get_extension",
+            "x-code": 323,
+            "x-from": "clap/plugin.h#clap_plugin.get_extension",
+            "x-extension": true
+          },
+          {
+            "const": "clap_plugin_descriptor.description",
+            "title": "clap_plugin_descriptor.description",
+            "x-code": 324,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.description",
+            "x-word": {
+              "word": "plugin.doc",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_plugin_descriptor.features",
+            "title": "clap_plugin_descriptor.features",
+            "x-code": 325,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.features",
+            "x-extension": true
+          },
+          {
+            "const": "clap_plugin_descriptor.id",
+            "title": "clap_plugin_descriptor.id",
+            "x-code": 326,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.id",
+            "x-word": {
+              "word": "plugin.id",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_plugin_descriptor.manual_url",
+            "title": "clap_plugin_descriptor.manual_url",
+            "x-code": 327,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.manual_url",
+            "x-extension": true
+          },
+          {
+            "const": "clap_plugin_descriptor.name",
+            "title": "clap_plugin_descriptor.name",
+            "x-code": 328,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.name",
+            "x-word": {
+              "word": "plugin.name",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_plugin_descriptor.support_url",
+            "title": "clap_plugin_descriptor.support_url",
+            "x-code": 329,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.support_url",
+            "x-extension": true
+          },
+          {
+            "const": "clap_plugin_descriptor.url",
+            "title": "clap_plugin_descriptor.url",
+            "x-code": 330,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.url",
+            "x-extension": true
+          },
+          {
+            "const": "clap_plugin_descriptor.vendor",
+            "title": "clap_plugin_descriptor.vendor",
+            "x-code": 331,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.vendor",
+            "x-word": {
+              "word": "plugin.vendor",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_plugin_descriptor.version",
+            "title": "clap_plugin_descriptor.version",
+            "x-code": 332,
+            "x-from": "clap/plugin.h#clap_plugin_descriptor.version",
+            "x-word": {
+              "word": "plugin.version",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "clap_plugin_latency.get",
+            "title": "clap_plugin_latency.get",
+            "x-code": 333,
+            "x-from": "clap/ext/latency.h#clap_plugin_latency.get",
+            "x-extension": true
+          },
+          {
+            "const": "clap_plugin_params.value_to_text",
+            "title": "clap_plugin_params.value_to_text",
+            "x-code": 334,
+            "x-from": "clap/ext/params.h#clap_plugin_params.value_to_text",
+            "x-word": {
+              "word": "controls[].labels",
+              "transform": "scale-points"
+            }
+          },
+          {
+            "const": "clap_voice_info.flags",
+            "title": "clap_voice_info.flags",
+            "x-code": 335,
+            "x-from": "clap/ext/voice-info.h#clap_voice_info.flags",
+            "x-extension": true
+          },
+          {
+            "const": "clap_voice_info.voice_capacity",
+            "title": "clap_voice_info.voice_capacity",
+            "x-code": 336,
+            "x-from": "clap/ext/voice-info.h#clap_voice_info.voice_capacity",
+            "x-extension": true
+          },
+          {
+            "const": "clap_voice_info.voice_count",
+            "title": "clap_voice_info.voice_count",
+            "x-code": 337,
+            "x-from": "clap/ext/voice-info.h#clap_voice_info.voice_count",
+            "x-word": {
+              "word": "instrument.voices",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.label",
+            "title": "omx_clap_panel_control.label",
+            "x-code": 338,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.label",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.label_key",
+            "title": "omx_clap_panel_control.label_key",
+            "x-code": 339,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.label_key",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.param_id",
+            "title": "omx_clap_panel_control.param_id",
+            "x-code": 340,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.param_id",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.section",
+            "title": "omx_clap_panel_control.section",
+            "x-code": 341,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.section",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.visible_mask",
+            "title": "omx_clap_panel_control.visible_mask",
+            "x-code": 342,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.visible_mask",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.visible_param_id",
+            "title": "omx_clap_panel_control.visible_param_id",
+            "x-code": 343,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.visible_param_id",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_control.widget",
+            "title": "omx_clap_panel_control.widget",
+            "x-code": 344,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_control.widget",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.curve_index",
+            "title": "omx_clap_panel_display.curve_index",
+            "x-code": 345,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.curve_index",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.floor_db",
+            "title": "omx_clap_panel_display.floor_db",
+            "x-code": 346,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.floor_db",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.floor_param_id",
+            "title": "omx_clap_panel_display.floor_param_id",
+            "x-code": 347,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.floor_param_id",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.kind",
+            "title": "omx_clap_panel_display.kind",
+            "x-code": 348,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.kind",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.label",
+            "title": "omx_clap_panel_display.label",
+            "x-code": 349,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.label",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.label_key",
+            "title": "omx_clap_panel_display.label_key",
+            "x-code": 350,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.label_key",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.meter_ids[0]",
+            "title": "omx_clap_panel_display.meter_ids[0]",
+            "x-code": 351,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.meter_ids[0]",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.meter_ids[1]",
+            "title": "omx_clap_panel_display.meter_ids[1]",
+            "x-code": 352,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.meter_ids[1]",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.section",
+            "title": "omx_clap_panel_display.section",
+            "x-code": 353,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.section",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_display.source",
+            "title": "omx_clap_panel_display.source",
+            "x-code": 354,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_display.source",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_placement_default.param_id",
+            "title": "omx_clap_panel_placement_default.param_id",
+            "x-code": 355,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_placement_default.param_id",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_placement_default.placement",
+            "title": "omx_clap_panel_placement_default.placement",
+            "x-code": 356,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_placement_default.placement",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_placement_default.value",
+            "title": "omx_clap_panel_placement_default.value",
+            "x-code": 357,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_placement_default.value",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_role.index",
+            "title": "omx_clap_panel_role.index",
+            "x-code": 358,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_role.index",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_role.param_id",
+            "title": "omx_clap_panel_role.param_id",
+            "x-code": 359,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_role.param_id",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_role.role",
+            "title": "omx_clap_panel_role.role",
+            "x-code": 360,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_role.role",
+            "x-word": {
+              "word": "controls[].meaning",
+              "transform": "role-to-meaning"
+            }
+          },
+          {
+            "const": "omx_clap_panel_section.key",
+            "title": "omx_clap_panel_section.key",
+            "x-code": 361,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_section.key",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_section.label",
+            "title": "omx_clap_panel_section.label",
+            "x-code": 362,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_section.label",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_panel_section.label_key",
+            "title": "omx_clap_panel_section.label_key",
+            "x-code": 363,
+            "x-from": "omx_clap_ext.h#omx_clap_panel_section.label_key",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_param_contract_entry.scale",
+            "title": "omx_clap_param_contract_entry.scale",
+            "x-code": 364,
+            "x-from": "omx_clap_ext.h#omx_clap_param_contract_entry.scale",
+            "x-word": {
+              "word": "controls[].travel.scale",
+              "transform": "lookup",
+              "values": {
+                "linear": "linear",
+                "log": "log",
+                "stepped": "stepped"
+              }
+            }
+          },
+          {
+            "const": "omx_clap_param_contract_entry.step",
+            "title": "omx_clap_param_contract_entry.step",
+            "x-code": 365,
+            "x-from": "omx_clap_ext.h#omx_clap_param_contract_entry.step",
+            "x-word": {
+              "word": "controls[].travel.step",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "omx_clap_param_contract_entry.symbol",
+            "title": "omx_clap_param_contract_entry.symbol",
+            "x-code": 366,
+            "x-from": "omx_clap_ext.h#omx_clap_param_contract_entry.symbol",
+            "x-word": {
+              "word": "controls[].symbol",
+              "transform": "identity"
+            }
+          },
+          {
+            "const": "omx_clap_param_contract_entry.unit",
+            "title": "omx_clap_param_contract_entry.unit",
+            "x-code": 367,
+            "x-from": "omx_clap_ext.h#omx_clap_param_contract_entry.unit",
+            "x-word": {
+              "word": "controls[].travel.unit",
+              "transform": "unit-id"
+            }
+          },
+          {
+            "const": "omx_clap_plugin_panel_description.count",
+            "title": "omx_clap_plugin_panel_description.count",
+            "x-code": 368,
+            "x-from": "omx_clap_ext.h#omx_clap_plugin_panel_description.count",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_plugin_panel_description.family",
+            "title": "omx_clap_plugin_panel_description.family",
+            "x-code": 369,
+            "x-from": "omx_clap_ext.h#omx_clap_plugin_panel_description.family",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_plugin_panel_description.fingerprint",
+            "title": "omx_clap_plugin_panel_description.fingerprint",
+            "x-code": 370,
+            "x-from": "omx_clap_ext.h#omx_clap_plugin_panel_description.fingerprint",
+            "x-dropped": {
+              "ruling": "docs/formats.md#what-a-table-drops: the panel description travels whole, as the scan's panel object, by panel_get (docs/panel.md); the descriptor carries none of it"
+            }
+          },
+          {
+            "const": "omx_clap_plugin_param_contract_ext.fingerprint",
+            "title": "omx_clap_plugin_param_contract_ext.fingerprint",
+            "x-code": 371,
+            "x-from": "omx_clap_ext.h#omx_clap_plugin_param_contract_ext.fingerprint",
+            "x-extension": true
+          },
+          {
+            "const": "omx_clap_plugin_param_contract_ext.version",
+            "title": "omx_clap_plugin_param_contract_ext.version",
+            "x-code": 372,
+            "x-from": "omx_clap_ext.h#omx_clap_plugin_param_contract_ext.version",
+            "x-extension": true
           }
-        }
+        ]
       }
     }
   }

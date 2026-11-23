@@ -30,6 +30,18 @@
  */
 void describe_scopes(const scan_words *words);
 
+/**
+ * @brief Set where the format owners' domains are read from: the mappings a unit-id or designation-meaning row reads
+ * (docs/formats.md, Lookup values the owners publish).
+ *
+ * A ':' list of contract directories, the first that holds a domain wins (one that holds it but cannot be read is
+ * refused, not skipped). Kept (not copied) until the next call; NULL reads none, and a row that needs a mapping is then
+ * refused by name.
+ *
+ * @param dirs the ':' list, alive until the next call
+ */
+void describe_owners(const char *dirs);
+
 /* the format of a target, clap:<path>#<id> or lv2:<uri>: "clap", "lv2", or NULL */
 const char *describe_format(const char *target);
 
