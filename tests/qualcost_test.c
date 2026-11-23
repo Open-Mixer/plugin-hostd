@@ -236,9 +236,20 @@ static void the_scope_is_the_system_s_as_root_and_the_user_s_otherwise(void)
     CHECK(qualcost_scope() == (geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER), "euid %d", (int)geteuid());
 }
 
-static void an_absent_store_is_refused_as_absent(void)
+/* libplugin-qualification-db from 2026112001: only ENOENT is an absent base, and it opens as an empty layer (pqdb_base_absent),
+ * so a console with no store yet reads no figure for any plugin rather than a refusal */
+static void an_absent_store_opens_empty_and_gives_no_figure(void)
 {
-    refused_as("nowhere", "qualification-db.absent");
+    pqdb *db = NULL;
+    pqdb_error err;
+    int status = open_fixture("nowhere", &db, &err);
+
+    CHECK(status == 0, "nowhere: an absent base opens as an empty layer, status %d", status);
+    if (status != 0)
+        return;
+    CHECK(pqdb_base_absent(db) == 1, "nowhere: the base is said absent");
+    CHECK(qualcost_read(db, "org.example.a", 48000, 128) == -1.0, "nowhere: no figure for a plugin");
+    pqdb_close(db);
 }
 
 static void a_store_of_another_schema_version_is_refused_as_schema_other(void)
@@ -273,7 +284,7 @@ static const struct { const char *name; void (*fn)(void); } g_tests[] = {
     T(a_record_file_of_the_old_qualification_dir_is_not_read),
     T(the_reader_names_no_record_directory_variable_or_test_entry),
     T(the_scope_is_the_system_s_as_root_and_the_user_s_otherwise),
-    T(an_absent_store_is_refused_as_absent),
+    T(an_absent_store_opens_empty_and_gives_no_figure),
     T(a_store_of_another_schema_version_is_refused_as_schema_other),
     T(a_file_that_is_no_store_is_refused_as_not_a_store),
     T(a_word_no_domain_item_holds_is_refused_as_word_unknown),
