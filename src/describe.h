@@ -8,6 +8,10 @@
 /* plugin-hostd-probe describe: a plugin's field dump (omx-clap-scan --fields) through its format's table and the
  * transforms it names, written as a scanned descriptor (docs/formats.md). */
 
+/** @file describe.h
+ * @brief The declarations of describe.h.
+ */
+
 #ifndef PLUGIN_HOSTD_DESCRIBE_H
 #define PLUGIN_HOSTD_DESCRIBE_H
 

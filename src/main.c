@@ -36,6 +36,7 @@
 #include "history.h"
 #include "machine.h"
 #include "pins.h"
+#include "qualcost.h"
 #include "relay.h"
 #include "session.h"
 #include "supervisor.h"
@@ -43,7 +44,7 @@
 #include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.20.7"
+#define VERSION "0.20.8"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -56,21 +57,64 @@
 static volatile int running;
 static conf_t g_conf;
 
+#ifdef OMX_QUALIFICATION_TEST_STORE
+/* The test build's seam for the qualification store (the Makefile's PROG_TEST and the other test builds of the daemon, never
+ * installed or packaged): the store is the file the test names in PLUGIN_HOSTD_TEST_QUALIFICATION_STORE, opened as the base
+ * with no user layer, so each test has a store of its own; no variable names no file, which is an absent store. It is no
+ * setting of the daemon. The packaged daemon opens the store of its scope
+ * with pqdb_open and takes no path and no environment variable for it. */
+static int open_test_store(pqdb **db, pqdb_error *err)
+{
+    const char *path = getenv("PLUGIN_HOSTD_TEST_QUALIFICATION_STORE");
+
+    if (!path || !*path)
+        path = "/nonexistent/qualification.sqlite";
+#ifdef OMX_CONTRACTDIR
+    return pqdb_open_at(path, NULL, OMX_CONTRACTDIR, db, err);
+#else
+    return pqdb_open_at(path, NULL, NULL, db, err);
+#endif
+}
+#endif
+
 /* the running history, unless history_window_s is 0: under the class of this machine, or the one host_class names */
-static void history_start(const conf_t *conf)
+static int history_start(const conf_t *conf)
 {
     char klass[64];
 
     if (conf->history_window_s <= 0)
-        return;
+        return 0;
     if (*conf->host_class)
         snprintf(klass, sizeof(klass), "%s", conf->host_class);
-    else if (machine_class(klass, sizeof(klass)) != 0)
+    else
     {
-        fprintf(stderr, "plugin-hostd: the host class of this machine does not fit; no history is kept\n");
-        return;
+        machine_words words;
+        char why[512];
+
+        /* the band words are the machine domain's, read from the installed contract directory: refused by name when it
+         * is absent, invalid or too old, and the daemon does not start. The daemon reads no path and no environment
+         * variable for the contract: OMX_CONTRACTDIR is the test build's seam (the Makefile's PROG_TEST, never
+         * installed or packaged), a directory the test build was given at compile time */
+#ifdef OMX_CONTRACTDIR
+        const char *dirs = OMX_CONTRACTDIR;
+#else
+        const char *dirs = NULL;
+#endif
+        if (machine_words_open(dirs, &words, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, "plugin-hostd: %s\n", why);
+            return 78;
+        }
+        if (machine_class(&words, klass, sizeof(klass)) != 0)
+        {
+            fprintf(stderr, "plugin-hostd: the host class of this machine does not fit; no history is kept\n");
+            machine_words_close(&words);
+            return 0;
+        }
+        machine_words_close(&words);
     }
     history_init(conf->history_file, klass, conf->history_save_s);
+    return 0;
 }
 
 static void idle_cb(void)
@@ -301,6 +345,9 @@ int main(int argc, char **argv)
     if (pin_files)
         return print_pin_files(pin_files);
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
+#ifdef OMX_QUALIFICATION_TEST_STORE
+    qualcost_use_opener(open_test_store);
+#endif
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;
     pins_accepting(conf_pins_first_use(&g_conf));
@@ -310,7 +357,8 @@ int main(int argc, char **argv)
     /* the writer before anything is written: the command loop never waits on the disk */
     if (writer_start() != 0)
         return EXIT_FAILURE;
-    history_start(&g_conf);
+    if ((opt = history_start(&g_conf)) != 0)
+        return opt;
     signal(SIGPIPE, SIG_IGN);
     sup_init(&g_conf);
     /* the audio cores and the daemon's own: before the sockets and the relay, so every thread starts where it stays */
