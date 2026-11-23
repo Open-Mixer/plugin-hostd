@@ -1,3 +1,12 @@
+plugin-hostd (0.22.0) unstable; urgency=medium
+
+  * Chain 3, V16 as ruled 2026-11-23: the protocol's words are read from the
+    domain plugin-hostd-protocol, contract.d/plugin-hostd-protocol/, which no
+    longer shares <contractdir>/plugin-hostd/ with this package's nested
+    domains.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Mon, 23 Nov 2026 22:00:00 +0100
+
 plugin-hostd (0.21.0) unstable; urgency=medium
 
   * Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V19, V21, V24 and V25.
