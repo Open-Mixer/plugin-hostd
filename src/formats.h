@@ -252,6 +252,14 @@ char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *u
  * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
  */
 char *lv2_param_info(int id, const char *symbol);
+
+/**
+ * @brief Where plugin-db's domain lv2 is read from, whose unit mappings give a port's unit its standard id (#215, M5).
+ *
+ * @param dirs a ':' list of contract directories, the first that holds the domain wins; NULL for the installed one.
+ *             Kept, not copied. The domain is opened on the first unit lv2_param_info reads.
+ */
+void lv2_units_dirs(const char *dirs);
 /**
  * @brief Answers remote_pages of an LV2 instance: the pages its bundle's groups make.
  *
