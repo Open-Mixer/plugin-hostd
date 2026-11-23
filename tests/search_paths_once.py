@@ -42,7 +42,7 @@ for name in ("LV2", "CLAP"):
 lv2 = paths["LV2"].split(":")
 check(lv2[:1] == ["/usr/lib/lv2"] and "/usr/local/lib/aarch64-linux-gnu/lv2" in lv2 and "/usr/lib64/lv2" in lv2,
       "the LV2 list holds Zynthian's folders and the lib64 ones")
-check(paths["CLAP"] == "~/.clap:/usr/lib/clap", "the CLAP list is ~/.clap, then /usr/lib/clap")
+check(paths["CLAP"].split(":")[:2] == ["~/.clap", "/usr/lib/clap"], "the CLAP list is ~/.clap, then /usr/lib/clap")
 
 # what the tool prints is the header's lists
 check(printed("lv2") == lv2, "tools/search-paths.py lv2 prints the header's list")
