@@ -20,7 +20,9 @@ is the proof.
 Each table is a domain of the contract directory (`docs/contract-dir.md` of omx-contract, Domains): `plugin-hostd/clap` and
 `plugin-hostd/lv2`, named by their item's prefix, installed by `make install` (`install_vocabulary_domains`, with
 omx-contract-devel's `install-contract-dir.sh --domain`) to `<contractdir>/plugin-hostd/<format>/<format>.json`, beside the
-domains `plugin-hostd/grouping` and `plugin-hostd/history`. The document is a domain header (`$id`
+domains `plugin-hostd/grouping` and `plugin-hostd/history` and the domain `plugin-hostd` itself
+(`<contractdir>/plugin-hostd/plugin-hostd.json`, the daemon's verbs, which plugin-hostd-protocol ships).
+The document is a domain header (`$id`
 `https://openmixer.org/contract/plugin-hostd/<format>`, `info.version`, `x-owner plugin-hostd`, `x-stability`) over one
 item, `PLUGIN_HOSTD_<FORMAT>_MAP`, of `x-kind` `sheet`: its `description` is the table's doc, its `x-value` the map
 `{ "format": "<format>", "rows": { <source field>: <row> } }`, which is what `plugin-hostd-probe describe`, `tests/format_coverage.py`

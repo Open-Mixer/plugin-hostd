@@ -75,7 +75,7 @@ def main():
         print("FAIL " + p.stderr.strip())
         return 1
     floor = p.stdout.strip()
-    since = group_since(json.loads(text_of(declared.verbs_json())))
+    since = group_since(declared.verbs())
     sources = tree_files("src", (".c", ".h"))
     bad = problems(floor, sources, since)
     for b in bad:
