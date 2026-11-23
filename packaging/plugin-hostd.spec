@@ -58,9 +58,10 @@ BuildRequires: omx-contract >= 3.21.0
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
 BuildRequires: plugin-hostd-protocol-contract >= 0.9.0
-BuildRequires: omx-clap-contract >= 0.34.0
-# the LV2 terms the format table and the qualification domain name: plugin-db's domain lv2 (0.5.0 the release that ships it)
-BuildRequires: plugin-db-contract >= 0.5.0
+BuildRequires: omx-clap-contract >= 0.35.0
+# the LV2 terms the format table and the qualification domain name: plugin-db's domain lv2 (0.5.0 the release that ships it),
+# and its unit and designation mappings the unit-id and designation-meaning rows read, units:coef's coef 0.5.1's
+BuildRequires: plugin-db-contract >= 0.5.1
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -106,10 +107,13 @@ BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
 Requires: plugin-hostd-protocol-contract >= 0.9.0
-Requires: omx-clap-contract >= 0.34.0
+# the CLAP contract unit's standard ids (OMX_PARAM_CONTRACT_UNIT_IDS of omx-clap's domain omx-param-contract, which a
+# unit-id row reads: docs/formats.md, Lookup values the owners publish) are 0.35.0's; a floor only
+Requires: omx-clap-contract >= 0.35.0
 # the LV2 terms of the format table and of the qualification domain are plugin-db's domain lv2, the CLAP terms omx-clap's
-# domain clap (omx-clap-contract above); a floor only
-Requires: plugin-db-contract >= 0.5.0
+# domain clap (omx-clap-contract above); the LV2 unit and designation mappings a unit-id or designation-meaning row reads
+# (LV2_UNIT_IDS with units:coef's coef, LV2_OPENMIXER_UNIT_IDS, LV2_DESIGNATION_MEANINGS) are 0.5.1's; a floor only
+Requires: plugin-db-contract >= 0.5.1
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
