@@ -94,10 +94,9 @@ int conf_merge_extra(conf_t *conf);
 
 /** @brief whether the settings are consistent
  *
- * pin_mode is one of PHD_PIN_MODES, grouping one of PHD_GROUPING_MODES, ask_unknown one of PHD_ASK_UNKNOWN_MODES, lv2_worker one of
- * conf_lv2_workers, placement
- * one of PHD_CORE_PLACEMENTS, bind_address an IPv4 address, host_class holds no white space, and history_window_s,
- * history_save_s and history_regroup_s are not negative.
+ * pin_mode is one of PHD_PIN_MODES, grouping one of PHD_GROUPING_MODES, ask_unknown one of PHD_ASK_UNKNOWN_MODES,
+ * lv2_worker one of conf_lv2_workers, placement one of PHD_CORE_PLACEMENTS, bind_address an IPv4 address, host_class
+ * holds no white space, and history_window_s, history_save_s and history_regroup_s are not negative.
  *
  * @param conf the settings.
  * @return 0, or -1 with the reason on stderr.
