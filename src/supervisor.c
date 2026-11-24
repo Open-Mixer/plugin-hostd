@@ -216,9 +216,9 @@ static int valid_place(const char *place)
 
 /* ---------------------------------------------------------------- ledger */
 
-/* *replaced is the line a keyed entry gave up, NULL when the entry is new; the caller owns it. -1, the ledger as it was,
- * when memory runs out */
-static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+/* a line onto a list of entries: a keyed one replaces the entry of its key where it stands. *replaced is the line a keyed
+ * entry gave up, NULL when the entry is new; the caller owns it. -1, the list as it was, when memory runs out */
+static int entries_add(entry_t **list, int *count, int *cap, const char *line, const char *key, int kind, char **replaced)
 {
     char *copy = strdup(line), *key_copy;
     int n;
@@ -227,11 +227,11 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
     if (!copy)
         return -1;
     if (key)
-        for (n = 0; n < i->ntail; n++)
-            if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+        for (n = 0; n < *count; n++)
+            if ((*list)[n].key && !strcmp((*list)[n].key, key))
             {
-                *replaced = i->tail[n].line;
-                i->tail[n].line = copy;
+                *replaced = (*list)[n].line;
+                (*list)[n].line = copy;
                 return 0;
             }
     key_copy = key ? strdup(key) : NULL;
@@ -240,10 +240,10 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
         free(copy);
         return -1;
     }
-    if (i->ntail == i->captail)
+    if (*count == *cap)
     {
-        int cap = i->captail ? i->captail * 2 : 16;
-        entry_t *grown = realloc(i->tail, cap * sizeof(entry_t));
+        int grow = *cap ? *cap * 2 : 16;
+        entry_t *grown = realloc(*list, grow * sizeof(entry_t));
 
         if (!grown)
         {
@@ -251,14 +251,32 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
             free(key_copy);
             return -1;
         }
-        i->tail = grown;
-        i->captail = cap;
+        *list = grown;
+        *cap = grow;
     }
-    i->tail[i->ntail].line = copy;
-    i->tail[i->ntail].key = key_copy;
-    i->tail[i->ntail].kind = kind;
-    i->ntail++;
+    (*list)[*count].line = copy;
+    (*list)[*count].key = key_copy;
+    (*list)[*count].kind = kind;
+    (*count)++;
     return 0;
+}
+
+static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+{
+    return entries_add(&i->tail, &i->ntail, &i->captail, line, key, kind, replaced);
+}
+
+/* an instance's property_set lines, all of them: a preset load replaces the plugin's state, the properties with it */
+static void props_drop(instance_t *i)
+{
+    int n;
+
+    for (n = 0; n < i->nprops; n++)
+    {
+        free(i->props[n].line);
+        free(i->props[n].key);
+    }
+    i->nprops = 0;
 }
 
 static void tail_drop_state(instance_t *i)
@@ -338,11 +356,10 @@ static void instance_free(instance_t *i)
     free(i->client);
     free(i->sus_line);
     free(i->sus_prev);
+    props_drop(i);
+    free(i->props);
     free(i->track_info);
     free(i->node_label);
-    for (int k = 0; k < i->nkeyed; k++)
-        free(i->keyed[k]);
-    free(i->keyed);
     free(i);
 }
 
@@ -570,7 +587,10 @@ static void worker_retire(worker_t *w)
 {
     if (w->pid > 0)
         proc_stop(w->pid);
+    if (w->leaving_pid > 0)
+        proc_stop(w->leaving_pid); /* a death not finished: nobody is left to finish it */
     w->pid = 0;
+    w->leaving_pid = 0;
     worker_free(w);
 }
 
@@ -1202,27 +1222,77 @@ static void clear_suspects(worker_t *w)
     }
 }
 
+/* how long a worker whose socket went quiet has to exit on its own (it is crashing, or closing) before it is asked to leave.
+ * A different quantity from suspect_window_ms: it only happens to share that default's value, so it is not a copy of it */
+#define QUIET_EXIT_MS 500
+/* how long a worker already asked to leave is waited for before the loop goes on without it: a worker that closes its JACK
+ * client and exits does so in a few milliseconds, and its death is then finished here as it always was */
+#define LEAVE_QUICK_MS 50
+
+static void death_finish(worker_t *w, int in_flight);
+
+/* the worker's process is gone, or is about to be. One that is not gone is asked to leave (SIGTERM, so it closes its JACK
+ * client) and the death is not finished here: the worker waits in W_BACKOFF with its process in leaving_pid, the tick sends
+ * SIGKILL when the grace has passed (proc_term_poll) and finishes the death once the process is gone, so a worker that
+ * does not leave never holds the loop (one asked to leave is waited for LEAVE_QUICK_MS, enough for a clean exit) and no other worker is served late because of it. The socket and the pid are let go
+ * now, so nothing sends it another command, and no respawn starts before it is reaped, so the new process never shares the
+ * old one's JACK client name or ports. A worker that is only dying (its socket went quiet because it crashed or is
+ * closing) is given QUIET_EXIT_MS to exit, as it always was: its death is then finished here, with its own status. */
 static void on_death(worker_t *w, int in_flight)
 {
-    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst;
-    char ids[1024], how[32];
     int64_t now = proc_now_ms();
-    instance_t **members = NULL, *blamed = NULL;
+    int n, wait_ms;
 
     /* a plan waiting to gather its group again waits for steady running: this death puts it off */
     for (n = 0; n < w->ninst; n++)
         plans_regroup(w->inst[n]->id, now, 0);
     /* the history: the window it was in, and who was in the worker; before the process is reaped */
     hist_death(w, now);
+    wait_ms = w->pid > 0 && proc_leaving(w->pid) ? LEAVE_QUICK_MS : QUIET_EXIT_MS;
+    for (n = 0; n < wait_ms / 10 && w->pid > 0 && !proc_dead(w->pid); n++)
+        usleep(10000);
+    if (w->pid > 0 && !proc_dead(w->pid))
+    {
+        proc_term(w->pid);
+        w->leaving_pid = w->pid;
+        w->leave_flight = in_flight;
+        w->pid = 0;
+        if (w->fd >= 0)
+            close(w->fd);
+        w->fd = -1;
+        w->state = W_BACKOFF;
+        return;
+    }
+    death_finish(w, in_flight);
+}
+
+/* the tick of a worker that is leaving: finishes its death once the process is gone */
+static void leaving_tick(worker_t *w)
+{
+    if (proc_dead(w->leaving_pid))
+        death_finish(w, w->leave_flight);
+}
+
+static void death_finish(worker_t *w, int in_flight)
+{
+    int status = 0, n, done = 0, grouped = w->ninst >= 2, nmembers = w->ninst, ours;
+    char ids[1024], how[32];
+    int64_t now = proc_now_ms();
+    instance_t **members = NULL, *blamed = NULL;
+    pid_t pid = w->leaving_pid > 0 ? w->leaving_pid : w->pid;
+
+    w->leaving_pid = 0;
     if (grouped && (members = malloc(nmembers * sizeof(instance_t *))))
         memcpy(members, w->inst, nmembers * sizeof(instance_t *));
-    for (n = 0; n < 50 && !(done = proc_exited(w->pid, &status)); n++)
-        usleep(10000);
+    done = proc_exited(pid, &status);
     if (!done)
     {
-        kill(w->pid, SIGKILL);
-        waitpid(w->pid, &status, 0);
+        /* gone for proc_dead and not for proc_exited cannot happen; a process that is still there is ended */
+        kill(pid, SIGKILL);
+        waitpid(pid, &status, 0);
     }
+    /* before the pid is forgotten: a worker the daemon asked to leave (and that left on SIGTERM, status 0) is no crash */
+    ours = proc_stopped_by_us(pid);
     if (WIFSIGNALED(status))
         snprintf(how, sizeof(how), "signal:%d", WTERMSIG(status));
     else
@@ -1231,7 +1301,7 @@ static void on_death(worker_t *w, int in_flight)
     relay_remove(w->fb_fd);
     w->fb_fd = -1;
     instances_of(w, ids, sizeof(ids));
-    event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)w->pid, how, ids[0] ? ids : PHD_WORD_NONE);
+    event(PHD_EVENT_WORKER_DIED_FMT, w->k, (int)pid, how, ids[0] ? ids : PHD_WORD_NONE);
     if (w->fd >= 0)
         close(w->fd);
     w->fd = -1;
@@ -1239,8 +1309,9 @@ static void on_death(worker_t *w, int in_flight)
     while (w->npend)
         free(w->pend[--w->npend]);
     note_death(w->deaths, &w->ndeaths, now);
-    /* a kill from outside says nothing about the last verb */
-    if (in_flight == -1 && !(WIFSIGNALED(status) && (WTERMSIG(status) == SIGKILL || WTERMSIG(status) == SIGTERM)))
+    /* a kill from outside, or a stop by the daemon itself, says nothing about the last verb */
+    if (in_flight == -1 && !ours &&
+        !(WIFSIGNALED(status) && (WTERMSIG(status) == SIGKILL || WTERMSIG(status) == SIGTERM)))
         in_flight = drop_suspect(w, now);
     clear_suspects(w);
 
@@ -1505,7 +1576,7 @@ static int replay_add(worker_t *w, instance_t *i)
         if (code != SUCCESS)
         {
             replay_refused(w, i, "pin", code);
-            kill(w->pid, SIGKILL);
+            proc_term(w->pid);
             on_death(w, -1);
             return -1;
         }
@@ -1527,25 +1598,21 @@ static int replay_add(worker_t *w, instance_t *i)
     return 1;
 }
 
-/* an instance's verb ledger, after the state; -1 when the worker died on it */
-/* the replace-keyed lines it holds, in the order their keys were first taken: after the state, before the verb tail */
-static int replay_keyed(worker_t *w, instance_t *i)
-{
-    for (int k = 0; k < i->nkeyed; k++)
-        if (replay_line(w, i->keyed[k]) != RPC_OK)
-        {
-            on_death(w, i->id);
-            return -1;
-        }
-    return 0;
-}
-
+/* an instance's verb ledger, after the state: the verb tail, then the latest property_set of each symbol, in the order
+ * each was first set (R-111). The properties go last: each was set after the last preset load, which drops the ones
+ * before it, so after a preset load the tail still holds (an instance that writes no state); -1 when the worker died */
 static int replay_tail(worker_t *w, instance_t *i)
 {
     int m;
 
     for (m = 0; m < i->ntail; m++)
         if (replay_line(w, i->tail[m].line) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+    for (m = 0; m < i->nprops; m++)
+        if (replay_line(w, i->props[m].line) != RPC_OK)
         {
             on_death(w, i->id);
             return -1;
@@ -1631,7 +1698,7 @@ static void replay(worker_t *w, int64_t started)
         }
     }
     for (n = 0; n < w->ninst; n++)
-        if (!w->inst[n]->unreplayed && (replay_keyed(w, w->inst[n]) < 0 || replay_tail(w, w->inst[n]) < 0))
+        if (!w->inst[n]->unreplayed && replay_tail(w, w->inst[n]) < 0)
             return;
     for (n = 0; n < w->ninst; n++)
     {
@@ -1742,6 +1809,7 @@ void sup_tick(void)
     int count = g_nworkers < 1024 ? g_nworkers : 1024;
 
     sup_pins_poll();
+    proc_term_poll();
     moved_dirty();
     memcpy(list, g_workers, count * sizeof(worker_t *));
     for (n = 0; n < count; n++)
@@ -1755,6 +1823,8 @@ void sup_tick(void)
             continue;
         if (w->state == W_UP && proc_dead(w->pid))
             on_death(w, -1);
+        else if (w->leaving_pid > 0)
+            leaving_tick(w);
         else if (w->state == W_BACKOFF && now >= w->next_try_ms)
             respawn(w);
         else if (w->state == W_UP && w->npend)
@@ -1859,10 +1929,17 @@ void sup_finish(void)
     int n;
 
     for (n = g_nworkers - 1; n >= 0; n--)
+    {
         if (g_workers[n]->pid > 0)
             kill(g_workers[n]->pid, SIGTERM);
+        if (g_workers[n]->leaving_pid > 0)
+            kill(g_workers[n]->leaving_pid, SIGTERM);
+    }
     for (n = g_nworkers - 1; n >= 0; n--)
+    {
         proc_stop(g_workers[n]->pid);
+        proc_stop(g_workers[n]->leaving_pid);
+    }
     rm_tree(g_root);
     pins_finish();
 }
@@ -2309,7 +2386,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
                 worker_retire(w);
             else
             {
-                kill(w->pid, SIGKILL);
+                proc_term(w->pid);
                 on_death(w, -1);
             }
             return sup_resp(loaded);
@@ -2432,8 +2509,12 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
             }
             else if (g_recorded[v].key_arg)
                 return 0;
+            /* a preset is the plugin's whole state: the state verbs and the properties set before it are superseded */
             if (verb_is(tok[0], EFFECT_PRESET_LOAD))
+            {
                 tail_drop_state(i);
+                props_drop(i);
+            }
             if (tail_add(i, line, key, g_recorded[v].kind, &prev) != 0)
                 return -1;
             free(i->sus_line);
@@ -2687,13 +2768,34 @@ char *sup_call(int id, const char *line)
     return reply;
 }
 
-static int keep_keyed(instance_t *i, const char *line, const char *key);
-static char *key_of(const char *line);
+static char **words(char *copy, int *count);
+
+/* the key a replace-keyed line is kept by in an instance's properties: its verb and its second argument ("patch_set
+ * <uri>", as "property_set <symbol>"), malloc'd; NULL for a line with fewer words or no memory */
+static char *key_of(const char *line)
+{
+    char *copy = strdup(line), **word, *key = NULL;
+    int count;
+
+    if (!copy)
+        return NULL;
+    word = words(copy, &count);
+    if (word && count > 2)
+    {
+        size_t size = strlen(word[0]) + strlen(word[2]) + 2;
+
+        if ((key = malloc(size)))
+            snprintf(key, size, "%s %s", word[0], word[2]);
+    }
+    free(word);
+    free(copy);
+    return key;
+}
 
 char *sup_call_keyed(int id, const char *line, int *answered)
 {
     instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
-    char *reply, *key;
+    char *reply, *key, *replaced = NULL;
 
     *answered = 0;
     if (!i)
@@ -2702,12 +2804,13 @@ char *sup_call_keyed(int id, const char *line, int *answered)
     if (!*answered || resp_code(reply) < 0 || g_inst[id] != i)
         return reply;
     key = key_of(line);
-    if (!key || keep_keyed(i, line, key) != SUCCESS)
+    if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
     {
         free(reply);
         reply = sup_resp(ERR_MEMORY_ALLOCATION);
         *answered = 0;
     }
+    free(replaced);
     free(key);
     return reply;
 }
@@ -2949,54 +3052,6 @@ const char *sup_instance_search(int id)
     return (id >= 0 && id < MAX_INSTANCE && g_inst[id]) ? search_of(g_inst[id]->fmt) : NULL;
 }
 
-/* the second word of a line: the key of a replace-keyed verb (property_set's symbol); NULL when it has none */
-static char *key_of(const char *line)
-{
-    char *copy = strdup(line), **word, *key = NULL;
-    int count;
-
-    if (!copy)
-        return NULL;
-    word = words(copy, &count);
-    if (word && count > 2)
-        key = strdup(word[2]);
-    free(word);
-    free(copy);
-    return key;
-}
-
-/* keep line as the latest of its key: it replaces the line of the same key in place, so the order is the one the keys
- * were first taken in, or it goes last. SUCCESS, or ERR_MEMORY_ALLOCATION with nothing changed */
-static int keep_keyed(instance_t *i, const char *line, const char *key)
-{
-    char *kept = strdup(line), **grown;
-
-    if (!kept)
-        return ERR_MEMORY_ALLOCATION;
-    for (int k = 0; k < i->nkeyed; k++)
-    {
-        char *had = key_of(i->keyed[k]);
-        const int same = had && !strcmp(had, key);
-
-        free(had);
-        if (same)
-        {
-            free(i->keyed[k]);
-            i->keyed[k] = kept;
-            return SUCCESS;
-        }
-    }
-    grown = realloc(i->keyed, (size_t)(i->nkeyed + 1) * sizeof(*grown));
-    if (!grown)
-    {
-        free(kept);
-        return ERR_MEMORY_ALLOCATION;
-    }
-    i->keyed = grown;
-    i->keyed[i->nkeyed++] = kept;
-    return SUCCESS;
-}
-
 char *sup_instance_verb(const char *line, int ledger)
 {
     char *copy = strdup(line), **word, *end, *reply;
@@ -3044,13 +3099,6 @@ char *sup_instance_verb(const char *line, int ledger)
                 reply = sup_resp(ERR_MEMORY_ALLOCATION);
             }
         }
-        /* a replace-keyed verb (property_set): the latest per first argument, each kept, a refused one not */
-        if (ledger == PHD_LEDGER_REPLACE_KEYED && count > 2 && resp_code(reply) >= 0 && g_inst[id] == i &&
-            keep_keyed(i, line, word[2]) != SUCCESS)
-        {
-            free(reply);
-            reply = sup_resp(ERR_MEMORY_ALLOCATION);
-        }
         if (ledger == PHD_LEDGER_REPLACE && !strcmp(word[0], OMX_VERB_TRACK_INFO) && resp_code(reply) >= 0 && g_inst[id] == i)
         {
             char *kept = strdup(line);
@@ -3065,6 +3113,23 @@ char *sup_instance_verb(const char *line, int ledger)
                 free(reply);
                 reply = sup_resp(ERR_MEMORY_ALLOCATION);
             }
+        }
+        /* replace-keyed (property_set): the latest per instance and first argument, apart from the verb tail, which a
+         * checkpoint truncates and a property outlives (R-111) */
+        if (ledger == PHD_LEDGER_REPLACE_KEYED && count > 2 && resp_code(reply) >= 0 && g_inst[id] == i)
+        {
+            size_t size = strlen(word[0]) + strlen(word[2]) + 2;
+            char *key = malloc(size), *replaced = NULL;
+
+            if (key)
+                snprintf(key, size, "%s %s", word[0], word[2]);
+            if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+            {
+                free(reply);
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
+            }
+            free(replaced);
+            free(key);
         }
     }
     /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker but the property verbs
@@ -3915,11 +3980,15 @@ static int plan_pin(const char *uri)
     return PLANNER_PIN_NO_VERDICT;
 }
 
+/* the qualification store, open while one plan or one estimate reads its figures (qualcost_open): the one place the daemon
+ * reads what a plugin costs. NULL outside a read, and when the store cannot be opened, which is no figure for any plugin. */
+static pqdb *g_qual;
+
 /* the cost the planner reads for a plugin: its record's at group_rate and group_quantum, PLANNER_COST_UNKNOWN for none */
 static double plan_cost(const char *uri)
 {
     double cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
-                      ? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)
+                      ? qualcost_read(g_qual, record_id(uri), g_conf.group_rate, g_conf.group_quantum)
                       : PLANNER_COST_UNKNOWN;
 
     return cost < 0 ? PLANNER_COST_UNKNOWN : cost;
@@ -4186,8 +4255,11 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     planner_plan_t pp;
     int k, first, refused = 0;
 
+    g_qual = qualcost_open();
     for (k = 0; k < n; k++)
         plan_member(g_inst[ids[k]], &m[k], &h[k]);
+    qualcost_close(g_qual);
+    g_qual = NULL;
     plan_settings(&s);
     planner_plan(&s, m, n, &pp);
 
@@ -4474,7 +4546,7 @@ static double estimate_ram_added(int rate, int quantum, const char *const *uris,
             int j, shared = 0;
 
             format_of_uri(uris[m[at].id], &fwd);
-            if (qualcost_memory(g_conf.qualification_dir, record_id(fwd), rate, quantum, &mem) != 0)
+            if (qualcost_memory(g_qual, record_id(fwd), rate, quantum, &mem) != 0)
             {
                 (*unknown)++;
                 continue;
@@ -4508,6 +4580,7 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     if (!list)
         return NULL;
     list[0] = '\0';
+    g_qual = qualcost_open();
     for (k = 0; k < n; k++)
     {
         const char *fwd = uris[k];
@@ -4518,7 +4591,7 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
         if (fmt < 0 || !estimate_installed(fmt, fwd))
             code = OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP;
         else
-            switch (qualcost_cell(g_conf.qualification_dir, record_id(fwd), rate, quantum, &cell))
+            switch (qualcost_cell(g_qual, record_id(fwd), rate, quantum, &cell))
             {
             case QUALCOST_CELL_FOUND:
                 latency += cell.latency_frames;
@@ -4558,6 +4631,8 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     }
     else
         ram_unknown = n;
+    qualcost_close(g_qual);
+    g_qual = NULL;
     ram_used = estimate_ram_used();
     if (ram_used < 0)
         snprintf(used_word, sizeof(used_word), PHD_WORD_NONE);

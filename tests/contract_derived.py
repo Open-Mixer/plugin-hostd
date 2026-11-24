@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # What plugin-hostd shares with omx-contract is read from omx-contract, never typed again here: the probe runner's
 # default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES, the same words in
-# the same order, and the probe output's shared enums are the words of omx_vocabulary.h. Checked twice: against the installed contract (its data and its C header), and against a scratch
+# the same order, and the probe output's shared enums are the words of the contract (the qualification domain, plugin-qualify's, read through the loader). Checked twice: against the installed contract (its data and its C header), and against a scratch
 # copy of the header with the values changed, where the runner must follow and the generator must refuse to build.
 # The JSON of the protocol is written by plugin-hostd-protocol's generator (its installed source, protocolgen), built here
 # against the scratch copies; the probe schema by this tree's tools/protocol-gen.c.
@@ -10,6 +10,7 @@ import json, os, re, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import declared as declared_protocol
+import qualification_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # the generator of the protocol's JSON, plugin-hostd-protocol's, and this tree's, which writes the probe schema
@@ -22,6 +23,16 @@ CJSON_CFLAGS = os.environ["CJSON_CFLAGS"] if "CJSON_CFLAGS" in os.environ else \
     subprocess.run([PKG_CONFIG, "--cflags", "libcjson"], capture_output=True, text=True, check=True).stdout
 CJSON_LIBS = os.environ["CJSON_LIBS"] if "CJSON_LIBS" in os.environ else \
     subprocess.run([PKG_CONFIG, "--libs", "libcjson"], capture_output=True, text=True, check=True).stdout
+# the machine domain's loader (libomx-domain): the Makefile's DOMAIN_CFLAGS and DOMAIN_LIBS, else pkg-config's
+DOMAIN_CFLAGS = (os.environ["DOMAIN_CFLAGS"] if "DOMAIN_CFLAGS" in os.environ else
+                 subprocess.run([PKG_CONFIG, "--cflags", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
+DOMAIN_LIBS = (os.environ["DOMAIN_LIBS"] if "DOMAIN_LIBS" in os.environ else
+               subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
+# the CLIs read the machine domain from OMX_CONTRACT_PATH: this checkout's own document
+# (then the installed contract directory, where plugin-qualify's qualification domain is)
+MACHINE_ENV = dict(os.environ, OMX_CONTRACT_PATH=":".join(
+    [os.path.join(ROOT, "contract.d")] + [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d] +
+    [subprocess.run([PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()]))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 failures = 0
 
@@ -41,6 +52,8 @@ def contract_data(name):
     """an item of omx-contract's own data, as the installed package lays it out (contract.d/<major>/omx-contract)"""
     base = pkg("--variable=contractdir")
     for major in sorted(os.listdir(base), reverse=True):
+        if not major.isdigit():
+            continue  # a domain's directory (qualification/), not a schema major
         for f in sorted(os.listdir(os.path.join(base, major, "omx-contract"))):
             if f.endswith(".json") and f != "MANIFEST.json":
                 with open(os.path.join(base, major, "omx-contract", f)) as fh:
@@ -69,7 +82,7 @@ def child_rates(probe, tmp):
     plugin = os.path.join(tmp, "x.clap")
     open(plugin, "w").close()
     subprocess.run([probe, "run", "--child", child, "--wall-s", "5", "--out", os.path.join(tmp, "doc.json"), plugin],
-                   capture_output=True, text=True, timeout=60)
+                   capture_output=True, text=True, timeout=60, env=MACHINE_ENV)
     args = open(seen).read().split("\n") if os.path.exists(seen) else []
     return args[args.index("--rates") + 1] if "--rates" in args else None
 
@@ -87,19 +100,26 @@ PROBE_SRC = re.search(r"^PROBE_SRC = (.*)$", open(os.path.join(ROOT, "Makefile")
 # <plugin-db/pin.h>: what every build that includes it asks of plugin-db.pc
 PIN_CFLAGS = subprocess.run([PKG_CONFIG, "--cflags", "plugin-db"], capture_output=True, text=True, check=True).stdout.split()
 PIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "plugin-db"], capture_output=True, text=True, check=True).stdout.split()
+# the C loader of the contract's domains (libomx-domain): the probe and the schema generator read the qualification domain through it
+DOMAIN_CFLAGS = subprocess.run([PKG_CONFIG, "--cflags", "libomx-domain"], capture_output=True, text=True, check=True).stdout.split()
+DOMAIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_output=True, text=True, check=True).stdout.split()
 
 
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
-          [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + CJSON_LIBS.split()
+          [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + DOMAIN_LIBS + CJSON_LIBS.split()
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def build_gen(include_first, out, source=JSON_GEN):
+    # this tree's generator reads the machine domain through src/domain_words.c
+    own = source == OWN_GEN
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + ["-std=gnu99", "-o", out, source] + PIN_LIBS
+          (["-I" + os.path.join(ROOT, "src")] if own else []) + pkg("--cflags").split() + PIN_CFLAGS + DOMAIN_CFLAGS + \
+          ["-std=gnu99", "-o", out, source] + \
+          ([os.path.join(ROOT, "src", f) for f in ("domain_words.c", "qualification_words.c")] if own else []) + PIN_LIBS + DOMAIN_LIBS
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -108,10 +128,13 @@ def gen_json(gen):
     return p.returncode, p.stdout, p.stderr
 
 
-def gen_methods(gen):
-    """the latency methods of the probe schema the generator writes from this tree's template"""
+def gen_methods(gen, contract_path):
+    """the latency methods of the probe schema the generator writes from this tree's template, the qualification domain
+    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry); the installed contract directory follows, for
+    the domains the template takes from their owners (plugin-db's address formats)"""
     p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
-                       text=True, timeout=30)
+                       text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join(
+                           [os.path.join(ROOT, "contract.d"), contract_path] + qualification_source.search_path())))
     if p.returncode != 0:
         return None
     return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]
@@ -181,29 +204,32 @@ def main():
             check(built.returncode != 0 and "PARAM_SCALES" in built.stderr,
                   "%s refuses scales the contract orders otherwise: rc %d %s" % (source, built.returncode, built.stderr[-300:]))
 
-        # a scratch vocabulary whose latency methods have a word more: the probe schema the generator writes has it
-        # too, and a word list longer than its count does not build
-        vocab = os.path.join(tmp, "vocab")
-        os.makedirs(os.path.join(vocab, "omxcontract"))
-        shutil.copy(header(), os.path.join(vocab, "omxcontract"))
-        vtext = open(header("omx_vocabulary.h")).read()
-        grown = re.sub(r'(#define OMX_MEASUREMENT_LATENCY_METHODS_INIT \{[^}]*)\s\}', r'\1, "x-onset" }', vtext)
-        check(grown != vtext, "positive control: the scratch vocabulary's latency methods were changed")
-        counted = re.sub(r"(#define OMX_MEASUREMENT_LATENCY_METHODS_COUNT )([0-9]+)u",
-                         lambda m: "%s%du" % (m.group(1), int(m.group(2)) + 1), grown)
-        with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
-            f.write(counted)
-        built = build_gen(vocab, os.path.join(tmp, "gen-vocab"), OWN_GEN)
-        check(built.returncode == 0, "the generator builds against the scratch vocabulary: %s" % built.stderr[-400:])
+        # a scratch qualification domain (plugin-qualify's document, read through the loader) whose latency methods have a
+        # word more: the probe schema the generator writes has it too; a domain without the item is refused by name
+        built = build_gen(os.path.dirname(os.path.dirname(header())), os.path.join(tmp, "gen-domain"), OWN_GEN)
+        check(built.returncode == 0, "the schema generator builds against the loader: %s" % built.stderr[-400:])
         if built.returncode == 0:
-            methods = gen_methods(os.path.join(tmp, "gen-vocab"))
+            item = "QUALIFICATION_MEASUREMENT_LATENCY_METHODS"
+            have = qualification_source.words(item)
+            check(gen_methods(os.path.join(tmp, "gen-domain"), qualification_source.fixture(tmp, None, "as-installed")) == have,
+                  "the probe schema's latency methods are the installed domain's %s" % have)
+
+            def grow(doc):
+                words = doc["components"]["schemas"][item]["oneOf"]
+                # the loader holds a word's x-code to its index: the new word takes the next one
+                words.append({"const": "x-onset", "title": "xOnset", "x-code": len(words), "x-text": "x"})
+            grown = qualification_source.fixture(tmp, grow, "grown")
+            methods = gen_methods(os.path.join(tmp, "gen-domain"), grown)
             check(methods is not None and methods[-1:] == ["x-onset"],
-                  "a word the contract adds to the latency methods is in the probe schema: %s" % methods)
-        with open(os.path.join(vocab, "omxcontract", "omx_vocabulary.h"), "w") as f:
-            f.write(grown)
-        built = build_gen(vocab, os.path.join(tmp, "gen-vocab-uncounted"), OWN_GEN)
-        check(built.returncode != 0 and "MEASUREMENT_LATENCY_METHODS" in built.stderr,
-              "the generator refuses a word list that is not its count: rc %d %s" % (built.returncode, built.stderr[-300:]))
+                  "a word the domain adds to the latency methods is in the probe schema: %s" % methods)
+
+            def drop(doc):
+                del doc["components"]["schemas"][item]
+            bare = qualification_source.fixture(tmp, drop, "bare")
+            p = subprocess.run([os.path.join(tmp, "gen-domain"), "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")],
+                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + bare))
+            check(p.returncode != 0 and p.stdout == "" and item in p.stderr,
+                  "the generator refuses a domain that lacks %s, by name: rc %d %r" % (item, p.returncode, p.stderr[-200:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print("contract: %s" % ("FAILED (%d)" % failures if failures else "ok"))

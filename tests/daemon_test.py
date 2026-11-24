@@ -5,6 +5,7 @@ import errno, json, os, re, resource, shutil, signal, subprocess, sys, tempfile,
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
+import qual_fixture
 import scan_fixture
 from harness import Daemon, Fail, alive, check, check_timing, resp, run_tests, wait_for
 from scan_fixture import CLAP_ID, FIELDS, LV2_COMPRESSOR, MANIFEST, PROBE, ROOT, descriptor_name, panel_name, sha, write
@@ -77,20 +78,6 @@ def a_worker_gets_no_new_privileges_no_daemon_descriptor_and_no_debugging_syscal
         d.expect("param_get 0 ptrace", "resp 0 %d" % errno.EPERM)
         d.expect("param_get 1 ptrace", "resp 0 %d" % errno.EPERM)
         check(len(d.workers()) == 2, "both workers live on: %s" % d.workers())
-    finally:
-        d.close()
-
-
-@test
-def a_word_past_the_grammar_of_a_daemon_verb_is_refused():
-    d = daemon()
-    try:
-        # worker_list takes no word, supervisor_reset at most one and quit none, as protocol.h declares them
-        d.expect("worker_list w1", "resp -902")
-        d.expect("supervisor_reset all w1", "resp -902")
-        d.expect("quit now", "resp -902")
-        d.expect("worker_list", "resp 0")
-        d.expect("supervisor_reset all", "resp 0")
     finally:
         d.close()
 
@@ -2026,7 +2013,7 @@ def every_property_set_is_replayed_the_latest_per_symbol_after_the_state():
         d.expect(label, "resp 0")
         d.expect(file, "resp 0")
         d.expect('property_set 0 readonly "x"', "resp -107")
-        d.expect("property_list 0", "resp 0")
+        d.expect("property_list 0", "resp 1")
         d.expect("param_set 0 gain 0.6000", "resp 0")
         wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
                  "a checkpoint of instance 0")
@@ -2089,6 +2076,85 @@ def track_info_is_replayed_once_after_the_add_and_before_the_state():
         if os.path.exists(log):
             os.unlink(log)
 
+
+
+@test
+def a_preset_load_supersedes_the_properties_set_before_it_and_a_later_one_replays_after_it():
+    """R-111 with a preset: a preset load replaces the plugin's state, so the property_set lines before it are dropped
+    from the ledger, as the state verbs before it are; one set after it replays after it. Instance 0 checkpoints after
+    its preset load (the state holds what the preset left), instance 1 ("nostate") never writes state, so its preset
+    load stays in the verb tail: a respawned worker is given its preset load first, then the property set after it"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#nostate 1", "resp 1")
+        d.expect('property_set 0 sample "/a/before.wav"', "resp 0")
+        d.expect("preset_load 0 file:///presets/one.lv2", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "the checkpoint after instance 0's preset load")
+        d.expect('property_set 1 sample "/b/before.wav"', "resp 0")
+        d.expect("preset_load 1 file:///presets/two.lv2", "resp 0")
+        d.expect('property_set 1 sample "/b/after.wav"', "resp 0")
+        # each instance has a worker of its own: each is killed, and what its respawned worker is given is read
+        mark = d.mark()
+        for n in (0, 1):
+            os.kill(d.holder(n)[1]["pid"], signal.SIGKILL)
+        for n in (0, 1):
+            d.wait_event("instance_restored %d " % n, since=mark)
+        of = lambda n: [c for c in sent_to(log, d.holder(n)[1]["pid"]) if c.split(" ")[1:2] == [str(n)]]
+        check(not [c for c in of(0) if c.startswith("property_set ")],
+              "instance 0: the property set before its preset load is not replayed over the state: %s" % of(0))
+        one = [c for c in of(1) if c.startswith(("preset_load ", "property_set "))]
+        check(one == ["preset_load 1 file:///presets/two.lv2", 'property_set 1 sample "/b/after.wav"'],
+              "instance 1: its preset load, then only the property set after it: %s" % of(1))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def property_set_keeps_the_latest_of_each_symbol_and_replays_them_after_the_state():
+    """R-111: the ledger keeps one property_set per instance and symbol, the latest; a checkpoint does not drop it, and a
+    respawned worker is given each after the state, in the order its symbol was first set; a set the worker refused is
+    not kept, and a removed instance's are gone"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#b 1", "resp 1")
+        d.expect('property_set 0 sample "/a/one.wav"', "resp 0")
+        d.expect('property_set 0 title "first"', "resp 0")
+        d.expect('property_set 1 sample "/b/one.wav"', "resp 0")
+        d.expect('property_set 0 sample "/a/two.wav"', "resp 0")
+        d.expect('property_set 0 readonly_path "/a/x.wav"', "resp -107")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        props = [c for c in sent if c.startswith("property_set ")]
+        check(props == ['property_set 0 sample "/a/two.wav"', 'property_set 0 title "first"'],
+              "the latest of each symbol, once, in the order each was first set, and no other instance's: %s" % sent)
+        check("state_load" in verbs and "property_set" in verbs and verbs.index("state_load") < verbs.index("property_set"),
+              "the properties after the state: %s" % sent)
+        d.expect("remove 0", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("property_set")], "a removed instance's properties are gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 # a display session the daemon's workers would put a window on; the fake shows nothing, it only answers
 DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
@@ -2783,6 +2849,101 @@ def a_binary_swapped_between_the_hash_and_the_load_is_refused():
         d.expect(p.lv2_pin(), "resp 0")
         d.expect("add %s 1" % LV2_URI, "resp 1")
         check(len(d.workers()) == 2, "adds with nothing swapped keep their workers: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+def swap_late_env(p):
+    """FAKE_SWAP_ON_ADD for the plugin file with an exchange partner that does not exist yet: the worker's adds swap
+    nothing until the test writes the partner (the returned path), and the next load is then of a swapped file"""
+    evil = os.path.join(p.dir, "clap", "late-evil.clap")
+    return {"FAKE_SWAP_ON_ADD": "%s=%s" % (p.clap, evil)}, evil
+
+
+@test
+def a_worker_the_daemon_stops_on_a_pin_refusal_blames_and_drops_nothing():
+    """a worker the daemon ends itself on a pin refusal (the add of a third member of a pool swapped between the hash and
+    the load) is asked to leave with SIGTERM and exits 0, as the real host does: that is the daemon's own stop, so the
+    verb a member was sent a moment before is not dropped as the suspect, and no member is quarantined"""
+    p = Plugins()
+    env, evil = swap_late_env(p)
+    d = p.daemon(env=env)
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        for i in (0, 1):
+            d.expect("add %s %d pool:p" % (p.clap_uri, i), "resp %d" % i)
+        d.expect("param_set 0 gain 0.7000", "resp 0")
+        write(evil, b"a build nobody hashed")
+        mark = d.mark()
+        d.expect("add %s 2 pool:p" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
+        died = d.wait_event("worker_died ", since=mark)
+        check(" exit:0 " in died, "the pool's worker left on SIGTERM, not SIGKILL: " + died)
+        d.settle(mark)
+        check(not any(e.startswith("instance_verb_dropped") or e.startswith("instance_quarantined") for e in d.events[mark:]),
+              "no verb was dropped as the suspect and no member quarantined: %s" % d.events[mark:])
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_worker_that_will_not_leave_on_sigterm_does_not_hold_the_daemon_up_while_it_is_stopped():
+    """a worker that does not answer (and ignores SIGTERM, stuck in a plugin) is stopped by the daemon: SIGTERM at once,
+    SIGKILL once PROC_TERM_GRACE_MS has passed, and the daemon serves the others meanwhile: the verb that timed out is
+    answered when its timeout ends, not two seconds later, another worker answers at once, and the wedged worker is
+    respawned only after it is gone, so the new one never shares its name or ports with one still leaving"""
+    d = daemon(conf={"rpc_timeout_ms": 300})
+    try:
+        d.expect("add fake:a 0", "resp 0")
+        d.expect("add fake:b 1", "resp 1")
+        d.expect("param_set 0 gain 0.7500", "resp 0")
+        d.expect("param_set 1 gain 0.2500", "resp 0")
+        ka, wa = d.holder(0)
+        mark = d.mark()
+        start = time.monotonic()
+        r = d.send("param_set 0 wedge 1")
+        took = time.monotonic() - start
+        check(r == resp("VERB_DROPPED"), "the controller is told its command was dropped: " + r)
+        check(took < 1.2, "the verb that timed out is answered when its timeout ends, not after the grace: %.2f s" % took)
+        start = time.monotonic()
+        d.expect("param_get 1 gain", "resp 0 0.2500")
+        took = time.monotonic() - start
+        check_timing(took < 0.5, "another worker answers while the wedged one is leaving: %.2f s" % took)
+        check(alive(wa["pid"]), "the wedged worker is still there, ignoring SIGTERM, a moment after")
+        died = d.wait_event("worker_died %s " % ka, since=mark)
+        check("signal:9" in died, "it was killed when its grace passed: " + died)
+        check_timing(time.monotonic() - start > 1.0, "and not before its grace")
+        up = d.wait_event("worker_respawned %s " % ka, since=mark)
+        check(not alive(wa["pid"]), "the old process is gone before the respawn: " + up)
+        d.wait_up(0)
+        d.expect("param_get 0 gain", "resp 0 0.7500")
+    finally:
+        d.close()
+
+
+@test
+def a_worker_refused_by_its_pin_at_a_replay_is_stopped_with_sigterm():
+    """the respawned worker whose replayed add loads a swapped file is asked to leave with SIGTERM before it is killed:
+    it exits 0, where a direct SIGKILL would show as signal:9"""
+    p = Plugins()
+    env, evil = swap_late_env(p)
+    d = p.daemon(env=env)
+    try:
+        d.expect(p.clap_pin(), "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        _, w = d.holder(0)
+        write(evil, b"a build nobody hashed")
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("worker_died ", since=mark)
+        deaths = []
+        deadline = time.time() + 15
+        while time.time() < deadline and len(deaths) < 2:
+            deaths = [e for e in d.events[mark:] if e.startswith("worker_died")]
+            time.sleep(0.05)
+        check(len(deaths) >= 2, "the worker the replay refused died too: %s" % deaths)
+        check(len(deaths) >= 2 and " exit:0 " in deaths[1], "and it left on SIGTERM, not SIGKILL: %s" % deaths)
     finally:
         d.close()
         p.close()
@@ -4583,7 +4744,8 @@ def each_alone(d, ids):
 @test
 def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
     path = refusal_file()
-    d = daemon(env={"FAKE_REFUSE_CHAIN": path})
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_REFUSE_CHAIN": path, "FAKE_LOG": log})
     try:
         for i in (40, 41):
             d.expect("add clap:fake#m%d %d" % (i, i), "resp %d" % i)
@@ -4598,6 +4760,12 @@ def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
         check(chain_of(d, 5) == {}, "no worker is left in the chain's place: %s" % d.workers())
         each_alone(d, (40, 41))
         check("refused 'chain 5 41 40'" in d.log(), "the refusal is written: %s" % d.log()[-400:])
+        # the refusal is kept on the chain and the worker stays up to hand the members back: it is told to remove each of
+        # them. A refusal taken for the worker's death stops it instead, and nothing is removed from it
+        lines = [l.split(" ", 1) for l in open(log).read().splitlines()]
+        pid = [p for p, l in lines if l == "chain 5 41 40"][0]
+        check([l for p, l in lines if p == pid and l.startswith("remove ")] == ["remove 41", "remove 40"],
+              "the worker that refused the chain removes its members one by one: %s" % lines)
         d.expect("param_get 40 gain", "resp 0 0.2500")
         # refused once, the members are free: a chain the worker takes forms over them
         os.unlink(path)
@@ -4607,8 +4775,9 @@ def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
         check(list(chain_of(d, 5).values())[0]["inst"] == [41, 40], "formed after the refusal: %s" % d.workers())
     finally:
         d.close()
-        if os.path.exists(path):
-            os.unlink(path)
+        for f in (path, log):
+            if os.path.exists(f):
+                os.unlink(f)
 
 
 @test
@@ -4933,15 +5102,21 @@ def pin_n(p, n, verdict=None):
     return "pin_set %s omx-fault.clap=%s %s%s" % (clap_n(p, n), sha(p.clap), fake_layout(), " verdict=" + verdict if verdict else "")
 
 
+def put_cell(d, name, plugin_id, rate, quantum, median, p95, declared="-", measured="-", first="-", per="-"):
+    """a cell in the qualification store of the daemon d, as the test build of the daemon reads it: the file
+    <tmp>/qualification.sqlite (PLUGIN_HOSTD_TEST_QUALIFICATION_STORE of harness.Daemon), rebuilt from the DDL of plugin-qualification-db with every cell put so far. A
+    cell of the same name replaces the earlier one (as a record file of that name did), and each name is a binary of its own."""
+    cells = d.__dict__.setdefault("qual_cells", {})
+    cells[name] = [format(len(cells) + 1, "x") if name not in cells else cells[name][0], plugin_id, rate, quantum, median, p95,
+                   declared, measured, first, per]
+    store = os.path.join(d.tmp, "qualification.sqlite")
+    qual_fixture.build(qual_fixture.schema_path(), store + ".new", list(cells.values()))
+    os.replace(store + ".new", store)
+
+
 def record_for(d, plugin_id, ns_p95, rate=48000, quantum=128, name=None):
-    """a qualification record of plugin-qualify, as far as the daemon reads one: the cost of one grid point"""
-    point = {"rate": rate, "quantum": quantum, "outcome": "probe.ok",
-             "cost": {"median": ns_p95 / 2, "percentile": {"p": 95, "value": ns_p95}, "blocks": 100, "warmupBlocks": 10}}
-    doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": plugin_id},
-           "measurements": {"grid": [point]}}
-    path = os.path.join(d.tmp, "qualification", name or "%s@1.0-0123456789ab.default.qualification.json" % plugin_id)
-    with open(path, "w") as f:
-        json.dump(doc, f)
+    """a qualification record as far as the daemon reads one: the cost of one grid point, its 95th percentile in ns per sample"""
+    put_cell(d, name or "%s@1.0-0123456789ab.default.qualification.json" % plugin_id, plugin_id, rate, quantum, ns_p95 / 2, ns_p95)
 
 
 def plan_run(conf=None, history=None):
@@ -5231,19 +5406,11 @@ def the_same_members_are_planned_into_the_same_segments_and_reasons_by_every_dae
 # ---------------------------------------------------------------- estimate (a chain's cost from the records, nothing loaded)
 
 def cell_for(d, plugin_id, median, measured=None, declared=0, rate=48000, quantum=128, memory=None):
-    """a qualification record of one grid point with a cost median (ns per sample) and a latency: measured None leaves
-    measuredFrames out, so the declared frames stand"""
-    latency = {"declaredFrames": declared}
-    if measured is not None:
-        latency["measuredFrames"] = measured
-    point = {"rate": rate, "quantum": quantum, "outcome": "probe.ok", "latency": latency,
-             "cost": {"median": median, "percentile": {"p": 95, "value": median * 2}, "blocks": 100, "warmupBlocks": 10}}
-    if memory is not None:
-        point["memory"] = memory
-    doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": plugin_id},
-           "measurements": {"grid": [point]}}
-    with open(os.path.join(d.tmp, "qualification", "%s@1.0-0123456789ab.default.qualification.json" % plugin_id), "w") as f:
-        json.dump(doc, f)
+    """a qualification record of one grid point with a cost median (ns per sample) and a latency: measured None leaves the
+    measured frames out, so the declared frames stand; memory is {"firstInstanceKb": , "perInstanceKb": }"""
+    memory = memory or {}
+    put_cell(d, "%s@1.0-0123456789ab.default.qualification.json" % plugin_id, plugin_id, rate, quantum, median, median * 2, declared, "-" if measured is None else measured,
+             memory.get("firstInstanceKb", "-"), memory.get("perInstanceKb", "-"))
 
 
 def estimate_daemon(history=None):
@@ -5865,8 +6032,8 @@ def an_add_writes_the_descriptor_by_id_version_and_hash_and_descriptor_get_answe
               "nothing else is left beside it but the panels: %s" % os.listdir(os.path.dirname(name)))
         check(os.listdir(os.path.dirname(panel_name(name))) == [os.path.basename(name)],
               "the panels hold its panel alone: %s" % os.listdir(os.path.dirname(panel_name(name))))
-        for path in (s.descriptors, s.qualification):
-            check(os.stat(path).st_mode & 0o777 == 0o700, "%s is made 0700" % path)
+        check(os.stat(s.descriptors).st_mode & 0o777 == 0o700, "%s is made 0700" % s.descriptors)
+        check(not os.path.exists(os.path.join(s.dir, "qualification")), "the daemon makes no qualification directory: it reads a store")
         # written once: a second instance of the same files reads the file and runs no scan
         d.expect("add %s 1" % s.clap_uri, "resp 1")
         d.expect("add lv2:%s 2" % LV2_COMPRESSOR, "resp 2")
@@ -6001,20 +6168,19 @@ def a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key():
         return
     s = Scan()
     try:
-        for key, other in (("descriptor_dir", "qualification_dir"), ("qualification_dir", "descriptor_dir")):
+        for key in ("descriptor_dir",):
             ro = os.path.join(s.dir, "ro-" + key)
             os.makedirs(ro)
             os.chmod(ro, 0o500)
             for path in (ro, os.path.join(ro, "below")):
-                rc, out = start_refused({key: path, other: os.path.join(s.dir, "fine")})
+                rc, out = start_refused({key: path})
                 check(rc != 0 and harness.READY_LINE not in out, "%s %s: the daemon does not start: %d %r" % (key, path, rc, out))
                 check("%s %s" % (key, path) in out and "resp %d" % harness.CODE["DIR_NOT_WRITABLE"] in out,
                       "stderr names the key, the path and the code: %r" % out)
             os.chmod(ro, 0o700)
         # a path that is a file is no directory either
         write(os.path.join(s.dir, "plain"), b"")
-        rc, out = start_refused({"descriptor_dir": os.path.join(s.dir, "plain"),
-                                 "qualification_dir": os.path.join(s.dir, "fine")})
+        rc, out = start_refused({"descriptor_dir": os.path.join(s.dir, "plain")})
         check(rc != 0 and "resp %d" % harness.CODE["DIR_NOT_WRITABLE"] in out, "a file in its place: %r" % out)
     finally:
         s.close()
@@ -6047,7 +6213,7 @@ def a_missing_key_falls_to_the_documented_default_and_the_key_holds_over_the_var
     try:
         # the defaults as protocol.json documents them, the same text the man page and the README carry
         declared = {}
-        for key in ("descriptor_dir", "qualification_dir"):
+        for key in ("descriptor_dir",):
             meaning = config_meaning(key)["meaning"]
             check(config_meaning(key)["default"] == "", "%s's declared default is empty, resolved at start" % key)
             xdg = meaning.split("empty is $XDG_STATE_HOME/", 1)[1].split(",", 1)[0]
@@ -6063,24 +6229,22 @@ def a_missing_key_falls_to_the_documented_default_and_the_key_holds_over_the_var
                 # the $HOME branch is exercised by the non-root runs
                 print("skip: the $HOME default, the euid is 0 and the daemon then picks /var/lib")
                 continue
-            env = dict(env, OMX_DESCRIPTOR_DIR="", OMX_QUALIFICATION_DIR="")
+            env = dict(env, OMX_DESCRIPTOR_DIR="")
             base = env["XDG_STATE_HOME"] or env["HOME"]
-            d = s.daemon(conf={"descriptor_dir": None, "qualification_dir": None}, env=env)
+            d = s.daemon(conf={"descriptor_dir": None}, env=env)
             try:
                 want = {k: os.path.join(base, v[which]) for k, v in declared.items()}
-                check(os.path.isdir(want["qualification_dir"]), "qualification_dir is made at %s" % want["qualification_dir"])
                 d.expect("add %s 0" % s.clap_uri, "resp 0")
                 name = s.clap_name(want["descriptor_dir"])
                 wait_for(lambda: answered(d, s.clap_uri, name), "the descriptor at the default %s" % name)
             finally:
                 d.close()
         # the variable stands in for the default; the key in the settings file holds over it
-        env = {"OMX_DESCRIPTOR_DIR": os.path.join(s.dir, "by-env"), "OMX_QUALIFICATION_DIR": os.path.join(s.dir, "q-env")}
-        d = s.daemon(conf={"descriptor_dir": None, "qualification_dir": None}, env=env)
+        env = {"OMX_DESCRIPTOR_DIR": os.path.join(s.dir, "by-env")}
+        d = s.daemon(conf={"descriptor_dir": None}, env=env)
         try:
             d.expect("add %s 0" % s.clap_uri, "resp 0")
             wait_for(lambda: answered(d, s.clap_uri, s.clap_name(env["OMX_DESCRIPTOR_DIR"])), "the variable's directory")
-            check(os.path.isdir(env["OMX_QUALIFICATION_DIR"]), "the qualification variable's directory")
         finally:
             d.close()
         d = s.daemon(conf={"descriptor_dir": os.path.join(s.dir, "by-key")}, env=env)

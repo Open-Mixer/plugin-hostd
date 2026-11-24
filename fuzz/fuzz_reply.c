@@ -68,9 +68,9 @@
  *     Mutant: fuzz/sabotage/reply-shape.patch, a held gesture ended with begin.
  *   - the controller's socket: the relay writes to the controller's socket and to no other.
  *
- * Each check's comment names its record in src/fuzz_records.h (`record: <key>`), a one-line change of the relay that
- * makes that check abort on a named seed of fuzz/corpus/reply/ (`mutant:` and `input:`), or says why the stop is not
- * a property; make fuzz-records applies each one alone (fuzz/records.sh).
+ * Each check's comment records a one-line change of the relay that makes that check abort on a named seed of
+ * fuzz/corpus/reply/ (`mutant:` and `input:`), or says why the stop is not a property; make fuzz-records applies each
+ * one alone (fuzz/records.sh).
  */
 
 #include <errno.h>
@@ -283,7 +283,8 @@ static ssize_t fuzz_send(int fd, const void *buf, size_t len, int flags)
 {
     (void)flags;
     /* the controller's socket property: the relay writes to the controller and to no other socket
-     * record: relay-socket-client-only */
+     * mutant: src/relay.c:114 `send(g_client, line + sent` -> `send(g_client + 1, line + sent`
+     * input: lines */
     if (fd != CLIENT_FD)
         abort();
     if (g_send_eintr)
@@ -345,11 +346,13 @@ __attribute__((noinline)) static void check_bounded(void)
     for (i = 0; i < g_nsrc; i++)
     {
         /* an unfinished line the relay keeps is never past LINE_LIMIT, nor past what holds it
-         * record: relay-bounded-unfinished */
+         * mutant: src/relay.c:341 `s->used > LINE_LIMIT` -> `s->used > s->cap`
+         * input: line-past-the-limit-in-parts */
         if (g_src[i].used > LINE_LIMIT || g_src[i].used > g_src[i].cap)
             abort();
         /* and what holds it does not grow without end
-         * record: relay-bounded-capacity */
+         * mutant: src/relay.c:300 `s->cap * 2` -> `s->cap * 3`
+         * input: buffer-grows */
         if (g_src[i].cap >= 2 * ((size_t)LINE_LIMIT + 4096))
             abort();
     }
@@ -364,7 +367,8 @@ static int next_line(size_t *at, const char **line, size_t *len)
         return 0;
     nul = memchr(g_out + *at, '\0', g_nout - *at);
     /* the shape property: the stream ends on a whole line
-     * record: relay-shape-whole-line */
+     * mutant: src/relay.c:535 `strlen(line) + 1` -> `strlen(line)`
+     * input: event */
     if (nul == NULL)
         abort();
     *line = g_out + *at;
@@ -417,11 +421,13 @@ __attribute__((noinline)) static void check_no_loss(struct source *s, size_t *at
             continue;
         }
         /* every complete line it wrote is read by the controller
-         * record: relay-no-loss-present */
+         * mutant: src/relay.c:327 `> LINE_LIMIT` -> `>= LINE_LIMIT`
+         * input: line-at-the-limit */
         if (!next_line(at, &line, &len))
             abort();
         /* as it wrote it
-         * record: relay-no-loss-content */
+         * mutant: src/relay.c:331 `start, nul - start + 1` -> `start + 1, nul - start`
+         * input: lines */
         if (len != s->expected.v[0].n || memcmp(line, s->expected.v[0].s, len))
             abort();
         gesture_model(s, line, len);
@@ -434,7 +440,10 @@ __attribute__((noinline)) static void check_no_loss(struct source *s, size_t *at
 __attribute__((noinline)) static void check_no_loss_read(const struct source *s)
 {
     /* recv handed over every byte the worker wrote to it before the relay went on
-     * record: relay-no-loss-read */
+     * mutant: src/relay.c:659 `drain(&g_src[i]);` -> `;`
+     * input: written-then-removed
+     * mutant: src/relay.c:633 `drain(&g_src[i]);` -> `;`
+     * input: written-then-instance-gone */
     if (s->pending.n > 0)
         abort();
 }
@@ -468,16 +477,19 @@ __attribute__((noinline)) static void check_shape_ends(struct source *s, const c
     while (want-- > 0)
     {
         /* a gesture still held is ended
-         * record: relay-shape-ends-present */
+         * mutant: src/relay.c:258 `gesture_end(s->held[n]);` -> ``
+         * input: gesture-held-then-removed */
         if (!next_line(at, &line, &len))
             abort();
         /* with a line that ends it
-         * record: relay-shape-ends-suffix */
+         * mutant: src/relay.c:248 `" " PHD_GESTURE_END, sizeof(" " PHD_GESTURE_END)` -> `" " PHD_GESTURE_BEGIN, sizeof(" " PHD_GESTURE_BEGIN)`
+         * input: gesture-held-then-removed */
         if (len < end || memcmp(line + len - end, " " PHD_GESTURE_END, end))
             abort();
         i = list_find(&s->held, line, len - end);
         /* of a gesture still held, of the instance or the worker that went, and of each one only once
-         * record: relay-shape-ends-held */
+         * mutant: src/relay.c:247 `strlen(held)` -> `strlen(held) - 1`
+         * input: gesture-held-then-removed */
         if (i < 0 || !has_prefix(line, len, prefix))
             abort();
         list_drop(&s->held, i);
@@ -488,7 +500,8 @@ __attribute__((noinline)) static void check_shape_ends(struct source *s, const c
 __attribute__((noinline)) static void check_shape_done(size_t at)
 {
     /* no line the reference does not account for
-     * record: relay-shape-done */
+     * mutant: src/relay.c:535 `send_line(line, strlen(line) + 1);` -> `send_line(line, strlen(line) + 1); send_line(line, strlen(line) + 1);`
+     * input: event */
     if (at != g_nout)
         abort();
 }
@@ -505,11 +518,13 @@ __attribute__((noinline)) static void check_shape_event(const char *event)
         return;
     }
     /* an event of the daemon's own is relayed
-     * record: relay-shape-event-present */
+     * mutant: src/relay.c:535 `send_line(line, strlen(line) + 1);` -> ``
+     * input: event */
     if (!next_line(&at, &line, &len))
         abort();
     /* as the daemon wrote it
-     * record: relay-shape-event-content */
+     * mutant: src/relay.c:535 `line, strlen(line) + 1` -> `line + 1, strlen(line)`
+     * input: event */
     if (len != strlen(event) || memcmp(line, event, len))
         abort();
     check_shape_done(at);
@@ -566,7 +581,8 @@ __attribute__((noinline)) static void check_followed(void)
 
     for (k = 0; k < SOURCES_MAX; k++)
         /* a worker handed to the relay and not removed is in its table
-         * record: relay-holds-each-worker */
+         * mutant: src/relay.c:562 `g_src[g_nsrc++].fd = fd;` -> `g_src[g_nsrc].fd = fd;`
+         * input: lines */
         if (g_s[k].open && relay_source(g_s[k].fd) == NULL)
             abort();
 }
@@ -581,7 +597,8 @@ __attribute__((noinline)) static void check_eof(void)
         source_t *r = g_s[k].open ? relay_source(g_s[k].fd) : NULL;
 
         /* the relay stops reading a worker at its end, and only there
-         * record: relay-eof-is-the-end */
+         * mutant: src/relay.c:318 `if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK))` -> `if (n <= 0)`
+         * input: lines */
         if (r != NULL && !r->eof != !g_s[k].eof_seen)
             abort();
     }
@@ -602,7 +619,8 @@ static void op_add(void)
                 abort();
             g_s[i].open = 1;
             /* the relay follows a worker it is handed
-             * record: relay-follows-worker */
+             * mutant: src/relay.c:541 `fd < 0` -> `fd >= 0`
+             * input: lines */
             if (relay_add(g_s[i].fd) != 0)
                 abort();
             check_followed();

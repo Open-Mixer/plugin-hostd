@@ -45,6 +45,14 @@ def window(arm):
     return (started, time.time())
 
 
+def fails_on_its_own_command(arm):
+    # an arm whose command exits non-zero, its stderr captured as an arm's render is (omx-contract's message is what it says)
+    if arm == 1:
+        subprocess.run([sys.executable, "-c", "import sys; sys.stderr.write(''.join(['omx-contract render', ': no such package\\n'])); sys.exit(3)"],
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    return arm
+
+
 def boom(arm):
     if arm == 2:
         raise ValueError("arm 2")
@@ -117,6 +125,16 @@ def arms_running_together_draw_their_ports_from_ranges_of_their_own():
     check(all(len(v) == 1 for v in per_process.values()), "a process keeps its range")
 
 
+def an_arm_whose_command_fails_is_a_named_fail_and_the_pool_goes_on():
+    got = run([0, 1, 2], fails_on_its_own_command, 3)
+    check([a for a, _ in got] == [0, 1, 2], "every arm reported, in order: %s" % [a for a, _ in got])
+    check(got[0][1] == 0 and got[2][1] == 2, "the arms beside the failing one still ran: %s" % [r for _, r in got])
+    r = got[1][1]
+    check(isinstance(r, sabotage_pool.Failed), "the failing arm is a FAIL line, not a traceback: %r" % (r,))
+    check(r.startswith("FAIL ") and "exited 3" in r, "the FAIL names its exit code: %s" % r)
+    check("omx-contract render: no such package" in r, "the FAIL carries the stderr of its command: %s" % r)
+
+
 def an_exclusive_arm_never_runs_beside_another_exclusive_arm():
     arms = list(range(8))
     got = run(arms, window, 8, exclusive=lambda arm: arm % 2 == 0)
@@ -186,6 +204,7 @@ TESTS = [a_slow_arm_does_not_reorder_the_output, one_job_runs_one_after_the_othe
          the_tree_of_an_arm_is_named_by_its_place_in_the_table,
          arms_running_together_draw_their_ports_from_ranges_of_their_own,
          an_exclusive_arm_never_runs_beside_another_exclusive_arm, an_arm_that_raises_ends_the_run_with_its_error,
+         an_arm_whose_command_fails_is_a_named_fail_and_the_pool_goes_on,
          the_number_of_jobs_is_the_cores_to_eight_or_what_is_asked, side_by_side_prints_what_one_after_the_other_prints,
          a_port_pair_inside_a_range_comes_from_that_range]
 WORK = None

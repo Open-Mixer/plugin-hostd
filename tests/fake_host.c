@@ -40,6 +40,7 @@
  *   state_save <dir>            aborts before the reply while the file FAKE_SAVE_CRASH_FILE names exists (only in a worker that holds the instance the file names)
  *   param_set <n> crashnow <v>  v other than 0 aborts before the reply, with the command on the wire
  *   param_set <n> hang <v>      v other than 0 never answers
+ *   param_set <n> wedge <v>     v other than 0 never answers and ignores SIGTERM, as a worker stuck in a plugin does
  *   connect <a> <b>             with FAKE_CONNECT_AFTER_MS set, answers -205 until that long after the worker started,
  *                               as a jack client does for a port it has not been told of yet
  *   list_connections            "resp 0 <a>><b> ..."
@@ -83,8 +84,12 @@
  *                               as mod-host relays its plugin's answer, "patch_set <n> <uri> <p|s> <value>" on the feedback
  *                               port (p for a value starting with '/'), or nothing for a uri never set, as a plugin that
  *                               does not answer
- *   property_set <n> <symbol> <value>   "resp 0", OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for the symbol "readonly"; the
- *                               fake keeps nothing of it (FAKE_LOG shows what it was sent); property_list <n> "resp 0"
+ *   property_list <n>           "resp 1": one property, file, a path the controller may read and write
+ *   property_info <n> <i>       "resp 0 file path rw "File"" for 0, OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for any other index
+ *   property_get <n> <s>        "resp 0 "/tmp/fake.wav"" for file, OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for a symbol that starts
+ *                               with "writeonly", OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for any other
+ *   property_set <n> <s> <v>    "resp 0", or OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for a symbol that starts with "readonly",
+ *                               as a worker answers a property that is not writable; the fake keeps nothing of it
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
  *                               as omx-clap-host answers for a plugin with no window it can show; hide_external_ui <n>
  *                               "resp 0"; the fake shows nothing (FAKE_LOG shows what it was sent)
@@ -720,6 +725,12 @@ static void receive(msg_t *msg)
     {
         if (!strcmp(tok[2], "hang") && strcmp(tok[3], "0"))
             sleep(60);
+        if (!strcmp(tok[2], "wedge") && strcmp(tok[3], "0"))
+        {
+            signal(SIGTERM, SIG_IGN);
+            for (;;)
+                pause();
+        }
         if (!strcmp(tok[2], "crashnow") && atof(tok[3]) != 0.0)
             crash();
         set_param(&g_inst[n], tok[2], tok[3]);
@@ -924,10 +935,20 @@ static void receive(msg_t *msg)
     }
     else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
         answer(fd, "resp 0");
-    else if (!strcmp(verb, OMX_VERB_PROPERTY_SET) && ntok == 4)
-        answer(fd, "resp %d", strcmp(tok[2], "readonly") ? 0 : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
     else if (!strcmp(verb, OMX_VERB_PROPERTY_LIST) && ntok == 2)
-        answer(fd, "resp 0");
+        answer(fd, "resp 1");
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_INFO) && ntok == 3)
+        answer(fd, strcmp(tok[2], "0") ? "resp %d" : "resp 0 file path rw \"File\"", OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_GET) && ntok == 3)
+    {
+        if (!strcmp(tok[2], "file"))
+            answer(fd, "resp 0 \"/tmp/fake.wav\"");
+        else
+            answer(fd, "resp %d", strncmp(tok[2], "writeonly", 9) ? OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP
+                                                                   : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
+    }
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_SET) && ntok >= 4)
+        answer(fd, "resp %d", strncmp(tok[2], "readonly", 8) ? 0 : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
     else if (!strcmp(verb, PHD_VERB_SHOW_EXTERNAL_UI) && ntok == 2)
         answer(fd, g_inst[n].nowindow ? "resp %d hosting.window.unsupported" : "resp 0", ERR_EXTERNAL_UI_UNAVAILABLE);
     else if (!strcmp(verb, OMX_VERB_HIDE_EXTERNAL_UI) && ntok == 2)
