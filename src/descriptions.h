@@ -27,24 +27,30 @@
 
 /** @brief A port group of a store entry, copied: its symbol, its name and the symbols of its ports. */
 typedef struct DESC_GROUP_T {
-    char *symbol;
-    char *name;
-    char **ports;
-    size_t nports;
+    char *symbol;       /**< the group's symbol */
+    char *name;         /**< its name, a page's title */
+    char **ports;       /**< the symbols of its ports */
+    size_t nports;      /**< how many */
 } desc_group_t;
 
 /** @brief The groups of a grouped verdict, by display priority. */
 typedef struct DESC_GROUPS_T {
-    desc_group_t *group;
-    size_t n;
+    desc_group_t *group;    /**< the groups */
+    size_t n;               /**< how many */
 } desc_groups_t;
 
-/** @brief add's ask word: none given, no-ask or ask (plugin-hostd-protocol's PHD_ADD_ASK and PHD_ADD_NO_ASK). */
-enum { DESC_ASK_DEFAULT = -1, DESC_ASK_NO = 0, DESC_ASK_YES = 1 };
+/** @brief add's ask word (plugin-hostd-protocol's PHD_ADD_ASK and PHD_ADD_NO_ASK). */
+enum {
+    DESC_ASK_DEFAULT = -1,  /**< none given: asked when plugin-qualify-sync is installed */
+    DESC_ASK_NO = 0,        /**< no-ask */
+    DESC_ASK_YES = 1        /**< ask */
+};
 
 /**
  * @brief How the store is opened: omx_panel_store_open of the scope of the effective uid when NULL (the packaged
  *        daemon); the test builds name a store of their own (src/main.c, OMX_QUALIFICATION_TEST_STORE).
+ *
+ * @param opener the opener, or NULL
  */
 void descriptions_use_opener(int (*opener)(omx_panel_store **out, omx_panel_store_error *err));
 
@@ -69,6 +75,7 @@ const desc_groups_t *descriptions_groups(const char *uri);
  * @brief description_get \<uri\>: "resp 0 \<sha256\> \<format\> \<uri\> \<layer\>", -529 when no layer holds it, -530
  *        while its ask runs.
  *
+ * @param uri the plugin as a client names it
  * @return the reply, malloc'd
  */
 char *descriptions_get(const char *uri);

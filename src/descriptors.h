@@ -40,24 +40,35 @@ char *descriptors_get(const char *uri);
  * malloc'd */
 char *descriptors_panel_get(const char *uri);
 
-/* The key a plugin is held by in the descriptions store (omx-panel docs/descriptions-store.md, 3.1) and what its
- * derivation reads: the binary's SHA-256, the format word and the uri of the key (the CLAP id, the LV2 URI), the target
- * the probe and the ask's programs take, the descriptor its scan wrote ("" when none is in place), the LV2 bundle's
- * directory ("" for a CLAP plugin), and the path its source is made from (3.6: the bundle, else the descriptor). */
+/**
+ * @brief The key a plugin is held by in the descriptions store (omx-panel docs/descriptions-store.md, 3.1), and what its
+ *        derivation reads.
+ */
 typedef struct DESCRIPTORS_KEY_T {
-    char sha256[PHD_SHA256_HEX_LEN + 1];
-    char format[16];
-    char id[PATH_MAX];
-    char target[PATH_MAX + 16];
-    char descriptor[PATH_MAX];
-    char bundle[PATH_MAX];
-    char source[PATH_MAX];
+    char sha256[PHD_SHA256_HEX_LEN + 1];    /**< the SHA-256 of the plugin's binary, 64 lowercase hex digits */
+    char format[16];                        /**< the format word of the key: lv2 or clap */
+    char id[PATH_MAX];                      /**< the uri of the key: the LV2 URI, the CLAP id */
+    char target[PATH_MAX + 16];             /**< the plugin as the probe and the ask's programs take it */
+    char descriptor[PATH_MAX];              /**< the descriptor its scan wrote, "" when none is in place */
+    char bundle[PATH_MAX];                  /**< the LV2 bundle's directory, "" for a CLAP plugin */
+    char source[PATH_MAX];                  /**< what its source is made from (3.6): the bundle, else the descriptor */
 } descriptors_key_t;
 
-/* the key of the plugin of uri as its files are now: 0, or -1 for a plugin whose binary (or LV2 bundle) cannot be found */
+/**
+ * @brief The key of the plugin of uri as its files are now.
+ *
+ * @param uri the plugin as an add names it
+ * @param[out] k the key
+ * @return 0, or -1 for a plugin whose binary (or LV2 bundle) cannot be found
+ */
 int descriptors_key(const char *uri, descriptors_key_t *k);
 
-/* whether the scan of the plugin's files runs, or its file waits to be put in place */
+/**
+ * @brief Whether the scan of the plugin's files runs, or its file waits to be put in place.
+ *
+ * @param uri the plugin as an add names it
+ * @return 1 while it does, else 0
+ */
 int descriptors_busy(const char *uri);
 
 /* stop the scans still running and remove what they were writing */
