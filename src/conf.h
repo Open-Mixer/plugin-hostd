@@ -64,7 +64,8 @@ int conf_load(conf_t *conf, const char *path, int required);
 /* once, after the file: lv2_extra is searched after lv2_path, so lv2_path becomes both */
 int conf_merge_extra(conf_t *conf);
 
-/* whether the settings are consistent: pin_mode is one of PHD_PIN_MODES, placement one of PHD_CORE_PLACEMENTS; 0, or -1 with the reason on stderr */
+/* whether the settings are consistent: pin_mode is one of PHD_PIN_MODES, grouping one of PHD_GROUPING_MODES, ask_unknown
+ * one of PHD_ASK_UNKNOWN_MODES, placement one of PHD_CORE_PLACEMENTS; 0, or -1 with the reason on stderr */
 int conf_check(const conf_t *conf);
 /* whether pin_mode is first-use */
 int conf_pins_first_use(const conf_t *conf);

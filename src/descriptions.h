@@ -41,10 +41,18 @@ typedef struct DESC_GROUPS_T {
 
 /** @brief add's ask word (plugin-hostd-protocol's PHD_ADD_ASK and PHD_ADD_NO_ASK). */
 enum {
-    DESC_ASK_DEFAULT = -1,  /**< none given: asked when plugin-qualify-sync is installed */
+    DESC_ASK_DEFAULT = -1,  /**< none given: as ask_unknown says; auto asks when plugin-qualify-sync is installed */
     DESC_ASK_NO = 0,        /**< no-ask */
     DESC_ASK_YES = 1        /**< ask */
 };
+
+/**
+ * @brief Reads the setting ask_unknown (plugin-hostd-protocol's PHD_ASK_UNKNOWN_MODES): the ask of an add with no last
+ *        word. 1 asks as the word ask does, 0 as no-ask, auto as neither.
+ *
+ * @param setting the setting's word, one conf_check accepted
+ */
+void descriptions_ask_unknown(const char *setting);
 
 /**
  * @brief The add of uri was answered: reads its store entry, and asks for a plugin no layer holds.

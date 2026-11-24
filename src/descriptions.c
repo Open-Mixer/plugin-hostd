@@ -81,6 +81,13 @@ static int g_nknown;
 static ask_t **g_asks;
 static int g_nasks;
 static int g_said_absent;
+static int g_ask_unknown = DESC_ASK_DEFAULT;     /* the setting ask_unknown, as an ask word: auto is DESC_ASK_DEFAULT */
+
+void descriptions_ask_unknown(const char *setting)
+{
+    g_ask_unknown = !strcmp(setting, PHD_ASK_UNKNOWN_ON) ? DESC_ASK_YES
+                    : !strcmp(setting, PHD_ASK_UNKNOWN_OFF) ? DESC_ASK_NO : DESC_ASK_DEFAULT;
+}
 
 void descriptions_use_opener(int (*opener)(omx_panel_store **out, omx_panel_store_error *err))
 {
@@ -358,6 +365,9 @@ void descriptions_add(const char *uri, int ask)
 
     if (descriptors_key(uri, &k) != 0)
         return;
+    /* an add with no last word asks as ask_unknown says: 1 as the word ask, 0 as no-ask, auto as neither */
+    if (ask == DESC_ASK_DEFAULT)
+        ask = g_ask_unknown;
     known = store_read(&k, layer, sizeof(layer), &groups);
     known_set(uri, groups);
     /* a known key asks nothing; with no store to read (no base installed) the daemon pages by the declared groups and
@@ -365,7 +375,7 @@ void descriptions_add(const char *uri, int ask)
     if (known != 1 || ask == DESC_ASK_NO || ask_of(&k))
         return;
     /* ask_unknown auto: asked when plugin-qualify-sync is installed, and quietly not when it is absent; an add's ask
-     * word forces it, and is said once when there is nothing to run */
+     * word, or ask_unknown 1, forces it, and is said once when there is nothing to run */
     if (!proc_have_binary(ASK_QUALIFY))
     {
         if (ask == DESC_ASK_YES && !g_said_absent)

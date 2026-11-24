@@ -12,7 +12,10 @@ its scheduling policy and its I/O priority class, and the stand-in omx-panel put
   ask runs;
 - the ask, for a plugin no layer holds: plugin-qualify-sync --plugin, then omx-panel describe --plugin ... --store, then
   the three generators with that plugin's --only, each once, at the lowest priority, for that plugin only; none for a
-  known key, none with add ... no-ask, none when plugin-qualify-sync is absent; description_changed <uri> when it ends.
+  known key, none with add ... no-ask, none when plugin-qualify-sync is absent; description_changed <uri> when it ends;
+- the setting ask_unknown (plugin-hostd#246, declared by plugin-hostd-protocol#157): auto, the default, asks when
+  plugin-qualify-sync is on the path and quietly does nothing when it is absent; 1 asks as the add word ask does, so with
+  plugin-qualify-sync absent it logs the reason once; 0 asks nothing. The add's last word overrides it either way.
 """
 import glob, os, shutil, stat, sys, tempfile, time
 
@@ -407,6 +410,76 @@ def with_omx_panel_absent_the_describe_step_is_skipped_and_nothing_changes():
     finally:
         w.close()
 
+
+# ---------------------------------------------------------------- the setting ask_unknown
+
+@test
+def ask_unknown_0_runs_none_and_add_ask_still_runs_them():
+    """ask_unknown 0 never asks: an add with no last word runs no child and the key stays absent, not pending; the add
+    word ask overrides the setting for that add, and runs them for that plugin only"""
+    w = World()
+    try:
+        d = w.daemon(conf={"ask_unknown": "0"})
+        try:
+            d.expect("add %s 0" % w.lv2_uri, "resp 0")
+            d.expect("add %s 1 own" % w.clap_uri, "resp 1")
+            time.sleep(0.5)
+            check(w.asked() == [], "ask_unknown 0 runs none: %s" % w.asked())
+            d.expect("description_get %s" % w.lv2_uri, resp("DESCRIPTOR_ABSENT"))
+            mark = d.mark()
+            d.expect("add %s 2 ask" % w.lv2_uri, "resp 2")
+            d.wait_event("description_changed %s" % w.lv2_uri, since=mark)
+            qualify = runs(w, "plugin-qualify-sync")
+            check(len(qualify) == 1 and w.lv2_uri in qualify[0], "add ... ask with ask_unknown 0 runs them: %s" % w.asked())
+            check(not [l for l in w.asked() if w.clap in l], "never for the other plugin: %s" % w.asked())
+        finally:
+            d.close()
+    finally:
+        w.close()
+
+
+@test
+def ask_unknown_1_asks_and_add_no_ask_still_stops_it():
+    """ask_unknown 1 always asks: the add word no-ask overrides it for that add, and an add with no last word asks"""
+    w = World()
+    try:
+        d = w.daemon(conf={"ask_unknown": "1"})
+        try:
+            d.expect("add %s 0 no-ask" % w.lv2_uri, "resp 0")
+            time.sleep(0.5)
+            check(w.asked() == [], "add ... no-ask with ask_unknown 1 runs none: %s" % w.asked())
+            mark = d.mark()
+            d.expect("add %s 1" % w.clap_uri, "resp 1")
+            d.wait_event("description_changed %s" % w.clap_uri, since=mark)
+            qualify = runs(w, "plugin-qualify-sync")
+            check(len(qualify) == 1 and w.clap in qualify[0], "ask_unknown 1 asks for that plugin: %s" % w.asked())
+        finally:
+            d.close()
+    finally:
+        w.close()
+
+
+@test
+def with_plugin_qualify_sync_absent_ask_unknown_1_logs_the_reason_once_and_auto_says_nothing():
+    """1 is the add word ask made the default: with plugin-qualify-sync absent no child runs and the reason is logged
+    once; auto, the default, asks nothing and reports nothing, so the plugin loads as today"""
+    w = World(programs=[p for p in PROGRAMS if p != "plugin-qualify-sync"])
+    try:
+        for setting, said_want in (("1", 1), ("auto", 0), (None, 0)):
+            d = w.daemon(conf={"ask_unknown": setting} if setting else {})
+            try:
+                d.expect("add %s 0" % w.lv2_uri, "resp 0")
+                d.expect("add %s 1" % w.clap_uri, "resp 1")
+                time.sleep(0.5)
+                check(w.asked() == [], "ask_unknown %s: no child runs: %s" % (setting, w.asked()))
+                check(pages(d, 0) == DECLARED_PAGES, "ask_unknown %s: the plugin loads as today: %s" % (setting, pages(d, 0)))
+                said = d.log().count("plugin-qualify-sync is not installed")
+                check(said == said_want, "ask_unknown %s: the reason is logged %d times, want %d\n%s" %
+                      (setting, said, said_want, d.log()[-600:]))
+            finally:
+                d.close()
+    finally:
+        w.close()
 
 if __name__ == "__main__":
     if not have_command():

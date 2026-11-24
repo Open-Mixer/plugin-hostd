@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The search settings (#212): lv2_path defaults to Zynthian's own LV2_PATH and then the lib64 folders, $LV2_PATH stands
- * in for it, lv2_extra is searched after it, and $CLAP_PATH is searched before the CLAP default, not instead of it. */
+ * in for it, lv2_extra is searched after it, and $CLAP_PATH is searched before the CLAP default, not instead of it.
+ * The descriptions store's ask (#246): ask_unknown is auto by default, 1 and 0 are its other words, and conf_check refuses
+ * any other, as it refuses a grouping or a placement it does not know. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,6 +85,24 @@ int main(void)
               !strcmp(conf.clap_path + strlen("/site/clap:"), PHD_DEFAULT_CLAP_PATH),
           "$CLAP_PATH is searched before the default");
     unsetenv("CLAP_PATH");
+
+    conf_defaults(&conf);
+    check(!strcmp(conf.ask_unknown, "auto") && conf_check(&conf) == 0, "ask_unknown is auto by default, and accepted");
+    {
+        static const char *const good[] = { "auto", "1", "0" }, *const bad[] = { "yes", "on", "2", "", "Auto" };
+
+        for (k = 0; k < 3; k++)
+        {
+            snprintf(conf.ask_unknown, sizeof(conf.ask_unknown), "%s", good[k]);
+            check(conf_check(&conf) == 0, good[k]);
+        }
+        for (k = 0; k < 5; k++)
+        {
+            snprintf(conf.ask_unknown, sizeof(conf.ask_unknown), "%s", bad[k]);
+            if (conf_check(&conf) == 0)
+                check(0, bad[k]);
+        }
+    }
 
     if (failures)
         printf("conf: %d failed\n", failures);
