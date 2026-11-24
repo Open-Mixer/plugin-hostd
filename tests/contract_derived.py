@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# What plugin-hostd shares with omx-contract is read from omx-contract, never typed again here: the probe runner's
-# default rates are ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES, the same words in
+# What plugin-hostd shares with omx-contract and omx-dsp is read from them, never typed again here: the probe runner's
+# default rates are omx-dsp's ORACLE_FLOOR_RATES, the parameter scales of the protocol are PARAM_SCALES of the domain param, the same words in
 # the same order, and the probe output's shared enums are the words of the contract (the qualification domain, plugin-qualify's, read through the loader). Checked twice: against the installed contract (its data and its C header), and against a scratch
 # copy of the header with the values changed, where the runner must follow and the generator must refuse to build.
 # The JSON of the protocol is written by plugin-hostd-protocol's generator (its installed source, protocolgen), built here
@@ -29,7 +29,7 @@ DOMAIN_CFLAGS = (os.environ["DOMAIN_CFLAGS"] if "DOMAIN_CFLAGS" in os.environ el
 DOMAIN_LIBS = (os.environ["DOMAIN_LIBS"] if "DOMAIN_LIBS" in os.environ else
                subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_output=True, text=True, check=True).stdout).split()
 # the CLIs read the machine domain from OMX_CONTRACT_PATH: this checkout's own document
-# (then the installed contract directory, where plugin-qualify's qualification domain is)
+# (then the installed contract directory)
 MACHINE_ENV = dict(os.environ, OMX_CONTRACT_PATH=":".join(
     [os.path.join(ROOT, "contract.d")] + [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d] +
     [subprocess.run([PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()]))
@@ -61,6 +61,59 @@ def contract_data(name):
                 if name in data:
                     return data[name]
     raise SystemExit("omx-contract declares no %s" % name)
+
+
+# the parameter scales are omx-contract's domain param (item PARAM_SCALES), read where a reader reads a domain: the
+# directories of PARAM_CONTRACT_PATH (the test entry, a ':' list; the Makefile names tests/fixtures/contract.d, the
+# interface of the domain until omx-contract 3.21.0 installs it), then the installed contract directory
+GOLDEN_SCALES = ["linear", "log", "stepped"]  # omx-contract's PARAM_SCALES at 8155b8d, as protocol.h spells them
+
+
+def param_scales(dirs=None):
+    """the words of PARAM_SCALES, in order, from the first directory that holds the domain param"""
+    if dirs is None:
+        dirs = [d for d in os.environ.get("PARAM_CONTRACT_PATH", "").split(":") if d] + [pkg("--variable=contractdir")]
+    for d in dirs:
+        path = os.path.join(d, "param", "param.json")
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                doc = json.load(f)
+            item = doc["components"]["schemas"].get("PARAM_SCALES")
+            if item is None:
+                raise SystemExit("the domain param of %s holds no PARAM_SCALES" % d)
+            return [w["const"] for w in item["oneOf"]]
+    raise SystemExit("no directory of %s holds the domain param" % dirs)
+
+
+# the default rates of a run are omx-dsp's ORACLE_FLOOR_RATES (the sorting pass, V25: the oracle rates left omx-contract),
+# read from omx-dsp's package of the contract directory and, in C, from its rendered omxdsp/omxdsp_definitions.h
+GOLDEN_FLOOR = "44100,48000,96000,192000"  # omx-dsp's ORACLE_FLOOR_RATES
+
+
+def dsp_data(name):
+    """an item of omx-dsp's package of the contract directory (contract.d/<major>/omx-dsp/**.json)"""
+    base = pkg("--variable=contractdir")
+    for major in sorted(os.listdir(base), reverse=True):
+        root = os.path.join(base, major, "omx-dsp")
+        if not major.isdigit() or not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, files in sorted(os.walk(root)):
+            for f in sorted(files):
+                if f.endswith(".json") and f != "MANIFEST.json":
+                    with open(os.path.join(dirpath, f)) as fh:
+                        data = json.load(fh)
+                    if isinstance(data, dict) and name in data:
+                        return data[name]
+    raise SystemExit("omx-dsp declares no %s" % name)
+
+
+def dsp_header():
+    out = subprocess.run([PKG_CONFIG, "--cflags-only-I", "omxdsp"], capture_output=True, text=True).stdout.split()
+    for flag in out + ["-I/usr/include"]:
+        path = os.path.join(flag[2:], "omxdsp", "omxdsp_definitions.h")
+        if flag.startswith("-I") and os.path.exists(path):
+            return path
+    raise SystemExit("omx-dsp's rendered omxdsp/omxdsp_definitions.h is not installed (omx-dsp-devel)")
 
 
 def header(name="omx_contract_limits.h"):
@@ -107,7 +160,7 @@ DOMAIN_LIBS = subprocess.run([PKG_CONFIG, "--libs", "libomx-domain"], capture_ou
 
 def build_probe(include_first, out):
     cmd = [CC, "-I" + include_first, "-I" + os.path.join(ROOT, "include"), "-I" + declared_protocol.include_dir()] + \
-          pkg("--cflags").split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
+          pkg("--cflags").split() + subprocess.run([PKG_CONFIG, "--cflags-only-I", "omxdsp"], capture_output=True, text=True).stdout.split() + PIN_CFLAGS + CJSON_CFLAGS.split() + DOMAIN_CFLAGS + ["-I" + os.path.join(ROOT, "src"), "-O2", "-std=gnu99", "-D_GNU_SOURCE",
                                      "-DPROBE_VERSION=\"0\"", "-o", out] + \
           [os.path.join(ROOT, f) for f in PROBE_SRC] + PIN_LIBS + ["-lm"] + DOMAIN_LIBS + CJSON_LIBS.split()
     return subprocess.run(cmd, capture_output=True, text=True)
@@ -130,39 +183,60 @@ def gen_json(gen):
 
 def gen_methods(gen, contract_path):
     """the latency methods of the probe schema the generator writes from this tree's template, the qualification domain
-    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry); the installed contract directory follows, for
+    read from contract_path (OMX_CONTRACT_PATH, the generator's test entry, first: this tree's contract.d holds the domain too); the installed contract directory follows, for
     the domains the template takes from their owners (plugin-db's address formats)"""
     p = subprocess.run([gen, "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")], capture_output=True,
                        text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join(
-                           [os.path.join(ROOT, "contract.d"), contract_path] + qualification_source.search_path())))
+                           [contract_path, os.path.join(ROOT, "contract.d")] + qualification_source.search_path())))
     if p.returncode != 0:
         return None
     return json.loads(p.stdout)["$defs"]["point"]["properties"]["latency"]["properties"]["method"]["enum"]
 
 
 def main():
-    floor = ",".join(str(r) for r in contract_data("ORACLE_FLOOR_RATES")["values"])
-    scales = contract_data("PARAM_SCALES")["ids"]
+    floor = ",".join(str(r) for r in dsp_data("ORACLE_FLOOR_RATES")["values"])
+    check(floor == GOLDEN_FLOOR, "(a) omx-dsp's ORACLE_FLOOR_RATES are the golden %s: %s" % (GOLDEN_FLOOR, floor))
+    scales = param_scales()
+    check(scales == GOLDEN_SCALES, "(a) the domain param's PARAM_SCALES are the golden %s: %s" % (GOLDEN_SCALES, scales))
     with open(declared_protocol.variable("protocoljson")) as f:
         declared = [s["name"] for s in json.load(f)["param_scales"]]
     check(declared == scales, "the protocol's parameter scales %s are omx-contract's PARAM_SCALES %s" % (declared, scales))
+    # (c) a scratch domain param without log: the read gives two words, and the protocol's scales are no longer the domain's
+    sab = tempfile.mkdtemp(prefix="plugin-hostd-param.")
+    try:
+        src = next(os.path.join(d, "param", "param.json") for d in
+                   [d for d in os.environ.get("PARAM_CONTRACT_PATH", "").split(":") if d] + [pkg("--variable=contractdir")]
+                   if os.path.isfile(os.path.join(d, "param", "param.json")))
+        with open(src, encoding="utf-8") as f:
+            doc = json.load(f)
+        doc["components"]["schemas"]["PARAM_SCALES"]["oneOf"] = [w for w in doc["components"]["schemas"]["PARAM_SCALES"]["oneOf"] if w["const"] != "log"]
+        os.makedirs(os.path.join(sab, "param"))
+        with open(os.path.join(sab, "param", "param.json"), "w") as f:
+            json.dump(doc, f)
+        short = param_scales([sab])
+        check(short == ["linear", "stepped"] and short != declared,
+              "(c) a scratch domain param without log is what the read gives, and the protocol's scales differ from it: %s" % short)
+    finally:
+        shutil.rmtree(sab, ignore_errors=True)
 
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-contract.")
     try:
-        check(child_rates(PROBE, tmp) == floor, "the runner's child gets omx-contract's ORACLE_FLOOR_RATES %s by default, "
+        check(child_rates(PROBE, tmp) == floor, "the runner's child gets omx-dsp's ORACLE_FLOOR_RATES %s by default, "
               "not %s" % (floor, child_rates(PROBE, tmp)))
         check(help_rates(PROBE) == floor, "the runner's usage names the same default: %s" % help_rates(PROBE))
 
-        # a scratch contract whose floor is other rates: the runner built against it follows, with no edit of its own
+        # (c) a scratch omx-dsp header whose floor is other rates: the runner built against it follows, with no edit of its own
         scratch = os.path.join(tmp, "include")
         os.makedirs(os.path.join(scratch, "omxcontract"))
-        text = open(header()).read()
-        moved = re.sub(r"(#define OMX_ORACLE_FLOOR_RATES_INIT )\{[^}]*\}", r"\1{ 32000, 88200 }", text)
-        check(moved != text, "positive control: the scratch header's floor was changed")
-        with open(os.path.join(scratch, "omxcontract", "omx_contract_limits.h"), "w") as f:
+        os.makedirs(os.path.join(scratch, "omxdsp"))
+        dtext = open(dsp_header()).read()
+        moved = re.sub(r"(#define OMX_ORACLE_FLOOR_RATES_INIT )\{[^}]*\}", r"\1{ 32000, 88200 }", dtext)
+        check(moved != dtext, "positive control: the scratch omx-dsp header's floor was changed")
+        with open(os.path.join(scratch, "omxdsp", "omxdsp_definitions.h"), "w") as f:
             f.write(moved.replace("#define OMX_ORACLE_FLOOR_RATES_COUNT 4u", "#define OMX_ORACLE_FLOOR_RATES_COUNT 2u"))
+        text = open(header()).read()
         built = build_probe(scratch, os.path.join(tmp, "probe"))
-        check(built.returncode == 0, "the runner builds against the scratch contract: %s" % built.stderr[-400:])
+        check(built.returncode == 0, "the runner builds against the scratch omx-dsp header: %s" % built.stderr[-400:])
         if built.returncode == 0:
             check(child_rates(os.path.join(tmp, "probe"), tmp) == "32000,88200",
                   "a moved floor moves the runner's default: %s" % child_rates(os.path.join(tmp, "probe"), tmp))
@@ -183,8 +257,9 @@ def main():
         check(renamed != ptext, "positive control: the scratch protocol.h's word was changed")
         with open(proto, "w") as f:
             f.write(renamed)
-        # both generators: plugin-hostd-protocol's of the JSON, and this tree's of its pages
-        for source, mode in ((JSON_GEN, "json"), (OWN_GEN, "regions")):
+        # this tree's generator of its pages: plugin-hostd-protocol's generator of the JSON holds no scale word of its own any
+        # more (PHD_PARAM_SCALES is written there from the domain param, M1), so only this tree's cross-check is left to refuse
+        for source, mode in ((OWN_GEN, "regions"),):
             exe = os.path.join(tmp, "gen-renamed-" + mode)
             built = build_gen(own, exe, source)
             if built.returncode == 0:
@@ -199,7 +274,7 @@ def main():
         check(swapped != text, "positive control: the scratch header's scales were swapped")
         with open(os.path.join(scratch, "omxcontract", "omx_contract_limits.h"), "w") as f:
             f.write(swapped)
-        for source in (JSON_GEN, OWN_GEN):
+        for source in (OWN_GEN,):
             built = build_gen(scratch, os.path.join(tmp, "gen-swapped"), source)
             check(built.returncode != 0 and "PARAM_SCALES" in built.stderr,
                   "%s refuses scales the contract orders otherwise: rc %d %s" % (source, built.returncode, built.stderr[-300:]))
@@ -227,7 +302,7 @@ def main():
                 del doc["components"]["schemas"][item]
             bare = qualification_source.fixture(tmp, drop, "bare")
             p = subprocess.run([os.path.join(tmp, "gen-domain"), "probe-schema", os.path.join(ROOT, "protocol", "probe-output.schema.in")],
-                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d") + ":" + bare))
+                               capture_output=True, text=True, timeout=30, env=dict(os.environ, OMX_CONTRACT_PATH=":".join([bare, os.path.join(ROOT, "contract.d")] + qualification_source.search_path())))  # the probe and plugin-db domains are the installed ones
             check(p.returncode != 0 and p.stdout == "" and item in p.stderr,
                   "the generator refuses a domain that lacks %s, by name: rc %d %r" % (item, p.returncode, p.stderr[-200:]))
     finally:

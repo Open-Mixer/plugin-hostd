@@ -119,7 +119,7 @@ else:
     header = declared.read_header("protocol.h")
     rows = header[header.index("#define PHD_INSTANCE_VERBS(X)"):]
     rows = rows[:rows.index("\n\n")]
-    for rendered in ("plugin_hostd_protocol_host_verbs.h", "omx_clap_core_host_verbs.h"):
+    for rendered in ("plugin_hostd_protocol_host_verbs.h", "omx_clap_host_verbs.h"):
         header += declared.read_header(rendered)
     by_macro = dict(re.findall(r'^#define\s+((?:PHD_(?:VERB|EVENT)|OMX_VERB)_\w+)\s+"(\w+)"$', header, re.M))
     instance_info = {by_macro[m] for m in re.findall(r"X\(\w+, ((?:PHD|OMX)_VERB_\w+),", rows)}

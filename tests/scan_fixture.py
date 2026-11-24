@@ -4,6 +4,8 @@
 # is run for. tests/daemon_test.py and tests/verbs_declared.py both read it.
 import hashlib, os, shutil, tempfile
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
@@ -21,8 +23,8 @@ echo "$2" >> "$SCAN_LOG"
 if [ -n "$SCAN_HOLD" ]; then while [ ! -e "$SCAN_HOLD" ]; do sleep 0.02; done; fi
 if [ -n "$SCAN_EXIT" ]; then exit "$SCAN_EXIT"; fi
 case "$2" in
-  clap:*) exec %(probe)s describe --table %(tables)s/clap.json --fields-from %(fields)s/clap-controls.tsv "$2" ;;
-  *) exec %(probe)s describe --table %(tables)s/lv2.json --fields-from %(fields)s/lv2-compressor.tsv "$2" ;;
+  clap:*) exec %(probe)s describe --table %(clap)s --fields-from %(fields)s/clap-controls.tsv "$2" ;;
+  *) exec %(probe)s describe --table %(lv2)s --fields-from %(fields)s/lv2-compressor.tsv "$2" ;;
 esac
 """
 MANIFEST = """@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
@@ -73,7 +75,7 @@ class Scan:
         write(os.path.join(self.bundle, "pinned.so"), b"lv2 binary")
         write(os.path.join(self.bundle, "pinned.ttl"), b"lv2:port [ lv2:index 0 ] .")
         self.scanner = os.path.join(self.dir, "scanner")
-        write(self.scanner, (SCANNER % {"probe": PROBE, "tables": os.path.join(ROOT, "data", "formats"),
+        write(self.scanner, (SCANNER % {"probe": PROBE, "clap": format_tables.path("clap"), "lv2": format_tables.path("lv2"),
                                         "fields": FIELDS}).encode())
         os.chmod(self.scanner, 0o755)
         self.log = os.path.join(self.dir, "scans.log")
