@@ -127,7 +127,9 @@ jobs:
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
-      # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
+      # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both; and the one Python
+      # codec, python3-plugin-hostd-protocol, which the daemon test (a %check target too) reads the replies with: the
+      # spec declares it, so this job installs what a package build installs and no package by hand
       - name: Install the build dependencies from the channel
         run: bounded-install dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
@@ -139,17 +141,6 @@ jobs:
           if command -v dnf >/dev/null; then dnf repoquery --installed --qf '%{name} %{version} %{from_repo}\n' 'omx-*' 'plugin-*' | tee /tmp/from-repo
           else apt-cache policy $(dpkg-query -W -f='${Package}\n' 'omx-*' 'libomx*' 'plugin-*' 'libplugin*' 2>/dev/null) | tee /tmp/from-repo; fi
           if grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
-
-      # the clients' tests read a sentence in Catalan from the installed catalog: from plugin-hostd-protocol 0.5.6 on it
-      # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
-      # none, and its base package carries the catalog
-      - name: The protocol's Catalan catalog, where a language pack carries it
-        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False plugin-hostd-protocol-langpack-ca
-
-      # the one Python codec is plugin-hostd-protocol's package: the daemon test reads the daemon's replies with it, and
-      # tests/grouping_domain.py holds its GroupingReason to the domain plugin-hostd/grouping; this tree keeps no client
-      - name: The protocol's Python codec
-        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False python3-plugin-hostd-protocol
 
       - name: Build
         run: make
