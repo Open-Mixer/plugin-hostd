@@ -181,6 +181,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
 | `history_file` | `` | the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear |
 | `host_class` | `` | the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space |
+| `ask_unknown` | `auto` | auto, 1 or 0: whether an add of a plugin no layer of the descriptions store holds asks for its qualification and description (plugin-qualify-sync, then omx-panel describe and the generators, as children at idle priority, once per key while the daemon runs); auto asks when plugin-qualify-sync is on the path and does nothing when it is absent, 1 always asks, 0 never does; the add's last word, ask or no-ask, overrides it for that add |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a silent worker gets SIGTERM after this long, SIGKILL 2 s later |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -375,9 +376,10 @@ A program that is not installed is skipped; with `plugin-qualify-sync` absent no
 as before. Meanwhile the plugin loads as it does without a store. When the ask ends, the daemon reads the entry again:
 the next `remote_pages` answer from it, and `description_changed <uri>` on the feedback port tells the clients. A key
 whose ask ended without an entry is not asked for again until the daemon restarts or its binary changes. The last word of
-an `add`, `ask` or `no-ask`, asks or does not, for that add; with neither the daemon asks when `plugin-qualify-sync` is
-installed (the setting `ask_unknown` the descriptions store names is not declared yet: plugin-hostd#246). No systemd unit
-is involved. The children's output is in `<state_root>/plugin-hostd/<pid>/ask-<format>-<sha256>.log`.
+an `add`, `ask` or `no-ask`, asks or does not, for that add; with neither the daemon asks as the setting `ask_unknown`
+says: `auto`, the default, asks when `plugin-qualify-sync` is installed and quietly does nothing when it is not; `1`
+asks as the word `ask` does, so with `plugin-qualify-sync` absent it logs the reason once; `0` asks nothing. No systemd
+unit is involved. The children's output is in `<state_root>/plugin-hostd/<pid>/ask-<format>-<sha256>.log`.
 
 Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
 network): `note_input` says whether an instance takes notes, and `note_on`, `note_off` and `all_notes_off` reach its

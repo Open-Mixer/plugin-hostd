@@ -179,6 +179,19 @@ int conf_check(const conf_t *conf)
         return -1;
     }
     ok = 0;
+#define X(id, name, meaning) ok |= !strcmp(conf->ask_unknown, name);
+    PHD_ASK_UNKNOWN_MODES(X)
+#undef X
+    if (!ok)
+    {
+        fprintf(stderr, "ask_unknown '%s' is not one of:", conf->ask_unknown);
+#define X(id, name, meaning) fprintf(stderr, " %s", name);
+        PHD_ASK_UNKNOWN_MODES(X)
+#undef X
+        fprintf(stderr, "\n");
+        return -1;
+    }
+    ok = 0;
     if (!conf_lv2_worker_valid(conf->lv2_worker))
     {
         fprintf(stderr, "lv2_worker '%s' is not one of:", conf->lv2_worker);

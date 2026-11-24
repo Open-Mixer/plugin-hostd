@@ -379,6 +379,7 @@ int main(int argc, char **argv)
 #endif
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;
+    descriptions_ask_unknown(g_conf.ask_unknown);
     pins_accepting(conf_pins_first_use(&g_conf));
     if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
