@@ -50,9 +50,9 @@ FLOOR = subprocess.run(["sh", os.path.join(ROOT, "tools", "protocol-floor.sh")],
                        check=True).stdout.strip()
 
 
-# the omx-clap-core release this tree is written against: the spec's floor of omx-clap-core-contract, whose verbs.json
+# the omx-clap-core release this tree is written against: the spec's floor of omx-clap-contract, whose verbs.json
 # declares the verbs both hosts owe; their since is an omx-clap-core version, never a protocol one
-CLAP_CORE_FLOOR = re.search(r"^BuildRequires:\s*\(?omx-clap-core-contract\s*>=\s*([0-9.]+)",
+CLAP_CORE_FLOOR = re.search(r"^BuildRequires:\s*\(?omx-clap-contract\s*>=\s*([0-9.]+)",
                             open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M).group(1)
 
 
