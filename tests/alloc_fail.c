@@ -92,6 +92,9 @@ void *alloc_fail_calloc(size_t n, size_t size);
 void *alloc_fail_realloc(void *p, size_t size);
 char *alloc_fail_strdup(const char *s);
 char *alloc_fail_strndup(const char *s, size_t n);
+char **alloc_fail_strarr_split(char *str);
+/* the protocol library's, by its own name: this file is built without tests/alloc_fail.h */
+char **strarr_split(char *str);
 
 void *alloc_fail_malloc(size_t size)
 {
@@ -116,4 +119,9 @@ char *alloc_fail_strdup(const char *s)
 char *alloc_fail_strndup(const char *s, size_t n)
 {
     return refused(__builtin_return_address(0)) ? NULL : strndup(s, n);
+}
+
+char **alloc_fail_strarr_split(char *str)
+{
+    return refused(__builtin_return_address(0)) ? NULL : strarr_split(str);
 }

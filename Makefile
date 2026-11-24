@@ -21,6 +21,7 @@ RELAY_TEST = tests/relay-test
 GESTURE_ALLOC_TEST = tests/gesture-alloc-test
 LV2_ALLOC_TEST = tests/lv2-alloc-test
 VERBS_ALLOC_TEST = tests/verbs-alloc-test
+RELAY_SEQ_TEST = tests/relay-seq-test
 TRANSFORMS_TEST = tests/transforms-test
 PROBE = plugin-hostd-probe
 PROBE_LOCK = plugin-hostd-probe-lock.so
@@ -511,7 +512,7 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROG_TEST) $(PROG_TEST_EMPTY) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(SLOW_FSYNC) $(SCANDIR_LISTING) $(HISTORY_TEST) $(PROC_TEST) $(PROC_TERM_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROG_TEST) $(PROG_TEST_EMPTY) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(SLOW_FSYNC) $(SCANDIR_LISTING) $(HISTORY_TEST) $(PROC_TEST) $(PROC_TERM_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) $(RELAY_SEQ_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
 	@rm -rf build $(TEST_CONTRACT_TREE) $(TEST_CONTRACT_EMPTY) tests/alloc-fail-objs tests/plan-refused-objs
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
@@ -687,8 +688,13 @@ $(TRANSFORMS_TEST): tests/transforms_test.c src/transforms.c src/transforms.h
 	$(CC) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/transforms_test.c src/transforms.c $(PIN_LIBS) -lm
 
 # src/relay.c when memory runs out: built here with its realloc calls renamed, so the test picks the one that fails
-test-relay: $(RELAY_TEST)
+test-relay: $(RELAY_TEST) $(RELAY_SEQ_TEST)
 	./$(RELAY_TEST)
+	./$(RELAY_SEQ_TEST)
+
+# the relay under the seq extension: built into the test itself, which reads one ended gesture as one numbered line
+$(RELAY_SEQ_TEST): tests/relay_seq_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CFLAGS) -Werror -o $@ tests/relay_seq_test.c -pthread $(PIN_LIBS)
 
 $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(CFLAGS) -Werror -Drealloc=relay_test_realloc -c -o tests/relay-test-relay.o src/relay.c
@@ -733,12 +739,12 @@ $(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h $(PROT
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread $(PIN_LIBS)
 
 $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -c -o tests/lv2-alloc-lv2.o src/lv2.c
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -Dasprintf=alloc_test_asprintf -c -o tests/lv2-alloc-lv2.o src/lv2.c
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o $(PIN_LIBS)
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
-	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS)
+	  -Dcalloc=alloc_test_calloc -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS)
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<

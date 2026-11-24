@@ -10,6 +10,9 @@ ARMS = [
      "    worker_t *w = calloc(1, sizeof(worker_t));\n\n"),
     ("a pin's file list there was no memory for is written to", "src/pins.c",
      "            if (!paths)\n                goto no_memory;\n", ""),
+    ("an instance verb with no memory for its words answers as one read wrong", "src/supervisor.c",
+     "    if (!word)\n        reply = sup_resp(ERR_MEMORY_ALLOCATION);\n    else if (count < 2 || *end || end == word[1])",
+     "    if (count < 2 || *end || end == word[1])"),
 ]
 failures = 0
 for name, path, old, new in ARMS:
