@@ -181,7 +181,7 @@ class protocol_host:
             state = os.path.join(os.path.abspath(out), "state")
             with open(conf, "w") as f:
                 f.write("clap_host omx-clap-host\nlv2_worker omx-clap-host\nrequire_pins 0\nstate_root %s\n"
-                        "descriptor_dir %s/descriptors\nqualification_dir %s/qualification\n" % (state, state, state))
+                        "descriptor_dir %s/descriptors\n" % (state, state))
             argv = ["plugin-hostd", "-n", "-p", str(port), "-c", conf]
         elif a.host == "clap-host":
             argv = ["omx-clap-host", "-n", "-p", str(port)]

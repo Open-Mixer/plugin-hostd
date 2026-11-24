@@ -22,6 +22,10 @@
  * daemon. Pure functions: they read no file, no clock and no global, so the same mask gives the same cores. The
  * supervisor (src/supervisor.c) applies them. */
 
+/** @file placement.h
+ * @brief The declarations of placement.h.
+ */
+
 #ifndef PLACEMENT_H
 #define PLACEMENT_H
 

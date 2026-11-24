@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file names.h
+ * @brief The declarations of names.h.
+ */
+
 #ifndef NAMES_H
 #define NAMES_H
 
