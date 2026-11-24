@@ -8,7 +8,7 @@
 #
 # <rpm name>                      <deb name>                     <floor>
 omx-contract                      omx-contract                   3.21.0
-omx-contract-devel                libomx-contract-dev            3.21.0
+omx-contract-devel                libomx-contract-dev            3.22.0
 libomx-domain                     libomx-domain0                 3.21.0
 libomx-domain-devel               libomx-domain-dev              3.21.0
 python3-plugin-hostd-protocol     python3-plugin-hostd-protocol  0.8.0
