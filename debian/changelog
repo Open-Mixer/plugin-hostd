@@ -1,3 +1,13 @@
+plugin-hostd (0.21.1) unstable; urgency=medium
+
+  * The build requires python3-plugin-hostd-protocol 0.8.0 or newer: the
+    daemon test and the grouping domain read the daemon's replies with its
+    Python codec, and 0.21.0 failed its tests without it (#264).
+  * The plugin-db-dev floor in packaging/deps.txt is 0.5.0, the one the spec
+    and debian/control already state.
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Tue, 24 Nov 2026 11:00:00 +0100
+
 plugin-hostd (0.21.0) unstable; urgency=medium
 
   * Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V19, V21, V24 and V25.

@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.21.0
+Version: 0.21.1
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -61,6 +61,9 @@ BuildRequires: plugin-hostd-protocol-contract >= 0.8.0
 BuildRequires: omx-clap-contract >= 0.34.0
 # the LV2 terms the format table and the qualification domain name: plugin-db's domain lv2 (0.5.0 the release that ships it)
 BuildRequires: plugin-db-contract >= 0.5.0
+# the one Python codec: the daemon test and the grouping domain read the daemon's replies with plugin-hostd-protocol's
+# package, and this tree keeps no codec (make test-daemon)
+BuildRequires: python3-plugin-hostd-protocol >= 0.8.0
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
@@ -206,6 +209,13 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_domain_dir}/plugin-hostd/
 
 %changelog
+* Tue Nov 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.1-1
+- The build requires python3-plugin-hostd-protocol 0.8.0 or newer: the daemon
+  test and the grouping domain read the daemon's replies with its Python codec,
+  and 0.21.0 failed its %check without it (#264).
+- The plugin-db-devel floor in packaging/deps.txt is 0.5.0, the one the spec
+  and debian/control already state.
+
 * Sun Nov 22 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.0-1
 - Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V19, V21, V24 and V25.
 - V19: the format tables PLUGIN_HOSTD_CLAP_MAP and PLUGIN_HOSTD_LV2_MAP are the
