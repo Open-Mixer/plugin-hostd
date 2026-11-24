@@ -62,6 +62,10 @@ for name, edits in ARMS:
     if r.returncode == 0:
         print("FAIL %s: tests/property_ledger_test.py passed" % name)
         failures += 1
+    elif "the daemon exited before it was ready" in r.stdout:
+        # a daemon that never starts fails every test: the arm would prove nothing about the ledger
+        print("FAIL %s: the sabotaged daemon did not start: %s" % (name, r.stdout.strip().splitlines()[-1:]))
+        failures += 1
     else:
         why = [l for l in r.stdout.splitlines() if l.startswith("FAIL ")] or r.stdout.strip().splitlines()[-1:]
         print("ok   %s: tests/property_ledger_test.py fails: %s" % (name, why[0]))
