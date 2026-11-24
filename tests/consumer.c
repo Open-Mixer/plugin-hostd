@@ -49,9 +49,14 @@ int main(void)
 #define X(id, name, args, rep, meaning) verbs++; check(*name && *rep, #id " is named and answers");
     PHD_VERBS(X)
 #undef X
+/* what a ledger keeps: nothing, the latest line per instance, and from protocol 0.6 the latest per instance and first argument */
+#ifdef PHD_LEDGER_REPLACE_KEYED
+#define LEDGER_KNOWN(l) ((l) == PHD_LEDGER_NONE || (l) == PHD_LEDGER_REPLACE || (l) == PHD_LEDGER_REPLACE_KEYED)
+#else
+#define LEDGER_KNOWN(l) ((l) == PHD_LEDGER_NONE || (l) == PHD_LEDGER_REPLACE)
+#endif
 #define X(id, name, args, rep, ledger, meaning) \
-    instance_verbs++; check(*name && *rep && (PHD_LEDGER_##ledger == PHD_LEDGER_NONE || PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE || \
-                                                PHD_LEDGER_##ledger == PHD_LEDGER_REPLACE_KEYED), \
+    instance_verbs++; check(*name && *rep && LEDGER_KNOWN(PHD_LEDGER_##ledger), \
                             #id " is named, answers and says what the ledger keeps");
     PHD_INSTANCE_VERBS(X)
 #undef X

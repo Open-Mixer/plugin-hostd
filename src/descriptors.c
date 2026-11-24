@@ -144,9 +144,6 @@ int descriptors_init(conf_t *conf)
     g_conf = conf;
     if (dir_ready("descriptor_dir", conf->descriptor_dir, sizeof(conf->descriptor_dir), PHD_DIR_DESCRIPTORS_SUBDIR))
         return OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP;
-    if (dir_ready("qualification_dir", conf->qualification_dir, sizeof(conf->qualification_dir),
-                  PHD_DIR_QUALIFICATION_SUBDIR))
-        return OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP;
     return SUCCESS;
 }
 

@@ -23,7 +23,7 @@
  *
  *   protocol-gen regions       the name of every region, one per line
  *   protocol-gen probe-schema TEMPLATE   TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by that list of the header,
- *                              and each @OMX_<ITEM>@ token by the words of omx-contract's <ITEM> (omx_vocabulary.h)
+ *                              and each @PROBE_<ITEM>@ / @MACHINE_<ITEM>@ / @QUALIFICATION_<ITEM>@ token by the words of that item of the domain
  *   protocol-gen splice FILE   FILE on stdout with every generated region replaced; a region is the lines between
  *                              "BEGIN GENERATED protocol:<name>" and "END GENERATED protocol:<name>" */
 
@@ -33,8 +33,11 @@
 #include <string.h>
 
 #include <omxcontract/omx_contract_limits.h>
-#include <omxcontract/omx_vocabulary.h>
 #include <plugin-hostd/protocol.h>
+#include "domain_words.h"
+#include "machine.h"
+#include "probe_words.h"
+#include "qualification_words.h"
 
 /* The parameter scales are omx-contract's PARAM_SCALES, whose words the contract declares for this protocol: the same
  * ids in the same order, or nothing generated from the header builds. The contract renders an id as its word in
@@ -113,6 +116,14 @@ static void row(const char *first, const char *second, const char *third, const 
     printf("|\n");
 }
 
+/* a key the protocol still declares and the daemon no longer reads: the qualification store is read through
+ * libplugin-qualification-db, which takes no directory from the settings, so the key is accepted and does nothing, and the
+ * documents do not name it. The protocol drops the declaration; the entry here goes with it. */
+static int ignored_key(const char *key)
+{
+    return !strcmp(key, "qualification_dir");
+}
+
 static void region_config(void)
 {
     char buffer[PATH_MAX_DOC];
@@ -120,11 +131,14 @@ static void region_config(void)
     row(" key ", " default ", " meaning ", NULL);
     printf("|---|---|---|\n");
 #define X(key, size, def, env, meaning) \
-    if (*(env)) \
-        snprintf(buffer, sizeof(buffer), " `$" env "`, else `%s` ", def); \
-    else \
-        snprintf(buffer, sizeof(buffer), " `%s` ", def); \
-    row(" `" #key "` ", buffer, " " meaning " ", NULL);
+    if (!ignored_key(#key)) \
+    { \
+        if (*(env)) \
+            snprintf(buffer, sizeof(buffer), " `$" env "`, else `%s` ", def); \
+        else \
+            snprintf(buffer, sizeof(buffer), " `%s` ", def); \
+        row(" `" #key "` ", buffer, " " meaning " ", NULL); \
+    }
     PHD_CONF_STRINGS(X)
 #undef X
 #define X(key, def, unit, meaning) \
@@ -320,7 +334,7 @@ static void region_man_keys(void)
     const char *sep = "";
 
     printf(".RI \\(dq key \" value\" \\(dq\nper line: ");
-#define X(key, size, def, env, meaning) printf("%s" #key, sep); sep = ", ";
+#define X(key, size, def, env, meaning) if (!ignored_key(#key)) { printf("%s" #key, sep); sep = ", "; }
     PHD_CONF_STRINGS(X)
 #undef X
 #define X(key, def, unit, meaning) printf("%s" #key, sep); sep = ", ";
@@ -335,7 +349,7 @@ static void region_man_dirs(void)
     char buffer[256];
 
 #define X(key, size, def, env, meaning) \
-    if (!strcmp(#key, "descriptor_dir") || !strcmp(#key, "qualification_dir")) \
+    if (!strcmp(#key, "descriptor_dir")) \
     { \
         printf(".TP\n.B " #key "\n"); \
         roff_escape(meaning); \
@@ -452,11 +466,6 @@ static int splice(const char *path)
 /* ---------------------------------------------------------------- probe output schema */
 
 /* the code or name of each entry of a PHD_PROBE_* list: the second argument of X(id, code, meaning) */
-static const char *const PROBE_OUTCOMES[] = {
-#define X(id, code, meaning) code,
-    PHD_PROBE_OUTCOMES(X)
-#undef X
-};
 static const char *const PROBE_LIMIT_NAMES[] = {
 #define X(id, code, meaning) code,
     PHD_PROBE_LIMIT_NAMES(X)
@@ -477,16 +486,6 @@ static const char *const PROBE_PROFILE_CODES[] = {
     PHD_PROBE_PROFILE_CODES(X)
 #undef X
 };
-static const char *const PROBE_REASONS[] = {
-#define X(id, code, meaning) code,
-    PHD_PROBE_REASONS(X)
-#undef X
-};
-static const char *const PROBE_STEPS[] = {
-#define X(id, code, meaning) code,
-    PHD_PROBE_STEPS(X)
-#undef X
-};
 static const char *const PROBE_RT_GRANTS[] = {
 #define X(id, code, meaning) code,
     PHD_PROBE_RT_GRANTS(X)
@@ -498,50 +497,126 @@ static const char *const PROBE_SCHED_POLICIES[] = {
 #undef X
 };
 
-/* the words of the omx-contract items the probe output shares with the other readers of a measurement: the contract
- * declares them once, and the schema takes them from it, in its order */
-#define VOCABULARY(item) \
-    static const char *const VOCAB_##item[] = OMX_##item##_INIT; \
-    _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract's " #item ": not as many words as its count");
-VOCABULARY(MEASUREMENT_LATENCY_METHODS)
-VOCABULARY(MEASUREMENT_VOICE_BASES)
-VOCABULARY(MACHINE_CORE_BANDS)
-VOCABULARY(MACHINE_CLOCK_BANDS)
-VOCABULARY(RESOURCE_THREAD_SCHEDULING)
-#undef VOCABULARY
-
 #define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
-#define VOCAB_LIST(item) PROBE_LIST("OMX_" #item, VOCAB_##item)
 
-/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header and each
- * @OMX_<ITEM>@ token by the quoted words of that omx-contract item, so the schema's enumerations are the headers' own;
- * a token the template holds and the generator does not know is an error */
+/* the items of plugin-qualify's qualification domain the probe output shares: the token is the item's own name */
+static const char *const QUALIFICATION_ITEMS[] = {
+    "QUALIFICATION_MEASUREMENT_LATENCY_METHODS",
+    "QUALIFICATION_MEASUREMENT_VOICE_BASES",
+    "QUALIFICATION_RESOURCE_THREAD_SCHEDULING",
+};
+#define N_QUALIFICATION_ITEMS (sizeof(QUALIFICATION_ITEMS) / sizeof(*QUALIFICATION_ITEMS))
+
+typedef struct
+{
+    const char *token;
+    const char *const *codes;
+    size_t count;
+} probe_list_t;
+
+/* the items of the machine domain (plugin-hostd's own) the probe output shares: the token is the item's own name */
+static const char *const MACHINE_ITEMS[] = {
+    "MACHINE_CORE_BANDS",
+    "MACHINE_CLOCK_BANDS",
+};
+#define N_MACHINE_ITEMS (sizeof(MACHINE_ITEMS) / sizeof(*MACHINE_ITEMS))
+
+/* the items of plugin-db's own domain the probe output shares: the address-format words of a plugin, owned by plugin-db
+ * (its domain `plugin-db`, since 0.4.7), the token the item's own name */
+#define PLUGIN_DB_DOMAIN "plugin-db"
+#define PLUGIN_DB_FLOOR "1.0.0"
+static const char *const PLUGIN_DB_ITEMS[] = {
+    "PLUGIN_DB_ADDRESS_FORMATS",
+};
+#define N_PLUGIN_DB_ITEMS (sizeof(PLUGIN_DB_ITEMS) / sizeof(*PLUGIN_DB_ITEMS))
+
+/* the items of the probe domain (plugin-hostd's own) the probe output shares: the words a run writes */
+static const char *const PROBE_ITEMS[] = {
+    "PROBE_REASONS",
+    "PROBE_OUTCOMES",
+    "PROBE_STEPS",
+    "PROBE_SIGNALS",
+};
+#define N_PROBE_ITEMS (sizeof(PROBE_ITEMS) / sizeof(*PROBE_ITEMS))
+
+/* The words of items of a domain, read through the loader (OMX_CONTRACT_PATH: the generator's test entry, a ':' list whose
+ * first directory holding the domain wins; else the installed directory): out[i] is the list of items[i], its token the
+ * item's own name between '@'. One read for any domain, so another reader of a domain reuses it. Returns 0, or 1 after the
+ * refusal (the domain, or an item it lacks, by name) is on stderr. */
+static int domain_lists(const char *domain, const char *floor, const char *const *items, size_t n, probe_list_t *out,
+                        char (*tokens)[96])
+{
+    omx_domain *d = NULL;
+    char why[512];
+    size_t i;
+
+    if (domain_words_open(domain, floor, getenv("OMX_CONTRACT_PATH"), &d, why, sizeof(why)) != 0)
+    {
+        fprintf(stderr, "protocol-gen: %s\n", why);
+        return 1;
+    }
+    for (i = 0; i < n; i++)
+    {
+        const char **words;
+
+        if (domain_words_list(d, items[i], &words, &out[i].count) != 0)
+        {
+            fprintf(stderr, "protocol-gen: %s: the domain %s has no item %s\n",
+                    omx_domain_code(OMX_CONTRACT_CODE_ITEM_UNKNOWN), domain, items[i]);
+            return 1;
+        }
+        snprintf(tokens[i], sizeof(tokens[i]), "@%s@", items[i]);
+        out[i].token = tokens[i];
+        out[i].codes = words;
+    }
+    return 0;
+}
+
+/* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, each
+ * @MACHINE_<ITEM>@ token by the quoted words of that item of the machine domain and each @QUALIFICATION_<ITEM>@ token
+ * by the quoted words of that item of plugin-qualify's qualification domain and each @PLUGIN_DB_<ITEM>@ token by the
+ * words of plugin-db's domain, so the schema's enumerations are the
+ * declarations' own; each domain is read through the loader from OMX_CONTRACT_PATH (the generator's test entry: a ':'
+ * list, the first directory holding it wins), else from the installed contract directory, and refused by name when it is
+ * absent, invalid, too old or lacks an item; a token the template holds and the generator does not know is an error */
 static int probe_schema(const char *path)
 {
-    static const struct
-    {
-        const char *token;
-        const char *const *codes;
-        size_t count;
-    } LISTS[] = {
-        PROBE_LIST("PHD_PROBE_OUTCOMES", PROBE_OUTCOMES),
+    probe_list_t LISTS[] = {
         PROBE_LIST("PHD_PROBE_LIMIT_NAMES", PROBE_LIMIT_NAMES),
         PROBE_LIST("PHD_PROBE_LIMIT_MECHANISMS", PROBE_LIMIT_MECHANISMS),
         PROBE_LIST("PHD_PROBE_LIMIT_CODES", PROBE_LIMIT_CODES),
         PROBE_LIST("PHD_PROBE_PROFILE_CODES", PROBE_PROFILE_CODES),
-        PROBE_LIST("PHD_PROBE_STEPS", PROBE_STEPS),
-        PROBE_LIST("PHD_PROBE_REASONS", PROBE_REASONS),
         PROBE_LIST("PHD_PROBE_RT_GRANTS", PROBE_RT_GRANTS),
         PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
-        VOCAB_LIST(MEASUREMENT_LATENCY_METHODS),
-        VOCAB_LIST(MEASUREMENT_VOICE_BASES),
-        VOCAB_LIST(MACHINE_CORE_BANDS),
-        VOCAB_LIST(MACHINE_CLOCK_BANDS),
-        VOCAB_LIST(RESOURCE_THREAD_SCHEDULING),
+        { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
+        { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
     };
-    FILE *f = fopen(path, "r");
+    /* the six lists of the headers, then one slot for each item of the domains below: a miscounted slot is a build error */
+    _Static_assert(sizeof(LISTS) / sizeof(*LISTS) ==
+                       6 + N_PROBE_ITEMS + N_MACHINE_ITEMS + N_QUALIFICATION_ITEMS + N_PLUGIN_DB_ITEMS,
+                   "LISTS holds the six header lists and one slot for each item of the probe, machine, qualification and "
+                   "plugin-db domains");
+    char probe_tokens[N_PROBE_ITEMS][96];
+    char machine_tokens[N_MACHINE_ITEMS][96];
+    char qualification_tokens[N_QUALIFICATION_ITEMS][96];
+    char plugin_db_tokens[N_PLUGIN_DB_ITEMS][96];
+    size_t probe_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS -
+                         N_PROBE_ITEMS;
+    size_t machine_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS - N_QUALIFICATION_ITEMS - N_MACHINE_ITEMS;
+    size_t qualification_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS - N_QUALIFICATION_ITEMS;
+    size_t plugin_db_first = sizeof(LISTS) / sizeof(*LISTS) - N_PLUGIN_DB_ITEMS;
+    FILE *f;
     char line[512];
 
+    if (domain_lists(PROBE_DOMAIN, PROBE_FLOOR, PROBE_ITEMS, N_PROBE_ITEMS, LISTS + probe_first, probe_tokens) != 0 ||
+        domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
+                     machine_tokens) != 0 ||
+        domain_lists(QW_DOMAIN, QW_FLOOR, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + qualification_first,
+                     qualification_tokens) != 0 ||
+        domain_lists(PLUGIN_DB_DOMAIN, PLUGIN_DB_FLOOR, PLUGIN_DB_ITEMS, N_PLUGIN_DB_ITEMS, LISTS + plugin_db_first,
+                     plugin_db_tokens) != 0)
+        return 1;
+    f = fopen(path, "r");
     if (f == NULL)
     {
         perror(path);

@@ -10,6 +10,10 @@
  * a crash by a count. A machine that does not delegate the memory controller to this user gets no cgroup: the open answers
  * the code that says why, and the runner lists it and falls back to RLIMIT_DATA. */
 
+/** @file probe_cgroup.h
+ * @brief The declarations of probe_cgroup.h.
+ */
+
 #ifndef PLUGIN_HOSTD_PROBE_CGROUP_H
 #define PLUGIN_HOSTD_PROBE_CGROUP_H
 

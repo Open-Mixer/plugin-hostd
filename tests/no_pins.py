@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # No pins: a dependency is declared in the packaging alone, the RPM spec and debian/control, as a floor (>= the lowest
-# version with the API it uses) and a ceiling, the next minor after the release it is tested against (`>= 0.31.0 with
-# < 0.33`; an exact pin or any other ceiling is a pin), installed from the OpenMixer channel by dnf builddep / apt-get
+# version with the API it uses) and nothing above it (floors only: any `<`, `<=` or `=` is a pin or a ceiling), installed from the OpenMixer channel by dnf builddep / apt-get
 # build-dep. No pins file,
 # no submodule, no ref or sha a workflow checks a sibling out at, no sibling built from source.
 # omx-clap-core is a build dependency of the check stage only (%if %{with check} in the spec, <!nocheck> in
@@ -63,9 +62,6 @@ def declared(root):
     return out
 
 
-# the ceiling of omx-clap-core: the next minor after the release this tree is built and tested against (0.32.0)
-CEILING = "0.33"
-
 
 def check_declared(root):
     bad = []
@@ -74,10 +70,8 @@ def check_declared(root):
         if len(fl) != 1:
             bad.append("%s declares %s with %d floors (one is the rule)" % (where, DEP, len(fl)))
             continue
-        if len(ce) != 1:
-            bad.append("%s declares %s with %d ceilings (one is the rule: < %s)" % (where, DEP, len(ce), CEILING))
-        elif ce[0] != CEILING:
-            bad.append("%s caps or pins %s at %s: the ceiling is %s" % (where, DEP, ce[0], CEILING))
+        if ce:
+            bad.append("%s caps or pins %s at %s: floors only, no ceiling" % (where, DEP, ce[0]))
         pairs.append(fl[0])
     if len(set(pairs)) > 1:
         bad.append("the spec and debian/control disagree on the floor: %s" % pairs)
@@ -138,13 +132,14 @@ def main():
         print("FAIL the check-stage-only scan misses a planted omx-clap-core edge")
         return 1
     print("ok   the check-stage-only scan sees a planted omx-clap-core edge in the spec and in debian/control")
-    # the ceiling is the next minor: a planted exact pin, a wide ceiling and a missing one are each seen
-    good = "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < %s)\n" % CEILING
-    ctl_good = "Build-Depends: omx-clap-host-tests (>= 0.31.0~), omx-clap-host-tests (<< %s~) <!nocheck>\n" % CEILING
-    for what, spec_text, ctl_text, want in (("the ceiling", good, ctl_good, 0),
-                                            ("no ceiling", good.replace(" with omx-clap-host-tests < %s" % CEILING, "").replace("(omx-clap-host-tests >= 0.31.0)", "omx-clap-host-tests >= 0.31.0"), ctl_good, 1),
-                                            ("a wide ceiling", good.replace("< %s" % CEILING, "< 1"), ctl_good, 1),
-                                            ("an exact pin in debian/control", good, ctl_good.replace("(<< %s~)" % CEILING, "(= 0.31.0)"), 1)):
+    # floors only: a planted ceiling or exact pin, in either file, is seen, and a bare floor is not
+    good = "BuildRequires: omx-clap-host-tests >= 0.31.0\n"
+    ctl_good = "Build-Depends: omx-clap-host-tests (>= 0.31.0~) <!nocheck>\n"
+    for what, spec_text, ctl_text, want in (("the floor alone", good, ctl_good, 0),
+                                            ("a ceiling in the spec", "BuildRequires: (omx-clap-host-tests >= 0.31.0 with omx-clap-host-tests < 1)\n", ctl_good, 1),
+                                            ("an exact pin in the spec", good + "BuildRequires: omx-clap-host-tests = 0.31.0\n", ctl_good, 1),
+                                            ("a ceiling in debian/control", good, ctl_good.replace("<!nocheck>", "<!nocheck>, omx-clap-host-tests (<< 1~)"), 1),
+                                            ("an exact pin in debian/control", good, ctl_good + " omx-clap-host-tests (= 0.31.0)\n", 1)):
         scratch = tempfile.mkdtemp(prefix="no-pins-declared.", dir=os.environ.get("TMPDIR") or ROOT)
         try:
             os.makedirs(os.path.join(scratch, "packaging"))
@@ -157,7 +152,7 @@ def main():
         if len(got) != want:
             print("FAIL the declared-dependency check on %s: want %d findings, got %s" % (what, want, got))
             return 1
-    print("ok   the declared-dependency check sees a missing, a wide and an exact ceiling")
+    print("ok   the declared-dependency check sees a ceiling and an exact pin in the spec and in debian/control")
     # the scan must see a planted pin: one per kind, in a scratch copy
     tmp = tempfile.mkdtemp(prefix="no-pins.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
@@ -187,7 +182,7 @@ def main():
         failed += 1
     if not failed:
         print("ok   omx-clap-core is a build dependency of the check stage only (%if %{with check}, <!nocheck>)")
-        print("ok   no pin anywhere; %s has one floor and < %s as its ceiling in the spec and in debian/control" % (DEP, CEILING))
+        print("ok   no pin anywhere; %s has one floor and no ceiling in the spec and in debian/control" % DEP)
     return 1 if failed else 0
 
 
