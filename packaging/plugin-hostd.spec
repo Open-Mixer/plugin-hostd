@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.21.1
+Version: 0.21.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -209,6 +209,11 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_domain_dir}/plugin-hostd/
 
 %changelog
+* Wed Nov 25 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.2-1
+- The qualification domain's reason-param words hold remove beside add: the
+  figure of the remove step, a word a record already carries
+  (Open-Mixer/plugin-qualify#169). Additive: no word or code moves.
+
 * Tue Nov 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.1-1
 - The build requires python3-plugin-hostd-protocol 0.8.0 or newer: the daemon
   test and the grouping domain read the daemon's replies with its Python codec,
