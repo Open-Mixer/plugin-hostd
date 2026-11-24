@@ -18,28 +18,73 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
-#include <omxcontract/omx_vocabulary.h>
-
+#include "domain_words.h"
 #include "machine.h"
 
-void machine_bands(long ncpu, long khz, const char **core_band, const char **clock_band)
+int machine_words_open(const char *dirs, machine_words *w, char *why, size_t n)
 {
-    *core_band = ncpu <= 2 ? OMX_MACHINE_CORE_BANDS_CORES1_TO2 : ncpu <= 4 ? OMX_MACHINE_CORE_BANDS_CORES3_TO4 :
-                 ncpu <= 8 ? OMX_MACHINE_CORE_BANDS_CORES5_TO8 : ncpu <= 16 ? OMX_MACHINE_CORE_BANDS_CORES9_TO16 :
-                 ncpu <= 32 ? OMX_MACHINE_CORE_BANDS_CORES17_TO32 : OMX_MACHINE_CORE_BANDS_CORES33_UP;
-    *clock_band = khz < 1500000 ? OMX_MACHINE_CLOCK_BANDS_UNDER1500_MHZ :
-                  khz < 2500000 ? OMX_MACHINE_CLOCK_BANDS_FROM1500_TO2500_MHZ :
-                  khz < 3500000 ? OMX_MACHINE_CLOCK_BANDS_FROM2500_TO3500_MHZ :
-                  khz < 4500000 ? OMX_MACHINE_CLOCK_BANDS_FROM3500_TO4500_MHZ : OMX_MACHINE_CLOCK_BANDS_FROM4500_MHZ;
+    static const struct
+    {
+        const char *item;
+        size_t offset, count;
+    } bands[] = {
+        { "MACHINE_CORE_BANDS", offsetof(machine_words, core), MACHINE_CORE_BAND_COUNT },
+        { "MACHINE_CLOCK_BANDS", offsetof(machine_words, clock), MACHINE_CLOCK_BAND_COUNT },
+        { "MACHINE_FAMILIES", offsetof(machine_words, family), MACHINE_FAMILY_COUNT },
+    };
+    size_t b, i;
+    int rc;
+
+    memset(w, 0, sizeof(*w));
+    if ((rc = domain_words_open(MACHINE_DOMAIN, MACHINE_FLOOR, dirs, &w->domain, why, n)) != 0)
+        return rc;
+    for (b = 0; b < sizeof(bands) / sizeof(*bands); b++)
+    {
+        const char **list, **slot = (const char **)((char *)w + bands[b].offset);
+        size_t count;
+
+        if ((rc = domain_words_list(w->domain, bands[b].item, &list, &count)) != 0)
+        {
+            snprintf(why, n, "%s: the domain " MACHINE_DOMAIN " has no item %s", omx_domain_code(rc), bands[b].item);
+            machine_words_close(w);
+            return rc;
+        }
+        if (count != bands[b].count)
+        {
+            snprintf(why, n, "%s: %s of the domain " MACHINE_DOMAIN " has %zu words, the probe cuts %zu",
+                     omx_domain_code(OMX_CONTRACT_CODE_ITEM_UNKNOWN), bands[b].item, count, bands[b].count);
+            free(list);
+            machine_words_close(w);
+            return OMX_CONTRACT_CODE_ITEM_UNKNOWN;
+        }
+        for (i = 0; i < count; i++)
+            slot[i] = list[i];
+        free(list);
+    }
+    return 0;
 }
 
-int machine_class(char *out, size_t size)
+void machine_words_close(machine_words *w)
+{
+    if (w->domain != NULL)
+        omx_domain_close(w->domain);
+    memset(w, 0, sizeof(*w));
+}
+
+void machine_bands(const machine_words *w, long ncpu, long khz, const char **core_band, const char **clock_band)
+{
+    *core_band = w->core[ncpu <= 2 ? 0 : ncpu <= 4 ? 1 : ncpu <= 8 ? 2 : ncpu <= 16 ? 3 : ncpu <= 32 ? 4 : 5];
+    *clock_band = w->clock[khz < 1500000 ? 0 : khz < 2500000 ? 1 : khz < 3500000 ? 2 : khz < 4500000 ? 3 : 4];
+}
+
+int machine_class(const machine_words *w, char *out, size_t size)
 {
     struct utsname u;
     char text[64] = "";
@@ -56,7 +101,7 @@ int machine_class(char *out, size_t size)
             khz = atol(text);
         fclose(f);
     }
-    machine_bands(sysconf(_SC_NPROCESSORS_ONLN), khz, &core, &clock);
+    machine_bands(w, sysconf(_SC_NPROCESSORS_ONLN), khz, &core, &clock);
     n = snprintf(out, size, "%s/%s/%s", u.machine, core, clock);
     return n > 0 && (size_t)n < size ? 0 : -1;
 }

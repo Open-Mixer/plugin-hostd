@@ -20,7 +20,7 @@ def start_and_connect():
         with open(conf, "w") as f:
             for k, v in (("mod_host", FAKE), ("clap_host", FAKE), ("state_root", tmp), ("require_pins", 0), ("pins_dir", ""),
                          ("history_file", tmp + "/history"), ("descriptor_dir", tmp + "/descriptors"),
-                         ("qualification_dir", tmp + "/qualification"), ("probe", tmp + "/no-probe")):
+                         ("probe", tmp + "/no-probe")):
                 f.write("%s %s\n" % (k, v))
         p = subprocess.Popen([EXE, "-n", "-p", str(cmd), "-f", str(fb), "-c", conf], stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)

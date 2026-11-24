@@ -546,12 +546,12 @@ SABOTAGE = [
      "PHD_PARAM_SCALES(X)\n#undef X\n_Static_assert(", "#undef X\n_Static_assert(", "contract", "contract"),
     ("the generator takes a scale word that is not the contract's", "tools/protocol-gen.c",
      "    if (!scales_are_the_contracts())\n        return 1;\n", "", "contract", "contract"),
-    ("the generator types the latency methods by hand", "tools/protocol-gen.c", "VOCABULARY(MEASUREMENT_LATENCY_METHODS)\n",
-     'static const char *const VOCAB_MEASUREMENT_LATENCY_METHODS[] = { "impulse-onset", "declared-port", "note-onset" };\n',
+    ("the generator types the latency methods by hand", "tools/protocol-gen.c", "        out[i].codes = words;\n",
+     '        if (i == 0)\n        {\n            static const char *const typed[] = { "impulse-onset", "declared-port", "note-onset" };\n'
+     '            words = typed;\n            out[i].count = 3;\n        }\n        out[i].codes = words;\n',
      "contract", "contract"),
-    ("the generator does not hold a word list to its count", "tools/protocol-gen.c",
-     '    _Static_assert(sizeof(VOCAB_##item) / sizeof(*VOCAB_##item) == OMX_##item##_COUNT, "omx-contract\'s " #item ": not as many words as its count");\n',
-     "\n", "contract", "contract"),
+    ("the generator writes an empty list for an item the domain lacks", "tools/protocol-gen.c",
+     '            return 1;\n        }\n        snprintf(tokens[i]', '        }\n        snprintf(tokens[i]', "contract", "contract"),
     ("two errors share a code", "include/plugin-hostd/omx_clap_core_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
      "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
@@ -590,39 +590,39 @@ SABOTAGE = [
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
     ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "", "no pin anywhere", "nopins"),
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "", "no pin anywhere", "nopins"),
     ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "", "no pin anywhere", "nopins"),
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", "", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>,\n               omx-clap-host-tests (<< 0.8~) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< 0.8~) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < @CEIL)\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (<= 0.9) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<= 0.9) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (= 0.9.0) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (= 0.9.0) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n", "               omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< @CEIL~) <!nocheck>,\n               omx-clap-host-tests (< 0.10) <!nocheck>,\n",
+     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (< 0.10) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
      "no pin anywhere", "nopins"),
     ("a workflow checks omx-clap-core out again", ".github/workflows/ci.yml",
-     "      - uses: actions/checkout@v4\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n",
-     "      - uses: actions/checkout@v4\n        with:\n          repository: %s/omx-clap-core\n\n      # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from\n" % ORG,
+     "      - uses: Open-Mixer/.github/.github/actions/deps-render@openmixer-v1\n",
+     "      - uses: Open-Mixer/.github/.github/actions/deps-render@openmixer-v1\n      - uses: actions/checkout@v4\n        with:\n          repository: %s/omx-clap-core\n" % ORG,
      "no pin anywhere", "nopins"),
     ("the tempo is not handed to a new or a respawned worker", "src/supervisor.c", "    if (host_settings_replay(w) != 0)\n",
      "    if (0)\n", "tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add"),
@@ -759,9 +759,21 @@ SABOTAGE = [
      "an_lv2_point_carries_the_note_sweep_and_what_run_did_while_the_notes_played", "probe"),
     ("a note sweep leaves out its allocations", "src/probe.c", '    put_count(b, ns, "allocationsInRun", "allocations");\n', "",
      "a_clap_point_carries_the_note_sweep_counts", "probe"),
-    ("a latency from a note is called an impulse's", "src/probe.c", 'from_note ? OMX_MEASUREMENT_LATENCY_METHODS_NOTE_ONSET : OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);',
-     'OMX_MEASUREMENT_LATENCY_METHODS_IMPULSE_ONSET);',
+    ("a latency from a note is called an impulse's", "src/probe.c", 'from_note ? g_qw.note_onset : g_qw.impulse_onset);',
+     'g_qw.impulse_onset);',
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
+    ("the probe writes a scheduling class it types itself", "src/probe.c", 'fifo ? g_qw.fifo : g_qw.none, fifo ? g_rt.priority : 0',
+     'fifo ? "fifo" : "none", fifo ? g_rt.priority : 0', "run.realtime.class is the domain's word", "qualdomain"),
+    ("the probe asks the domain for no floor", "src/qualification_words.h", '#define QW_FLOOR "1.1.0"', '#define QW_FLOOR "0.0.0"',
+     "a domain below 1.1.0 is refused", "qualdomain"),
+    ("the probe starts on a domain the loader refused", "src/probe.c", '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0)\n',
+     '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0 && 0)\n', "an absent domain ends the run", "qualdomain"),
+    ("the probe ignores OMX_CONTRACT_PATH", "src/probe.c", 'qualification_words_load(getenv("OMX_CONTRACT_PATH"))', "qualification_words_load(NULL)",
+     "run.realtime.class is the domain's word", "qualdomain"),
+    ("a missing domain does not name the directories tried", "src/qualification_words.c", '"The domain %s is in none of %s.", domain, dirs);',
+     '"The domain %s is in none of the directories.", domain);', "no directory holds the domain: exit 78 naming the domain and both directories", "qualdomain"),
+    ("the probe takes a word the domain lacks as nothing", "src/probe.c", '        if ((*want[i].slot = qw_word(domain, want[i].item, want[i].key)) == NULL)\n',
+     '        if ((*want[i].slot = qw_word(domain, want[i].item, want[i].key)) == NULL && 0)\n', "a domain without a word the probe writes", "qualdomain"),
     ("a note that did not sound is heard", "src/probe.c", 'jbool(jkid(latency, k), "heard", 1) ? "true" : "false"', '"true"',
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("the probe schema has no notes held in a cost", "protocol/probe-output.schema.json", '            "voices": {\n', '            "voices-": {\n',
@@ -809,19 +821,26 @@ SABOTAGE = [
      "refused: fifo claimed while the kernel reported the child SCHED_OTHER", "probeschema"),
     ("the generated schema lost a latency method the contract has", "protocol/probe-output.schema.json",
      '"declared-port", "note-onset"]', '"declared-port"]',
-     "MEASUREMENT_LATENCY_METHODS at /$defs/point/properties/latency/properties/method is the contract's", "vocabulary"),
+     "QUALIFICATION_MEASUREMENT_LATENCY_METHODS at /$defs/point/properties/latency/properties/method is the contract's", "vocabulary"),
     ("the generated schema has the clock bands in an order of its own", "protocol/probe-output.schema.json",
      '"3.5-4.5GHz", "4.5GHz+"]', '"4.5GHz+", "3.5-4.5GHz"]',
+     "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
+    ("the machine domain's top clock band is another word than the generated schema's", "contract.d/machine/machine.json",
+     '"const": "4.5GHz+"', '"const": "4.6GHz+"',
      "MACHINE_CLOCK_BANDS at /properties/machine/properties/class/properties/clockBand is the contract's", "vocabulary"),
     ("the contract gives its hosts a scheduling class the schema does not have", "omx-vocabulary.schema.json",
      '        "none",\n        "fifo"\n', '        "none",\n        "fifo",\n        "rr"\n',
      "RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
+    ("the qualification domain gives its hosts a scheduling class the schema does not have", "contract.d/qualification/qualification.json",
+     '            "x-text": "The real-time FIFO scheduling class."\n          }\n',
+     '            "x-text": "The real-time FIFO scheduling class."\n          },\n          {"const": "rr", "title": "rr", "x-code": 2, "x-text": "x"}\n',
+     "QUALIFICATION_RESOURCE_THREAD_SCHEDULING at /properties/offer/properties/realtime is the contract's", "vocabulary"),
     ("the template types the latency methods by hand again", "protocol/probe-output.schema.in",
-     '"enum": [@OMX_MEASUREMENT_LATENCY_METHODS@]', '"enum": ["impulse-onset", "declared-port", "note-onset"]',
+     '"enum": [@QUALIFICATION_MEASUREMENT_LATENCY_METHODS@]', '"enum": ["impulse-onset", "declared-port", "note-onset"]',
      "the template types no list of the contract's by hand", "vocabulary"),
     ("the template takes the voice basis from nowhere", "protocol/probe-output.schema.in",
-     '"enum": [@OMX_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
-     "the template takes MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
+     '"enum": [@QUALIFICATION_MEASUREMENT_VOICE_BASES@]', '"type": "string"',
+     "the template takes QUALIFICATION_MEASUREMENT_VOICE_BASES from the contract", "vocabulary"),
     ("a chain declared again is always formed again", "src/supervisor.c",
      "(chain_in_place(c) ? chain_update(c) : chain_form(c))",
      "(0 ? chain_update(c) : chain_form(c))",
@@ -990,7 +1009,7 @@ SABOTAGE = [
      '    return rc;\n}\n\n/* chain_formed:',
      '    return rc == RPC_OK && code < 0 ? rc + 1 : rc;\n}\n\n/* chain_formed:',
      "a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone"),
-    ("a descriptor_dir or qualification_dir that cannot be written is let through", "src/descriptors.c",
+    ("a descriptor_dir that cannot be written is let through", "src/descriptors.c",
      "    if (make_dirs(dir) != 0 || writable(dir) != 0)\n", "    if (make_dirs(dir) != 0 && 0)\n",
      "a_read_only_directory_stops_the_daemon_with_its_code_and_names_the_key"),
     ("an empty descriptor_dir ignores $XDG_STATE_HOME", "src/descriptors.c",
@@ -1545,29 +1564,55 @@ SABOTAGE = [
      "    if (phd_pin_path_decode(id, out, size) != 0)\n", "    if (1)\n",
      "a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling", "qualcost"),
     ('the rate is not read', 'src/qualcost.c',
-     'r != rate ||',
-     '(r != rate && 0) ||',
-     'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
+     '    q.rate = rate;',
+     '    q.rate = -1;',
+     'a_rate_or_quantum_the_store_lacks_is_unknown', "qualcost"),
     ('the quantum is not read', 'src/qualcost.c',
-     'q != quantum)',
-     '(q != quantum && 0))',
-     'a_rate_or_quantum_the_record_lacks_is_unknown', "qualcost"),
+     '    q.quantum = quantum;',
+     '    q.quantum = -1;',
+     'a_rate_or_quantum_the_store_lacks_is_unknown', "qualcost"),
     ('the first record of a plugin stands', 'src/qualcost.c',
-     'if (v > c->best)',
+     'if (fraction > c->best)',
      'if (c->best < 0)',
-     'the_larger_record_stands_whichever_the_directory_lists_first', "qualcost"),
-    ('the id inside the record is not read', 'src/qualcost.c',
-     'if (!got || !same_id(got, id) || !grid',
-     'if (!got || (!same_id(got, id) && 0) || !grid',
-     'a_record_of_another_plugin_is_not_this_ones', "qualcost"),
-    ('an encoded IRI is not decoded', 'src/qualcost.c',
-     'return !strcmp(da, db);',
-     'return !strcmp(a, b);',
+     'the_larger_of_two_records_of_one_plugin_stands', "qualcost"),
+    ('the plugin is not asked for', 'src/qualcost.c',
+     '    q.uri = id;\n',
+     '    q.uri = NULL;\n',
+     'a_plugin_the_store_does_not_name_has_no_figure', "qualcost"),
+    ('an encoded IRI is not asked for in its decoded spelling', 'src/qualcost.c',
+     '    if (strcmp(plain, id))',
+     '    if (0)',
      'a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling', "qualcost"),
     ('the fraction is nanoseconds over a second', 'src/qualcost.c',
-     'return ns * rate / 1e9;',
-     'return ns / 1e9;',
+     'fraction = r->cost_p_ns * r->rate / 1e9;',
+     'fraction = r->cost_p_ns / 1e9;',
      'the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core', "qualcost"),
+    ('the cell keeps the first median, not the largest', 'src/qualcost.c',
+     'if (!c->found || r->cost_median_ns > c->cell.median_ns)',
+     'if (!c->found)',
+     'the_larger_of_each_figure_of_two_records_stands', "qualcost"),
+    ('the memory keeps the first figure, not the largest', 'src/qualcost.c',
+     'if (!c->found || r->mem_first_kb > c->memory.first_kb)',
+     'if (!c->found)',
+     'the_larger_of_each_figure_of_two_records_stands', "qualcost"),
+    ('a plugin the points of which are not this rate is no record', 'src/qualcost.c',
+     '    return named ? QUALCOST_CELL_NO_POINT : QUALCOST_CELL_NO_RECORD;',
+     '    return QUALCOST_CELL_NO_RECORD;',
+     'a_point_without_a_latency_or_at_another_rate_is_no_cell', "qualcost"),
+    ('the scope is the user\'s as root and the system\'s otherwise', 'src/qualcost.c',
+     '    return geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;',
+     '    return geteuid() != 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER;',
+     'the_scope_is_the_system_s_as_root_and_the_user_s_otherwise', "qualcost"),
+    ('the production daemon is built with the test seam of the qualification store', 'src/main.c',
+     '#ifndef VERSION', '#define OMX_QUALIFICATION_TEST_STORE\n#ifndef VERSION',
+     'no_test_seam', "seam"),
+    ('a query starts zeroed, which matches nothing', 'src/qualcost.c',
+     '    pqdb_query q = PQDB_QUERY_ANY;', '    pqdb_query q = { 0 };',
+     'the_reader_names_no_record_directory_variable_or_test_entry', "qualcost"),
+    ('the reader names the old directory of record files again', 'src/qualcost.c',
+     '    pqdb_error err = { NULL, "" };',
+     '    pqdb_error err = { NULL, "" };\n    (void)"qualification_dir";',
+     'the_reader_names_no_record_directory_variable_or_test_entry', "qualcost"),
     ('what instances share is counted for each of them', 'src/supervisor.c',
      'kb += shared ? mem.per_instance_kb : mem.first_kb;', 'kb += mem.first_kb;',
      'an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_counted_once_and_the_budget'),
@@ -1597,10 +1642,6 @@ SABOTAGE = [
      '        if (bytes < 0)\n            ram_every = 0;\n',
      '        if (bytes < 0)\n            bytes = 0;\n',
      'an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure'),
-    ('the declared latency is read before the measured one', 'src/qualcost.c',
-     '(!jnum(latency, "measuredFrames", &frames) && !jnum(latency, "declaredFrames", &frames))',
-     '(!jnum(latency, "declaredFrames", &frames) && !jnum(latency, "measuredFrames", &frames))',
-     'the_cell_is_the_median_and_the_measured_latency', "qualcost"),
     ('a plan again forms every segment again', 'src/supervisor.c',
      'if (!kept[j] && was[j]->n == pp->seg_len[k]',
      'if (0 && !kept[j] && was[j]->n == pp->seg_len[k]',
@@ -1634,7 +1675,7 @@ SABOTAGE = [
      '    snprintf(place, sizeof(place), PHD_PLACE_CHAIN_PREFIX "%d", c->id);',
      'a_plan_forms_the_runs_that_may_share_and_leaves_the_member_that_may_not_in_a_worker_of_its_own'),
     ('a cost is never read from a record', 'src/supervisor.c',
-     '? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)',
+     '? qualcost_read(g_qual, record_id(uri), g_conf.group_rate, g_conf.group_quantum)',
      '? PLANNER_COST_UNKNOWN',
      'the_cost_a_qualification_record_holds_decides_the_segments_and_a_missing_one_is_assumed'),
     ('group_cost_max is read as a fraction already', 'src/supervisor.c',
@@ -1703,13 +1744,12 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
 
-# the omx-clap-host-tests pin cases name the floor and the ceiling the spec declares today, so raising the pin
+# the omx-clap-host-tests pin cases name the floor the spec declares today, so raising the floor
 # never leaves them breaking a line that is no longer there
-_PIN = re.search(r"^BuildRequires: \(omx-clap-host-tests >= ([0-9.]+) with omx-clap-host-tests < ([0-9.]+)\)$",
+_PIN = re.search(r"^BuildRequires: omx-clap-host-tests >= ([0-9.]+)$",
                  open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M) \
-    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor and ceiling")
-SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)).replace("@CEIL", _PIN.group(2)) if isinstance(x, str) else x
-                  for x in case) for case in SABOTAGE]
+    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor")
+SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)) if isinstance(x, str) else x for x in case) for case in SABOTAGE]
 
 
 def rebuild(tree, jack):
@@ -1719,10 +1759,10 @@ def rebuild(tree, jack):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, "plugin-hostd")):
+    if jack in ("verbs", False) or jack == "jack" or os.path.exists(os.path.join(tree, DAEMON_TEST)):
         build(tree)
-    if jack in ("verbs", "probe") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
-        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    if jack in ("verbs", "probe", "qualdomain") or os.path.exists(os.path.join(tree, "plugin-hostd-probe")):
+        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                        stdout=subprocess.DEVNULL)
 
 
@@ -1732,15 +1772,23 @@ def reply_words_generator(tree):
     shutil.copy(os.path.join(ROOT, "tools", "reply-words.py"), os.path.join(tree, "tools"))
 
 
+DAEMON_TEST = os.path.join("tests", "plugin-hostd-test")
+
+
 def build(tree):
+    """the tree's test build of the daemon (the Makefile's PROG_TEST: the packaged daemon reads the installed contract directory
+    only, the test build the tree's copy of contract.d/machine, which the tree holds)"""
     reply_words_generator(tree)
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
+    os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+    if not os.path.isdir(os.path.join(tree, "contract.d")):
+        shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, DAEMON_TEST], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
 
 
 def build_probe(tree):
     # the probe has its own rule in the Makefile (its sources, -Isrc, the contract's flags and defines): build it there
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
 
 
@@ -1757,7 +1805,7 @@ def run_format_test(tree):
     for f in os.listdir(os.path.join(tree, "src")):
         if f.endswith(".o"):
             os.unlink(os.path.join(tree, "src", f))
-    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/format-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/format-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     env = dict(os.environ, PLUGIN_HOSTD_FORMAT_TEST_DIR=tree)
     p = subprocess.run([os.path.join(tree, "tests", "format-test"), FAKE], env=env, capture_output=True, text=True, timeout=120)
@@ -1768,13 +1816,13 @@ def run_relay_test(tree):
     """tests/relay_test.c against the tree's src/relay.c; it prints "ok   relay_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "relay_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/relay-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/relay-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "relay-test")], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   relay_test\n" if p.returncode == 0 else "")
 def run_contract_test(tree):
     """tests/contract_derived.py against the tree's probe runner and generator; "ok   contract" when it passes"""
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd-probe"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([sys.executable, os.path.join(tree, "tests", "contract_derived.py")], cwd=tree, capture_output=True,
                        text=True, timeout=300, env=dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe")))
@@ -1783,7 +1831,7 @@ def run_consumer_test(tree):
     """tests/consumer.c against the tree's header, as a consumer compiles it; "ok   consumer" when it passes"""
     exe = os.path.join(tree, "consumer")
     subprocess.run(["cc", "-I" + os.path.join(tree, "include"), "-I" + declared.include_dir(), "-std=c99", "-Wall",
-                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + pin_flags("--cflags") + pin_flags("--libs"), check=True)
+                    "-Wextra", "-o", exe, os.path.join(ROOT, "tests", "consumer.c")] + pin_flags("--cflags") + pin_flags("--libs"), check=True, stderr=subprocess.PIPE, text=True)
     p = subprocess.run([exe], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + ("ok   consumer\n" if p.returncode == 0 else "")
 
@@ -1791,9 +1839,11 @@ def run_history_test(tree):
     """tests/history_test.c against the tree's src/history.c; it prints "ok   <group>" for each group that passed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "history_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/history-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
-    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120)
+    # the host class's band words are the machine domain's: this checkout's document
+    p = subprocess.run([os.path.join(tree, "tests", "history-test")], capture_output=True, text=True, timeout=120,
+                       env=dict(os.environ, OMX_CONTRACT_PATH=os.path.join(ROOT, "contract.d")))
     return p.returncode, p.stdout
 
 
@@ -1801,7 +1851,7 @@ def run_proc_test(tree):
     """tests/proc_test.c against the tree's src/proc.c; it prints "ok   proc_test" when no check failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "proc_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/proc-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/proc-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "proc-test")], capture_output=True, text=True, timeout=120)
     return p.returncode, p.stdout
@@ -1812,7 +1862,7 @@ def run_conf_test(tree):
     neither failed"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", "conf_test.c"), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/conf-test"], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "tests/conf-test"], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, "tests", "conf-test")], capture_output=True, text=True, timeout=60)
     q = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "search_paths_once.py"), tree], capture_output=True,
@@ -1843,7 +1893,7 @@ def run_verbs_test(tree, name):
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_contract.py")], capture_output=True,
                            text=True, timeout=60, env=dict(os.environ, PROTOCOL_DIR=PROTOCOL_DIR))
     else:
-        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE,
+        env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE,
                    PROBE=os.path.join(tree, "plugin-hostd-probe"))
         if os.path.exists(os.path.join(tree, PROTOCOL_VERBS)):
             env["PLUGIN_HOSTD_VERBS"] = os.path.join(tree, PROTOCOL_VERBS)
@@ -1857,7 +1907,7 @@ def run_unit_test(tree, target, source, name):
     "ok   <name>" when it passes"""
     os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
     shutil.copy(os.path.join(ROOT, "tests", source), os.path.join(tree, "tests"))
-    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, target], cwd=tree, check=True,
+    subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, target], cwd=tree, check=True, stderr=subprocess.PIPE, text=True,
                    stdout=subprocess.DEVNULL)
     p = subprocess.run([os.path.join(tree, target), name], capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout + p.stderr
@@ -1866,14 +1916,21 @@ def run_unit_test(tree, target, source, name):
 def run_test(tree, name, jack=False):
     if jack == "planner":
         return run_unit_test(tree, "tests/planner-test", "planner_test.c", name)
+    if jack == "seam":
+        # the production daemon of the tree, built with no test define, and the check of its binary
+        subprocess.run(["make", "-s", "-B", "PROTOCOL_DIR=" + PROTOCOL_DIR, "plugin-hostd"], cwd=tree, check=True,
+                       stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "no_test_seam.py"), os.path.join(tree, "plugin-hostd")],
+                           capture_output=True, text=True, timeout=60)
+        return p.returncode, p.stdout + p.stderr
     if jack == "qualcost":
         return run_unit_test(tree, "tests/qualcost-test", "qualcost_test.c", name)
     if jack == "pinfiles":
-        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, "plugin-hostd")],
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "pin_files_test.sh"), os.path.join(tree, DAEMON_TEST)],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "searchpath":
-        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, "plugin-hostd")],
+        p = subprocess.run(["sh", os.path.join(ROOT, "tests", "search_path_test.sh"), os.path.join(tree, DAEMON_TEST)],
                            capture_output=True, text=True, timeout=120)
         return p.returncode, p.stdout + p.stderr
     if jack == "placement":
@@ -1905,6 +1962,11 @@ def run_test(tree, name, jack=False):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_test.py")], env=env, capture_output=True, text=True,
                            timeout=300)
         return p.returncode, p.stdout
+    if jack == "qualdomain":
+        env = dict(os.environ, PROBE=os.path.join(tree, "plugin-hostd-probe"))
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "qualification_domain.py")], env=env, capture_output=True,
+                           text=True, timeout=300)
+        return p.returncode, p.stdout
     if jack == "probeschema":
         p = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "probe_schema.py"), tree], capture_output=True,
                            text=True, timeout=60)
@@ -1932,34 +1994,16 @@ def run_test(tree, name, jack=False):
         return p.returncode, p.stdout
     # a sabotaged timing proof is judged as on a quiet node: on a loaded runner its miss would warn and pass, and the
     # arm would read as decoration (ruling 2026-11-11; the load is faked to 0 for the arm and its control alike)
-    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, "plugin-hostd"), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
+    env = dict(os.environ, ONLY=name, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE, HOSTD_TEST_LOADAVG="0")
     cmd = [os.path.join(ROOT, "tests", "jack_e2e.sh")] if jack else [sys.executable, os.path.join(ROOT, "tests", "daemon_test.py")]
     p = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True, timeout=300)
     return p.returncode, p.stdout
 
 
 
-def in_shard(index):
-    """True when SABOTAGE_SHARD is unset, else when index falls in the i-th of the n shards it names (ci.yml's matrix)"""
-    shard = os.environ.get("SABOTAGE_SHARD")
-    if not shard:
-        return True
-    parts = shard.split("/")
-    try:
-        i, n = int(parts[0]), int(parts[1])
-    except (ValueError, IndexError):
-        i, n = 0, 0
-    if len(parts) != 2 or n < 1 or not (1 <= i <= n):
-        raise SystemExit("SABOTAGE_SHARD must be i/n with 1 <= i <= n, not %r" % shard)
-    return index % n == i - 1
-
-
 def selected(entry, index):
     """None when the arm runs, '' when the filters leave it out, else the line that says why it is skipped"""
     what, path, text, repl, name = entry[:5]
-    # SABOTAGE_SHARD=i/n: every n-th arm, by its position in SABOTAGE, so ci.yml's matrix runs the whole table once
-    if not in_shard(index):
-        return ""
     # SABOTAGE_ONLY=<words>: the arms whose test name holds them, for a change that touches a few guards
     if os.environ.get("SABOTAGE_ONLY") and os.environ["SABOTAGE_ONLY"] not in name:
         return ""
@@ -2026,7 +2070,7 @@ def arm(entry, tree):
         os.makedirs(os.path.join(tree, "tests"))
         for f in ("gesture_alloc_test.c", "lv2_alloc_test.c", "verbs_alloc_test.c"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
-    elif jack == "probe":
+    elif jack in ("probe", "qualdomain"):
         # the probe is built by the Makefile's own rule: its sources, headers and the spec its VERSION is read from
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
@@ -2041,20 +2085,27 @@ def arm(entry, tree):
         shutil.copy(os.path.join(ROOT, "protocol", "probe-output.schema.json"), os.path.join(tree, "protocol"))
     elif jack == "vocabulary":
         shutil.copytree(os.path.join(ROOT, "protocol"), os.path.join(tree, "protocol"))
+        # the machine words are plugin-hostd's own domain, the source the generated enums are held to
+        shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
         datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
                                  check=True).stdout.strip()
         shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
+        # plugin-qualify's qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import qualification_source
+        shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
+                        os.path.join(tree, "contract.d", qualification_source.DOMAIN))
     elif jack == "contract":
         for d in ("src", "include", "tools", "protocol"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
         os.makedirs(os.path.join(tree, "tests"))
-        for f in ("contract_derived.py", "declared.py"):
+        for f in ("contract_derived.py", "declared.py", "qualification_source.py"):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(tree, "tests"))
         for f in ("Makefile",):
             shutil.copy(os.path.join(ROOT, f), tree)
         os.makedirs(os.path.join(tree, "packaging"))
         shutil.copy(os.path.join(ROOT, "packaging", "plugin-hostd.spec"), os.path.join(tree, "packaging"))
-    elif jack in ("planner", "qualcost", "placement"):
+    elif jack in ("planner", "qualcost", "placement", "seam"):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
@@ -2102,10 +2153,10 @@ def arm(entry, tree):
     if path == PROTOCOL_VERBS:
         # a changed declaration is rendered, as plugin-hostd-protocol renders it, before the daemon is built from it
         declared.render_overlay(tree, os.path.join(tree, PROTOCOL_VERBS))
-    if jack == "probe":
+    if jack in ("probe", "qualdomain"):
         build_probe(tree)
     elif jack not in ("readme", "nopins", "ciguards", "format", "relay", "history", "proc", "conf", "contract", "consumer", "probeschema", "presetschema", "vocabulary", "alloc",
-                      "verbtable", "planner", "qualcost", "placement", "pool", "timing"):
+                      "verbtable", "planner", "qualcost", "placement", "pool", "timing", "seam"):
         for f in os.listdir(os.path.join(tree, "src")):
             if f.endswith(".o"):
                 os.unlink(os.path.join(tree, "src", f))
@@ -2116,8 +2167,16 @@ def arm(entry, tree):
     return ("ok   sabotage caught: %s -> %s red" % (what, name), 0)
 
 
+def table_name(job):
+    """the name an arm's FAIL line carries: its entry's first field; a module-level function, as the pool's processes
+    are sent it (a lambda does not pickle)"""
+    return job[1][0]
+
+
 def report(job, result):
     global failed
+    if isinstance(result, sabotage_pool.Failed):
+        result = (str(result), 1)
     line, bad = result
     print(line, flush=True)
     failed += bad
@@ -2130,11 +2189,6 @@ ROOT_WRITES_READ_ONLY = ("a_read_only_directory_stops_the_daemon_with_its_code_a
 work = None
 
 if __name__ == "__main__":
-    if "--count" in sys.argv[1:]:
-        # how many arms this shard (SABOTAGE_ONLY/SABOTAGE_FILE/SABOTAGE_KIND/SABOTAGE_SHARD, same as a real run)
-        # would run, with no tree copied and nothing built: ci.yml's sabotage-gate job sums this across the matrix
-        print(sum(1 for index, entry in enumerate(SABOTAGE) if selected(entry, index) is None))
-        sys.exit(0)
     # every arm in the order of the table; the arms run SABOTAGE_JOBS at a time (default: the cores, at most 8; 1 is one
     # after the other) and print in that order whichever finishes first
     plan = []
@@ -2147,7 +2201,8 @@ if __name__ == "__main__":
     work = tempfile.mkdtemp(prefix="plugin-hostd-sabotage.")
     try:
         sabotage_pool.run(plan, run_arm, sabotage_pool.jobs_from(os.environ), report,
-                          exclusive=lambda job: not job[2] and (job[1][5] if len(job[1]) > 5 else False) in JACK_KINDS)
+                          exclusive=lambda job: not job[2] and (job[1][5] if len(job[1]) > 5 else False) in JACK_KINDS,
+                          label=table_name)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print("sabotage FAILED (%d)" % failed if failed else "sabotage ok")

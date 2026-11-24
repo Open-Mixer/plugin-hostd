@@ -1,0 +1,32 @@
+{
+  "$schema": "../../../schema/omx-contract.schema.json#/$defs/catalog",
+  "kind": "catalog",
+  "lang": "es",
+  "owner": "plugin-hostd",
+  "messages": {
+    "MACHINE_ARCHES.aarch64": {"text": "Una máquina AArch64, como lo indica `uname -m`.", "by": "machine", "model": "draft-prose", "source": "94f112f7fc8ba1efb070ced1b43fc1bd9c3370a0915da4d5213e4cf86b17beff"},
+    "MACHINE_ARCHES.x86_64": {"text": "Una máquina x86-64, como lo indica `uname -m`.", "by": "machine", "model": "draft-prose", "source": "6fc4deab5af841866e6b2edcfc87ec3376c2f1aa180e25b8f30e77c9586d7c3a"},
+    "MACHINE_CLASS_FIELDS.arch": {"text": "La arquitectura de la máquina, como la indica `uname -m`.", "by": "machine", "model": "draft-prose", "source": "9a0edb93e13ad9c69ae89ceb2e28706db896c3977a0a3861a2c657d0491fe21f"},
+    "MACHINE_CLASS_FIELDS.clockBand": {"text": "El reloj, como una banda de `MACHINE_CLOCK_BANDS`.", "by": "machine", "model": "draft-prose", "source": "e87303bfb879af01598fa9d3fa856f506d6157e7d716d78aa735a4e05e3302c0"},
+    "MACHINE_CLASS_FIELDS.coreBand": {"text": "El recuento de núcleos, como una banda de `MACHINE_CORE_BANDS`.", "by": "machine", "model": "draft-prose", "source": "8bfb6bd3ba1a798be24128408e5c938c9e7a6023ef8837328f24bc10995729c8"},
+    "MACHINE_CLASS_FIELDS.cstatesLimited": {"text": "Si los estados de inactividad profunda están limitados.", "by": "machine", "model": "draft-prose", "source": "8e186c19ed6ed98379b4e7efb83a7893f6b8a94591e84c9e09e75b20e21a130d"},
+    "MACHINE_CLASS_FIELDS.family": {"text": "La familia y el modelo de la CPU.", "by": "machine", "model": "draft-prose", "source": "10e0bccb5de693926cc382291d8773f329b03fe880645b58a0959e7b8bd21f13"},
+    "MACHINE_CLASS_FIELDS.preemptRt": {"text": "Si el kernel es `PREEMPT_RT`.", "by": "machine", "model": "draft-prose", "source": "7427bf39fd44465287fa5827f0785a60572b0f30a3a9fd9adbc95597f697cc08"},
+    "MACHINE_CLOCK_BANDS.1.5-2.5GHz": {"text": "Una máquina con reloj de 1.5 a 2.5 GHz.", "by": "machine", "model": "draft-prose", "source": "93a0f07857a3225184942031ce35edff4ac7b26c8c9a362537d4e4846225ac92"},
+    "MACHINE_CLOCK_BANDS.2.5-3.5GHz": {"text": "Una máquina con reloj de 2.5 a 3.5 GHz.", "by": "machine", "model": "draft-prose", "source": "db5899b3eed5d15d1eac6c6d8b460e269c60c0750fd4f3656bb250ddee334404"},
+    "MACHINE_CLOCK_BANDS.3.5-4.5GHz": {"text": "Una máquina con reloj de 3.5 a 4.5 GHz.", "by": "machine", "model": "draft-prose", "source": "8f1a626e6ff859ca6c748ccd2e6315095d2a29c5d9fa1d718b267a2351f06db4"},
+    "MACHINE_CLOCK_BANDS.4.5GHz+": {"text": "Una máquina con reloj de 4.5 GHz o más.", "by": "machine", "model": "draft-prose", "source": "852559cd62c6eb77b9828bf491c6081477685555ced864d830c941bfb49251d5"},
+    "MACHINE_CLOCK_BANDS.<1.5GHz": {"text": "Una máquina con reloj inferior a 1.5 GHz.", "by": "machine", "model": "draft-prose", "source": "f20c26a43aa59bfa38eb2f7ae35db14ecdb37fc33988bf723c27ac27158c9749"},
+    "MACHINE_CORE_BANDS.1-2": {"text": "Una máquina con 1 a 2 núcleos.", "by": "machine", "model": "draft-prose", "source": "af0c8d18b1d099193f257eff85b7ddf05857fdb3f0536d549f690c2ba6c3855d"},
+    "MACHINE_CORE_BANDS.17-32": {"text": "Una máquina con 17 a 32 núcleos.", "by": "machine", "model": "draft-prose", "source": "b24a9ca1b51c67199095c68b1b4aa82dcae50945ff9bd84ff32e325318a557ed"},
+    "MACHINE_CORE_BANDS.3-4": {"text": "Una máquina con 3 a 4 núcleos.", "by": "machine", "model": "draft-prose", "source": "51193eea51ad9da0f993bce35c2be6c27156bad05e00d881578e732e363c2346"},
+    "MACHINE_CORE_BANDS.33+": {"text": "Una máquina con 33 o más núcleos.", "by": "machine", "model": "draft-prose", "source": "66a11e75cf62899e2b7e26030fe8a69bf641f783d00359a134741b36d79a2284"},
+    "MACHINE_CORE_BANDS.5-8": {"text": "Una máquina con 5 a 8 núcleos.", "by": "machine", "model": "draft-prose", "source": "f559a9a24bdee2b96c673cdec9c96e7690b2b835ad3939a9264e8161b5ac37d5"},
+    "MACHINE_CORE_BANDS.9-16": {"text": "Una máquina con 9 a 16 núcleos.", "by": "machine", "model": "draft-prose", "source": "27a9a80bea7850062bf2cde1752e0dec8eb609bc5ef59d464051525b71059368"},
+    "MACHINE_PROFILE_FIELDS.cpuidle": {"text": "El controlador o la política de inactividad de la CPU en efecto cuando se tomó la figura.", "by": "machine", "model": "draft-prose", "source": "43a4e0d29450f4ee6febd5a21d6bc8620f28ac17d7e4314265910ea60db503ae"},
+    "MACHINE_PROFILE_FIELDS.governor": {"text": "El gobernador de frecuencia de la CPU en efecto cuando se tomó la figura.", "by": "machine", "model": "draft-prose", "source": "1a52072321a801b79b9670cab761d34b596f16a2b4739a01f6505bd721d55147"},
+    "MACHINE_PROFILE_FIELDS.preempt": {"text": "Si el hilo de medición se ejecutó bajo la preempción en tiempo real, o programado como cualquier otro hilo.", "by": "machine", "model": "draft-prose", "source": "494114051798c11b3979e5c521542c2d6569facb84625e0e51ff0667f1b294c1"},
+    "MACHINE_PROFILE_FIELDS.smt": {"text": "Si el multihilo simultáneo estaba habilitado cuando se tomó la figura.", "by": "machine", "model": "draft-prose", "source": "7ac0c3249cd98fdfad43079a105c18ebd6610bce779bd5e16331469a0caafab0"},
+    "MACHINE_PROFILE_FIELDS.turbo": {"text": "Si el turbo o el aumento de reloj estaban habilitados cuando se tomó la figura.", "by": "machine", "model": "draft-prose", "source": "80801d755eb869a267ed0a8436d87daa97e2a609416b35570d8dccb8017f0bb5"}
+  }
+}
