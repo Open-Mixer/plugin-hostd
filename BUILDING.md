@@ -31,16 +31,16 @@ to build or run when the protocol's parameter scales are not the contract's
 
 The words a probe run writes (`PROBE_REASONS`, `PROBE_OUTCOMES`, `PROBE_STEPS`, `PROBE_SIGNALS`) are the domain `probe`,
 which is plugin-hostd-protocol's (`contract.d/probe/probe.json` there, shipped by
-`plugin-hostd-protocol-contract`; floor 1.0.0, read the same way, refused by name with 78 when absent or too old; `make
+`plugin-hostd-protocol-contract`; read the same way, refused by name with 78 when absent; `make
 test-probe-domain`, `make test-probe-owner`). The protocol header's lists give the probe the ids of reasons, outcomes and steps, and
 the words are the domain's, which the test holds to the header's, word for word. `PROBE_SIGNALS` is marked `x-c-codes`: the
 signal codes of `src/probe_words.h` come from `<plugin-hostd/probe_codes.h>`, the render protocol installs with its headers.
 
 The scopes of a field dump that `describe` reads (`SCAN_FIELD_SCOPES`) are omx-clap-core's scan domain
-(`contract.d/scan/scan.json` there, shipped by `omx-clap-contract`, floor 0.33.0, the release that shipped the scopes;
-the domain is versioned with the package since omx-clap-core#123), read once at the start of `describe` through
+(`contract.d/scan/scan.json` there, shipped by `omx-clap-contract`; no version is asked of it), read once at the start
+of `describe` through
 `scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
-absent, too old or short of a scope ends the start with 78.
+absent or short of a scope ends the start with 78.
 
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
 `contract.d/machine/machine.json`; the three items are marked `x-c-codes`, so the band counts and the family ids of
@@ -50,9 +50,9 @@ fails when it is not the render), and the qualification words (`QUALIFICATION_ME
 items) are this tree's third domain, `contract.d/qualification/qualification.json`, shipped by `plugin-hostd-contract`
 (`make test-qualification-domain-owned`); this tree renders nothing of it. Both are read
 through one function, `domain_words_open` (`src/domain_words.c`), over omx-contract's C loader (`libomx-domain`,
-`pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel` 3.20.0 or later; floor 1.1.0 for both).
+`pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel`; no version is asked of either domain).
 The probe runner opens both once at start-up and ends it with status 78 and the loader's code, naming the domain, when
-one is absent, invalid or older. The probe and the schema generator read `OMX_CONTRACT_PATH` (a ':' list, the first
+one is absent or invalid. The probe and the schema generator read `OMX_CONTRACT_PATH` (a ':' list, the first
 directory holding the domain wins: their test entry, which the Makefile points at this checkout's `contract.d`
 followed by the installed contract directory); the daemon reads the installed contract directory only, where
 `plugin-hostd-contract` installs the machine, probe and qualification domains. The tests of this tree read the checkout's own
@@ -129,7 +129,7 @@ exit), with `tests/stress.clap` (a passthrough that crashes on a parameter
 write, spins, keeps state). It kills workers and reads the graph and the audio
 level of a neighbouring chain across the kill. Given omx-clap-host's meter fixtures
 (`FAKE_COMPRESSOR_CLAP=/usr/libexec/omx-clap-host/tests/fake_compressor.clap JACK_METER_SOURCE=/usr/libexec/omx-clap-host/tests/jack_meter_source`,
-installed by the omx-clap-host-tests package, which the spec and `debian/control` name as a build dependency of the check stage only, with a floor), it
+installed by the omx-clap-host-tests package, which the spec and `debian/control` name as a build dependency of the check stage only, by name), it
 also reads the meters of a CLAP compressor as `output_set` on the daemon's feedback port, before and after its
 worker is killed.
 
