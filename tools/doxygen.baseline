@@ -18,17 +18,6 @@ src/conf.h: warning: Member conf_spread(const conf_t *conf) (function) of file c
 src/conf.h: warning: Member conf_string_key (enumeration) of file conf.h is not documented.
 src/conf.h: warning: Member conf_t (typedef) of file conf.h is not documented.
 src/conf.h: warning: Member from_file[CONF_STRINGS_N] (variable) of struct CONF_T is not documented.
-src/describe.h: warning: Member describe_dump(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
-src/describe.h: warning: Member describe_format(const char *target) (function) of file describe.h is not documented.
-src/describe.h: warning: Member describe_id(const char *target) (function) of file describe.h is not documented.
-src/describe.h: warning: Member describe_pages(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
-src/describe.h: warning: Member describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size) (function) of file describe.h is not documented.
-src/descriptors.h: warning: Member descriptors_add(const char *uri) (function) of file descriptors.h is not documented.
-src/descriptors.h: warning: Member descriptors_finish(void) (function) of file descriptors.h is not documented.
-src/descriptors.h: warning: Member descriptors_get(const char *uri) (function) of file descriptors.h is not documented.
-src/descriptors.h: warning: Member descriptors_init(conf_t *conf) (function) of file descriptors.h is not documented.
-src/descriptors.h: warning: Member descriptors_panel_get(const char *uri) (function) of file descriptors.h is not documented.
-src/descriptors.h: warning: Member descriptors_tick(void) (function) of file descriptors.h is not documented.
 src/pins.h: warning: Member pin_refuse(const char *uri, const char *path, const char *why) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_accept(const format_t *format, const char *uri, const char *search) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_accepting(int on) (function) of file pins.h is not documented.
@@ -48,10 +37,6 @@ src/pins.h: warning: Member pins_set(const char *uri, const char *files, const c
 src/pins.h: warning: Member pins_set_layout(const char *uri, const char *layout) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_verdict(const char *uri) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_words(char **word, int n, const char **verdict, const char **pool) (function) of file pins.h is not documented.
-src/placement.h: warning: Member placement_capacities(const char *dir, const cpu_set_t *allowed, long *capacity) (function) of file placement.h is not documented.
-src/placement.h: warning: Member placement_cores(const cpu_set_t *allowed, const char *audio_cores, const long *capacity, cpu_set_t *audio, cpu_set_t *reserved) (function) of file placement.h is not documented.
-src/placement.h: warning: Member placement_list_text(const cpu_set_t *set, char *buf, size_t size) (function) of file placement.h is not documented.
-src/placement.h: warning: Member placement_parse(const char *list, cpu_set_t *set) (function) of file placement.h is not documented.
 src/probe_cgroup.h: warning: Compound PROBE_CGROUP_T is not documented.
 src/probe_cgroup.h: warning: Member PROBE_CGROUP_ROOT (macro definition) of file probe_cgroup.h is not documented.
 src/probe_cgroup.h: warning: Member dir[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
@@ -62,8 +47,3 @@ src/probe_cgroup.h: warning: Member probe_cgroup_oom_kills(const probe_cgroup_t 
 src/probe_cgroup.h: warning: Member probe_cgroup_open(probe_cgroup_t *cg, const char *root, long long max_bytes) (function) of file probe_cgroup.h is not documented.
 src/probe_cgroup.h: warning: Member probe_cgroup_t (typedef) of file probe_cgroup.h is not documented.
 src/probe_cgroup.h: warning: Member self_leaf[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
-src/probe_lock.h: warning: Compound probe_lock_report_t is not documented.
-src/probe_lock.h: warning: Member PROBE_LOCK_FD (macro definition) of file probe_lock.h is not documented.
-src/probe_lock.h: warning: Member PROBE_LOCK_FD_ENV (macro definition) of file probe_lock.h is not documented.
-src/probe_lock.h: warning: Member error (variable) of struct probe_lock_report_t is not documented.
-src/probe_lock.h: warning: Member locked (variable) of struct probe_lock_report_t is not documented.
