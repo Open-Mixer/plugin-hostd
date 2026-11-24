@@ -892,7 +892,7 @@ check-floors-only:
 	python3 tests/floors_only.py
 
 # plugin-hostd builds neither package that moved out: plugin-hostd-full is Open-Mixer/plugin-hostd-full's (#84), the
-# Python codec python3-plugin-hostd-protocol is plugin-hostd-protocol's, at epoch 1 (tests/no_moved_packages.py)
+# Python codec python3-plugin-hostd-protocol is plugin-hostd-protocol's, a floor with no epoch (tests/no_moved_packages.py)
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
 
