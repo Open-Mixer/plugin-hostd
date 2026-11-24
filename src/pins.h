@@ -64,8 +64,9 @@ int pins_reload(void);
  * @return 1 when one changed, 0 otherwise or when neither is set.
  */
 int pins_changed(void);
-/** @brief reads the optional words of a pin line after its layout: verdict=\<word\> and pool=\<word\>, each once, in either
- * order
+/** @brief reads the optional words of a pin line after its layout
+ *
+ * They are verdict=\<word\> and pool=\<word\>, each once, in either order.
  *
  * @param word the words.
  * @param n how many words.
