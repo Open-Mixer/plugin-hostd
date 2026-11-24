@@ -582,33 +582,33 @@ SABOTAGE = [
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
-    ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "", "no pin anywhere", "nopins"),
-    ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", "", "no pin anywhere", "nopins"),
+    ("the spec types a floor on omx-clap-host-tests again", "packaging/plugin-hostd.spec",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests >= 0.34.0\n", "no pin anywhere", "nopins"),
+    ("debian/control types a floor on omx-clap-host-tests again", "debian/control",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests (>= 0.34.0~) <!nocheck>,", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: (omx-clap-host-tests with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< 0.8~) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (<< 0.8~) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<= 0.9) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (<= 0.9) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (= 0.9.0) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (= 0.9.0) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (< 0.10) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (< 0.10) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
@@ -757,8 +757,6 @@ SABOTAGE = [
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("the probe writes a scheduling class it types itself", "src/probe.c", 'fifo ? g_qw.fifo : g_qw.none, fifo ? g_rt.priority : 0',
      'fifo ? "fifo" : "none", fifo ? g_rt.priority : 0', "run.realtime.class is the domain's word", "qualdomain"),
-    ("the probe asks the domain for no floor", "src/qualification_words.h", '#define QW_FLOOR "1.1.0"', '#define QW_FLOOR "0.0.0"',
-     "a domain below 1.1.0 is refused", "qualdomain"),
     ("the probe starts on a domain the loader refused", "src/probe.c", '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0)\n',
      '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0 && 0)\n', "an absent domain ends the run", "qualdomain"),
     ("the probe ignores OMX_CONTRACT_PATH", "src/probe.c", 'qualification_words_load(getenv("OMX_CONTRACT_PATH"))', "qualification_words_load(NULL)",
@@ -1766,12 +1764,6 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
 
-# the omx-clap-host-tests pin cases name the floor the spec declares today, so raising the floor
-# never leaves them breaking a line that is no longer there
-_PIN = re.search(r"^BuildRequires: omx-clap-host-tests >= ([0-9.]+)$",
-                 open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M) \
-    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor")
-SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)) if isinstance(x, str) else x for x in case) for case in SABOTAGE]
 
 
 def rebuild(tree, jack):

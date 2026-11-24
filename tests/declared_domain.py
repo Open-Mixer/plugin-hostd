@@ -7,7 +7,7 @@
 #       verbs.json of plugin-hostd-protocol's package;
 #   (b) the four items come back in the number of words they had (39 reply codes, 30 daemon verbs, 6 protocol verbs, 3 extensions;
 #       the 30th daemon verb is description_get, plugin-hostd-protocol#128, which src/verbs.c answers from the descriptions
-#       store), and the `since` of a protocol verb, which tests/protocol_floor.py reads, is there;
+#       store), and the `since` of a protocol verb is there;
 #   (c) a changed copy of the domain, rendered as plugin-hostd-protocol renders it, changes the header the daemon is built
 #       against: the verb table the daemon answers from is the domain's.
 # Usage: declared_domain.py
@@ -41,7 +41,7 @@ def main():
     items = declared.verbs()
     got = {k: (v["kind"], len(v[v["kind"]])) for k, v in items.items() if k in GOLDEN}
     check(got == GOLDEN, "(b) the four items hold %s" % got)
-    check(items["PLUGIN_HOSTD_PROTOCOL_LIBRARY_VERBS"]["verbs"]["hello"].get("since") == "0.3.0", "(b) hello's since, which tests/protocol_floor.py reads, is the domain's")
+    check(items["PLUGIN_HOSTD_PROTOCOL_LIBRARY_VERBS"]["verbs"]["hello"].get("since") == "0.3.0", "(b) hello's since is the domain's")
     work = tempfile.mkdtemp(prefix="declared-domain.")
     try:
         copy = os.path.join(work, "contract.d", "plugin-hostd-protocol", "plugin-hostd-protocol.json")

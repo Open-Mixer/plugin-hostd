@@ -6,5 +6,5 @@ Name: plugin-hostd
 Description: What plugin-hostd declares beside its protocol: pins, the planner's words, the probe and preset schemas
 Version: @VERSION@
 # <plugin-db/pin.h>, and through it libcrypto
-Requires: plugin-hostd-protocol >= @PROTOCOL_FLOOR@, plugin-db >= @PLUGIN_DB_FLOOR@
+Requires: plugin-hostd-protocol, plugin-db
 Cflags: -I${includedir}

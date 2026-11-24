@@ -248,7 +248,7 @@ install_protocol:
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
-	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' -e 's,@PROTOCOL_FLOOR@,$(shell tools/dep-floor.sh plugin-hostd-protocol-devel),g' -e 's,@PLUGIN_DB_FLOOR@,$(shell tools/dep-floor.sh plugin-db-devel),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
+	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 
 # the domain machine (contract.d/machine: its document and its catalogs), installed to <contractdir>/machine/ by the
@@ -540,7 +540,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-description test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-description test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -779,9 +779,9 @@ JACK_SERVER ?= pipewire
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 # the reply curve_points must give, from omx-dsp's omx_curve_points (header only): the real instances' curves are held
 # to it in tests/jack_e2e.py
-OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= $(shell tools/dep-floor.sh omx-dsp-devel)' 2>/dev/null)
+OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags omxdsp 2>/dev/null)
 tests/curve_reply: tests/curve_reply.c
-	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel (the floor of packaging/deps.txt)" >&2; exit 1; }
+	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel" >&2; exit 1; }
 	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) -o $@ $< -lm
 
 test-jack: $(PROG_TEST) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply
@@ -856,15 +856,10 @@ gen: $(GEN)
 	for f in docs/guide.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$f.new && mv $$f.new $$f || exit 1; done
 
 # fails on any drift: every generated output must be byte-identical to a fresh generation, every region the generator
-# knows must be in a file. They are written against the protocol floor (tools/protocol-floor.sh): against a newer
-# installed minor, which may add rows, they are not compared and the check says so; GENERATED_COMPARE=always compares
-# them against whatever is installed (tests/perturbation.py, after make gen)
-GENERATED_COMPARE ?= floor
+# knows must be in a file. They are written against the plugin-hostd-protocol installed, the published lower level this
+# tree builds on: there is no floor release to compare against instead
 check-generated: $(GEN)
-	@floor=$$(sh tools/protocol-floor.sh); installed=$$($(PKG_CONFIG) --modversion plugin-hostd-protocol 2>/dev/null); \
-	if [ "$(GENERATED_COMPARE)" != always ] && [ "$$installed" != "$$floor" ]; then \
-	  echo "generated files are written against plugin-hostd-protocol $$floor; $$installed is installed: not compared"; exit 0; fi; \
-	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(GEN) probe-schema protocol/probe-output.schema.in > $$tmp/probe; cmp $$tmp/probe protocol/probe-output.schema.json; \
 	for f in docs/guide.md doc/plugin-hostd.1; do $(GEN) splice $$f > $$tmp/out; cmp $$tmp/out $$f; done; \
 	$(GEN) regions > $$tmp/regions; test -s $$tmp/regions; \
@@ -883,7 +878,7 @@ check-readme-facts:
 check-own-host-page:
 	python3 tests/own_host_page.py selftest
 
-# no pin: a dependency is declared in the spec and debian/control with a floor (no ceiling), nowhere else
+# no pin: a dependency is declared in the spec and debian/control by name, with no version, nowhere else
 check-no-pins:
 	python3 tests/no_pins.py
 
@@ -894,40 +889,25 @@ BIN ?= $(PROG)
 check-no-test-seam: $(BIN)
 	python3 tests/no_test_seam.py $(BIN)
 
-# the package that ships contract.d/<major>/plugin-hostd requires omx-contract 3.2.0 or later at run time, in the spec and
-# debian/control: the first whose schema takes every row key of the tables (#165)
-# the dependency floors are declared once, in packaging/deps.txt (floors only); the engine is Open-Mixer/.github's
-# deps-render (CI runs it as that action): locally name a checkout of it, make deps-check DOTGITHUB=<dir>;
-# make deps writes the floors into the spec and debian/control
+# no dependency carries a typed version: the spec and debian/control name packages only, and a relation that must exist
+# is generated (soname dependencies, ${shlibs:Depends}, = %{version}-%{release} between this spec's own packages).
+# Open-Mixer/.github's deps-render refuses any ceiling (CI runs it as that action): locally name a checkout of it,
+# make deps-check DOTGITHUB=<dir>
 DOTGITHUB ?=
-.PHONY: deps deps-check
-deps:
-	@test -n "$(DOTGITHUB)" || { echo "$@: name a checkout of Open-Mixer/.github: make $@ DOTGITHUB=<dir>" >&2; exit 2; }
-	$(DOTGITHUB)/.github/actions/deps-render/render.sh --write .
+.PHONY: deps-check
 deps-check:
 	@test -n "$(DOTGITHUB)" || { echo "$@: name a checkout of Open-Mixer/.github: make $@ DOTGITHUB=<dir>" >&2; exit 2; }
 	$(DOTGITHUB)/.github/actions/deps-render/render.sh --check .
 
-check-contract-floor:
-	python3 tests/contract_floor.py
-
-# every dependency deps.txt lists is declared at its floor and no ceiling, in the spec and in debian/control (tests/floors_only.py)
-check-floors-only:
-	python3 tests/floors_only.py
-
 # plugin-hostd builds neither package that moved out: plugin-hostd-full is Open-Mixer/plugin-hostd-full's (#84), the
-# Python codec python3-plugin-hostd-protocol is plugin-hostd-protocol's, a floor with no epoch (tests/no_moved_packages.py)
+# Python codec python3-plugin-hostd-protocol is plugin-hostd-protocol's, named with no epoch (tests/no_moved_packages.py)
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
 
-# the words of the protocol are read from the domain plugin-hostd-protocol (tests/declared_domain.py); the
-# plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
-# use (tests/protocol_floor.py)
-test: check-protocol-floor
-check-protocol-floor:
+# the words of the protocol are read from the domain plugin-hostd-protocol (tests/declared_domain.py)
+test: check-declared-domain
+check-declared-domain:
 	python3 tests/declared_domain.py
-	python3 tests/protocol_floor.py
-	python3 tests/pin_words_floor.py
 
 # a workflow step the runner may be unable to run fails where it cannot run it (#107)
 # the org.openmixer.preset file (docs/presets.md) holds to protocol/preset.schema.json, and a broken one does not

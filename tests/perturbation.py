@@ -229,7 +229,7 @@ def main():
         # the pages written against the protocol installed here, whatever its minor, then held to it
         r = make(tree, "gen")
         assert r.returncode == 0, "make gen in the scratch copy: " + r.stdout + r.stderr
-        r = make(tree, "check-generated", "GENERATED_COMPARE=always")
+        r = make(tree, "check-generated")
         assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
         before = protocol_json(tree, os.path.join(work, "before.json"))
         assert open(before).read() == open(declared.variable("protocoljson")).read(), \
@@ -258,12 +258,12 @@ def main():
                         open(path, "w").write(old.replace("OMX_VERB_INSTANCE_INFO", "OMX_VERB_INSTANCE_WHERE"))
 
         # the guard: a header changed and the pages not written again is drift
-        r = make(tree, "check-generated", "GENERATED_COMPARE=always")
+        r = make(tree, "check-generated")
         assert r.returncode != 0, "check-generated passed over a changed declaration"
         print("ok   check-generated fails on a changed declaration whose pages were not written again")
 
         for target in ("gen", "check-generated", DAEMON_TEST):
-            r = make(tree, target, "GENERATED_COMPARE=always")
+            r = make(tree, target)
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
         after = protocol_json(tree, os.path.join(tree, "protocol", "plugin-hostd.json"))
 

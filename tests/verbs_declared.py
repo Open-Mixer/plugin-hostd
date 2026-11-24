@@ -45,17 +45,6 @@ def fail(what):
     print("FAIL " + what)
 
 
-# the plugin-hostd-protocol release this tree is written against: the spec's floor (tools/protocol-floor.sh)
-FLOOR = subprocess.run(["sh", os.path.join(ROOT, "tools", "protocol-floor.sh")], capture_output=True, text=True,
-                       check=True).stdout.strip()
-
-
-def newer_than_floor(since):
-    """whether a verb's own since names a protocol release past the floor; a verb with none is the tree's"""
-    as_tuple = lambda v: tuple(int(x) for x in v.split("."))
-    return bool(since) and as_tuple(since) > as_tuple(FLOOR)
-
-
 # ---------------------------------------------------------------- the declarations
 
 def codes_of(docs):
@@ -390,12 +379,9 @@ def check_verbs(declared):
     try:
         d, ctx = setup(s)
         owed = [v for v in declared if owes(declared[v], HOSTD)]
-        # a verb a protocol release past this tree's floor added (its own since) is not this tree's: said, not owed
-        later = [v for v in owed if v not in LINES and newer_than_floor(declared[v].get("since"))]
-        if later:
-            print("note %s: declared by a plugin-hostd-protocol release past this tree's floor %s, not checked here"
-                  % (sorted(later), FLOOR))
-        missing = [v for v in owed if v not in LINES and v not in later]
+        # every verb the installed declaration gives plugin-hostd is owed: the tree builds on the protocol installed, and
+        # there is no floor release whose later verbs it could set aside
+        missing = [v for v in owed if v not in LINES]
         if missing:
             fail("no well-formed line for %s, which the declarations give plugin-hostd" % missing)
         for verb in sorted((v for v in owed if v in LINES), key=ORDER.index):
@@ -559,7 +545,7 @@ def main():
     docs, source = package("omx-clap")
     if not docs:
         fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: the domain plugin-hostd-protocol requires it "
-             "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
+             "(requires %s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0].get("requires"))
         return 1
     moved_arms(package_tables("omx-clap"), domain_docs("omx-clap"))
     own = verbs_of(own_docs, own_docs + docs)
@@ -599,7 +585,7 @@ def main():
             events = {k: w["word"] for k, w in item["words"].items()}
     xruns = re.search(r'^#define\s+PHD_EVENT_XRUNS\s+"(\w+)"', header, re.M)
     if "xruns" not in events:
-        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap"))
+        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0].get("requires"))
     elif not xruns or xruns.group(1) != events["xruns"]:
         fail("protocol.h's PHD_EVENT_XRUNS is %r, omx-clap-core's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
     else:
