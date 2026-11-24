@@ -39,6 +39,11 @@ BuildRequires: libplugin-qualification-db-devel >= 2026112001
 BuildRequires: sqlite-devel >= 3.37.0
 Requires: libplugin-qualification-db >= 2026112001
 Requires: sqlite-libs >= 3.37.0
+# the reader of the descriptions store, <omx-panel/omx_panel_store.h> (src/descriptions.c): a plugin's port groups and the
+# key description_get answers; 0.16.0 the first release of its reader as the daemon calls it (rules 4, the source a get
+# takes). Its package also holds the command omx-panel-store, which writes the stores of make test-description; a floor only
+BuildRequires: omx-panel-store-devel >= 0.16.0
+Requires: omx-panel-store >= 0.16.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}
@@ -52,6 +57,8 @@ Requires: libomx-domain >= 3.21.0
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
+# the tests import the protocol's Python client, plugin_hostd_client (plugin-hostd-protocol issue 45)
+BuildRequires: python3-plugin-hostd-client >= 0.9.0
 BuildRequires: omx-clap-host-tests >= 0.34.0
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.21.0
@@ -190,7 +197,6 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %doc README.md
 %{_libexecdir}/plugin-hostd/tests/fake-host
 %{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
-%{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING

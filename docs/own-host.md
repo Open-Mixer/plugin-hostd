@@ -112,6 +112,11 @@ gets the grant of the user's login session: the `rtprio` and `memlock` of `/etc/
 example the `audio` group's). `plugin-hostd-probe run --list-limits` prints what a run would get: the `realtime` line
 names the grant and the priority, or why there is none.
 
+The descriptions store's ask (`docs/guide.md`, The descriptions store) runs `plugin-qualify-sync --plugin` as a child of
+plugin-hostd: it inherits plugin-hostd's own grant (its unit's `LimitRTPRIO=` and `LimitMEMLOCK=`, or the session's),
+and starts at nice 19 under `SCHED_IDLE` and the idle I/O class, since the engine plays meanwhile; its figures are
+recorded as measured under load and the next scan measures them again. The drop-in above stays for the batch sync.
+
 The probe's memory limit is `memory.max` of a cgroup it makes for the measured child. A service running as root needs nothing
 for that. A service under another user needs `Delegate=memory` in the same drop-in; without it the limit is `RLIMIT_DATA`, and
 the document says so under `limits.unavailable`.

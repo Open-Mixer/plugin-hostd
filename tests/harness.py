@@ -3,7 +3,10 @@
 # helpers that wait for what the daemon does instead of sleeping and hoping.
 import json, os, random, re, resource, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+# the protocol's Python client, python3-plugin-hostd-client (plugin-hostd-protocol issue 45); PLUGIN_HOSTD_CLIENT_DIR a
+# plugin-hostd-protocol checkout's clients/python
+if os.environ.get("PLUGIN_HOSTD_CLIENT_DIR"):
+    sys.path.insert(0, os.environ["PLUGIN_HOSTD_CLIENT_DIR"])
 import plugin_hostd_client
 
 # The protocol the daemon declares, read from the file a consumer reads: PLUGIN_HOSTD_PROTOCOL, else

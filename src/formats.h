@@ -222,6 +222,17 @@ int lv2_binary(const char *uri, const char *search, char *path, size_t size);
  */
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files);
 /**
+ * @brief The directory of the bundle of the search path whose manifest names the plugin.
+ *
+ * @param uri the plugin's URI, with or without its lv2: prefix
+ * @param search the LV2 search path
+ * @param[out] dir the bundle's directory
+ * @param size the room in dir
+ * @return 0, or -1 when no bundle names the plugin
+ * @note Not thread-safe: it uses proc_find_lv2_bundle.
+ */
+int lv2_bundle_dir(const char *uri, const char *search, char *dir, size_t size);
+/**
  * @brief Makes the narrowed world of an LV2 worker: one bundle for an own worker, the union of a chain's members'.
  *
  * `dir` is made if it is not there and emptied of what does not start with a dot. It then holds a link to each bundle

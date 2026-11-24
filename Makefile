@@ -83,6 +83,12 @@ PQDB_LIBS = -L$(PQDB_DIR) -lplugin-qualification-db -Wl,-rpath,$(abspath $(PQDB_
 PQDB_SCHEMA ?= $(PQDB_DIR)/schema/qualification.sql
 endif
 
+# the descriptions store's reader, omx-panel's libomx-panel-store (<omx-panel/omx_panel_store.h>, omx-panel-store-devel,
+# libomx-panel-store-dev): the daemon reads a plugin's port groups and its key through it (src/descriptions.c). Required: a
+# build with no store library has no description_get to answer. Its command, omx-panel-store, writes the tests' stores
+PANEL_STORE_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags omx-panel-store)
+PANEL_STORE_LIBS ?= $(shell $(PKG_CONFIG) --libs omx-panel-store)
+
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
 
@@ -105,7 +111,7 @@ endif
 # <plugin-db/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-db.pc requires libcrypto)
 PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
-INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS)
+INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS) $(PANEL_STORE_CFLAGS)
 
 # the machine domain (contract.d/machine/) and the qualification domain (contract.d/qualification/) are
 # read at start-up through omx-contract's C loader (libomx-domain) (src/domain_words.c, src/machine.c,
@@ -122,7 +128,7 @@ LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/confine.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/domain_words.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
+      src/descriptors.c src/descriptions.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/domain_words.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the words of this tree's domains plugin-hostd/grouping and plugin-hostd/history (contract.d/plugin-hostd/), rendered by omx-contract
@@ -139,7 +145,7 @@ $(REPLY_WORDS): $(dir $(PROTOCOL_JSON))plugin-hostd-protocol.json tools/reply-wo
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
-	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the test build of the daemon, never installed or packaged: src/main.c compiled with OMX_CONTRACTDIR, the one directory it
 # reads the machine domain from (the packaged daemon reads the installed contract directory only, no path and no
@@ -174,10 +180,10 @@ src/main-test-empty.o: src/main.c $(TEST_CONTRACT_EMPTY)
 	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_EMPTY)"' -DOMX_QUALIFICATION_TEST_STORE -c -o $@ src/main.c
 
 $(PROG_TEST): $(TEST_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(TEST_OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(TEST_OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) -lm -o $@
 
 $(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
-	$(CC) $(TEST_OBJ_EMPTY) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(TEST_OBJ_EMPTY) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
@@ -393,12 +399,13 @@ test-format-coverage:
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) lv2
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) --self-test
 
-# the fake worker and the protocol clients (lib/protocol.sh, lib/plugin_hostd_client.py), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
+# the fake worker and the shell protocol client (lib/protocol.sh), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance.
+# The Python client is the protocol's, python3-plugin-hostd-client (plugin-hostd-protocol issue 45): no copy here
 install_tests: $(FAKE)
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests
 	install -m 755 $(FAKE) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/fake-host
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
-	install -m 644 tests/lib/protocol.sh tests/lib/plugin_hostd_client.py $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
+	install -m 644 tests/lib/protocol.sh $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
 
 install_man:
 	install -d $(DESTDIR)$(MANDIR)
@@ -530,7 +537,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
+test: test-bounded-install test-bundle-rule test-description test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -555,7 +562,7 @@ test-ready-connect: $(PROG_TEST) $(FAKE)
 # the same test against a daemon whose ready line goes out before its sockets exist: it must fail (issue 238)
 .PHONY: test-ready-connect test-ready-connect-sabotage
 test-ready-connect-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
-	python3 tests/ready_connect_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+	python3 tests/ready_connect_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # who reaches the ports: 127.0.0.1 by default, other addresses only when asked (tests/bind_test.py), and the same test
 # against a daemon built with each guard taken out, which must fail
@@ -563,11 +570,17 @@ test-ready-connect-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
 test-bind: $(PROG_TEST) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
 test-bind-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE) $(OBJ)
-	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG_TEST) $(FAKE) $(SLOW_FSYNC)
 	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
+
+# the descriptions store (omx-panel docs/descriptions-store.md, section 7): groups from the store, description_get, the
+# ask and description_changed, over a store of each test's own written with the installed omx-panel-store command
+# (tests/description_test.py). Required here: a build host with no omx-panel-store fails it rather than skipping it
+test-description: $(PROG_TEST) $(FAKE)
+	DESCRIPTION_TEST_REQUIRED=1 PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/description_test.py
 
 # a timing proof reads the load (ruling 2026-11-11): on a node loaded past its cores a missed bound warns, naming the
 # load, for the gate to rerun on a quiet node; on a quiet node it fails (tests/timing_load_test.py, with a fake load)
@@ -611,7 +624,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 FORMAT_OBJ = $(filter-out src/main.o src/verbs.o,$(OBJ))
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) -lm
 
 
 # the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
@@ -703,7 +716,7 @@ $(ALLOC_SWEEP_DAEMON): $(TEST_CONTRACT_TREE) $(SRC) tests/alloc_fail.c tests/all
 	mkdir -p tests/alloc-fail-objs
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
-	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
@@ -712,7 +725,7 @@ $(PLAN_REFUSED_DAEMON): $(TEST_CONTRACT_TREE) $(SRC) tests/world_refuse.c tests/
 	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/world_refuse.o tests/world_refuse.c
-	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
+	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
 
 .PHONY: test-plan-refused
 test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
@@ -723,7 +736,7 @@ test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
 .PHONY: test-alloc-sweep
 test-alloc-sweep: $(ALLOC_SWEEP_DAEMON) $(FAKE)
 	ALLOC_SWEEP_DAEMON=./$(ALLOC_SWEEP_DAEMON) FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep.py
-	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
+	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
 
 # the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
 # each is built with its allocation calls renamed, so the test picks the one that fails
@@ -741,7 +754,7 @@ $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h src/domain_wor
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
-	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS)
+	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS)
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
@@ -929,11 +942,12 @@ test-install-schemas: all
 check-doxygen:
 	sh tools/doxygen_gate.sh
 
-# ruff's own ratchet on the Python client of the tests: D and the default rules (ruff.toml), today's findings carried by `# noqa`
-# comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff.
+# ruff's own ratchet on the Python plugin-hostd-tests ships (tests/lib): D and the default rules (ruff.toml), findings
+# carried by `# noqa` comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff. The
+# Python client is plugin-hostd-protocol's (python3-plugin-hostd-client, its issue 45) and ratcheted there.
 .PHONY: check-ruff
 check-ruff:
-	ruff check tests/lib/plugin_hostd_client.py
+	ruff check tests/lib
 
 # the two gates only shrink, by mechanism (tools/doc_shrink.sh against the base branch: DOC_GATE_BASE, origin/main by
 # default); tests/doc_gate_test.sh proves it, and that doxygen_gate.sh --update only lowers the baseline

@@ -29,6 +29,7 @@
 #include <protocol.h>
 #include <socket.h>
 
+#include "descriptions.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "pins.h"
@@ -207,13 +208,16 @@ static char *handle(char *line, char **tok, int ntok)
         const char *placement = NULL, *client = NULL, *uri;
         char joined[PATH_MAX + 256];
         unsigned at;
-        int next;
+        int next, ask = DESC_ASK_DEFAULT;
 
         /* the uri whole: a bare clap: uri whose path holds a space is joined again (phd_add_uri) */
         uri = phd_add_uri(tok, (unsigned)ntok, joined, sizeof(joined), &at);
         next = (int)at + 1;
         if (!uri || ntok < next)
             return sup_resp(ERR_INVALID_OPERATION);
+        /* the ask word is the line's last word, after any placement and client name, and never a client name */
+        if (ntok > next && (!strcmp(tok[ntok - 1], PHD_ADD_ASK) || !strcmp(tok[ntok - 1], PHD_ADD_NO_ASK)))
+            ask = !strcmp(tok[--ntok], PHD_ADD_ASK) ? DESC_ASK_YES : DESC_ASK_NO;
         if (ntok > next && is_placement(tok[next]))
             placement = tok[next++];
         if (ntok > next)
@@ -221,11 +225,17 @@ static char *handle(char *line, char **tok, int ntok)
         if (ntok > next)
             return sup_resp(ERR_INVALID_OPERATION);
         reply_text = sup_add(uri, atoi(tok[at]), placement, client);
-        /* the plugin is running: its files are scanned after the reply, never before it */
+        /* the plugin is running: its files are scanned after the reply, never before it; its store entry is read, and
+         * a plugin no layer holds is asked for once the scan has ended */
         if (reply_text && sup_reply_code(reply_text) >= 0)
+        {
             descriptors_add(uri);
+            descriptions_add(uri, ask);
+        }
         return reply_text;
     }
+    if (!strcmp(verb, OMX_VERB_DESCRIPTION_GET))
+        return ntok == 2 ? descriptions_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_DESCRIPTOR_GET))
         return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PANEL_GET))
@@ -348,7 +358,8 @@ static int g_nout;
 static int reads_files(const char *verb)
 {
     return !strcmp(verb, OMX_VERB_PIN_RELOAD) || !strcmp(verb, OMX_VERB_PIN_CHANGED) ||
-           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET);
+           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET) ||
+           !strcmp(verb, OMX_VERB_DESCRIPTION_GET);
 }
 
 /* the verbs whose reply says their change is on disk: it goes when the write lands, and says so when it did not */

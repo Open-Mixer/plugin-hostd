@@ -22,10 +22,9 @@
 import json, os, re, socket, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import declared as protocol_files
-import harness
-import plugin_hostd_client
+import harness  # puts PLUGIN_HOSTD_CLIENT_DIR, when set, on sys.path
+import plugin_hostd_client  # the protocol's, python3-plugin-hostd-client
 import scan_fixture
 from verbs_ahead import AHEAD, ahead_of_daemon
 from harness import Daemon, Fail, check, wait_for

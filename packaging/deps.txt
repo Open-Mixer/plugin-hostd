@@ -15,6 +15,7 @@ python3-plugin-hostd-protocol     python3-plugin-hostd-protocol  0.8.0
 plugin-hostd-protocol             libplugin-hostd-protocol0      0.9.0
 plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.9.0
 plugin-hostd-protocol-contract    plugin-hostd-protocol-contract 0.9.0
+python3-plugin-hostd-client       python3-plugin-hostd-client    0.9.0
 plugin-db-devel                   plugin-db-dev                  0.5.0
 plugin-db-contract                plugin-db-contract             0.5.1
 omx-clap-contract                 omx-clap-contract              0.35.0
@@ -25,3 +26,5 @@ libplugin-qualification-db        libplugin-qualification-db0    2026112001
 libplugin-qualification-db-devel  libplugin-qualification-db-dev 2026112001
 sqlite-libs                       libsqlite3-0                   3.37.0
 sqlite-devel                      libsqlite3-dev                 3.37.0
+omx-panel-store                   libomx-panel-store0            0.16.0
+omx-panel-store-devel             libomx-panel-store-dev         0.16.0
