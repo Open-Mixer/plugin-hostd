@@ -5,6 +5,7 @@
 # plugin-hostd-protocol, a checkout of it at PROTOCOL_DIR (default ../plugin-hostd-protocol) stands in, as the Makefile
 # does. A tree's own include/plugin-hostd/ comes first, so a scratch tree that holds a changed copy of the headers
 # (tests/sabotage.py, tests/perturbation.py) is read before the installed ones, as the compiler reads them.
+import json
 import os
 import subprocess
 
@@ -111,7 +112,16 @@ def render_overlay(tree, verbs):
     try:
         os.makedirs(os.path.join(work, "data"))
         shutil.copy(verbs, os.path.join(work, "data", "verbs.json"))
-        subprocess.run(["sh", os.path.join(datadir, "install-contract-dir.sh"), PACKAGE, "0.0.0", "3", "data",
+        # staged at the version of the installed package it replaces: a domain beside it (this tree's qualification domain)
+        # floors on that package
+        version = "0.0.0"
+        for d in contract_dirs():
+            m = os.path.join(d, "3", PACKAGE, "MANIFEST.json")
+            if os.path.isfile(m):
+                with open(m) as f:
+                    version = json.load(f)["version"]
+                break
+        subprocess.run(["sh", os.path.join(datadir, "install-contract-dir.sh"), PACKAGE, version, "3", "data",
                         os.path.join(work, "stage"), "data"], cwd=work, check=True, stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
         # the installed package of the same name is left out: the staged one replaces it
         others = os.path.join(work, "others", "3")
@@ -121,6 +131,11 @@ def render_overlay(tree, verbs):
             for pkg in sorted(os.listdir(base)) if os.path.isdir(base) else []:
                 if pkg != PACKAGE and not os.path.exists(os.path.join(others, pkg)):
                     shutil.copytree(os.path.join(base, pkg), os.path.join(others, pkg))
+            # and the domains beside them (omx-clap's host, the pin domain): a package's table may require one
+            for dom in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                # a domain is <dom>/<dom>.json (a directory of nested domains alone, this tree's plugin-hostd/, is read beside its package only)
+                if dom != "3" and os.path.isfile(os.path.join(d, dom, dom + ".json")) and not os.path.exists(os.path.join(work, "others", dom)):
+                    os.symlink(os.path.join(d, dom), os.path.join(work, "others", dom))
         env = dict(os.environ, OMX_CONTRACT_PATH=os.path.join(work, "stage") + ":" + os.path.join(work, "others"))
         subprocess.run([os.environ.get("OMX_CONTRACT", "omx-contract"), "render", "--target", "c", "--package", PACKAGE,
                         "--installed", "--out", os.path.join(tree, "include", "plugin-hostd")], env=env, check=True, stderr=subprocess.PIPE, text=True,

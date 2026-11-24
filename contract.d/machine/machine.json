@@ -96,6 +96,7 @@
       "MACHINE_CORE_BANDS": {
         "description": "The bands a machine's core count falls in, ascending.",
         "x-since": "1.0.0",
+        "x-c-codes": true,
         "oneOf": [
           {
             "const": "1-2",
@@ -138,6 +139,7 @@
       "MACHINE_CLOCK_BANDS": {
         "description": "The bands a machine's clock falls in, ascending.",
         "x-since": "1.0.0",
+        "x-c-codes": true,
         "oneOf": [
           {
             "const": "<1.5GHz",
@@ -192,6 +194,7 @@
       "MACHINE_FAMILIES": {
         "description": "The CPU families the probe names a machine's CPU by.",
         "x-since": "1.1.0",
+        "x-c-codes": true,
         "oneOf": [
           {
             "const": "intel",

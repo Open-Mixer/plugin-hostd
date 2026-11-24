@@ -12,6 +12,8 @@ try:
 except ImportError:
     sys.exit("the probe runner test needs python3-jsonschema (dnf install python3-jsonschema, apt install python3-jsonschema)")
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe")))
 CHILD = os.path.abspath(os.environ.get("PROBE_CHILD", os.path.join(ROOT, "tests", "probe-child")))
@@ -69,13 +71,14 @@ def kill_leftover(pidfile):
 
 
 def floor_rates():
-    """omx-contract's ORACLE_FLOOR_RATES, the rates a run measures at by default, read from the installed contract"""
+    """omx-dsp's ORACLE_FLOOR_RATES, the rates a run measures at by default, read from omx-dsp's package of the installed
+    contract directory (the sorting pass, V25: the oracle rates left omx-contract)"""
     base = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True, check=True).stdout.strip()
     for major in sorted(os.listdir(base), reverse=True):
-        rates = os.path.join(base, major, "omx-contract", "rates.json")
+        rates = os.path.join(base, major, "omx-dsp", "primitives", "rates.json")
         if os.path.exists(rates):
             return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
-    raise AssertionError("omx-contract declares no ORACLE_FLOOR_RATES")
+    raise AssertionError("omx-dsp declares no ORACLE_FLOOR_RATES")
 
 
 def valid(doc):
@@ -1004,7 +1007,7 @@ def a_describe_child_keeps_the_memory_lock_and_rt_time_the_runner_was_started_wi
     memlock = 2 << 20 if hard == resource.RLIM_INFINITY else min(hard, 2 << 20)
     # the fake child is no scanner: describe refuses its output, and its limits are what is read
     subprocess.run(["prlimit", "--memlock=%d:%d" % (memlock, memlock), "--", PROBE, "describe", "--table",
-                    os.path.join(ROOT, "data", "formats", "clap.json"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
+                    format_tables.path("clap"), "--child", CHILD, "--wall-s", "5", "clap:%s#%s" % (CLAP, ID)],
                    env=dict(os.environ, PROBE_CHILD_LIMITS=seen), capture_output=True, text=True, timeout=30)
     check(os.path.exists(seen), "the describe child did not run")
     got = json.load(open(seen))

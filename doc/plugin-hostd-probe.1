@@ -1,4 +1,4 @@
-.TH PLUGIN\-HOSTD\-PROBE 1 "November 2026" "plugin-hostd 0.20.8" "User Commands"
+.TH PLUGIN\-HOSTD\-PROBE 1 "November 2026" "plugin-hostd 0.21.1" "User Commands"
 .SH NAME
 plugin\-hostd\-probe \- run a plugin prober under limits and write what happened
 .SH SYNOPSIS
@@ -72,7 +72,7 @@ Nothing a plugin prints can enter it.
 writes what a plugin states about itself as a scanned descriptor (omx\-contract's descriptors), on standard output.
 It runs omx\-clap\-scan \-\-fields on the plugin, under the same limits and in a process group of its own, and reads
 each field of the dump through the format's table, which plugin\-hostd\-devel installs in omx\-contract's contract
-directory (3/plugin\-hostd/formats/clap.json and lv2.json): each field becomes a descriptor word, goes verbatim into
+directory (the domains plugin\-hostd/clap and plugin\-hostd/lv2, plugin\-hostd/<format>/<format>.json): each field becomes a descriptor word, goes verbatim into
 the descriptor's extensions, or is dropped by the decision the table names. A field the table has no row for is refused.
 Its options:
 .TP
@@ -121,7 +121,7 @@ standard error; and 3 when the child made no scan.
 The program that loads the plugin. Default clap\-qualify, and /usr/libexec/plugin\-qualify/lv2_measure for an LV2.
 .TP
 .BI \-\-rates " R,R,..."
-Sample rates to run at. Default: omx\-contract's ORACLE_FLOOR_RATES, the rates every kernel oracle runs at, as the
+Sample rates to run at. Default: omx\-dsp's ORACLE_FLOOR_RATES, the rates every kernel oracle runs at, as the
 runner's usage prints them.
 .TP
 .BI \-\-quantum " n"
