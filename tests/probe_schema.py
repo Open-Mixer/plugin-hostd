@@ -66,7 +66,11 @@ BROKEN = [
     ("a verdict block added", "/", "not", put([], "verdict", {"class": "in-process"})),
     ("binary.sha256 removed", "/binary", "required", drop(["binary"], "sha256")),
     ("a step outcome that is no code", "/steps/0/outcome", "enum", put(["steps", 0], "outcome", "probe.exploded")),
-    ("a format version of another major", "/formatVersion", "pattern", put([], "formatVersion", "2.0")),
+    ("a format version of another major", "/formatVersion", "pattern", put([], "formatVersion", "3.0")),
+    # format 2.0 (plugin-hostd#269): the cost unit is omx-contract's RESOURCE_UNITS id; a 1.x document is not read
+    ("a format version of the old major 1", "/formatVersion", "pattern", put([], "formatVersion", "1.4")),
+    ("a cost unit spelled ns-per-sample, the 1.x word", "/grid/0/cost/unit", "const",
+     put(["grid", 0, "cost"], "unit", "ns-per-sample")),
     ("a cost percentile of 50", "/grid/0/cost/percentile/p", "exclusiveMinimum", None),
     ("an instrument timed holding no note", "/grid/0/cost/voices/held", "minimum",
      put(["grid", 0, "cost", "voices"], "held", 0), "instrument-notes"),
@@ -109,6 +113,31 @@ def percentile_50(d):
 unlimited = copy.deepcopy(fixture("success-msi"))
 unlimited["run"]["memoryLock"]["limitBytes"] = None
 check(not errors(unlimited), "a lock under an unlimited RLIMIT_MEMLOCK (limitBytes null) validates: %s" % errors(unlimited)[:3])
+
+
+
+def unit_words(node):
+    """every word the schema allows under a key named unit (its const and its enum)"""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == "unit" and isinstance(v, dict):
+                yield from ([v["const"]] if "const" in v else []) + list(v.get("enum", []))
+            yield from unit_words(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from unit_words(v)
+
+
+# a unit word has no "-" and no "/" (owner order 2026-11-24, omx-contract docs/units.md); the guard proves it sees one
+def bad_units(schema):
+    return [w for w in unit_words(schema) if "-" in w or "/" in w]
+
+
+words = list(unit_words(SCHEMA))
+check("nsPerSample" in words and not bad_units(SCHEMA), "no unit word of the schema has '-' or '/': %s" % bad_units(SCHEMA))
+spoiled = copy.deepcopy(SCHEMA)
+spoiled["$defs" if "$defs" in spoiled else "properties"]["unitProbe"] = {"unit": {"const": "ns-per-sample"}}
+check(bad_units(spoiled) == ["ns-per-sample"], "the unit guard sees a '-' in a unit word: %s" % bad_units(spoiled))
 
 for what, path, keyword, mutate, *broken in BROKEN:
     d = copy.deepcopy(fixture(broken[0] if broken else "success-msi"))

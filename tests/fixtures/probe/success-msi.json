@@ -1,6 +1,6 @@
 {
   "format": "plugin-hostd.probe-output",
-  "formatVersion": "1.1",
+  "formatVersion": "2.0",
   "run": {
     "id": "bench-20261017T221500Z-3569027",
     "startedAt": "2026-10-17T22:15:00+02:00",
@@ -284,7 +284,7 @@
         "method": "impulse-onset"
       },
       "cost": {
-        "unit": "ns-per-sample",
+        "unit": "nsPerSample",
         "median": 41.2,
         "percentile": {
           "p": 95,
@@ -321,7 +321,7 @@
         "method": "impulse-onset"
       },
       "cost": {
-        "unit": "ns-per-sample",
+        "unit": "nsPerSample",
         "median": 40.7,
         "percentile": {
           "p": 95,

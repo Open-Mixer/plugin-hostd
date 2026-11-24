@@ -352,7 +352,7 @@ def every_point_carries_the_cost_timed_at_its_own_rate():
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate of omx-contract's floor %s: %s" % (rates, doc["grid"]))
     for g in doc["grid"]:
         c = g.get("cost", {})
-        want = {"unit": "ns-per-sample", "median": g["rate"] / 1000, "percentile": {"p": 95, "value": g["rate"] / 1000 + 1},
+        want = {"unit": "nsPerSample", "median": g["rate"] / 1000, "percentile": {"p": 95, "value": g["rate"] / 1000 + 1},
                 "min": g["rate"] / 1000 - 1, "max": g["rate"] / 1000 + 4, "blocks": 256, "warmupBlocks": 64}
         check(c == want, "the point at %d carries the figures timed at %d, and no voices for an effect: %s" % (g["rate"], g["rate"], c))
 
@@ -393,7 +393,7 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
                              env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
     check(code == 0, "exit status %d" % code)
     valid(doc)
-    check(doc["formatVersion"] == "1.4", "formatVersion %s" % doc["formatVersion"])
+    check(doc["formatVersion"] == "2.0", "formatVersion %s" % doc["formatVersion"])
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
     for g in doc["grid"]:
         if g["rate"] == untimed:

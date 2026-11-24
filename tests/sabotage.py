@@ -780,7 +780,7 @@ SABOTAGE = [
      "success-msi validates", "probeschema"),
     ("the probe schema takes any outcome", "protocol/probe-output.schema.json", '"enum": ["probe.ok", "probe.crashed"',
      '"enum": ["probe.exploded", "probe.ok", "probe.crashed"', "success-msi validates", "probeschema"),
-    ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^1\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
+    ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^2\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
      "success-msi validates", "probeschema"),
     ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '\n                  "exclusiveMinimum": 50', '\n                  "exclusiveMinimum": 0',
      "success-msi validates", "probeschema"),
