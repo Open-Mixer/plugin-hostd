@@ -24,7 +24,7 @@ BuildRequires: plugin-hostd-protocol-devel >= 0.9.0
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: omx-contract-devel >= 3.21.0
+BuildRequires: omx-contract-devel >= 3.22.0
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
 # and this package's qualification domain through it (3.21.0: the domain format its x-from words and x-requires need, and the domain param); a floor only
 BuildRequires: libomx-domain-devel >= 3.21.0

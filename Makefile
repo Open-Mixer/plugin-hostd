@@ -159,10 +159,10 @@ PROG_TEST = tests/plugin-hostd-test
 PROG_TEST_EMPTY = tests/plugin-hostd-test-empty
 
 $(TEST_CONTRACT_TREE): $(wildcard contract.d/machine/*)
-	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel 3.22.0 or later, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	@test -f "$(CONTRACTDIR)/lv2/lv2.json" || { echo "$@: no $(CONTRACTDIR)/lv2/lv2.json: install plugin-db-contract (the LV2 unit ids a port's unit reads)" >&2; exit 1; }
 	rm -rf $@
-	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(TEST_CONTRACT_TREE)
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(TEST_CONTRACT_TREE) $(PROG)
 	# plugin-db's domain lv2 as installed, whose LV2_UNIT_IDS give a port's unit its standard id (src/lv2.c, #215 M5)
 	mkdir -p $(TEST_CONTRACT_TREE)/lv2 && cp $(CONTRACTDIR)/lv2/lv2.json $(TEST_CONTRACT_TREE)/lv2/
 
@@ -253,16 +253,16 @@ install_protocol:
 # INSTALL_CONTRACT_DIR (below) names the installer: omx-contract's own when installed, a checkout's otherwise
 .PHONY: install_machine_domain
 install_machine_domain:
-	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_machine_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
-	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(DESTDIR)$(CONTRACTDIR)
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_machine_domain: no install-contract-dir.sh: install omx-contract-devel 3.22.0 or later, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(DESTDIR)$(CONTRACTDIR) $(PROG)
 
 # the domain qualification (contract.d/qualification: what a qualification measures and records, with its catalogs; plugin-qualify's
 # up to its 1.4.0), installed to <contractdir>/qualification/ the same way: plugin-hostd-contract ships it, and the probe and the
 # schema generator refuse to start without it (78)
 .PHONY: install_qualification_domain
 install_qualification_domain:
-	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_qualification_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
-	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(DESTDIR)$(CONTRACTDIR)
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_qualification_domain: no install-contract-dir.sh: install omx-contract-devel 3.22.0 or later, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(DESTDIR)$(CONTRACTDIR) $(PROG)
 
 # the domains the vocabulary renders (VOCABULARY_DOMAINS: plugin-hostd/grouping, plugin-hostd/history) and the domains of the
 # format tables (FORMAT_DOMAINS: plugin-hostd/clap, plugin-hostd/lv2, each a sheet whose value is the map { format, rows }
@@ -273,8 +273,8 @@ FORMAT_DOMAINS = plugin-hostd/clap plugin-hostd/lv2
 OWNER_DOMAINS = machine qualification
 .PHONY: install_vocabulary_domains
 install_vocabulary_domains:
-	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_vocabulary_domains: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
-	for d in $(VOCABULARY_DOMAINS) $(FORMAT_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $(DESTDIR)$(CONTRACTDIR) || exit 1; done
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_vocabulary_domains: no install-contract-dir.sh: install omx-contract-devel 3.22.0 or later, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	for d in $(VOCABULARY_DOMAINS) $(FORMAT_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $(DESTDIR)$(CONTRACTDIR) $(PROG) || exit 1; done
 
 # the package plugin-hostd of omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/: a MANIFEST.json
 # naming this version and no file (this tree's contract is domains alone: the install script's --owner form), which is
@@ -346,7 +346,7 @@ render-verbs check-rendered:
 	if [ $@ = check-rendered ] && [ "$(RENDERED_COMPARE)" = recorded ] && [ -n "$$recorded" ] && [ "$$renderer" != "$$recorded" ]; then \
 	  echo "$(RENDERED) is rendered with omx-contract $$recorded; $$renderer is installed: not compared"; exit 0; fi; \
 	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	for d in $(OWNER_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $$tmp >/dev/null; done; \
+	for d in $(OWNER_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $$tmp $(PROG) >/dev/null; done; \
 	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) $$tmp $(OWNER_DOMAINS) >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed $(foreach d,$(VOCABULARY_DOMAINS),--with-domain contract.d/$(d)) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
