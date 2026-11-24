@@ -19,19 +19,20 @@
  */
 
 /** @file probe_words.h
- * @brief The words a probe run writes, which the probe domain (contract.d/probe/probe.json, shipped by
- * plugin-hostd-contract) holds: the run's reason, the outcome of a step and of the run, the steps, and the signal a child
+ * @brief The words a probe run writes, which plugin-hostd-protocol's probe domain (its contract.d/probe/probe.json, shipped by
+ * plugin-hostd-protocol-contract) holds: the run's reason, the outcome of a step and of the run, the steps, and the signal a child
  * died of.
  *
- * The ids come from the protocol header's own lists (PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES, PHD_PROBE_STEPS) and
- * PROBE_SIGNALS below; the word of an id is the domain's word at the id's place, read once at start-up, so no word is a
- * literal of the probe.
+ * The ids come from the protocol header's own lists (PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES, PHD_PROBE_STEPS) and, for the
+ * signals, the domain's own codes header (include/plugin-hostd/probe_codes.h, the render of PROBE_SIGNALS); the word of
+ * an id is the domain's word at the id's place, read once at start-up, so no word is a literal of the probe.
  */
 
 #ifndef PROBE_WORDS_H
 #define PROBE_WORDS_H
 
 #include <omxcontract/omx_domain.h>
+#include <plugin-hostd/probe_codes.h>
 #include <plugin-hostd/protocol.h>
 #include <signal.h>
 #include <stddef.h>
@@ -40,23 +41,6 @@
 #define PROBE_DOMAIN "probe"
 /** the lowest info.version of the probe domain this package reads */
 #define PROBE_FLOOR "1.0.0"
-
-/** the signals the probe names a dead child's by, X(id, signal): the words of PROBE_SIGNALS at these places, in order,
- * then the one word for any other signal (PROBE_SIGNAL_UNKNOWN) */
-#define PROBE_SIGNALS(X) \
-    X(SEGV, SIGSEGV) \
-    X(ABRT, SIGABRT) \
-    X(BUS, SIGBUS) \
-    X(FPE, SIGFPE) \
-    X(ILL, SIGILL) \
-    X(KILL, SIGKILL) \
-    X(TERM, SIGTERM) \
-    X(XCPU, SIGXCPU) \
-    X(XFSZ, SIGXFSZ) \
-    X(SYS, SIGSYS) \
-    X(PIPE, SIGPIPE) \
-    X(INT, SIGINT) \
-    X(HUP, SIGHUP)
 
 /** the reasons of a run, the places of the words of PROBE_REASONS */
 enum probe_reason
@@ -88,17 +72,6 @@ enum probe_step
     PROBE_STEP_COUNT
 };
 
-/** the signals, the places of the words of PROBE_SIGNALS: those of PROBE_SIGNALS, then any other */
-enum probe_signal
-{
-/** one row of PROBE_SIGNALS: its enum constant */
-#define X(id, sig) PROBE_SIGNAL_##id,
-    PROBE_SIGNALS(X)
-#undef X
-    PROBE_SIGNAL_UNKNOWN,
-    PROBE_SIGNAL_COUNT
-};
-
 /** The words, read once at start-up from the probe domain; they point into the open handle, which lives until
  * probe_words_close(). */
 typedef struct
@@ -107,7 +80,7 @@ typedef struct
     const char *reason[PROBE_REASON_COUNT];     /**< the PROBE_REASONS words, by enum probe_reason */
     const char *outcome[PROBE_OUTCOME_COUNT];   /**< the PROBE_OUTCOMES words, by enum probe_outcome */
     const char *step[PROBE_STEP_COUNT];         /**< the PROBE_STEPS words, by enum probe_step */
-    const char *signal[PROBE_SIGNAL_COUNT];     /**< the PROBE_SIGNALS words, by enum probe_signal */
+    const char *signal[OMX_PROBE_SIGNALS_COUNT]; /**< the PROBE_SIGNALS words, by the domain's codes (OMX_PROBE_SIGNALS_*) */
 } probe_words;
 
 /**

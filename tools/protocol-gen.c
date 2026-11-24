@@ -499,7 +499,7 @@ static const char *const PROBE_SCHED_POLICIES[] = {
 
 #define PROBE_LIST(token, list) { "@" token "@", list, sizeof(list) / sizeof(*list) }
 
-/* the items of plugin-qualify's qualification domain the probe output shares: the token is the item's own name */
+/* the items of the qualification domain the probe output shares: the token is the item's own name */
 static const char *const QUALIFICATION_ITEMS[] = {
     "QUALIFICATION_MEASUREMENT_LATENCY_METHODS",
     "QUALIFICATION_MEASUREMENT_VOICE_BASES",
@@ -574,7 +574,7 @@ static int domain_lists(const char *domain, const char *floor, const char *const
 
 /* TEMPLATE on stdout with each @PHD_PROBE_...@ token replaced by the quoted codes of that list of the header, each
  * @MACHINE_<ITEM>@ token by the quoted words of that item of the machine domain and each @QUALIFICATION_<ITEM>@ token
- * by the quoted words of that item of plugin-qualify's qualification domain and each @PLUGIN_DB_<ITEM>@ token by the
+ * by the quoted words of that item of the qualification domain and each @PLUGIN_DB_<ITEM>@ token by the
  * words of plugin-db's domain, so the schema's enumerations are the
  * declarations' own; each domain is read through the loader from OMX_CONTRACT_PATH (the generator's test entry: a ':'
  * list, the first directory holding it wins), else from the installed contract directory, and refused by name when it is

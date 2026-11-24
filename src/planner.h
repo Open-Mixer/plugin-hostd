@@ -48,7 +48,7 @@ enum {
 };
 
 /**
- * @brief The reasons of a plan, in the order of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json).
+ * @brief The reasons of a plan, in the order of PLUGIN_HOSTD_GROUPING_REASONS (contract.d/plugin-hostd/grouping).
  *
  * The test holds each to its word, which planner_reason_word gives.
  */
@@ -137,7 +137,7 @@ typedef struct PLANNER_PLAN_T {
 int planner_plan(const planner_settings_t *s, const planner_member_t *m, int n, planner_plan_t *out);
 
 /**
- * @brief The word of a reason: the one of data/grouping.json.
+ * @brief The word of a reason: the one of the domain plugin-hostd/grouping.
  *
  * @param reason a PLANNER_REASON_* value
  * @return the word, a constant string; NULL for PLANNER_REASON_NONE, PLANNER_REASON_COUNT and any other value

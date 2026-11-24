@@ -4,6 +4,7 @@ import filecmp, json, os, re, shutil, signal, socket, subprocess, sys, tempfile,
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from declared import variable
+import harness
 from harness import Daemon, Fail, alive, check, resp, run_tests, wait_for
 
 EXE = os.environ["PLUGIN_HOSTD"]
@@ -167,7 +168,7 @@ def clap_own_crash_replays_bit_identically_and_the_neighbour_never_notices():
 
 @test
 def clap_one_shot_crash_in_callback_comes_back_with_its_params():
-    marker = tempfile.mktemp(prefix="plugin-hostd-once.")
+    marker = harness.scratch_path("plugin-hostd-once.")
     d = daemon(env={"STRESS_CRASH_ONCE": marker})
     try:
         d.expect("add %s 0" % STRESS, "resp 0")
@@ -386,15 +387,15 @@ if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) f
             d.expect("add %s 0" % omx_uri("omx-comp", "comp"), "resp 0")
             d.expect("add %s 1" % omx_uri("omx-eq8", "eq8"), "resp 1")
             d.expect("add %s 2" % omx_uri("omx-eq32", "eq32"), "resp 2")
-            comp = [("threshold", comp_id["thresholdDb"], "db", ""), ("ratio", comp_id["ratio"], "ratio", ""),
-                    ("knee", comp_id["kneeDb"], "db", ""), ("makeup", comp_id["makeupDb"], "db", "")]
+            comp = [("threshold", comp_id["thresholdDb"], "dB", ""), ("ratio", comp_id["ratio"], "ratio", ""),
+                    ("knee", comp_id["kneeDb"], "dB", ""), ("makeup", comp_id["makeupDb"], "dB", "")]
             for sym, v in (("thresholdDb", -24.5), ("ratio", 4.0), ("kneeDb", 6.0), ("makeupDb", 2.25)):
                 d.expect("param_set 0 %s %s" % (comp_id[sym], v), "resp 0")
             d.expect(bind_line(0, 0, "transfer_curve", "dynamics", comp), "resp 0")
             eq8 = []
             for b in range(1, 9):
-                eq8 += [("band_type.%d" % (b - 1), eq8_id["b%d_type" % b], "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), eq8_id["b%d_freq" % b], "hz", ""),
-                        ("band_gain.%d" % (b - 1), eq8_id["b%d_gain" % b], "db", ""), ("band_q.%d" % (b - 1), eq8_id["b%d_q" % b], "", ""),
+                eq8 += [("band_type.%d" % (b - 1), eq8_id["b%d_type" % b], "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), eq8_id["b%d_freq" % b], "Hz", ""),
+                        ("band_gain.%d" % (b - 1), eq8_id["b%d_gain" % b], "dB", ""), ("band_q.%d" % (b - 1), eq8_id["b%d_q" % b], "", ""),
                         ("band_on.%d" % (b - 1), eq8_id["b%d_on" % b], "", "")]
             for b, (ty, g, q) in enumerate([(1, 4.5, 0.75), (0, -6.0, 2.0), (0, 3.0, 1.5), (3, 0.0, 8.0), (0, 1.25, 1.0),
                                             (0, -2.5, 4.0), (0, 0.5, 0.5), (2, -3.0, 0.75)], 1):
@@ -403,8 +404,8 @@ if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) f
             d.expect(bind_line(1, 0, "eq_response", "eq", eq8), "resp 0")
             eq32 = []
             for b in range(1, 33):
-                eq32 += [("band_type.%d" % (b - 1), eq32_id["b%d_type" % b], "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), eq32_id["b%d_freq" % b], "hz", ""),
-                         ("band_gain.%d" % (b - 1), eq32_id["b%d_gain" % b], "db", ""), ("band_q.%d" % (b - 1), eq32_id["b%d_q" % b], "", ""),
+                eq32 += [("band_type.%d" % (b - 1), eq32_id["b%d_type" % b], "", EQ8_SHAPES), ("band_freq.%d" % (b - 1), eq32_id["b%d_freq" % b], "Hz", ""),
+                         ("band_gain.%d" % (b - 1), eq32_id["b%d_gain" % b], "dB", ""), ("band_q.%d" % (b - 1), eq32_id["b%d_q" % b], "", ""),
                          ("band_on.%d" % (b - 1), eq32_id["b%d_on" % b], "", "")]
                 d.expect("param_set 2 %s %s" % (eq32_id["b%d_gain" % b], ((b * 5) % 25 - 12) / 2), "resp 0")
                 d.expect("param_set 2 %s 1" % eq32_id["b%d_on" % b], "resp 0")
@@ -431,9 +432,11 @@ if CURVE_REPLY and all(os.path.exists(os.path.join(OMX_CLAP_DIR, n + ".clap")) f
             d.expect("curve_points 0 7 41", "resp -537")
             d.expect("curve_points 0 0 1", "resp -539")
             d.expect("curve_points 9 0 41", "resp -3")
-            d.expect("curve_bind 0 1 transfer_curve reverb threshold=%s:db" % comp_id["thresholdDb"], "resp -536")
-            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=%s:hz" % comp_id["thresholdDb"], "resp -538")
-            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=nope:db", "resp -103")
+            d.expect("curve_bind 0 1 transfer_curve reverb threshold=%s:dB" % comp_id["thresholdDb"], "resp -536")
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=%s:Hz" % comp_id["thresholdDb"], "resp -538")
+            # a unit is a standard unit id (Hz, dB, ...): the old lower-case code word is no unit, refused the same way
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=%s:db" % comp_id["thresholdDb"], "resp -538")
+            d.expect("curve_bind 0 1 transfer_curve dynamics threshold=nope:dB", "resp -103")
             d.expect("curve_bind 0 1 transfer_curve dynamics threshold", "resp -902")
         finally:
             d.close()
