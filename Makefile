@@ -26,6 +26,8 @@ PROBE = plugin-hostd-probe
 PROBE_LOCK = plugin-hostd-probe-lock.so
 
 PKG_CONFIG ?= pkg-config
+# the organisation the workflows name (tests/no_pins.py, tests/sabotage.py): CI sets it, a box or a desk gets it here
+export GITHUB_REPOSITORY_OWNER ?= Open-Mixer
 
 # a plugin-hostd-protocol checkout, used when pkg-config finds no installed plugin-hostd-protocol
 PROTOCOL_DIR ?= ../plugin-hostd-protocol

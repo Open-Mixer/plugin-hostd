@@ -1518,6 +1518,12 @@ def can_lower():
 def worker_env_reaches_new_and_running_workers():
     cpus = sorted(os.sched_getaffinity(0))
     own = os.getpriority(os.PRIO_PROCESS, 0)   # the daemon's nice is the test's
+    if own + 2 > 19:
+        # the running worker is raised 2 above the nice it has, at least the test's own: a run already at nice 18 or 19
+        # (a box under a suite lock) has no room for it; named, never a red that is the runner's and not the daemon's
+        print("skip worker_env_reaches_new_and_running_workers: the test runs at nice %d, which leaves no room above it "
+              "(19 the highest)" % own)
+        return
 
     def applied(nice, current=own):
         """a daemon that cannot lower a nice cannot give a worker one below the one the worker has: its own, for a new worker"""
@@ -1579,6 +1585,10 @@ def a_nice_the_daemon_cannot_apply_is_logged():
         print("skip a_nice_the_daemon_cannot_apply_is_logged: this identity has CAP_SYS_NICE, which RLIMIT_NICE does not bind")
         return
     own = os.getpriority(os.PRIO_PROCESS, 0)
+    if own + 3 > 19:
+        print("skip a_nice_the_daemon_cannot_apply_is_logged: the test runs at nice %d, which leaves no room for nice %d "
+              "(19 the highest)" % (own, own + 3))
+        return
     d = daemon(rlimits={resource.RLIMIT_NICE: (0, 0)})
     try:
         d.expect("worker_env lv2 - %d" % (own + 3), "resp 0")
