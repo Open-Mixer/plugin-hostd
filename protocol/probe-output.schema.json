@@ -233,7 +233,12 @@
               "type": "string"
             },
             "family": {
-              "type": "string"
+              "enum": ["intel", "amd", "arm", "unknown"],
+              "x-from": [
+                {
+                  "$ref": "https://openmixer.org/contract/machine#/components/schemas/MACHINE_FAMILIES"
+                }
+              ]
             },
             "coreBand": {
               "enum": ["1-2", "3-4", "5-8", "9-16", "17-32", "33+"]
