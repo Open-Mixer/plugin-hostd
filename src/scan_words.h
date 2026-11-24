@@ -35,8 +35,10 @@
 
 /** the domain the scopes are read from */
 #define SCAN_DOMAIN "scan"
-/** the lowest info.version of the scan domain this package reads */
-#define SCAN_FLOOR "1.0.0"
+/** the lowest info.version of the scan domain this package reads: 0.33.0, the omx-clap release that shipped
+ * SCAN_FIELD_SCOPES with its meter word. omx-clap versions its domains with the package (omx-clap-core#123), so a 0.35.0
+ * install says 0.35.0; a 0.33.x or 0.34.x install, from before that, still says 1.0.0 and opens too */
+#define SCAN_FLOOR "0.33.0"
 
 /** the scopes the parser knows, by the title the domain gives their word */
 enum scan_scope

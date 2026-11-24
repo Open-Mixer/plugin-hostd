@@ -37,8 +37,9 @@ the words are the domain's, which the test holds to the header's, word for word.
 signal codes of `src/probe_words.h` come from `<plugin-hostd/probe_codes.h>`, the render protocol installs with its headers.
 
 The scopes of a field dump that `describe` reads (`SCAN_FIELD_SCOPES`) are omx-clap-core's scan domain
-(`contract.d/scan/scan.json` there, shipped by `omx-clap-contract`, floor 1.0.0), read once at the start of `describe`
-through `scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
+(`contract.d/scan/scan.json` there, shipped by `omx-clap-contract`, floor 0.33.0, the release that shipped the scopes;
+the domain is versioned with the package since omx-clap-core#123), read once at the start of `describe` through
+`scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
 absent, too old or short of a scope ends the start with 78.
 
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,

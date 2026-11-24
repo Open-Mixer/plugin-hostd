@@ -10,7 +10,9 @@
 #   (c) sabotage: a temporary contract directory whose domain has `param` renamed makes the renamed word the scope and
 #       `param` none; one short of a word, or with none, refuses the start-up by name (exit 78).
 #   (d) packaging: the scopes are omx-clap-core's, so the spec and debian/control name omx-clap-contract at the floor of
-#       the release that carries the scan domain under its new name (0.34.0, the omx-clap rename) or a later one, 0.35.0 since the unit-id rows read its OMX_PARAM_CONTRACT_UNIT_IDS (#215 M5), a floor only (no Breaks, Replaces, Conflicts or Provides).
+#       the release that carries the scan domain under its new name (0.34.0, the omx-clap rename) or a later one, 0.35.0 since the unit-id rows read its OMX_PARAM_CONTRACT_UNIT_IDS (#215 M5), a floor only (no Breaks, Replaces, Conflicts or Provides);
+#   (e) the floor is 0.33.0, the omx-clap release that shipped the scopes: a domain at 0.35.0 (versioned with the package
+#       since omx-clap-core#123), 0.33.0 or 1.0.0 (the old numbering) opens, one at 0.32.5 is refused too-old by name.
 #   describe_scopes_test.py   PROBE is the runner (default ./plugin-hostd-probe); OMX_CONTRACT_PATH is the test entry the
 #                             domain is read from: a ':' list, the first directory holding scan/ wins
 import json, os, shutil, subprocess, sys, tempfile
@@ -118,6 +120,22 @@ def main():
               "(d) debian/control depends on and builds against omx-clap-contract >= 0.35.0")
         check(not any(k + ":" in line and "omx-clap-contract" in line for line in (spec + control).splitlines()
                       for k in ("Breaks", "Replaces", "Conflicts", "Provides")), "(d) the relation is a floor only")
+
+        # (e) the floor: omx-clap versions its domains with the package (omx-clap-core#123), so the scan domain of a
+        # 0.35.0 install says 0.35.0; the scopes shipped in 0.33.0, whose install still said 1.0.0. Each opens; a
+        # domain older than the release that shipped the scopes is refused too-old, naming the floor 0.33.0.
+        def at(version):
+            def edit(d):
+                d["info"]["version"] = version
+            return edit
+
+        for version in ("0.35.0", "0.33.0", "1.0.0"):
+            ok, r = is_scope("clap", "param", sabotaged(tmp, "v" + version, at(version)), tmp)
+            check(ok, "(e) a scan domain at %s opens (%d: %s)" % (version, r.returncode, r.stderr.strip()))
+        r = describe_line("clap", "param:0", sabotaged(tmp, "v0.32.5", at("0.32.5")), tmp)
+        check(r.returncode == 78 and "contract.package.too-old" in r.stderr and "0.33.0" in r.stderr,
+              "(e) a scan domain at 0.32.5 is refused too-old, naming the floor 0.33.0 (%d: %s)"
+              % (r.returncode, r.stderr.strip()))
     return 1 if failed else 0
 
 
