@@ -32,7 +32,6 @@
 
 #define DUMP_VERSION_LINE "# omx-clap-scan --fields 1"
 #define SCHEMA_URL "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json"
-#define SCHEMA_FLOOR ">= 3.0.0"
 
 /* the scope words of a dump, the scan domain's (describe_scopes): the parser holds what each is, never its name */
 static const scan_words *g_scopes;
@@ -1292,8 +1291,7 @@ static int write_descriptor(const table_t *t, scan_t *s, const char *target, sb_
         return refuse("the dump states no %s", uri ? "data file (rdfs:seeAlso)" : "file (clap_entry)");
     if (uri == NULL && (v = get(g, "plugin.id")) == NULL)
         return refuse("the dump states no plugin id (clap_plugin_descriptor.id)");
-    sb_printf(b, "{\n  \"$schema\": \"%s\",\n  \"requires\": {\"omx-contract-schema\": \"%s\"},\n  \"origin\": \"scanned\",\n",
-              SCHEMA_URL, SCHEMA_FLOOR);
+    sb_printf(b, "{\n  \"$schema\": \"%s\",\n  \"origin\": \"scanned\",\n", SCHEMA_URL);
     SBL(b, "  \"plugin\": {\"id\": ");
     if (uri)
         sb_str(b, uri);

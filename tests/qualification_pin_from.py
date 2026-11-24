@@ -7,12 +7,12 @@
 a. every word of the item carries an `x-from` of one entry: the `$ref` of the domain pin's PIN_VERDICTS and the word's
    `title` as `x-term`, and its `const` is the word the domain pin gives that key (golden: in-process, isolated, refused);
 b. omx-contract validate of this document beside the domain pin accepts it (the real reader of an `x-from`);
-c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, no domain pin at all, and the package
-   plugin-hostd-protocol below 0.8.0 (the floor of the document's info.x-requires) are refused by validate, by name.
+c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS and no domain pin at all are refused by
+   validate, by name.
 
-The document declares `info.x-requires`: {"pin": ">= 1.0.0", "plugin-hostd-protocol": ">= 0.8.0"}: the domain its x-from
-names (the read refuses an x-from into a domain x-requires does not declare) and the package that ships it
-(plugin-hostd-protocol-contract 0.8.0). The scratch directories hold that package as the floor needs it: one table and its manifest at the version under test.
+The document declares `info.x-requires`, a sorted array of names with no version (the devel wave of 2026-11-24): the domains
+its x-from names (the read refuses an x-from into a domain x-requires does not declare) and the package plugin-hostd-protocol
+that ships the domain pin. The scratch directories hold that package: one table and its manifest.
 
 Environment: PIN_DOMAIN_DIR (a contract directory holding pin/pin.json: protocol's contract.d, or the installed contract
 directory, the default), OMX_CONTRACT (the command). Exit 0 all green, 1 a FAIL line."""
@@ -41,12 +41,11 @@ def pin_dir():
 
 
 def stub(d, package, version, item):
-    """a package that holds one small table and its manifest, at the version under test: the floor is all the document asks
+    """a package that holds one small table and its manifest, at a version: a name is all the document asks
     of it (a manifest names at least one file), and the table is formatted as the installer writes it"""
     dst = os.path.join(d, "3", package)
     os.makedirs(dst)
     doc = {"$schema": "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json",
-           "requires": {"omx-contract-schema": ">= 3.3.0"},
            item: {"kind": "words", "since": version, "doc": "The word of a stand-in table.",
                   "words": {"stub": {"word": "stub", "doc": "A stand-in."}}}}
     body = (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode()
@@ -77,17 +76,17 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
         os.makedirs(os.path.join(d, "pin"))
         with open(os.path.join(d, "pin", "pin.json"), "w") as f:
             f.write(pin if isinstance(pin, str) else json.dumps(pin, indent=2))
-    # the packages the floors name, at the versions under test (plugin-hostd-protocol's is the one the arms move), and the
+    # the package x-requires names (plugin-hostd-protocol), and the
     # term domains the latency and voice words name (plugin-db's lv2, omx-clap's clap), copied from the installed directory
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
-    stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_FLOOR_STUB")
+    stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_STUB")
     for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
         src = os.path.join(installed, "3", package)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, "3", package))
         elif os.path.isdir(os.path.join(installed, package)):
             # an owner that installs only domains (plugin-db from 0.5.0, V11: no package directory) is read as the domain
-            # of its name, as the installed contract directory answers the floor
+            # of its name, as the installed contract directory answers it
             shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
     for domain in ("lv2", "clap"):
         src = os.path.join(installed, domain)
@@ -165,11 +164,9 @@ def main():
         check(rc == 0, "(d) fmt --check accepts the document as it is: %s" % out[-160:])
         rc, out = fmt_check(tmp, "fmt-misformatted", json.dumps(json.loads(text), indent=4), open(pin_path).read())
         check(rc != 0, "(d) fmt --check refuses the document in another formatting: %s" % out[-120:])
-        rc, out = validate(tmp, "old-protocol", qual, pin, protocol="0.7.0")
-        check(rc != 0 and "0.8.0" in out, "(c) plugin-hostd-protocol 0.7.0 is below the document's floor: %s" % out[-160:])
-    check(qual["info"].get("x-requires") == {"clap": ">= 0.35.0", "lv2": ">= 1.0.0", "omx-clap": ">= 0.34.0", "pin": ">= 1.0.0",
-                                              "plugin-db": ">= 0.5.0", "plugin-hostd-protocol": ">= 0.8.0"},
-          "(a) info.x-requires names the domain pin at 1.0.0 and plugin-hostd-protocol at 0.8.0, and the term domains lv2 (plugin-db 0.5.0) and clap (omx-clap 0.34.0)")
+    check(qual["info"].get("x-requires") == ["clap", "lv2", "omx-clap", "pin", "plugin-db", "plugin-hostd-protocol"],
+          "(a) info.x-requires is the sorted array of names, no version: the domain pin and plugin-hostd-protocol, and the term "
+          "domains lv2 (plugin-db) and clap (omx-clap)")
     return 1 if failed else 0
 
 

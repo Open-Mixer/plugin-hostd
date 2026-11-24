@@ -112,8 +112,7 @@ with tempfile.TemporaryDirectory(prefix="format-domains-") as tmp:
     for f, g in good.items():
         check(g.returncode == 0 and "dB" in units(g), "%s: describe over the domain document answers, a unit dB among its controls (%d: %s)"
               % (f, g.returncode, g.stderr.strip()[:200]))
-    old = {"requires": {"omx-contract-schema": ">= 3.0.0"},
-           "PLUGIN_HOSTD_CLAP_MAP": dict(kind="formatMap", format="clap", rows={k: dict(r) for k, r in format_tables.rows(format_tables.load("clap"), "clap").items()})}
+    old = {"PLUGIN_HOSTD_CLAP_MAP": dict(kind="formatMap", format="clap", rows={k: dict(r) for k, r in format_tables.rows(format_tables.load("clap"), "clap").items()})}
     sheet = format_tables.load("clap")
     it = format_tables.item(sheet, "clap")
     it["x-value"] = {"format": "clap", "rows": old["PLUGIN_HOSTD_CLAP_MAP"]["rows"]}
