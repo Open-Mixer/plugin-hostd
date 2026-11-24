@@ -25,7 +25,7 @@
 
 int qw_open(const char *dirs, omx_domain **out, char *why, size_t n)
 {
-    return domain_words_open(QW_DOMAIN, QW_FLOOR, dirs, out, why, n);
+    return domain_words_open(QW_DOMAIN, dirs, out, why, n);
 }
 
 const char *qw_word(const omx_domain *d, const char *item, const char *key)

@@ -12,7 +12,7 @@ that the qualification store checks its record columns against. Arms 1 to 6.
 3. the probe writes the domain's words: over a scratch copy with every word renamed, a run (as it is, a --reason, and one
    that crashes) writes only renamed words at run.reason, run.outcome, steps[].step, steps[].outcome, steps[].signal and
    crash.signal, and the generated schema's enumerations are the renamed words;
-4. a probe domain that is absent, invalid, too old (below 1.0.0) or without an item is refused by name at start-up: the probe
+4. a probe domain that is absent, invalid or without an item is refused by name at start-up: the probe
    exits 78 with the loader's code and the domain's name, the generator exits 1 the same way; an item short of a word is
    refused by item;
 5. (moved: the package that ships the domain is plugin-hostd-protocol-contract; its own test installs it);
@@ -283,9 +283,6 @@ def arm4(doc, tmp):
     if doc is None:
         return
 
-    def old(d):
-        d["info"]["version"] = "0.9.0"
-
     def lacking(name):
         def edit(d):
             del d["components"]["schemas"][name]
@@ -298,8 +295,7 @@ def arm4(doc, tmp):
 
     before = len(failures)
     cases = [("absent", os.path.join(tmp, "nowhere"), "contract.dir.absent"),
-             ("invalid", fixture(tmp, "invalid", text="{ not json"), "contract."),
-             ("too old", fixture(tmp, "old", old), "contract.package.too-old")]
+             ("invalid", fixture(tmp, "invalid", text="{ not json"), "contract.")]
     cases += [("without %s" % i, fixture(tmp, "lacking-" + i, lacking(i)), i) for i in ITEMS]
     for what, dirs, mark in cases:
         p, out = run_probe(dirs, tmp)
@@ -313,10 +309,8 @@ def arm4(doc, tmp):
         p, out = run_probe(fixture(tmp, "short-" + i, short(i)), tmp)
         if not (p.returncode == 78 and out is None and i in p.stderr and "probe" in p.stderr):
             fail("arm 4: %s short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (i, p.returncode, p.stderr[-200:]))
-    if "1.0.0" not in run_probe(cases[2][1], tmp)[0].stderr:
-        fail("arm 4: the too-old refusal does not name the floor 1.0.0")
     if len(failures) == before:
-        ok("arm 4: an absent, invalid, too old, item-less or short probe domain is refused by name at start-up (78)")
+        ok("arm 4: an absent, invalid, item-less or short probe domain is refused by name at start-up (78)")
 
 
 def arm6(doc):

@@ -877,7 +877,6 @@ typedef struct PORTS_T {
  * and kept: its words are the handle's. A domain that cannot be opened is said once on stderr, and every unit then has
  * no word, which param_info answers as no parameter contract */
 #define LV2_UNITS_DOMAIN "lv2"
-#define LV2_UNITS_FLOOR "1.0.0"
 #define NS_OPENMIXER_UNIT "urn:openmixer:unit#"
 
 static const char *g_units_dirs;
@@ -901,7 +900,7 @@ static const char *unit_word(const char *iri)
         char why[512];
 
         g_units_tried = 1;
-        if (domain_words_open(LV2_UNITS_DOMAIN, LV2_UNITS_FLOOR, g_units_dirs, &g_units, why, sizeof(why)) != 0)
+        if (domain_words_open(LV2_UNITS_DOMAIN, g_units_dirs, &g_units, why, sizeof(why)) != 0)
         {
             fprintf(stderr, "plugin-hostd: the LV2 units read no word, plugin-db's domain " LV2_UNITS_DOMAIN " is not read: %s\n",
                     why);

@@ -43,7 +43,7 @@ int machine_words_open(const char *dirs, machine_words *w, char *why, size_t n)
     int rc;
 
     memset(w, 0, sizeof(*w));
-    if ((rc = domain_words_open(MACHINE_DOMAIN, MACHINE_FLOOR, dirs, &w->domain, why, n)) != 0)
+    if ((rc = domain_words_open(MACHINE_DOMAIN, dirs, &w->domain, why, n)) != 0)
         return rc;
     for (b = 0; b < sizeof(bands) / sizeof(*bands); b++)
     {

@@ -525,7 +525,6 @@ static const char *const MACHINE_ITEMS[] = {
 /* the items of plugin-db's own domain the probe output shares: the address-format words of a plugin, owned by plugin-db
  * (its domain `plugin-db`, since 0.4.7), the token the item's own name */
 #define PLUGIN_DB_DOMAIN "plugin-db"
-#define PLUGIN_DB_FLOOR "1.0.0"
 static const char *const PLUGIN_DB_ITEMS[] = {
     "PLUGIN_DB_ADDRESS_FORMATS",
 };
@@ -544,14 +543,14 @@ static const char *const PROBE_ITEMS[] = {
  * first directory holding the domain wins; else the installed directory): out[i] is the list of items[i], its token the
  * item's own name between '@'. One read for any domain, so another reader of a domain reuses it. Returns 0, or 1 after the
  * refusal (the domain, or an item it lacks, by name) is on stderr. */
-static int domain_lists(const char *domain, const char *floor, const char *const *items, size_t n, probe_list_t *out,
+static int domain_lists(const char *domain, const char *const *items, size_t n, probe_list_t *out,
                         char (*tokens)[96])
 {
     omx_domain *d = NULL;
     char why[512];
     size_t i;
 
-    if (domain_words_open(domain, floor, getenv("OMX_CONTRACT_PATH"), &d, why, sizeof(why)) != 0)
+    if (domain_words_open(domain, getenv("OMX_CONTRACT_PATH"), &d, why, sizeof(why)) != 0)
     {
         fprintf(stderr, "protocol-gen: %s\n", why);
         return 1;
@@ -610,12 +609,12 @@ static int probe_schema(const char *path)
     FILE *f;
     char line[512];
 
-    if (domain_lists(PROBE_DOMAIN, PROBE_FLOOR, PROBE_ITEMS, N_PROBE_ITEMS, LISTS + probe_first, probe_tokens) != 0 ||
-        domain_lists(MACHINE_DOMAIN, MACHINE_FLOOR, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
+    if (domain_lists(PROBE_DOMAIN, PROBE_ITEMS, N_PROBE_ITEMS, LISTS + probe_first, probe_tokens) != 0 ||
+        domain_lists(MACHINE_DOMAIN, MACHINE_ITEMS, N_MACHINE_ITEMS, LISTS + machine_first,
                      machine_tokens) != 0 ||
-        domain_lists(QW_DOMAIN, QW_FLOOR, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + qualification_first,
+        domain_lists(QW_DOMAIN, QUALIFICATION_ITEMS, N_QUALIFICATION_ITEMS, LISTS + qualification_first,
                      qualification_tokens) != 0 ||
-        domain_lists(PLUGIN_DB_DOMAIN, PLUGIN_DB_FLOOR, PLUGIN_DB_ITEMS, N_PLUGIN_DB_ITEMS, LISTS + plugin_db_first,
+        domain_lists(PLUGIN_DB_DOMAIN, PLUGIN_DB_ITEMS, N_PLUGIN_DB_ITEMS, LISTS + plugin_db_first,
                      plugin_db_tokens) != 0)
         return 1;
     f = fopen(path, "r");

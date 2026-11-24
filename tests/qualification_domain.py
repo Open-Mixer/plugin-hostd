@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The qualification words are plugin-hostd's domain (contract.d/qualification/qualification.json, its items
 # QUALIFICATION_*; plugin-qualify's up to its 1.4.0): plugin-hostd ships the document and no render of it, and the probe
-# reads it at start-up through the C loader (omx_domain_open, floor 1.1.0). Held here:
+# reads it at start-up through the C loader (omx_domain_open, asking no version). Held here:
 #   1. no qualification_vocabulary.h exists, is named by a source, a build rule, a package or a workflow;
 #   2. this tree holds the qualification document (the golden words are tests/qualification_domain_owned.py's);
 #   3. the words the probe writes are the domain's: a scratch copy of the domain with three words renamed, the probe pointed
 #      at it (--contract-dir, the probe's test entry), writes the renamed words;
-#   4. a domain that is absent, below the floor, or without a word the probe writes ends the run with the loader's code and
+#   4. a domain that is absent or without a word the probe writes ends the run with the loader's code and
 #      the domain's name (or the word and the item), and no document.
 #   PROBE=<runner> PROBE_CHILD=<tests/probe-child> STRESS_CLAP=<tests/stress.clap> qualification_domain.py
 import json, os, shutil, subprocess, sys, tempfile
@@ -21,7 +21,6 @@ PROBE = os.path.abspath(os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd
 CHILD = os.path.abspath(os.environ.get("PROBE_CHILD", os.path.join(ROOT, "tests", "probe-child")))
 CLAP = os.path.abspath(os.environ.get("STRESS_CLAP", os.path.join(ROOT, "tests", "stress.clap")))
 ID = "org.plugin-hostd.test.stress"
-FLOOR = "1.1.0"
 failed = 0
 
 
@@ -91,7 +90,7 @@ def main():
             check(doc["run"]["realtime"]["class"] in ("fifo-x", "none-x"), "run.realtime.class is the domain's word: %s" % doc["run"]["realtime"]["class"])
             check(doc["grid"][0]["latency"]["method"] == "impulse-x", "latency.method is the domain's word: %s" % doc["grid"][0]["latency"]["method"])
             check(doc["offer"]["realtime"] in ("fifo-x", "none-x"), "offer.realtime is the domain's word: %s" % doc["offer"]["realtime"])
-        # 4. an absent or too old domain is refused, by name
+        # 4. an absent domain is refused, by name
         p, doc = run_probe(os.path.join(tmp, "nowhere"), tmp)
         check(p.returncode == 78 and doc is None and "contract.dir.absent" in p.stderr and "qualification" in p.stderr,
               "an absent domain ends the run with the loader's code and the domain's name: rc %d %r" % (p.returncode, p.stderr[-200:]))
@@ -106,17 +105,12 @@ def main():
         check(p.returncode == 0 and doc is not None and doc["run"]["realtime"]["class"] in ("fifo-x", "none-x"),
               "a directory without the domain is skipped, the next that holds it is read: rc %d" % p.returncode)
 
-        def old(doc):
-            doc["info"]["version"] = "1.0.0"
         def lacking(doc):
             item = doc["components"]["schemas"]["QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]
             item["oneOf"] = [w for w in item["oneOf"] if w["title"] != "noteOnset"]
         p, doc = run_probe(qs.fixture(tmp, lacking, "lacking"), tmp)
         check(p.returncode == 78 and doc is None and "noteOnset" in p.stderr and "QUALIFICATION_MEASUREMENT_LATENCY_METHODS" in p.stderr,
               "a domain without a word the probe writes is refused by the word and the item: rc %d %r" % (p.returncode, p.stderr[-200:]))
-        p, doc = run_probe(qs.fixture(tmp, old, "old"), tmp)
-        check(p.returncode == 78 and doc is None and "contract.package.too-old" in p.stderr and FLOOR in p.stderr,
-              "a domain below %s is refused with the loader's code and the floor: rc %d %r" % (FLOOR, p.returncode, p.stderr[-200:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print("qualification domain: %s" % ("FAILED (%d)" % failed if failed else "ok"))

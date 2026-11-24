@@ -24,7 +24,7 @@
  *
  * The qualification domain (contract.d/qualification/qualification.json, items QUALIFICATION_*) is plugin-qualify's:
  * this package ships no copy and no render of it. It is read once at start-up through the C loader of omx-contract
- * (libomx-domain, through domain_words_open), never in a real-time path, and refused loudly by name when it is absent, invalid or below QW_FLOOR.
+ * (libomx-domain, through domain_words_open), never in a real-time path, and refused loudly by name when it is absent or invalid.
  */
 #include "domain_words.h"
 #include <omxcontract/omx_domain.h>
@@ -32,14 +32,12 @@
 
 /** the domain's name */
 #define QW_DOMAIN "qualification"
-/** the lowest info.version of the domain this package reads */
-#define QW_FLOOR "1.1.0"
 
 /**
- * Open the qualification domain: domain_words_open with this domain's name and floor.
+ * Open the qualification domain: domain_words_open with this domain's name.
  *
  * @param dirs  NULL for the installed contract directory; else a ':' list of directories, the first that holds the domain
- *              wins (the test entry: a directory that holds it but is invalid or too old is refused, not skipped)
+ *              wins (the test entry: a directory that holds it but is invalid is refused, not skipped)
  * @param out   receives the handle, which owns every string the lookups return until omx_domain_close()
  * @param why   receives the refusal, "<code>: <message>", when the open fails
  * @param n     the size of why
