@@ -37,6 +37,7 @@
 #include <mod-host.h>
 #include <plugin-hostd/protocol.h>
 
+#include "descriptions.h"
 #include "domain_words.h"
 #include "formats.h"
 #include "pages.h"
@@ -499,6 +500,17 @@ static const char *bare(const char *uri)
     return strncmp(uri, LV2_PREFIX, strlen(LV2_PREFIX)) ? uri : uri + strlen(LV2_PREFIX);
 }
 
+int lv2_bundle_dir(const char *uri, const char *search, char *dir, size_t size)
+{
+    char *bundle = proc_find_lv2_bundle(search, bare(uri), bundle_version);
+
+    if (bundle == NULL)
+        return -1;
+    snprintf(dir, size, "%s", bundle);
+    free(bundle);
+    return 0;
+}
+
 /* the bundle of lv2_path whose manifest names the plugin, and the manifest with the files it names for it */
 int lv2_pin_collect(const char *uri, const char *search, char *root, size_t size, names_t *files)
 {
@@ -840,7 +852,8 @@ static int number(const char *text, double *out)
 typedef struct PORT_T {
     char *symbol;
     char *name;
-    char *group;                /* the group's node, NULL for a port in none */
+    char *group;                /* the group's node, NULL for a port in none; a store group's symbol (descriptions_groups) */
+    char *title;                /* the store group's name, NULL for a declared group: its title is the graph's */
     const char *unit;           /* the unit's word; NULL when the port names a unit with no word */
     int unit_named;             /* the port names a unit */
     long index;
@@ -929,6 +942,7 @@ static void ports_free(ports_t *ports)
         free(ports->port[n].symbol);
         free(ports->port[n].name);
         free(ports->port[n].group);
+        free(ports->port[n].title);
     }
     free(ports->port);
     graph_free(&ports->g);
@@ -1079,11 +1093,48 @@ static ports_t *ports_load(const char *uri, const char *search)
     return ports;
 }
 
+/* the groups of the plugin's store entry in place of its declared ones (omx-panel docs/descriptions-store.md, section
+ * 7): every port leaves its pg:group, and a port a store group names joins that group, titled by its name. 0, or -1 when
+ * memory ran out, with the ports as they were read */
+static int store_groups(ports_t *ports, const desc_groups_t *groups)
+{
+    char **group = calloc((size_t)ports->n, sizeof(*group)), **title = calloc((size_t)ports->n, sizeof(*title));
+    size_t g, m;
+    int n, ok = group && title;
+
+    for (g = 0; ok && g < groups->n; g++)
+        for (m = 0; ok && m < groups->group[g].nports; m++)
+            for (n = 0; ok && n < ports->n; n++)
+                if (!group[n] && !strcmp(ports->port[n].symbol, groups->group[g].ports[m]))
+                    ok = (group[n] = strdup(groups->group[g].symbol)) && (title[n] = strdup(groups->group[g].name));
+    for (n = 0; n < ports->n; n++)
+    {
+        if (ok)
+        {
+            free(ports->port[n].group);
+            ports->port[n].group = group[n];
+            ports->port[n].title = title[n];
+        }
+        else if (group && title)
+        {
+            free(group[n]);
+            free(title[n]);
+        }
+    }
+    free(group);
+    free(title);
+    return ok ? 0 : -1;
+}
+
 static ports_t *ports_of_instance(int id)
 {
     const char *uri = sup_instance_uri(id), *search = sup_instance_search(id);
+    const desc_groups_t *groups;
+    ports_t *ports = uri && search ? ports_load(uri, search) : NULL;
 
-    return uri && search ? ports_load(uri, search) : NULL;
+    if (ports && (groups = descriptions_groups(uri)) != NULL)
+        store_groups(ports, groups);
+    return ports;
 }
 
 static const port_t *port_named(const ports_t *ports, const char *symbol)
@@ -1259,7 +1310,9 @@ char *lv2_remote_page_get(int id, int index)
         ports_free(ports);
         return sup_resp(ERR_INVALID_OPERATION);
     }
-    title = page[index].group ? first_object(&ports->g, page[index].group, NS_CORE "name") : NULL;
+    title = page[index].slot[0] >= 0 ? ports->port[page[index].slot[0]].title : NULL;
+    if (page[index].group && !title)
+        title = first_object(&ports->g, page[index].group, NS_CORE "name");
     if (page[index].group && !title)
         title = first_object(&ports->g, page[index].group, NS_RDFS "label");
     if (page[index].group && !title)

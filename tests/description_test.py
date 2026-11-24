@@ -325,6 +325,29 @@ def a_clap_plugin_is_asked_for_with_the_descriptor_its_scan_wrote_and_no_generat
 
 
 @test
+def a_clap_plugin_a_layer_holds_asks_nothing_once_its_descriptor_is_in_place():
+    """a CLAP plugin's source is the descriptor its scan writes: until it is in place no entry can be read, and once it
+    is the key a layer holds asks nothing; its entry is readable then, and the clients are told"""
+    w = World()
+    try:
+        target = "clap:%s#%s" % (w.clap, CLAP_ID)
+        written = os.path.join(w.dir, "descriptor.json")
+        write(written, ('{"plugin":{"id":"%s","version":"1"},"controls":[]}' % target).encode())
+        w.store.put(sha(w.clap), "clap", CLAP_ID, w.store.source("clap", written))
+        d = w.daemon()
+        try:
+            mark = d.mark()
+            d.expect("add %s 0" % w.clap_uri, "resp 0")
+            d.wait_event("description_changed %s" % w.clap_uri, since=mark)
+            check(w.asked() == [], "a known key runs none: %s" % w.asked())
+            d.expect("description_get %s" % w.clap_uri, "resp 0 %s clap %s %s" % (sha(w.clap), CLAP_ID, w.store.layer()))
+        finally:
+            d.close()
+    finally:
+        w.close()
+
+
+@test
 def no_ask_asks_nothing_and_ask_asks_and_a_second_plugin_is_not_asked_for_by_the_first():
     w = World()
     try:

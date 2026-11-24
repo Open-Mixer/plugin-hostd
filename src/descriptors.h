@@ -16,6 +16,10 @@
 #ifndef PLUGIN_HOSTD_DESCRIPTORS_H
 #define PLUGIN_HOSTD_DESCRIPTORS_H
 
+#include <limits.h>
+
+#include <plugin-db/pin.h>
+
 #include "conf.h"
 
 /* descriptor_dir resolved (an empty setting is the default of protocol.h), made when missing
@@ -35,6 +39,26 @@ char *descriptors_get(const char *uri);
 /* panel_get <uri>: resp 0 "<path>" of the panel filed under the descriptor's name, or the code of protocol.h;
  * malloc'd */
 char *descriptors_panel_get(const char *uri);
+
+/* The key a plugin is held by in the descriptions store (omx-panel docs/descriptions-store.md, 3.1) and what its
+ * derivation reads: the binary's SHA-256, the format word and the uri of the key (the CLAP id, the LV2 URI), the target
+ * the probe and the ask's programs take, the descriptor its scan wrote ("" when none is in place), the LV2 bundle's
+ * directory ("" for a CLAP plugin), and the path its source is made from (3.6: the bundle, else the descriptor). */
+typedef struct DESCRIPTORS_KEY_T {
+    char sha256[PHD_SHA256_HEX_LEN + 1];
+    char format[16];
+    char id[PATH_MAX];
+    char target[PATH_MAX + 16];
+    char descriptor[PATH_MAX];
+    char bundle[PATH_MAX];
+    char source[PATH_MAX];
+} descriptors_key_t;
+
+/* the key of the plugin of uri as its files are now: 0, or -1 for a plugin whose binary (or LV2 bundle) cannot be found */
+int descriptors_key(const char *uri, descriptors_key_t *k);
+
+/* whether the scan of the plugin's files runs, or its file waits to be put in place */
+int descriptors_busy(const char *uri);
 
 /* stop the scans still running and remove what they were writing */
 void descriptors_finish(void);
