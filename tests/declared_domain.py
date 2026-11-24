@@ -5,8 +5,9 @@
 # through omx-contract's own rebuild (plugin-hostd-protocol#26; tests/declared.py), never from a verbs.json:
 #   (a) the document is the domain's, <contractdir>/plugin-hostd-protocol/plugin-hostd-protocol.json, and no contract directory serves a
 #       verbs.json of plugin-hostd-protocol's package;
-#   (b) the four items come back in the number of words they had (39 reply codes, 29 daemon verbs, 6 protocol verbs, 3 extensions),
-#       and the `since` of a protocol verb, which tests/protocol_floor.py reads, is there;
+#   (b) the four items come back in the number of words they had (39 reply codes, 30 daemon verbs, 6 protocol verbs, 3 extensions;
+#       the 30th daemon verb is description_get, plugin-hostd-protocol#128, which src/verbs.c answers from the descriptions
+#       store), and the `since` of a protocol verb, which tests/protocol_floor.py reads, is there;
 #   (c) a changed copy of the domain, rendered as plugin-hostd-protocol renders it, changes the header the daemon is built
 #       against: the verb table the daemon answers from is the domain's.
 # Usage: declared_domain.py
@@ -19,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import declared  # noqa: E402
 
-GOLDEN = {"PLUGIN_HOSTD_PROTOCOL_REPLY_CODES": ("codes", 39), "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": ("verbs", 29),
+GOLDEN = {"PLUGIN_HOSTD_PROTOCOL_REPLY_CODES": ("codes", 39), "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": ("verbs", 30),
           "PLUGIN_HOSTD_PROTOCOL_LIBRARY_VERBS": ("verbs", 6), "PLUGIN_HOSTD_PROTOCOL_EXTENSIONS": ("words", 3)}
 failures = []
 
