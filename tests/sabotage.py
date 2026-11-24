@@ -545,7 +545,7 @@ SABOTAGE = [
      "contract", "contract"),
     ("the generator writes an empty list for an item the domain lacks", "tools/protocol-gen.c",
      '            return 1;\n        }\n        snprintf(tokens[i]', '        }\n        snprintf(tokens[i]', "contract", "contract"),
-    ("two errors share a code", "include/plugin-hostd/omx_clap_core_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
+    ("two errors share a code", "include/plugin-hostd/omx_clap_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
      "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
      "        if (held == NULL)\n            return;\n", "", "alloc_test", "alloc"),
@@ -1610,6 +1610,37 @@ SABOTAGE = [
     ('no member with a RAM figure answers 0', 'src/supervisor.c',
      '    if (ram_unknown == n)\n', '    if (0)\n',
      'an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_counted_once_and_the_budget'),
+    ('the host makes no insert verdict: every estimate recommends', 'src/supervisor.c',
+     '    estimate_verdict(codes, n, cpu_pct, ram_used, ram_added, ram_unknown, &verdict, &reason);',
+     '    verdict = PHD_ESTIMATE_VERDICT_RECOMMEND, reason = PHD_ESTIMATE_REASON_WITHIN;',
+     'the_insert_verdict_refuses_a_candidate_that_names_no_plugin_installed_here'),
+    ('the insert verdict weighs no CPU', 'src/supervisor.c',
+     '    if (cpu_pct > PHD_ESTIMATE_CPU_CEILING)', '    if (0)',
+     'the_insert_verdict_warns_when_the_cpu_is_over_the_ceiling_of_one_core'),
+    ('the insert verdict warns at the CPU ceiling itself', 'src/supervisor.c',
+     '    if (cpu_pct > PHD_ESTIMATE_CPU_CEILING)', '    if (cpu_pct >= PHD_ESTIMATE_CPU_CEILING)',
+     'the_insert_verdict_is_within_at_the_cpu_ceiling_itself'),
+    ('the insert verdict judges the CPU on the word the reply rounds it to', 'src/supervisor.c',
+     '    estimate_verdict(codes, n, cpu_pct, ram_used,', '    estimate_verdict(codes, n, strtod(cpu_word, NULL), ram_used,',
+     'the_insert_verdict_judges_the_cpu_figure_and_not_the_word_the_reply_rounds_it_to'),
+    ('the insert verdict weighs no memory budget', 'src/supervisor.c',
+     'ram_used + ram_added > budget)', 'ram_used + ram_added > budget && 0)',
+     'the_insert_verdict_warns_when_the_memory_used_and_added_is_over_the_budget'),
+    ('the insert verdict reads no missing memory figure', 'src/supervisor.c',
+     '(ram_unknown > 0 || ram_used < 0)', '(0)',
+     'the_insert_verdict_warns_when_a_memory_figure_is_missing'),
+    ('the candidate with no record is judged as measured', 'src/supervisor.c',
+     '    *reason = estimate_code_reason(codes[n - 1]);', '    *reason = NULL;',
+     'the_insert_verdict_is_not_measured_for_a_candidate_with_no_record'),
+    ('the candidate with no cell is not measured as one with no record', 'src/supervisor.c',
+     '        return PHD_ESTIMATE_REASON_NO_CELL;', '        return PHD_ESTIMATE_REASON_NO_RECORD;',
+     'the_insert_verdict_is_not_measured_for_a_candidate_with_no_cell_at_the_rate'),
+    ('another member with no figure is not named', 'src/supervisor.c',
+     '        for (k = 0; k < n - 1 && !*reason; k++)', '        for (k = 0; k < 0 && !*reason; k++)',
+     'the_insert_verdict_warns_with_the_code_of_another_member_that_has_no_figure'),
+    ('the reply drops the verdict', 'src/supervisor.c',
+     '"resp 0 %.0f %s %s %d %d %s %s %s %s %d %s %s"', '"resp 0 %.0f %s %s %d %d %s %s %s %s %d %s%.0s"',
+     'the_insert_verdict_golden_reply_of_a_candidate_within_every_budget'),
     ('the estimate keeps the last latency, not the sum', 'src/supervisor.c',
      '                latency += cell.latency_frames;',
      '                latency = cell.latency_frames;',
@@ -2078,11 +2109,13 @@ def arm(entry, tree):
         datadir = subprocess.run(["pkg-config", "--variable=datadir", "omx-contract"], capture_output=True, text=True,
                                  check=True).stdout.strip()
         shutil.copy(os.path.join(datadir, "omx-vocabulary.schema.json"), tree)
-        # plugin-qualify's qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
+        # the qualification domain, read first from this tree's contract.d (an arm breaks the copy, never the source)
         sys.path.insert(0, os.path.join(ROOT, "tests"))
         import qualification_source
-        shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
-                        os.path.join(tree, "contract.d", qualification_source.DOMAIN))
+        # (this tree's contract.d, copied above, holds it already when it is the source: copied once)
+        if not os.path.isdir(os.path.join(tree, "contract.d", qualification_source.DOMAIN)):
+            shutil.copytree(os.path.join(qualification_source.source_dir(), qualification_source.DOMAIN),
+                            os.path.join(tree, "contract.d", qualification_source.DOMAIN))
     elif jack == "contract":
         for d in ("src", "include", "tools", "protocol"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d))
@@ -2115,7 +2148,7 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, ".github", "workflows"), os.path.join(tree, ".github", "workflows"))
     elif jack == "verbs":
         # the declaration, what renders and builds from it, and the tests that read it
-        for d in ("data", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
+        for d in ("contract.d", "src", "include", "tools", "protocol", "tests", "packaging", "fuzz"):
             shutil.copytree(os.path.join(ROOT, d), os.path.join(tree, d), ignore=shutil.ignore_patterns("*.o"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
         build(tree)

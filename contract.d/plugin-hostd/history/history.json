@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmixer.org/contract/plugin-hostd/history",
+  "info": {
+    "title": "The running history's words: the keys of a plugin's history line",
+    "version": "1.0.0",
+    "x-owner": "plugin-hostd",
+    "x-stability": "experimental"
+  },
+  "components": {
+    "schemas": {
+      "PLUGIN_HOSTD_HISTORY_KEYS": {
+        "description": "The keys of a line of the running-history file, in the order the daemon writes them (the grouping-planner design note, The history record): history <uri> <binary digest> <host class> key=value ..., after the header line '# plugin-hostd history/1'. The value of every key is a whole number or a decimal, never negative. A line with a key outside these words is kept as it is by every save and never read.",
+        "x-since": "0.13.0",
+        "x-kind": "words",
+        "x-file": "history.json",
+        "oneOf": [
+          {
+            "const": "first",
+            "title": "first",
+            "description": "UTC seconds of the first window.",
+            "x-code": 0
+          },
+          {
+            "const": "last",
+            "title": "last",
+            "description": "UTC seconds of the last window.",
+            "x-code": 1
+          },
+          {
+            "const": "windows_solo",
+            "title": "windowsSolo",
+            "description": "Windows the plugin ran in a worker of its own.",
+            "x-code": 2
+          },
+          {
+            "const": "windows_grouped",
+            "title": "windowsGrouped",
+            "description": "Windows the plugin ran in a worker of two or more.",
+            "x-code": 3
+          },
+          {
+            "const": "cpu_p95_solo",
+            "title": "cpuP95Solo",
+            "description": "Percent of one core, the worker's utime plus stime over a window, an estimate of the 95th percentile of the windows run alone.",
+            "x-code": 4
+          },
+          {
+            "const": "cpu_max_solo",
+            "title": "cpuMaxSolo",
+            "description": "Percent of one core, the largest window run alone.",
+            "x-code": 5
+          },
+          {
+            "const": "pss_mb_solo",
+            "title": "pssMbSolo",
+            "description": "MiB, the Pss of the worker's smaps_rollup, the largest window run alone.",
+            "x-code": 6
+          },
+          {
+            "const": "xrun_windows_solo",
+            "title": "xrunWindowsSolo",
+            "description": "Windows run alone in which JACK counted at least one xrun.",
+            "x-code": 7
+          },
+          {
+            "const": "xrun_windows_grouped",
+            "title": "xrunWindowsGrouped",
+            "description": "Windows run in a group in which JACK counted at least one xrun.",
+            "x-code": 8
+          },
+          {
+            "const": "crashes_solo",
+            "title": "crashesSolo",
+            "description": "Worker deaths of a worker of its own that the daemon attributed to the plugin.",
+            "x-code": 9
+          },
+          {
+            "const": "crashes_grouped",
+            "title": "crashesGrouped",
+            "description": "Worker deaths of a group that the daemon attributed to the plugin.",
+            "x-code": 10
+          },
+          {
+            "const": "restarts_grouped",
+            "title": "restartsGrouped",
+            "description": "Worker deaths of a group the plugin was a member of and was not the culprit of.",
+            "x-code": 11
+          },
+          {
+            "const": "quarantines",
+            "title": "quarantines",
+            "description": "Times the supervisor quarantined the plugin.",
+            "x-code": 12
+          },
+          {
+            "const": "last_crash",
+            "title": "lastCrash",
+            "description": "UTC seconds of the last crash the plugin was blamed for alone.",
+            "x-code": 13
+          },
+          {
+            "const": "last_crash_grouped",
+            "title": "lastCrashGrouped",
+            "description": "UTC seconds of the last crash the plugin was blamed for in a group.",
+            "x-code": 14
+          }
+        ]
+      }
+    }
+  }
+}
