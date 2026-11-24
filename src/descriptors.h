@@ -18,8 +18,6 @@
 
 #include <limits.h>
 
-#include <plugin-db/pin.h>
-
 #include "conf.h"
 
 /* descriptor_dir resolved (an empty setting is the default of protocol.h), made when missing
@@ -45,7 +43,7 @@ char *descriptors_panel_get(const char *uri);
  *        derivation reads.
  */
 typedef struct DESCRIPTORS_KEY_T {
-    char sha256[PHD_SHA256_HEX_LEN + 1];    /**< the SHA-256 of the plugin's binary, 64 lowercase hex digits */
+    char sha256[64 + 1];                    /**< the SHA-256 of the plugin's binary, 64 lowercase hex digits */
     char format[16];                        /**< the format word of the key: lv2 or clap */
     char id[PATH_MAX];                      /**< the uri of the key: the LV2 URI, the CLAP id */
     char target[PATH_MAX + 16];             /**< the plugin as the probe and the ask's programs take it */

@@ -30,6 +30,7 @@
 #include <plugin-hostd/protocol.h>
 
 #include "conf.h"
+#include "descriptions.h"
 #include "formats.h"
 #include "pins.h"
 #include "proc.h"
@@ -91,6 +92,13 @@ const char *sup_instance_uri(int id)
 const char *sup_instance_search(int id)
 {
     (void)id;
+    return NULL;
+}
+
+/* the store holds no groups here: lv2.c pages by the declared ones (src/descriptions.c is the daemon's) */
+const desc_groups_t *descriptions_groups(const char *uri)
+{
+    (void)uri;
     return NULL;
 }
 

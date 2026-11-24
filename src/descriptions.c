@@ -35,6 +35,7 @@
 
 #include "confine.h"
 #include "descriptions.h"
+#include "descriptions_open.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "proc.h"

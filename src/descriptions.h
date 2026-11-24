@@ -16,14 +16,14 @@
  * --only run one after the other as children of the daemon, at nice 19, SCHED_IDLE and the idle I/O class, confined.
  * When the ask ends the entry is read again and description_changed tells the clients. description_get answers the key.
  * Never in a real-time path: every call reads files and takes locks; the daemon reads at an add and copies what it keeps.
+ * This header names no type of the store's library: src/verbs.c and the fuzz harness that builds it include it, and need
+ * no omx-panel header (the store's opener is src/descriptions_open.h).
  */
 
 #ifndef PLUGIN_HOSTD_DESCRIPTIONS_H
 #define PLUGIN_HOSTD_DESCRIPTIONS_H
 
 #include <stddef.h>
-
-#include <omx-panel/omx_panel_store.h>
 
 /** @brief A port group of a store entry, copied: its symbol, its name and the symbols of its ports. */
 typedef struct DESC_GROUP_T {
@@ -45,14 +45,6 @@ enum {
     DESC_ASK_NO = 0,        /**< no-ask */
     DESC_ASK_YES = 1        /**< ask */
 };
-
-/**
- * @brief How the store is opened: omx_panel_store_open of the scope of the effective uid when NULL (the packaged
- *        daemon); the test builds name a store of their own (src/main.c, OMX_QUALIFICATION_TEST_STORE).
- *
- * @param opener the opener, or NULL
- */
-void descriptions_use_opener(int (*opener)(omx_panel_store **out, omx_panel_store_error *err));
 
 /**
  * @brief The add of uri was answered: reads its store entry, and asks for a plugin no layer holds.

@@ -234,10 +234,10 @@ static char *handle(char *line, char **tok, int ntok)
         }
         return reply_text;
     }
-    if (!strcmp(verb, OMX_VERB_DESCRIPTOR_GET))
-        return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_DESCRIPTION_GET))
         return ntok == 2 ? descriptions_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
+    if (!strcmp(verb, OMX_VERB_DESCRIPTOR_GET))
+        return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PANEL_GET))
         return ntok == 2 ? descriptors_panel_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (verb_is(verb, EFFECT_REMOVE))
@@ -358,7 +358,8 @@ static int g_nout;
 static int reads_files(const char *verb)
 {
     return !strcmp(verb, OMX_VERB_PIN_RELOAD) || !strcmp(verb, OMX_VERB_PIN_CHANGED) ||
-           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET);
+           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET) ||
+           !strcmp(verb, OMX_VERB_DESCRIPTION_GET);
 }
 
 /* the verbs whose reply says their change is on disk: it goes when the write lands, and says so when it did not */
