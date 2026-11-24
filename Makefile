@@ -393,12 +393,13 @@ test-format-coverage:
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) lv2
 	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) --self-test
 
-# the fake worker and the protocol clients (lib/protocol.sh, lib/plugin_hostd_client.py), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance
+# the fake worker and the shell protocol client (lib/protocol.sh), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance.
+# The Python client is the protocol's, python3-plugin-hostd-client (plugin-hostd-protocol issue 45): no copy here
 install_tests: $(FAKE)
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests
 	install -m 755 $(FAKE) $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/fake-host
 	install -d $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
-	install -m 644 tests/lib/protocol.sh tests/lib/plugin_hostd_client.py $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
+	install -m 644 tests/lib/protocol.sh $(DESTDIR)$(LIBEXECDIR)/plugin-hostd/tests/lib
 
 install_man:
 	install -d $(DESTDIR)$(MANDIR)
@@ -929,11 +930,12 @@ test-install-schemas: all
 check-doxygen:
 	sh tools/doxygen_gate.sh
 
-# ruff's own ratchet on the Python client of the tests: D and the default rules (ruff.toml), today's findings carried by `# noqa`
-# comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff.
+# ruff's own ratchet on the Python plugin-hostd-tests ships (tests/lib): D and the default rules (ruff.toml), findings
+# carried by `# noqa` comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff. The
+# Python client is plugin-hostd-protocol's (python3-plugin-hostd-client, its issue 45) and ratcheted there.
 .PHONY: check-ruff
 check-ruff:
-	ruff check tests/lib/plugin_hostd_client.py
+	ruff check tests/lib
 
 # the two gates only shrink, by mechanism (tools/doc_shrink.sh against the base branch: DOC_GATE_BASE, origin/main by
 # default); tests/doc_gate_test.sh proves it, and that doxygen_gate.sh --update only lowers the baseline

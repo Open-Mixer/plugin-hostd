@@ -52,6 +52,8 @@ Requires: libomx-domain >= 3.21.0
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
+# the tests import the protocol's Python client, plugin_hostd_client (plugin-hostd-protocol issue 45)
+BuildRequires: python3-plugin-hostd-client >= 0.9.0
 BuildRequires: omx-clap-host-tests >= 0.34.0
 # the reader that holds the committed render of data/ (make check-rendered)
 BuildRequires: omx-contract >= 3.21.0
@@ -187,7 +189,6 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %doc README.md
 %{_libexecdir}/plugin-hostd/tests/fake-host
 %{_libexecdir}/plugin-hostd/tests/lib/protocol.sh
-%{_libexecdir}/plugin-hostd/tests/lib/plugin_hostd_client.py
 
 %files devel
 %license COPYING

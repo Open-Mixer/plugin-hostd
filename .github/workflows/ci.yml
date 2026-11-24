@@ -147,10 +147,11 @@ jobs:
       - name: The protocol's Catalan catalog, where a language pack carries it
         run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False plugin-hostd-protocol-langpack-ca
 
-      # the one Python codec is plugin-hostd-protocol's package: the daemon test reads the daemon's replies with it, and
-      # tests/grouping_domain.py holds its GroupingReason to the domain plugin-hostd/grouping; this tree keeps no client
-      - name: The protocol's Python codec
-        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False python3-plugin-hostd-protocol
+      # the one Python codec and the one Python client are plugin-hostd-protocol's packages: the daemon test reads the
+      # daemon's replies with the codec, tests/grouping_domain.py holds its GroupingReason to the domain
+      # plugin-hostd/grouping, and the harness drives the daemon through the client (issue 45); this tree keeps neither
+      - name: The protocol's Python codec and client
+        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False python3-plugin-hostd-protocol python3-plugin-hostd-client
 
       - name: Build
         run: make
@@ -484,7 +485,7 @@ jobs:
           for rpm in rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py \
+            printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh \
               /usr/share/doc/plugin-hostd-tests/README.md /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             # tied to the same build: the requirement names the exact version-release and the isa of this very package
@@ -547,9 +548,10 @@ jobs:
           set -euo pipefail
           chroot /tmp/clean-root /usr/libexec/plugin-hostd/tests/fake-host -L | tee layout.txt
           test -s layout.txt
-          # and the protocol clients it ships load
+          # and the shell protocol client it ships loads (the Python client is plugin-hostd-protocol's
+          # python3-plugin-hostd-client, issue 45: no copy here)
           chroot /tmp/clean-root bash -c '. /usr/libexec/plugin-hostd/tests/lib/protocol.sh && type protocol_send protocol_expect protocol_wait_ready send'
-          chroot /tmp/clean-root python3 -c 'import sys; sys.path.insert(0, "/usr/libexec/plugin-hostd/tests/lib"); import plugin_hostd_client'
+          ! chroot /tmp/clean-root test -e /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -694,7 +696,7 @@ jobs:
           dpkg -L plugin-hostd-tests | tee tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/fake-host tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/lib/protocol.sh tests.txt
-          grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
+          ! grep -q plugin_hostd_client tests.txt
           dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
           # dpkg-shlibdeps writes the version of the library it built against over debian/control's floor, so the Depends
