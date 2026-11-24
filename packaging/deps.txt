@@ -12,7 +12,7 @@ omx-contract-devel                libomx-contract-dev            3.21.0
 libomx-domain                     libomx-domain0                 3.21.0
 libomx-domain-devel               libomx-domain-dev              3.21.0
 plugin-hostd-protocol             libplugin-hostd-protocol0      0.8.0
-plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.8.0
+plugin-hostd-protocol-devel       libplugin-hostd-protocol-dev   0.9.0
 plugin-hostd-protocol-contract    plugin-hostd-protocol-contract 0.8.0
 plugin-db-devel                   plugin-db-dev                  0.4.7
 plugin-db-contract                plugin-db-contract             0.5.0

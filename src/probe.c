@@ -80,6 +80,11 @@
 #include <omxcontract/omx_vocabulary.h>
 #include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
+#if PHD_PROBE_FORMAT_MAJOR != 2
+/* the cost unit is "nsPerSample", omx-contract's RESOURCE_UNITS id: that is format 2 (plugin-hostd#269), so a header
+ * of another major would write a document its schema refuses */
+#error "plugin-hostd-probe writes probe output format 2: build against a plugin-hostd-protocol whose PHD_PROBE_FORMAT_MAJOR is 2"
+#endif
 
 #define RUNNER_NAME "plugin-hostd-probe"
 #ifndef PROBE_VERSION
@@ -1933,7 +1938,7 @@ static void put_cost(sb_t *b, const cJSON *cost, const char *rate)
         !jnum(at, "nsPerSampleMin", &min) || !jnum(at, "nsPerSampleMax", &max) || !jnum(at, "blocks", &blocks) ||
         !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile) || percentile != 95)
         return;
-    sb_printf(b, ", \"cost\": {\"unit\": \"ns-per-sample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
+    sb_printf(b, ", \"cost\": {\"unit\": \"nsPerSample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
                  "\"min\": %.9g, \"max\": %.9g, \"blocks\": %.0f, \"warmupBlocks\": %.0f",
               median, percentile, p95, min, max, blocks, warmup);
     if (jnum(voices, "held", &held) && jstr(voices, "basis"))

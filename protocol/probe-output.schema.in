@@ -22,7 +22,7 @@
     },
     "formatVersion": {
       "type": "string",
-      "pattern": "^1\\.[0-9]+$"
+      "pattern": "^2\\.[0-9]+$"
     },
     "run": {
       "type": "object",
@@ -986,7 +986,7 @@
           "additionalProperties": false,
           "properties": {
             "unit": {
-              "const": "ns-per-sample"
+              "const": "nsPerSample"
             },
             "median": {
               "type": "number",
