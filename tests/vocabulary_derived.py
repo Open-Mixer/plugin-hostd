@@ -108,6 +108,8 @@ def domains(tree):
             if not os.path.exists(path):
                 continue
             for item, schema in json.load(open(path))["components"]["schemas"].items():
+                if "oneOf" not in schema:
+                    continue  # a sheet or a scalar (the other owners' domains installed beside: omx-clap's code sheet) has no words
                 # the domain's order is its x-code order, which is the index
                 out.setdefault(item, {"enum": [e["const"] for e in sorted(schema["oneOf"], key=lambda e: e.get("x-code", 0))]})
     return out

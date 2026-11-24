@@ -127,7 +127,9 @@ jobs:
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
 
-      # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both
+      # the worker and the fixtures: omx-clap-host-tests Requires omx-clap-host, so this installs both; and the one Python
+      # codec, python3-plugin-hostd-protocol, which the daemon test (a %check target too) reads the replies with: the
+      # spec declares it, so this job installs what a package build installs and no package by hand
       - name: Install the build dependencies from the channel
         run: bounded-install dnf builddep -y --setopt=retries=10 packaging/plugin-hostd.spec
 
@@ -140,12 +142,6 @@ jobs:
           else apt-cache policy $(dpkg-query -W -f='${Package}\n' 'omx-*' 'libomx*' 'plugin-*' 'libplugin*' 2>/dev/null) | tee /tmp/from-repo; fi
           if grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
 
-      # the clients' tests read a sentence in Catalan from the installed catalog: from plugin-hostd-protocol 0.5.6 on it
-      # is the Catalan language pack's, not the base package's (one pack per language); a protocol before 0.5.6 has
-      # none, and its base package carries the catalog
-      - name: The protocol's Catalan catalog, where a language pack carries it
-        run: bounded-install dnf install -y --setopt=retries=10 --setopt=install_weak_deps=False plugin-hostd-protocol-langpack-ca
-
       - name: Build
         run: make
 
@@ -157,11 +153,6 @@ jobs:
         env:
           PROBE_REQUIRE_REALTIME: "1"
         run: make test
-
-      # the protocol clients (docs/clients.md): each one's tests on the shared fixtures, then the two held to each other on
-      # them and on plugin-hostd-protocol's host scenarios, and that comparison's self-test (#29)
-      - name: The protocol clients agree
-        run: make test-clients
 
       # the package as a reader of the installed contract directory reads it: install-contract into a staging directory,
       # then the installed omx-contract (the builddep above) validates it with its own tables and omx-clap-core's; red on
@@ -457,17 +448,24 @@ jobs:
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
             printf '%s\n' /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/clap.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/formats/lv2.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/history.json \
-              /usr/share/omx-contract/contract.d/3/plugin-hostd/grouping.json \
-              /usr/share/omx-contract/contract.d/machine/machine.json /usr/share/omx-contract/contract.d/probe/probe.json \
+              /usr/share/omx-contract/contract.d/machine/machine.json \
+              /usr/share/omx-contract/contract.d/qualification/qualification.json \
+              /usr/share/omx-contract/contract.d/plugin-hostd/grouping/grouping.json \
+              /usr/share/omx-contract/contract.d/plugin-hostd/history/history.json \
+              /usr/share/omx-contract/contract.d/plugin-hostd/clap/clap.json \
+              /usr/share/omx-contract/contract.d/plugin-hostd/lv2/lv2.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/ca.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/de.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/es.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/fr.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/it.json \
               /usr/share/omx-contract/contract.d/machine/catalogs/pt.json \
+              /usr/share/omx-contract/contract.d/qualification/catalogs/ca.json \
+              /usr/share/omx-contract/contract.d/qualification/catalogs/de.json \
+              /usr/share/omx-contract/contract.d/qualification/catalogs/es.json \
+              /usr/share/omx-contract/contract.d/qualification/catalogs/fr.json \
+              /usr/share/omx-contract/contract.d/qualification/catalogs/it.json \
+              /usr/share/omx-contract/contract.d/qualification/catalogs/pt.json \
               /usr/share/doc/plugin-hostd-contract/README.md /usr/share/licenses/plugin-hostd-contract/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
           done
@@ -668,8 +666,11 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          for f in MANIFEST.json formats/clap.json formats/lv2.json grouping.json history.json; do
-            grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/$f" contract.txt
+          grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json" contract.txt
+          # the format tables are domains, none of them under 3/plugin-hostd/formats any more
+          ! grep -q "/contract.d/3/plugin-hostd/formats" contract.txt
+          for d in grouping history clap lv2; do
+            grep -qx "/usr/share/omx-contract/contract.d/plugin-hostd/$d/$d.json" contract.txt
           done
           # no Breaks, Replaces or Conflicts between our own packages (owner rule 2026-11-16)
           test -z "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Breaks Replaces Conflicts)"

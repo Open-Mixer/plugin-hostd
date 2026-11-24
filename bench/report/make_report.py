@@ -144,6 +144,25 @@ def parse_earlier(dirpath):
     return {"runs": runs} if runs else None
 
 
+def rating_words():
+    """The verdict ratings, title -> word, read from the `qualification` domain (QUALIFICATION_MEASUREMENT_VERDICT_RATINGS,
+    plugin-hostd's contract.d): the first directory of OMX_CONTRACT_PATH (a ':' list) holding the domain, else this
+    checkout's contract.d. A domain that is absent, or without the item, ends the run naming it."""
+    dirs = [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d] + [os.path.join(REPO, "contract.d")]
+    for d in dirs:
+        path = os.path.join(d, "qualification", "qualification.json")
+        if os.path.isfile(path):
+            break
+    else:
+        raise SystemExit("make_report: the qualification domain is in none of %s" % ", ".join(dirs))
+    try:
+        with open(path) as f:
+            one_of = json.load(f)["components"]["schemas"]["QUALIFICATION_MEASUREMENT_VERDICT_RATINGS"]["oneOf"]
+        return {e["title"]: e["const"] for e in one_of}
+    except (OSError, ValueError, KeyError) as e:
+        raise SystemExit("make_report: %s: QUALIFICATION_MEASUREMENT_VERDICT_RATINGS is not readable: %s" % (path, e))
+
+
 def parse_qpilot(dirpath):
     text = _read(os.path.join(dirpath, "zy-qpilot.out"))
     if not text:
@@ -152,13 +171,14 @@ def parse_qpilot(dirpath):
     ex = re.search(r"exit=(-?\d+)", text)
     counts = {}
     summary = text.split("-- verdict summary", 1)[-1].split("-- sample", 1)[0]
-    for m in re.finditer(r"(?m)^\s+(\d+) (suitable|unsuitable|conditional|unknown)\s*$", summary):
+    ratings = rating_words()
+    for m in re.finditer(r"(?m)^\s+(\d+) (%s)\s*$" % "|".join(re.escape(w) for w in ratings.values()), summary):
         counts[m.group(2)] = int(m.group(1))
     reasons = {}
     sample = text.split("-- sample", 1)[-1].split("-- stderr", 1)[0]
     for line in sample.splitlines()[1:]:
         parts = line.split()
-        if len(parts) >= 3 and parts[1] in ("unsuitable", "conditional", "unknown"):
+        if len(parts) >= 3 and parts[1] in ratings.values() and parts[1] != ratings["suitable"]:
             reasons[parts[2]] = reasons.get(parts[2], 0) + 1
     if not counts:
         return None
@@ -168,6 +188,7 @@ def parse_qpilot(dirpath):
 def parse_qdocs(dirpath, errs):
     """Verdict counts and deciding reasons from plugin-qualify interchange documents."""
     counts, reasons, n, ndocs, hosts = {}, {}, 0, 0, set()
+    suitable = rating_words()["suitable"]
     for f in sorted(glob.glob(os.path.join(dirpath, "**", "*.json"), recursive=True)):
         try:
             with open(f) as fh:
@@ -183,13 +204,13 @@ def parse_qdocs(dirpath, errs):
             where = "%s: verdicts[%d]" % (f, i)
             if not _need(v, ["rating"], where, errs):
                 continue
-            if v["rating"] != "suitable" and not _need(v, ["deciding"], where + " (%s)" % v["rating"], errs):
+            if v["rating"] != suitable and not _need(v, ["deciding"], where + " (%s)" % v["rating"], errs):
                 continue
             n += 1
             if isinstance(v, dict) and v.get("host"):
                 hosts.add(v["host"])
             counts[v["rating"]] = counts.get(v["rating"], 0) + 1
-            if v["rating"] != "suitable":
+            if v["rating"] != suitable:
                 reasons[v["deciding"]] = reasons.get(v["deciding"], 0) + 1
     return {"counts": counts, "reasons": reasons, "verdicts": n, "documents": ndocs, "hosts": sorted(hosts)} if n else None
 

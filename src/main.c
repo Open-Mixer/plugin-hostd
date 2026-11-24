@@ -44,7 +44,7 @@
 #include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.20.8"
+#define VERSION "0.21.1"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -60,7 +60,8 @@ static conf_t g_conf;
 #ifdef OMX_QUALIFICATION_TEST_STORE
 /* The test build's seam for the qualification store (the Makefile's PROG_TEST and the other test builds of the daemon, never
  * installed or packaged): the store is the file the test names in PLUGIN_HOSTD_TEST_QUALIFICATION_STORE, opened as the base
- * with no user layer, so each test has a store of its own; no variable names no file, which is an absent store. It is no
+ * with no user layer, so each test has a store of its own; no variable names no file, which is an absent store: it opens
+ * as an empty base layer and every plugin reads as unqualified. It is no
  * setting of the daemon. The packaged daemon opens the store of its scope
  * with pqdb_open and takes no path and no environment variable for it. */
 static int open_test_store(pqdb **db, pqdb_error *err)

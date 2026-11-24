@@ -25,28 +25,37 @@ daemon and the runner spell their JSON string literals through its one writer,
 `libomx-contract-dev`, 3.9.0 or later; `CONTRACT_CFLAGS=-I<dir>` for one that is not
 installed). The schema major the contract directory is read under is the pkg-config
 file's `schema_major`, never typed in this tree. The runner's
-default rates are the contract's `ORACLE_FLOOR_RATES`, and the generator refuses
+default rates are omx-dsp's `ORACLE_FLOOR_RATES` (its `omxdsp/omxdsp_definitions.h`), and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`.
 
-The words a probe run writes (`PROBE_REASONS`, `PROBE_OUTCOMES`, `PROBE_STEPS`, `PROBE_SIGNALS`) are this tree's
-second domain, `contract.d/probe/probe.json` (floor 1.0.0, read the same way, refused by name with 78 when absent or too
-old, shipped by `plugin-hostd-contract`; `make test-probe-domain`). The protocol header's lists give the probe the ids, and
-the words are the domain's, which the test holds to the header's, word for word.
+The words a probe run writes (`PROBE_REASONS`, `PROBE_OUTCOMES`, `PROBE_STEPS`, `PROBE_SIGNALS`) are the domain `probe`,
+which is plugin-hostd-protocol's (`contract.d/probe/probe.json` there, shipped by
+`plugin-hostd-protocol-contract`; floor 1.0.0, read the same way, refused by name with 78 when absent or too old; `make
+test-probe-domain`, `make test-probe-owner`). The protocol header's lists give the probe the ids of reasons, outcomes and steps, and
+the words are the domain's, which the test holds to the header's, word for word. `PROBE_SIGNALS` is marked `x-c-codes`: the
+signal codes of `src/probe_words.h` come from `<plugin-hostd/probe_codes.h>`, the render protocol installs with its headers.
+
+The scopes of a field dump that `describe` reads (`SCAN_FIELD_SCOPES`) are omx-clap-core's scan domain
+(`contract.d/scan/scan.json` there, shipped by `omx-clap-contract`, floor 1.0.0), read once at the start of `describe`
+through `scan_words_open` (`src/scan_words.c`); the parser keeps what each scope is, never its name, and a domain that is
+absent, too old or short of a scope ends the start with 78.
 
 The machine words (`MACHINE_CORE_BANDS`, `MACHINE_CLOCK_BANDS`, `MACHINE_FAMILIES`) are this tree's own domain,
-`contract.d/machine/machine.json`, and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
-`QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`) are plugin-qualify's domain,
-`contract.d/qualification/qualification.json` there: this tree ships no copy and no render of the second. Both are read
+`contract.d/machine/machine.json`; the three items are marked `x-c-codes`, so the band counts and the family ids of
+`src/machine.h` come from the committed render `include/plugin-hostd/machine_codes.h` (`make check-machine-codes`
+fails when it is not the render), and the qualification words (`QUALIFICATION_MEASUREMENT_LATENCY_METHODS`,
+`QUALIFICATION_MEASUREMENT_VOICE_BASES`, `QUALIFICATION_RESOURCE_THREAD_SCHEDULING`, and the rest of the `QUALIFICATION_*`
+items) are this tree's third domain, `contract.d/qualification/qualification.json`, shipped by `plugin-hostd-contract`
+(`make test-qualification-domain-owned`); this tree renders nothing of it. Both are read
 through one function, `domain_words_open` (`src/domain_words.c`), over omx-contract's C loader (`libomx-domain`,
 `pkg-config libomx-domain`, `omx-contract-devel` / `libomx-domain-devel` 3.20.0 or later; floor 1.1.0 for both).
 The probe runner opens both once at start-up and ends it with status 78 and the loader's code, naming the domain, when
 one is absent, invalid or older. The probe and the schema generator read `OMX_CONTRACT_PATH` (a ':' list, the first
 directory holding the domain wins: their test entry, which the Makefile points at this checkout's `contract.d`
 followed by the installed contract directory); the daemon reads the installed contract directory only, where
-`plugin-hostd-contract` installs the machine domain. plugin-qualify's data package (`plugin-qualify-contract`, 0.20.6 or
-later) installs the qualification domain and this package requires it, so a build that runs the tests needs it
-installed, or a checkout's `contract.d` in `OMX_CONTRACT_PATH`. `protocol/probe-output.schema.in` names each shared
+`plugin-hostd-contract` installs the machine, probe and qualification domains. The tests of this tree read the checkout's own
+`contract.d` through `OMX_CONTRACT_PATH`. `protocol/probe-output.schema.in` names each shared
 word list as a `@PROBE_<ITEM>@`, `@MACHINE_<ITEM>@` or `@QUALIFICATION_<ITEM>@` token and holds no list of its own. `make test-vocabulary`
 holds every enum of the generated schema to its source, word for word and in order; `make test-machine-domain` and
 `make test-qualification-domain` hold the probe's and the generator's words to a changed copy of each domain and its
@@ -82,16 +91,16 @@ The verbs the daemon adds to mod-host's protocol, and the codes they answer, are
 `plugin-hostd-protocol` (`plugin-hostd-protocol-contract`), and rendered there into the headers `protocol.h` includes.
 A refusal number omx-clap-host answers too (mod-host's `-3` and `-902`, and the pin, parameter and note numbers) is
 named once, by omx-clap-core's `reply.host.*` codes: `make test-verbs-declared` reads the daemon's verbs from that
-package and omx-clap-core's from its package of the contract directory (`omx-clap-core-contract`), or the first
-directory of `OMX_CONTRACT_PATH` that holds one.
+package and omx-clap's from its domains `omx-clap` and `host` of the contract directory (`omx-clap-contract`), or the
+first directory of `OMX_CONTRACT_PATH` that holds each; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from those domains only (one in the package is refused, one missing from the domains fails).
 
-The words of this tree's own tables (`data/grouping.json`, `data/history.json`) are rendered by `omx-contract render`
+The words of this tree's domains `plugin-hostd/grouping` and `plugin-hostd/history` (`contract.d/plugin-hostd/`) are rendered by `omx-contract render`
 into `include/plugin-hostd/plugin_hostd_vocabulary.h`, which is committed: `make render-verbs` rewrites it and records
 the omx-contract version that rendered it beside it (`plugin_hostd_vocabulary.h.rendered-with`), and `make
 check-rendered` fails on any drift. The package builds run `make check-rendered RENDERED_COMPARE=recorded`: with
 another omx-contract installed than the recorded one, the header is not compared and the check says so, so a release
-tag builds the same after the channel serves a newer omx-contract. `make install-contract` installs `data/` as the package `plugin-hostd` of the
-contract directory. The noarch package `plugin-hostd-contract` carries those files, and `plugin-hostd` and
+tag builds the same after the channel serves a newer omx-contract. `make install` installs the domains of `contract.d/plugin-hostd/` (the format tables `clap` and `lv2`, `grouping`, `history`) and `make install-contract` the
+package `plugin-hostd` of the contract directory (a `MANIFEST.json` with no file). The noarch package `plugin-hostd-contract` carries those files, and `plugin-hostd` and
 `plugin-hostd-devel` (`plugin-hostd-dev`) require it at the same version.
 
 Tests
@@ -154,7 +163,7 @@ prints `skip test-lv2-adapter` and does nothing else.
 `make test-probe` runs the probe runner over `tests/probe-child` and `tests/lv2-probe-child`, stand-ins that print the
 lines of plugin-qualify's prober and `lv2_measure`. With `PLUGIN_QUALIFY_BUILD=<plugin-qualify checkout>/native/build`
 (`make -C native all` there) it also runs the real ones over plugin-qualify's instrument fixtures: a CLAP synth timed
-holding `--probe-notes` at every rate of omx-contract's `ORACLE_FLOOR_RATES`, and an LV2 synth that allocates on a note
+holding `--probe-notes` at every rate of omx-dsp's `ORACLE_FLOOR_RATES`, and an LV2 synth that allocates on a note
 beside its clean twin. Without it those tests print `skip`.
 
 `make sabotage` (`tests/sabotage.py`) breaks the daemon on purpose, one guard at a time, and
@@ -175,3 +184,24 @@ parameter goes to the plugin's own, and the event `instance_verb_dropped <instan
 `<ms>` being the age of the reply when the death was seen. The instance that sent it is blamed like the one whose
 command was in flight: its crash is counted, and in a pool it is quarantined and leaves the pool alone. A death
 outside the window replays everything, as before.
+
+Moving a data table to its owner domain
+---------------------------------------
+
+The history keys (V18) and the two format tables (V19) took the same steps, in one commit each, no copy of the old place left:
+
+1. The item moves to `contract.d/<owner>/<name>/<name>.json`, the domain named by the item's prefix (`PLUGIN_HOSTD_CLAP_MAP`
+   is in `plugin-hostd/clap`): a header (`$id` `https://openmixer.org/contract/<owner>/<name>`, `info.version`,
+   `x-owner`, `x-stability`) over the item, its old `kind` as `x-kind` (`words`, or `sheet` for a table whose `x-value` is
+   the old value verbatim), its `doc` as `description`, `since` as `x-since`, and `x-file` the data path it came from.
+   `git rm` the data file; `omx-contract validate --installed` and `fmt --check` over the staged domain must stay green.
+2. Install it: add the domain to `VOCABULARY_DOMAINS` (its words render the vocabulary header, which must stay byte
+   identical) or, for a table nothing renders, to `FORMAT_DOMAINS`; `install_vocabulary_domains` installs both.
+3. Move every reader in the same commit: `git grep` the old path and the item name over `src`, `tests`, `docs`, `doc`,
+   `packaging`, `debian` and `.github`; the tests reach the new file through one helper (`tests/format_tables.py`,
+   `tests/domain_render.py`), never a path of their own. The spec, `debian/control` and the package-list checks of
+   `ci.yml` name the new install path, and the spec and `debian/changelog` carry a line under the release.
+4. A call-level test holds it: the content equals the old file's (its sha256, frozen at the commit before), the install lands at
+   the domain path and nowhere under the old one, the old file is gone, and the reader refuses the old shape
+   (`tests/history_domain.py`, `tests/format_domains.py`). Break the new document in a scratch copy and see the test red.
+5. Prove the consumer on a copy of the stage box: the repo that reads it runs its own target against your installed domains.

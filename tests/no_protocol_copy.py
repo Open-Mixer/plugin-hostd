@@ -24,10 +24,14 @@ MOVED = [
     "protocol/plugin-hostd-protocol.json", "data/verbs.json", "docs/protocol.md", "docs/zynthian/verbs.tsv",
     "include/plugin-hostd/protocol.h", "include/plugin-hostd/search_paths.h",
     "include/plugin-hostd/plugin_hostd_host_verbs.h", "include/plugin-hostd/plugin_hostd_protocol_host_verbs.h",
-    "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_core_host_verbs.h",
-    "include/plugin-hostd/omx_clap_core_vocabulary.h", "tools/mod-host-json.py", "tools/protocol-doc.py",
+    "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "include/plugin-hostd/omx_clap_host_verbs.h",
+    "include/plugin-hostd/omx_clap_vocabulary.h", "tools/mod-host-json.py", "tools/protocol-doc.py",
     "tools/protocol-table.py", "tools/abnf-gen.py", "tests/verb_table.py", "tests/mod_host_json.py",
     "tests/protocol_schema.py",
+    # the clients: plugin-hostd-protocol's Python codec and TypeScript codec are the readers, their grouping reasons written
+    # there from the domain plugin-hostd/grouping (row 3 of the sorting pass)
+    "clients/python/plugin_hostd_protocol/__init__.py", "clients/python/plugin_hostd_protocol/__main__.py",
+    "clients/ts/src/index.ts", "tools/grouping-reasons.py",
 ]
 # what only a copy of a declaration holds, in a file of any name
 MARKS = [
@@ -41,7 +45,7 @@ MARKS = [
 ]
 # where the marks are looked for: the sources, the headers, the tables and the tools; the docs and the recorded
 # evidence quote the protocol, and the fuzz harnesses type mod-host's words on purpose
-SCANNED = ("src", "include", "data", "protocol", "tools", "tests", "fuzz")
+SCANNED = ("src", "include", "contract.d", "protocol", "tools", "tests", "fuzz")
 SUFFIXES = (".c", ".h", ".json", ".py", ".in")
 SKIP = {os.path.join("tests", "no_protocol_copy.py")}
 
@@ -72,7 +76,8 @@ def self_test():
         ("include/plugin-hostd/protocol.h", "#ifndef PLUGIN_HOSTD_PROTOCOL_H\n#define PLUGIN_HOSTD_PROTOCOL_H\n#endif\n"),
         ("src/verbs_copy.h", "#define PHD_VERBS(X) \\\n    X(A, \"a\", \"\", \"\", \"\")\n"),
         ("include/plugin-hostd/old_verbs.h", '#define OMX_VERB_CHAIN_FMT "chain %i %i ..."\n'),
-        ("data/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
+        ("contract.d/more.json", '{\n  "V": {\n    "kind": "verbs",\n    "verbs": {}\n  }\n}\n'),
+        ("clients/python/plugin_hostd_protocol/__init__.py", "class Protocol:\n    pass\n"),
         ("tools/paths.h", '#define PHD_DEFAULT_LV2_PATH "/usr/lib/lv2"\n'),
     ]
     failed = 0

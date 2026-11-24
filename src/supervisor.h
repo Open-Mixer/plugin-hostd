@@ -557,7 +557,8 @@ char *sup_plan_clear(int id);
  * @param uris the plugins' uris, in signal order
  * @param n the number of uris, from 1 to PLANNER_MEMBERS_MAX
  * @return "resp 0 \<latency\> \<cpu percent\> \<ram\> \<workers\> \<unknown count\> \<unknown list\> \<ram used\>
- *         \<ram added\> \<ram budget\> \<ram unknown\>"; invalid-operation for a count, a rate or a quantum out of
+ *         \<ram added\> \<ram budget\> \<ram unknown\> \<verdict\> \<reason\>", the verdict the host's insert verdict on
+ *         the last uri, the candidate (PHD_ESTIMATE_VERDICTS, PHD_ESTIMATE_REASONS); invalid-operation for a count, a rate or a quantum out of
  *         range; NULL when memory ran out
  * @pre uris holds n uris, none NULL.
  * @note Not thread-safe: the supervisor's state has no lock; call on the daemon's main thread only.

@@ -23,7 +23,7 @@
  *
  * The grouping-planner design note, The history record. The file holds one line per \<uri\> \<binary digest\> \<host
  * class\>: history \<uri\> \<digest\> \<class\> key=value ...; the keys are PLUGIN_HOSTD_HISTORY_KEYS
- * (data/history.json), the first line PHD_HISTORY_HEADER. It is written only by the daemon, through the writer,
+ * (the domain plugin-hostd/history), the first line PHD_HISTORY_HEADER. It is written only by the daemon, through the writer,
  * atomically, mode 0600, and is local to the machine. Nothing here reads a clock or a /proc file: the caller says what
  * the window measured and what time it is. The history is a table of globals with no lock: unless a function says it
  * reads only its arguments, it is for the daemon's main thread only.
