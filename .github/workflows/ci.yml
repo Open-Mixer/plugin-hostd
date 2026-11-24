@@ -136,11 +136,19 @@ jobs:
       # an ordinary run builds against the channel: name where each omx package came from, refuse one from staging
       # (plugin-hostd-protocol#27: a stale staged contract package outranked the channel)
       - name: Every omx package comes from the channel
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           if command -v dnf >/dev/null; then dnf repoquery --installed --qf '%{name} %{version} %{from_repo}\n' 'omx-*' 'plugin-*' | tee /tmp/from-repo
           else apt-cache policy $(dpkg-query -W -f='${Package}\n' 'omx-*' 'libomx*' 'plugin-*' 'libplugin*' 2>/dev/null) | tee /tmp/from-repo; fi
-          if grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
+          # a pull request into devel builds against the staging channel (devel -> staging -> prod,
+          # Open-Mixer/.github add-openmixer): there a package from staging is expected; elsewhere refused
+          case $EVENT:$BASE in
+            pull_request*:devel) echo "a pull request into devel: a package from the staging channel is expected here" ;;
+            *) if grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi ;;
+          esac
 
       - name: Build
         run: make
