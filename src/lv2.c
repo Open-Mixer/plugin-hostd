@@ -1075,8 +1075,9 @@ static void quoted(char *out, size_t size, const char *text)
 
 /* param_info of an LV2 instance, from the control ports of its bundle: the unit and scale its port states, the range and
  * default, and the port's symbol, which is stable across hosts. -103 for what is no control port, and for the host's
- * bypass; -511 for a port whose unit the daemon has no word for or whose range it does not state. A bundle that cannot be
- * read leaves the answer to mod-host's param_get: -103 for what is no parameter, -511 for a parameter. */
+ * bypass; -511 for a port whose unit the daemon has no word for or whose range it does not state; ERR_MEMORY_ALLOCATION
+ * when there is no memory for the answer. A bundle that cannot be read leaves the answer to mod-host's param_get: -103 for
+ * what is no parameter, -511 for a parameter. */
 char *lv2_param_info(int id, const char *symbol)
 {
     ports_t *ports;
@@ -1100,12 +1101,10 @@ char *lv2_param_info(int id, const char *symbol)
             scale = p->integer || p->toggled || p->enumeration ? "stepped" :
                     p->logarithmic && p->min > 0 && p->max > 0 ? "log" : "linear";
             quoted(unit, sizeof(unit), p->unit ? p->unit : "");
-            reply = NULL;
+            /* no memory for the answer: said as that, not as a port with no contract */
             if (asprintf(&reply, "resp 0 %s %s %.9g %.9g %.9g %d %s", unit, scale, p->min, p->max, p->def,
                          !strcmp(scale, "stepped"), p->symbol) < 0)
-                reply = NULL;
-            if (reply == NULL)
-                reply = sup_resp(OMX_REPLY_HOST_NO_PARAM_CONTRACT_RESP);
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
         }
         ports_free(ports);
         return reply;
