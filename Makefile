@@ -154,8 +154,11 @@ PROG_TEST_EMPTY = tests/plugin-hostd-test-empty
 
 $(TEST_CONTRACT_TREE): $(wildcard contract.d/machine/*)
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	@test -f "$(CONTRACTDIR)/lv2/lv2.json" || { echo "$@: no $(CONTRACTDIR)/lv2/lv2.json: install plugin-db-contract (the LV2 unit ids a port's unit reads)" >&2; exit 1; }
 	rm -rf $@
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(TEST_CONTRACT_TREE)
+	# plugin-db's domain lv2 as installed, whose LV2_UNIT_IDS give a port's unit its standard id (src/lv2.c, #215 M5)
+	mkdir -p $(TEST_CONTRACT_TREE)/lv2 && cp $(CONTRACTDIR)/lv2/lv2.json $(TEST_CONTRACT_TREE)/lv2/
 
 $(TEST_CONTRACT_EMPTY):
 	mkdir -p $@
@@ -559,7 +562,7 @@ test-ready-connect-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
 .PHONY: test-bind test-bind-sabotage
 test-bind: $(PROG_TEST) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
-test-bind-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
+test-bind-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE) $(OBJ)
 	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
@@ -732,9 +735,9 @@ test-alloc: $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) $(VERBS_ALLOC_TEST)
 $(GESTURE_ALLOC_TEST): tests/gesture_alloc_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -o $@ tests/gesture_alloc_test.c -pthread $(PIN_LIBS)
 
-$(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
+$(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h src/domain_words.c src/domain_words.h
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Drealloc=alloc_test_realloc -c -o tests/lv2-alloc-lv2.o src/lv2.c
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o $(PIN_LIBS)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/lv2_alloc_test.c tests/lv2-alloc-lv2.o src/domain_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
@@ -896,10 +899,12 @@ check-floors-only:
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
 
-# the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
+# the words of the protocol are read from the domain plugin-hostd-protocol (tests/declared_domain.py); the
+# plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
 test: check-protocol-floor
 check-protocol-floor:
+	python3 tests/declared_domain.py
 	python3 tests/protocol_floor.py
 	python3 tests/pin_words_floor.py
 

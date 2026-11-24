@@ -22,6 +22,7 @@
 /* The LV2 format: how a bundle's files are found for a pin, how a worker's world is narrowed to one bundle, and what the
  * daemon answers for the instance verbs mod-host does not have. */
 
+#include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -36,6 +37,7 @@
 #include <mod-host.h>
 #include <plugin-hostd/protocol.h>
 
+#include "domain_words.h"
 #include "formats.h"
 #include "pages.h"
 #include "pins.h"
@@ -855,23 +857,66 @@ typedef struct PORTS_T {
     int n;
 } ports_t;
 
-/* units: the words param_info answers, as the domain plugin-hostd/lv2 maps them */
-static const struct { const char *iri; const char *word; } g_unit[] = {
-    { NS_UNITS "bpm", "bpm" },          { NS_UNITS "cent", "cents" },   { NS_UNITS "coef", "x" },
-    { NS_UNITS "db", "dB" },            { NS_UNITS "degree", "deg" },   { NS_UNITS "frame", "frames" },
-    { NS_UNITS "hz", "Hz" },            { NS_UNITS "midiNote", "midiNote" }, { NS_UNITS "min", "min" },
-    { NS_UNITS "ms", "ms" },            { NS_UNITS "oct", "oct" },      { NS_UNITS "pc", "%" },
-    { NS_UNITS "s", "s" },              { NS_UNITS "semitone12TET", "st" },
-    { "urn:openmixer:unit#dBFS", "dBFS" }, { "urn:openmixer:unit#LUFS", "LUFS" },
-};
+/* units: the words param_info answers are the standard unit ids plugin-db publishes in its domain lv2 (#215, M5; the
+ * unit-id rows of the domain plugin-hostd/lv2 read the same): a units.lv2 unit, units:<term>, is the word of
+ * LV2_UNIT_IDS whose title is the term; an OpenMixer spelling, urn:openmixer:unit#<name>, the word of
+ * LV2_OPENMIXER_UNIT_IDS whose title is the name in lower case. The domain is opened once, on the first unit asked for,
+ * and kept: its words are the handle's. A domain that cannot be opened is said once on stderr, and every unit then has
+ * no word, which param_info answers as no parameter contract */
+#define LV2_UNITS_DOMAIN "lv2"
+#define LV2_UNITS_FLOOR "1.0.0"
+#define NS_OPENMIXER_UNIT "urn:openmixer:unit#"
+
+static const char *g_units_dirs;
+static omx_domain *g_units;
+static int g_units_tried;
+
+void lv2_units_dirs(const char *dirs)
+{
+    g_units_dirs = dirs;
+}
 
 static const char *unit_word(const char *iri)
 {
-    size_t n;
+    const char *item, *name;
+    char lower[128];
+    omx_domain_word_info w;
+    int i, n;
 
-    for (n = 0; n < sizeof(g_unit) / sizeof(*g_unit); n++)
-        if (!strcmp(iri, g_unit[n].iri))
-            return g_unit[n].word;
+    if (!g_units_tried)
+    {
+        char why[512];
+
+        g_units_tried = 1;
+        if (domain_words_open(LV2_UNITS_DOMAIN, LV2_UNITS_FLOOR, g_units_dirs, &g_units, why, sizeof(why)) != 0)
+        {
+            fprintf(stderr, "plugin-hostd: the LV2 units read no word, plugin-db's domain " LV2_UNITS_DOMAIN " is not read: %s\n",
+                    why);
+            g_units = NULL;
+        }
+    }
+    if (g_units == NULL)
+        return NULL;
+    if (!strncmp(iri, NS_UNITS, strlen(NS_UNITS)))
+        item = "LV2_UNIT_IDS", name = iri + strlen(NS_UNITS);
+    else if (!strncmp(iri, NS_OPENMIXER_UNIT, strlen(NS_OPENMIXER_UNIT)))
+    {
+        size_t k;
+
+        name = iri + strlen(NS_OPENMIXER_UNIT);
+        if (strlen(name) >= sizeof(lower))
+            return NULL;
+        for (k = 0; name[k]; k++)
+            lower[k] = (char)tolower((unsigned char)name[k]);
+        lower[k] = '\0';
+        item = "LV2_OPENMIXER_UNIT_IDS", name = lower;
+    }
+    else
+        return NULL;
+    n = omx_domain_word_count(g_units, item);
+    for (i = 0; i < n; i++)
+        if (omx_domain_word_at(g_units, item, i, &w) == 0 && w.title != NULL && !strcmp(w.title, name))
+            return w.word;
     return NULL;
 }
 
@@ -1099,7 +1144,8 @@ char *lv2_param_info(int id, const char *symbol)
         {
             scale = p->integer || p->toggled || p->enumeration ? "stepped" :
                     p->logarithmic && p->min > 0 && p->max > 0 ? "log" : "linear";
-            quoted(unit, sizeof(unit), p->unit ? p->unit : "");
+            /* a port that states no unit answers PARAM_UNITS' none, a standard id like every other (#215 D1) */
+            quoted(unit, sizeof(unit), p->unit ? p->unit : "none");
             reply = NULL;
             if (asprintf(&reply, "resp 0 %s %s %.9g %.9g %.9g %d %s", unit, scale, p->min, p->max, p->def,
                          !strcmp(scale, "stepped"), p->symbol) < 0)

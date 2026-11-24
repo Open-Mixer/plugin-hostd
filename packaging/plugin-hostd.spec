@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.21.1
+Version: 0.22.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -19,7 +19,7 @@ BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor
-BuildRequires: plugin-hostd-protocol-devel >= 0.8.0
+BuildRequires: plugin-hostd-protocol-devel >= 0.9.0
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
@@ -42,7 +42,7 @@ Requires: sqlite-libs >= 3.37.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}
-Requires: plugin-hostd-protocol >= 0.8.0
+Requires: plugin-hostd-protocol >= 0.9.0
 # the loader the daemon and the probe runner read the machine domain through, at start-up
 Requires: libomx-domain >= 3.21.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
@@ -57,10 +57,11 @@ BuildRequires: omx-clap-host-tests >= 0.34.0
 BuildRequires: omx-contract >= 3.21.0
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: plugin-hostd-protocol-contract >= 0.8.0
-BuildRequires: omx-clap-contract >= 0.34.0
-# the LV2 terms the format table and the qualification domain name: plugin-db's domain lv2 (0.5.0 the release that ships it)
-BuildRequires: plugin-db-contract >= 0.5.0
+BuildRequires: plugin-hostd-protocol-contract >= 0.9.0
+BuildRequires: omx-clap-contract >= 0.35.0
+# the LV2 terms the format table and the qualification domain name: plugin-db's domain lv2 (0.5.0 the release that ships it),
+# and its unit and designation mappings the unit-id and designation-meaning rows read, units:coef's coef 0.5.1's
+BuildRequires: plugin-db-contract >= 0.5.1
 # the one Python codec: the daemon test and the grouping domain read the daemon's replies with plugin-hostd-protocol's
 # package, and this tree keeps no codec (make test-daemon)
 BuildRequires: python3-plugin-hostd-protocol >= 0.8.0
@@ -91,7 +92,7 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: plugin-hostd-protocol-devel >= 0.8.0
+Requires: plugin-hostd-protocol-devel >= 0.9.0
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
 Requires: plugin-db-devel >= 0.5.0
 
@@ -108,11 +109,14 @@ Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: plugin-hostd-protocol-contract >= 0.8.0
-Requires: omx-clap-contract >= 0.34.0
+Requires: plugin-hostd-protocol-contract >= 0.9.0
+# the CLAP contract unit's standard ids (OMX_PARAM_CONTRACT_UNIT_IDS of omx-clap's domain omx-param-contract, which a
+# unit-id row reads: docs/formats.md, Lookup values the owners publish) are 0.35.0's; a floor only
+Requires: omx-clap-contract >= 0.35.0
 # the LV2 terms of the format table and of the qualification domain are plugin-db's domain lv2, the CLAP terms omx-clap's
-# domain clap (omx-clap-contract above); a floor only
-Requires: plugin-db-contract >= 0.5.0
+# domain clap (omx-clap-contract above); the LV2 unit and designation mappings a unit-id or designation-meaning row reads
+# (LV2_UNIT_IDS with units:coef's coef, LV2_OPENMIXER_UNIT_IDS, LV2_DESIGNATION_MEANINGS) are 0.5.1's; a floor only
+Requires: plugin-db-contract >= 0.5.1
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
@@ -209,6 +213,11 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_domain_dir}/plugin-hostd/
 
 %changelog
+* Mon Nov 23 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.0-1
+- Chain 3, V16 as ruled 2026-11-23: the protocol's words are read from the
+  domain plugin-hostd-protocol, contract.d/plugin-hostd-protocol/, which no
+  longer shares <contractdir>/plugin-hostd/ with this package's nested domains.
+
 * Tue Nov 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.1-1
 - The build requires python3-plugin-hostd-protocol 0.8.0 or newer: the daemon
   test and the grouping domain read the daemon's replies with its Python codec,

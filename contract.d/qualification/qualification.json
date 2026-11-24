@@ -7,7 +7,7 @@
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": {
-      "clap": ">= 2.18.0",
+      "clap": ">= 0.35.0",
       "lv2": ">= 1.0.0",
       "omx-clap": ">= 0.34.0",
       "pin": ">= 1.0.0",

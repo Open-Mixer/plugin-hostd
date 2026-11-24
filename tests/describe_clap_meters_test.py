@@ -29,7 +29,7 @@ METERS = [
     {"id": 2, "symbol": "compOut", "kind": "level", "channels": 2, "unit": "dBFS", "min": -60, "max": 6},
     {"id": 3, "symbol": "compKey", "kind": "level", "channels": 1, "unit": "dBFS", "min": -60, "max": 0},
 ]
-CONTRACT_UNIT = {"db": "dB", "ms": "ms", "hz": "Hz", "pc": "%", "none": "unknown"}
+CONTRACT_UNIT = {"db": "dB", "ms": "ms", "hz": "Hz", "pc": "percent", "none": "none"}  # omx-clap's OMX_PARAM_CONTRACT_UNIT_IDS (#215 M5)
 failed = 0
 
 

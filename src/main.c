@@ -44,7 +44,7 @@
 #include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.21.1"
+#define VERSION "0.22.0"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -254,6 +254,13 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     conf_defaults(&g_conf);
+    /* plugin-db's domain lv2 gives an LV2 port's unit its standard id: the installed contract directory, or the test
+     * build's (OMX_CONTRACTDIR, as for the machine domain) */
+#ifdef OMX_CONTRACTDIR
+    lv2_units_dirs(OMX_CONTRACTDIR);
+#else
+    lv2_units_dirs(NULL);
+#endif
     /* the workers, the probe and the scanners run with no window: with no display, Qt is given one that needs none, so
      * a Qt-linked plugin does not abort as it is instantiated; every process the daemon starts inherits it */
     phd_headless_qt();

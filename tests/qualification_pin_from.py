@@ -85,6 +85,10 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
         src = os.path.join(installed, "3", package)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, "3", package))
+        elif os.path.isdir(os.path.join(installed, package)):
+            # an owner that installs only domains (plugin-db from 0.5.0, V11: no package directory) is read as the domain
+            # of its name, as the installed contract directory answers the floor
+            shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
     for domain in ("lv2", "clap"):
         src = os.path.join(installed, domain)
         if os.path.isdir(src):
@@ -163,7 +167,7 @@ def main():
         check(rc != 0, "(d) fmt --check refuses the document in another formatting: %s" % out[-120:])
         rc, out = validate(tmp, "old-protocol", qual, pin, protocol="0.7.0")
         check(rc != 0 and "0.8.0" in out, "(c) plugin-hostd-protocol 0.7.0 is below the document's floor: %s" % out[-160:])
-    check(qual["info"].get("x-requires") == {"clap": ">= 2.18.0", "lv2": ">= 1.0.0", "omx-clap": ">= 0.34.0", "pin": ">= 1.0.0",
+    check(qual["info"].get("x-requires") == {"clap": ">= 0.35.0", "lv2": ">= 1.0.0", "omx-clap": ">= 0.34.0", "pin": ">= 1.0.0",
                                               "plugin-db": ">= 0.5.0", "plugin-hostd-protocol": ">= 0.8.0"},
           "(a) info.x-requires names the domain pin at 1.0.0 and plugin-hostd-protocol at 0.8.0, and the term domains lv2 (plugin-db 0.5.0) and clap (omx-clap 0.34.0)")
     return 1 if failed else 0

@@ -36,7 +36,16 @@ static const char *const BOOL_TO[] = { "true" };
 static const char *const ROLE_FROM[] = { "mix", "threshold", "hpf_freq", "low_cut", "band_type" };
 static const char *const ROLE_TO[] = { "\"wetDryRatio\"", "\"threshold\"", "\"lowCut\"", "\"lowCut\"", "\"unknown\"" };
 
+/* the pairs a format's owner publishes, as describe hands them over: OMX_PARAM_CONTRACT_UNIT_IDS' codes, and a
+ * LV2_DESIGNATION_MEANINGS word for its row */
+static const char *const CODE_FROM[] = { "db", "pc", "hz" };
+static const char *const CODE_TO[] = { "\"dB\"", "\"percent\"", "\"Hz\"" };
+static const char *const MEANING_FROM[] = { "param:gain" };
+static const char *const MEANING_TO[] = { "\"gain\"" };
+
 static const transforms_data_t NONE = { 0 };
+static const transforms_data_t CODES = { "omx_clap_param_contract_entry.unit", CODE_FROM, CODE_TO, 3, 0 };
+static const transforms_data_t MEANING = { "param:gain", MEANING_FROM, MEANING_TO, 1, 0 };
 static const transforms_data_t ROLES = { "omx_clap_panel_role.role", ROLE_FROM, ROLE_TO, 5, 0 };
 static const transforms_data_t UNITS = { "units:unit", UNIT_FROM, UNIT_TO, 3, 0 };
 static const transforms_data_t AUTOMATABLE = { "CLAP_PARAM_IS_AUTOMATABLE", BOOL_FROM, BOOL_TO, 1, 0 };
@@ -73,6 +82,9 @@ static const vector_t VECTORS[] = {
     { "output-symbol", &NONE, "_2band_gr", "\"_2band_gr\"" },
     { "role-to-meaning", &ROLES, "mix", "\"wetDryRatio\"" },
     { "role-to-meaning", &ROLES, "threshold", "\"threshold\"" },
+    { "unit-id", &CODES, "db", "\"dB\"" },
+    { "unit-id", &CODES, "pc", "\"percent\"" },
+    { "designation-meaning", &MEANING, "param:gain", "\"gain\"" },
 };
 
 /* what a transform refuses (inbound unless inverse is set), or reads as no value */
@@ -115,6 +127,9 @@ static const edge_t EDGES[] = {
     { "role-to-meaning", &NONE, 0, "mix", TRANSFORMS_NONE },          /* no table installed */
     { "role-to-meaning", &ROLES, 1, "\"lowCut\"", TRANSFORMS_REFUSED }, /* two roles play it */
     { "role-to-meaning", &ROLES, 1, "\"gain\"", TRANSFORMS_NONE },    /* no role plays it */
+    { "unit-id", &CODES, 0, "furlong", TRANSFORMS_NONE },             /* a code the owner maps to no id */
+    { "unit-id", &CODES, 1, "\"%\"", TRANSFORMS_NONE },              /* no standard id */
+    { "designation-meaning", &MEANING, 0, "param:sustain", TRANSFORMS_NONE }, /* no pair */
 };
 
 int main(void)

@@ -104,6 +104,7 @@ enum { C_WORD, C_EXTENSION, C_DROPPED };
 typedef struct
 {
     const char *key;
+    const char *term; /* the term link it covers, <TERMS item>#<term>, or NULL for a row with x-from */
     int cls;
     int word; /* WORDS index */
     const transforms_entry_t *t;
@@ -251,23 +252,181 @@ static int load_roles(const char *dir, roles_t *r)
     return rc;
 }
 
+/* ---------------------------------------------------------------- the owners' mappings (docs/formats.md, Lookup values
+ * the owners publish) */
+
+static const char *g_owner_dirs;
+
+void describe_owners(const char *dirs)
+{
+    g_owner_dirs = dirs;
+}
+
+/* the domain document of a format owner, <dir>/<domain>/<domain>.json from the first directory of the list that holds
+ * it, read once: its $id names the domain and its info.x-owner the owner. NULL, refused, when none holds it, or the
+ * first that does holds what is no such document */
+static const cJSON *owner_domain(const char *domain, const char *owner)
+{
+    static struct
+    {
+        const char *domain;
+        cJSON *doc;
+    } seen[4];
+    static size_t nseen;
+    const char *dirs = g_owner_dirs, *next;
+    char path[4096], id[512];
+    size_t i;
+
+    for (i = 0; i < nseen; i++)
+        if (!strcmp(seen[i].domain, domain))
+            return seen[i].doc;
+    for (; dirs != NULL && *dirs; dirs = next ? next + 1 : NULL)
+    {
+        sb_t text = { 0 };
+        cJSON *doc;
+        int len;
+
+        next = strchr(dirs, ':');
+        len = next ? (int)(next - dirs) : (int)strlen(dirs);
+        if (len == 0)
+            continue;
+        snprintf(path, sizeof(path), "%.*s/%s/%s.json", len, dirs, domain, domain);
+        if (access(path, F_OK) != 0)
+            continue;
+        if (read_all(path, &text) != 0 || (doc = jparse(text.s)) == NULL || !cJSON_IsObject(doc))
+        {
+            free(text.s);
+            refuse("%s's domain %s (%s) is no JSON object", owner, domain, path);
+            return NULL;
+        }
+        free(text.s);
+        snprintf(id, sizeof(id), "https://openmixer.org/contract/%s", domain);
+        if (!jstr(doc, "$id") || strcmp(jstr(doc, "$id"), id) || !jstr(jget(doc, "info"), "x-owner") ||
+            strcmp(jstr(jget(doc, "info"), "x-owner"), owner))
+        {
+            refuse("%s is not the domain %s of %s ($id, info.x-owner)", path, domain, owner);
+            return NULL;
+        }
+        if (nseen < sizeof(seen) / sizeof(seen[0]))
+            seen[nseen].domain = domain, seen[nseen++].doc = doc;
+        return doc;
+    }
+    refuse("no contract directory holds %s's domain %s (%s)", owner, domain, g_owner_dirs ? g_owner_dirs : "none given");
+    return NULL;
+}
+
+/* an item of an owner's domain, or NULL, refused */
+static const cJSON *owner_item(const char *domain, const char *owner, const char *item)
+{
+    const cJSON *doc = owner_domain(domain, owner), *it;
+
+    if (doc == NULL)
+        return NULL;
+    if ((it = jget(jget(jget(doc, "components"), "schemas"), item)) == NULL || !cJSON_IsObject(it))
+        refuse("%s's domain %s holds no item %s", owner, domain, item);
+    return it;
+}
+
+/* whether a word of an owner's item names the term link `term` (<TERMS item>#<term>) in its x-from */
+static int names_term(const cJSON *word, const char *term)
+{
+    const cJSON *from = jget(word, "x-from");
+    const char *hash = strchr(term, '#'), *ref;
+    size_t i, n = (size_t)(hash - term);
+
+    for (i = 0; from != NULL && cJSON_IsArray(from) && i < jcount(from); i++)
+        if ((ref = jstr(jkid(from, i), "$ref")) != NULL && jstr(jkid(from, i), "x-term") &&
+            !strcmp(jstr(jkid(from, i), "x-term"), hash + 1) && strlen(ref) > n && ref[strlen(ref) - n - 1] == '/' &&
+            !strncmp(ref + strlen(ref) - n, term, n))
+            return 1;
+    return 0;
+}
+
+static void add_pair(transforms_data_t *d, const char *from, const cJSON *to)
+{
+    const char **f = (const char **)d->from, **t = (const char **)d->to;
+
+    f = realloc(f, (d->n + 1) * sizeof(char *)), t = realloc(t, (d->n + 1) * sizeof(char *));
+    f[d->n] = from, t[d->n] = literal(to);
+    d->from = f, d->to = t, d->n++;
+}
+
+/* a unit-id or designation-meaning row's pairs, read from the mapping the format's owner publishes: 0, or refused */
+static int owner_pairs(const table_t *t, row_t *r, const char *tr)
+{
+    const cJSON *it;
+    size_t k;
+
+    if (!strcmp(t->format, "clap"))
+    {
+        /* omx-clap's OMX_PARAM_CONTRACT_UNIT_IDS, a sheet: each code of the extension's unit to its standard id */
+        const cJSON *v;
+
+        if (strcmp(tr, "unit-id"))
+            return refuse("row %s: a CLAP table reads no designation", r->key);
+        if ((it = owner_item("omx-param-contract", "omx-clap", "OMX_PARAM_CONTRACT_UNIT_IDS")) == NULL)
+            return -1;
+        if ((v = jget(it, "x-value")) == NULL || !cJSON_IsObject(v))
+            return refuse("omx-clap's OMX_PARAM_CONTRACT_UNIT_IDS holds no sheet value");
+        for (k = 0; k < jcount(v); k++)
+            if (cJSON_IsString(jkid(v, k)))
+                add_pair(&r->d, jkey(v, k), jkid(v, k));
+    }
+    else
+    {
+        /* plugin-db's domain lv2: the word whose x-from names the row's term; the field units:unit, whose values are the
+         * urn:openmixer:unit spellings, reads every word of LV2_OPENMIXER_UNIT_IDS by its x-uri */
+        const char *item = !strcmp(tr, "unit-id") ? "LV2_UNIT_IDS" : "LV2_DESIGNATION_MEANINGS";
+        const cJSON *words;
+
+        if (r->term == NULL)
+            return refuse("row %s: %s reads the owner's word for the row's term, and the row has none", r->key, tr);
+        if (!strcmp(tr, "unit-id") && !strcmp(r->term, "LV2_UNITS_TERMS#unit"))
+            item = "LV2_OPENMIXER_UNIT_IDS";
+        if ((it = owner_item("lv2", "plugin-db", item)) == NULL)
+            return -1;
+        if ((words = jget(it, "oneOf")) == NULL || !cJSON_IsArray(words))
+            return refuse("plugin-db's %s holds no words", item);
+        for (k = 0; k < jcount(words); k++)
+        {
+            const cJSON *w = jkid(words, k), *c = jget(w, "const");
+
+            if (!cJSON_IsString(c))
+                continue;
+            if (!strcmp(item, "LV2_OPENMIXER_UNIT_IDS") && jstr(w, "x-uri"))
+                add_pair(&r->d, jstr(w, "x-uri"), c);
+            else if (strcmp(item, "LV2_OPENMIXER_UNIT_IDS") && names_term(w, r->term))
+                add_pair(&r->d, r->key, c);
+        }
+    }
+    if (r->d.n == 0)
+        return refuse("row %s: the owner's mapping holds no pair for %s (a unit with no standard id is a dropped row "
+                      "naming its ruling)", r->key, r->term ? r->term : r->key);
+    for (k = 0; k < r->d.n; k++)
+        if (r->d.to[k] == NULL)
+            return refuse("row %s: the owner's mapping gives a value that is no string", r->key);
+    if (transforms_lookup_check(&r->d) != 0)
+        return refuse("row %s: the owner's mapping is not one to one", r->key);
+    return 0;
+}
+
 static int load_table(const char *text, table_t *t)
 {
-    cJSON *doc = jparse(text), *items, *item = NULL, *map, *rows;
+    cJSON *doc = jparse(text), *items, *item = NULL, *rows;
     size_t i, k;
 
     if (doc == NULL || !cJSON_IsObject(doc))
         return refuse("the table is not one JSON object");
-    /* the table is the sheet of a domain (plugin-hostd/clap, plugin-hostd/lv2): components.schemas holds one item whose
-     * x-kind is sheet, and its x-value is the map, { format, rows } */
+    /* the table is the map item of a domain (plugin-hostd/clap, plugin-hostd/lv2): components.schemas holds one item
+     * whose x-kind is map (omx-contract's mapping-table kind), its x-format the format and its oneOf one row per source
+     * field (const the field, x-term or x-from, x-word, x-extension or x-dropped) */
     items = jget(jget(doc, "components"), "schemas");
     for (i = 0; items != NULL && cJSON_IsObject(items) && i < jcount(items) && item == NULL; i++)
-        if (cJSON_IsObject(jkid(items, i)) && jstr(jkid(items, i), "x-kind") && !strcmp(jstr(jkid(items, i), "x-kind"), "sheet"))
+        if (cJSON_IsObject(jkid(items, i)) && jstr(jkid(items, i), "x-kind") && !strcmp(jstr(jkid(items, i), "x-kind"), "map"))
             item = jkid(items, i);
-    if (item == NULL || (map = jget(item, "x-value")) == NULL || !cJSON_IsObject(map) || (rows = jget(map, "rows")) == NULL ||
-        !cJSON_IsObject(rows))
-        return refuse("the table holds no sheet item whose value has rows");
-    t->format = jstr(map, "format");
+    if (item == NULL || (rows = jget(item, "oneOf")) == NULL || !cJSON_IsArray(rows) || jcount(rows) == 0)
+        return refuse("the table holds no map item with rows");
+    t->format = jstr(item, "x-format");
     if (t->format == NULL || (strcmp(t->format, "clap") && strcmp(t->format, "lv2")))
         return refuse("the table's format is neither clap nor lv2");
     t->rows = calloc(jcount(rows), sizeof(row_t));
@@ -275,9 +434,11 @@ static int load_table(const char *text, table_t *t)
     for (i = 0; i < jcount(rows); i++)
     {
         row_t *r = &t->rows[i];
-        const cJSON *row = jkid(rows, i), *w = jget(row, "word");
+        const cJSON *row = jkid(rows, i), *w = jget(row, "x-word");
 
-        r->key = jkey(rows, i);
+        if ((r->key = jstr(row, "const")) == NULL)
+            return refuse("row %zu of the map has no const, its source field", i);
+        r->term = jstr(row, "x-term");
         if (w != NULL)
         {
             const char *word = jstr(w, "word"), *tr = jstr(w, "transform");
@@ -298,6 +459,14 @@ static int load_table(const char *text, table_t *t)
                                   "role tables, with no values of its own", r->key);
                 r->d.from = t->roles.role, r->d.to = t->roles.meaning, r->d.n = t->roles.n;
             }
+            if (!strcmp(tr, "unit-id") || !strcmp(tr, "designation-meaning"))
+            {
+                /* its data is the mapping the format's owner publishes, never the table's own */
+                if (values != NULL)
+                    return refuse("row %s: %s reads the owner's published mapping, with no values of its own", r->key, tr);
+                if (owner_pairs(t, r, tr) != 0)
+                    return -1;
+            }
             if (jnum(w, "factor", &factor))
                 r->d.factor = factor;
             if (values != NULL && cJSON_IsObject(values))
@@ -317,9 +486,9 @@ static int load_table(const char *text, table_t *t)
             else if (!strcmp(tr, "lookup"))
                 return refuse("row %s: a lookup with no values", r->key);
         }
-        else if (jget(row, "extension") != NULL)
+        else if (jget(row, "x-extension") != NULL)
             r->cls = C_EXTENSION;
-        else if (jget(row, "dropped") != NULL)
+        else if (jget(row, "x-dropped") != NULL)
             r->cls = C_DROPPED;
         else
             return refuse("row %s: no class", r->key);

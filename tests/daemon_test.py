@@ -461,7 +461,7 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
 
 @test
 def preset_show_of_an_instance_answers_one_line_of_json_the_daemon_passes_on_unchanged():
-    """plugin-hostd#151: the declared reply is `resp 0 <json>` (docs/presets.md, plugin-hostd-protocol's verbs.json), and the worker's line
+    """plugin-hostd#151: the declared reply is `resp 0 <json>` (docs/presets.md, the domain plugin-hostd-protocol), and the worker's line
     comes back to the controller as it was, not rewritten into `resp 0 <carries> <name>`"""
     d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
     try:
@@ -1579,6 +1579,9 @@ def a_nice_the_daemon_cannot_apply_is_logged():
         print("skip a_nice_the_daemon_cannot_apply_is_logged: this identity has CAP_SYS_NICE, which RLIMIT_NICE does not bind")
         return
     own = os.getpriority(os.PRIO_PROCESS, 0)
+    if own + 3 > 19:  # a suite run under nice 17-19 (a desk's nice -n 19) has no nice above its own to give
+        print("skip a_nice_the_daemon_cannot_apply_is_logged: this run's nice is %d, and %d is above 19" % (own, own + 3))
+        return
     d = daemon(rlimits={resource.RLIMIT_NICE: (0, 0)})
     try:
         d.expect("worker_env lv2 - %d" % (own + 3), "resp 0")
@@ -1859,14 +1862,17 @@ def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param
         d.expect("remote_page_get 0", "resp -902")
         d.expect("remote_pages 9", "resp -3")
         d.expect("remote_page_get 9 0", "resp -3")
-        # the unit and scale of a port, its range and default, its symbol
+        # the unit and scale of a port, its range and default, its symbol; the unit is the standard id, PARAM_UNITS' const
+        # (plugin-hostd#215 D1): `none` for a port that states none, `percent` for units:pc, `kHz` for units:khz
         d.expect("param_info 0 threshold", 'resp 0 "dB" linear -60 0 -18 0 threshold')
-        d.expect("param_info 0 ratio", 'resp 0 "" log 1 20 4 0 ratio')
+        d.expect("param_info 0 ratio", 'resp 0 "none" log 1 20 4 0 ratio')
         d.expect("param_info 0 attack", 'resp 0 "ms" linear 0.1 100 10 0 attack')
-        d.expect("param_info 0 knee_mode", 'resp 0 "" stepped 0 2 1 1 knee_mode')
-        d.expect("param_info 0 sidechain", 'resp 0 "" stepped 0 1 0 1 sidechain')
+        d.expect("param_info 0 knee_mode", 'resp 0 "none" stepped 0 2 1 1 knee_mode')
+        d.expect("param_info 0 sidechain", 'resp 0 "none" stepped 0 1 0 1 sidechain')
         d.expect("param_info 0 low", 'resp 0 "Hz" linear 20 400 80 0 low')
         d.expect("param_info 0 reduction", 'resp 0 "dB" linear 0 24 0 0 reduction')
+        d.expect("param_info 0 b1", 'resp 0 "percent" linear 0 1 0.5 0 b1')
+        d.expect("param_info 0 b2", 'resp 0 "kHz" linear 0 1 0.5 0 b2')
         # a unit the daemon has no word for and a port with no range are the worker's -511; what is no control port is -103
         d.expect("param_info 0 high", resp("NO_PARAM_CONTRACT"))
         d.expect("param_info 0 loose", resp("NO_PARAM_CONTRACT"))
