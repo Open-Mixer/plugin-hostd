@@ -1,16 +1,15 @@
-Breaks the check of fuzz/fuzz_command.c:457 (the placement and the client, each where the message has it).
+Breaks the check of fuzz/fuzz_command.c:487 (the placement and the client, each where the message has it).
 Caught by the seed input "add-pool-p-fuzz_client" of fuzz_command.
 
 diff --git a/src/verbs.c b/src/verbs.c
-index 44a3191..e7d4506 100644
 --- a/src/verbs.c
 +++ b/src/verbs.c
-@@ -186,7 +186,7 @@ static char *handle(char *line, char **tok, int ntok)
+@@ -224,7 +224,7 @@ static char *handle(char *line, char **tok, int ntok)
              client = tok[next++];
          if (ntok > next)
              return sup_resp(ERR_INVALID_OPERATION);
 -        reply_text = sup_add(uri, atoi(tok[at]), placement, client);
 +        reply_text = sup_add(uri, atoi(tok[at]), client, placement);
-         /* the plugin is running: its files are scanned after the reply, never before it */
+         /* the plugin is running: its files are scanned after the reply, never before it; its store entry is read, and
+          * a plugin no layer holds is asked for once the scan has ended */
          if (reply_text && sup_reply_code(reply_text) >= 0)
-             descriptors_add(uri);

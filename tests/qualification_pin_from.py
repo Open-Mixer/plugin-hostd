@@ -81,11 +81,12 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     # term domains the latency and voice words name (plugin-db's lv2, omx-clap's clap), copied from the installed directory
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
     stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_FLOOR_STUB")
-    for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
+    for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed: a package of the schema major
         src = os.path.join(installed, "3", package)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, "3", package))
-    for domain in ("lv2", "clap"):
+    # the term domains, and their owners where they are installed as domains (plugin-db's since V16, <contractdir>/plugin-db/)
+    for domain in ("lv2", "clap", "plugin-db", "omx-clap"):
         src = os.path.join(installed, domain)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, domain))
@@ -163,7 +164,7 @@ def main():
         check(rc != 0, "(d) fmt --check refuses the document in another formatting: %s" % out[-120:])
         rc, out = validate(tmp, "old-protocol", qual, pin, protocol="0.7.0")
         check(rc != 0 and "0.8.0" in out, "(c) plugin-hostd-protocol 0.7.0 is below the document's floor: %s" % out[-160:])
-    check(qual["info"].get("x-requires") == {"clap": ">= 2.18.0", "lv2": ">= 1.0.0", "omx-clap": ">= 0.34.0", "pin": ">= 1.0.0",
+    check(qual["info"].get("x-requires") == {"clap": ">= 0.35.0", "lv2": ">= 1.0.0", "omx-clap": ">= 0.34.0", "pin": ">= 1.0.0",
                                               "plugin-db": ">= 0.5.0", "plugin-hostd-protocol": ">= 0.8.0"},
           "(a) info.x-requires names the domain pin at 1.0.0 and plugin-hostd-protocol at 0.8.0, and the term domains lv2 (plugin-db 0.5.0) and clap (omx-clap 0.34.0)")
     return 1 if failed else 0

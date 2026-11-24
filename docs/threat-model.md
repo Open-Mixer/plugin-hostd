@@ -22,7 +22,9 @@ and MIDI never pass through it, every worker is a JACK client (`README.md`, `doc
   its priority from the JACK client library.
 - Isolation: one process per plugin, per pool or per chain, so a crash takes down its worker only. Workers run as
   the daemon's user with its environment, with `PR_SET_PDEATHSIG`. Before the exec (`proc_confine` in `src/proc.c`)
-  each worker, and the descriptor scan (`plugin-hostd-probe describe|panel`, a child of its own, `src/descriptors.c`),
+  each worker, the descriptor scan (`plugin-hostd-probe describe|panel`, a child of its own, `src/descriptors.c`), and
+  each program of the descriptions store's ask (`plugin-qualify-sync --plugin`, `omx-panel describe --store`, the LV2
+  generators with `--only`: children of their own at nice 19, `SCHED_IDLE` and the idle I/O class, `src/descriptions.c`),
   gets `PR_SET_NO_NEW_PRIVS`, a stdin of `/dev/null`, closes every descriptor past 0, 1 and 2 (so no plugin holds
   the command socket, a controller's, another worker's or the daemon's own stdin), and a seccomp filter that answers `EPERM` to `ptrace`,
   `process_vm_readv`/`writev`, `mount`, `umount2`, `pivot_root`, `kexec_*`, module loading, `reboot`, `swapon`/`swapoff`,
@@ -43,6 +45,8 @@ Inputs
 | Descriptor and panel JSON from `plugin-hostd-probe` stdout | produced by scanning the plugin | partly plugin-derived; parsed by the daemon with cJSON |
 | Preset files (`org.openmixer.preset`) named by `preset_load` / `preset_show` | whoever can write the path the controller names | untrusted; passed to the worker |
 | Settings file (`-c`, `$PLUGIN_HOSTD_CONF`, `~/.config/plugin-hostd.conf`) | local user | trusted: `mod_host`, `clap_host` and `probe` name programs the daemon executes |
+| The descriptions store (`panel.sqlite`: the base, the system layer, the user layer) | omx-panel's writers, a person's edits | read through `libomx-panel-store`, opened read-only; its groups name ports by symbol, and a symbol no port has is ignored |
+| `PATH` | the daemon's environment | trusted: the ask runs `plugin-qualify-sync`, `omx-panel` and the LV2 generators found on it |
 | Pin store, `<pin_store>.accepted`, `pin_file`, history file | local user (and the daemon) | trusted |
 | `pins_dir` (`/usr/share/plugin-hostd/pins.d/*.pins`) | packager | trusted as it is |
 | Qualification store (read through libplugin-qualification-db, the system store as root, else the user's) | plugin-qualify, local user | trusted; opened read-only by the library, which refuses a store of another schema |

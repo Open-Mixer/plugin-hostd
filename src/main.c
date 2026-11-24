@@ -31,6 +31,8 @@
 #include <utils.h>
 
 #include "conf.h"
+#include "descriptions.h"
+#include "descriptions_open.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "history.h"
@@ -74,6 +76,24 @@ static int open_test_store(pqdb **db, pqdb_error *err)
 #else
     return pqdb_open_at(path, NULL, NULL, db, err);
 #endif
+}
+
+/* The test build's seam for the descriptions store, beside the qualification store's: the store is the three files of the
+ * directory PLUGIN_HOSTD_TEST_DESCRIPTIONS_STORE names (base.sqlite, system.sqlite and user.sqlite, every layer whatever
+ * the uid, so a test reads what its writer wrote as root or not), the installed contract directory for the words; no
+ * variable names no store, which is an absent one. The packaged daemon opens the store of its scope with
+ * omx_panel_store_open and takes no path and no environment variable for it. */
+static int open_test_descriptions(omx_panel_store **s, omx_panel_store_error *err)
+{
+    const char *dir = getenv("PLUGIN_HOSTD_TEST_DESCRIPTIONS_STORE");
+    char base[PATH_MAX], sys[PATH_MAX], user[PATH_MAX];
+
+    if (!dir || !*dir)
+        dir = "/nonexistent";
+    snprintf(base, sizeof(base), "%s/base.sqlite", dir);
+    snprintf(sys, sizeof(sys), "%s/system.sqlite", dir);
+    snprintf(user, sizeof(user), "%s/user.sqlite", dir);
+    return omx_panel_store_open_at(base, sys, user, NULL, s, err);
 }
 #endif
 
@@ -124,6 +144,7 @@ static void idle_cb(void)
     verbs_flush();
     sup_tick();
     descriptors_tick();
+    descriptions_tick();
     if (g_quitting)
     {
         /* quit: what was handed over lands, and what waited for it is answered, before the daemon goes */
@@ -354,6 +375,7 @@ int main(int argc, char **argv)
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
 #ifdef OMX_QUALIFICATION_TEST_STORE
     qualcost_use_opener(open_test_store);
+    descriptions_use_opener(open_test_descriptions);
 #endif
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;
@@ -408,6 +430,7 @@ int main(int argc, char **argv)
     socket_finish();
     /* every write lands before the state its ends report to is freed; the history's last one lands before the exit */
     writer_drain();
+    descriptions_finish();
     descriptors_finish();
     sup_finish();
     history_finish();

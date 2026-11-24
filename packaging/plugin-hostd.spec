@@ -39,6 +39,11 @@ BuildRequires: libplugin-qualification-db-devel >= 2026111901
 BuildRequires: sqlite-devel >= 3.37.0
 Requires: libplugin-qualification-db >= 2026111901
 Requires: sqlite-libs >= 3.37.0
+# the reader of the descriptions store, <omx-panel/omx_panel_store.h> (src/descriptions.c): a plugin's port groups and the
+# key description_get answers; 0.16.0 the first release of its reader as the daemon calls it (rules 4, the source a get
+# takes). Its package also holds the command omx-panel-store, which writes the stores of make test-description; a floor only
+BuildRequires: omx-panel-store-devel >= 0.16.0
+Requires: omx-panel-store >= 0.16.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
 Requires: plugin-hostd-protocol%{?_isa}
