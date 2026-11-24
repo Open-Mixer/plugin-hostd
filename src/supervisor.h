@@ -104,8 +104,8 @@ typedef struct INSTANCE_T {
     int bypassed;               /**< it has no verdict and no worker: its insert passes dry, its quick check is asked for
                                  * (R-112); w is NULL until its verdict is a pass or the user accepted it */
     char *byp_uri;              /**< the uri and the client as the add had them, for the add that makes it live */
-    char *byp_place;
-    char *byp_client;
+    char *byp_place;            /**< the placement the add asked for, PHD_PLACE_DEFAULT when it named none */
+    char *byp_client;           /**< the client name the add asked for; NULL when it named none */
 } instance_t;
 
 /** @brief One worker process, or the place one is to run again: its sockets, its instances and its death record. */
