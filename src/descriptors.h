@@ -5,7 +5,7 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
-/* The scanned descriptors of the plugins a controller adds: descriptor_dir and qualification_dir, the scan an add runs
+/* The scanned descriptors of the plugins a controller adds: descriptor_dir, the scan an add runs
  * in a child of its own, and descriptor_get; the panel the same scan files under the descriptor's name, and panel_get.
  * A descriptor describes a plugin; it gates no load, so no add waits for its scan or is refused by it. */
 
@@ -18,7 +18,7 @@
 
 #include "conf.h"
 
-/* descriptor_dir and qualification_dir resolved (an empty setting is the default of protocol.h), made when missing
+/* descriptor_dir resolved (an empty setting is the default of protocol.h), made when missing
  * and tried for a write; SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP with the key, the path and why on stderr. The resolved
  * paths are written back into conf, which is kept for the scans. */
 int descriptors_init(conf_t *conf);

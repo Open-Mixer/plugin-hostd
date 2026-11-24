@@ -1,26 +1,30 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
- * The cost the daemon reads from qualification records (src/qualcost.c), against records written out by hand: the
- * figure of the right rate and quantum, the larger of two records, the records that are not the plugin's, and the files
- * that are no records; and the cell the estimate verb reads, a cost median and a latency at one rate and quantum.
+ * The cost the daemon reads from the qualification store (src/qualcost.c, through libplugin-qualification-db), against
+ * store fixtures built from that library's own schema (tests/qual_fixture.py): the figure of the right rate and
+ * quantum, the larger of two records, the cell the estimate verb reads, the memory; a record file of the old
+ * qualification_dir is read by nothing; and a store that cannot be opened is refused by its qualification-db.* code.
  * tests/sabotage.py breaks one rule at a time.
  *
  * Usage: qualcost-test [<test name>]
+ * Compiled with -DQUAL_SCHEMA='"<schema/qualification.sql>"', -DQUAL_FIXTURE='"tests/qual_fixture.py"',
+ * -DQUALCOST_SOURCE='"src/qualcost.c"' and -DTEST_CONTRACT_TREE='"<the installed machine domain>"'.
  */
 
-#include <fcntl.h>
 #include <math.h>
-#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <plugin-qualification-db/pqdb.h>
+
 #include "qualcost.h"
 
 static int g_failed;
 static char g_dir[256];
+static pqdb *g_db;
 
 #define CHECK(cond, ...) \
     do { \
@@ -34,55 +38,80 @@ static char g_dir[256];
         } \
     } while (0)
 
-static void put(const char *name, const char *text)
+/* the fixture <g_dir>/<name>.sqlite from the cells, a space-separated list of qual_fixture.py's arguments */
+static void fixture(const char *name, const char *args)
+{
+    char cmd[2048];
+
+    snprintf(cmd, sizeof(cmd), "python3 %s %s %s/%s.sqlite %s", QUAL_FIXTURE, QUAL_SCHEMA, g_dir, name, args);
+    if (system(cmd) != 0)
+    {
+        fprintf(stderr, "the fixture %s was not built: %s\n", name, cmd);
+        exit(2);
+    }
+}
+
+/* opens <g_dir>/<name>.sqlite as the base, no user layer; 0, or what pqdb_open_at answers, its error in *err */
+static int open_fixture(const char *name, pqdb **db, pqdb_error *err)
 {
     char path[512];
-    FILE *f;
 
-    snprintf(path, sizeof(path), "%s/%s", g_dir, name);
-    f = fopen(path, "w");
-    if (!f || fputs(text, f) < 0)
-        exit(2);
-    fclose(f);
+    snprintf(path, sizeof(path), "%s/%s.sqlite", g_dir, name);
+    return pqdb_open_at(path, NULL, TEST_CONTRACT_TREE, db, err);
 }
 
-static void record(const char *name, const char *id, int rate, int quantum, double ns)
+static void refused_as(const char *name, const char *code)
 {
-    char text[1024];
+    pqdb *db = NULL;
+    pqdb_error err;
+    char why[512];
+    int status = open_fixture(name, &db, &err);
 
-    snprintf(text, sizeof(text),
-             "{\"schema\":\"plugin-qualify.qualification-record/1\",\"plugin\":{\"format\":\"clap\",\"id\":\"%s\"},"
-             "\"measurements\":{\"grid\":[{\"rate\":96000,\"quantum\":64,\"outcome\":\"probe.ok\",\"cost\":{\"median\":1,"
-             "\"percentile\":{\"p\":95,\"value\":1},\"blocks\":1,\"warmupBlocks\":0}},{\"rate\":%d,\"quantum\":%d,"
-             "\"outcome\":\"probe.ok\",\"cost\":{\"median\":1,\"percentile\":{\"p\":95,\"value\":%.1f},\"blocks\":1,"
-             "\"warmupBlocks\":0}}]}}",
-             id, rate, quantum, ns);
-    put(name, text);
+    if (status == 0)
+    {
+        pqdb_close(db);
+        CHECK(0, "%s opened, and the store is to be refused as %s", name, code);
+    }
+    qualcost_refusal(status, &err, why, sizeof(why));
+    CHECK(!strncmp(why, code, strlen(code)) && why[strlen(code)] == ':', "%s: refused as '%s', not %s", name, why, code);
+    CHECK(strstr(why, name) != NULL, "%s: the refusal names the file: '%s'", name, why);
 }
 
-/* a record of one grid point with a cost median and a latency: declared < 0 leaves the latency out, measured < 0 its
- * measuredFrames */
-static void cell_record(const char *name, const char *id, int rate, int quantum, double median, int declared, int measured)
+/* a verdict's figures: the cost of the right rate and quantum, as a fraction of a core */
+static void the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core(void)
 {
-    char text[1024], latency[128] = "";
+    double c = qualcost_read(g_db, "org.example.a", 48000, 128);
 
-    if (declared >= 0 && measured >= 0)
-        snprintf(latency, sizeof(latency), ",\"latency\":{\"declaredFrames\":%d,\"measuredFrames\":%d}", declared, measured);
-    else if (declared >= 0)
-        snprintf(latency, sizeof(latency), ",\"latency\":{\"declaredFrames\":%d}", declared);
-    snprintf(text, sizeof(text),
-             "{\"schema\":\"plugin-qualify.qualification-record/1\",\"plugin\":{\"format\":\"clap\",\"id\":\"%s\"},"
-             "\"measurements\":{\"grid\":[{\"rate\":%d,\"quantum\":%d,\"outcome\":\"probe.ok\"%s,\"cost\":{\"median\":%.1f,"
-             "\"percentile\":{\"p\":95,\"value\":%.1f},\"blocks\":1,\"warmupBlocks\":0}}]}}",
-             id, rate, quantum, latency, median, median * 2);
-    put(name, text);
+    CHECK(fabs(c - 0.24) < 1e-12, "5000 ns per sample at 48 kHz is 0.24 of a core, not %g", c);
+    c = qualcost_read(g_db, "org.example.a", 96000, 64);
+    CHECK(fabs(c - 96000.0 / 1e9) < 1e-12, "the other grid point of the record is its own figure: %g", c);
+}
+
+static void a_rate_or_quantum_the_store_lacks_is_unknown(void)
+{
+    CHECK(qualcost_read(g_db, "org.example.a", 44100, 128) == -1.0, "no such rate");
+    CHECK(qualcost_read(g_db, "org.example.a", 48000, 256) == -1.0, "no such quantum");
+}
+
+static void the_larger_of_two_records_of_one_plugin_stands(void)
+{
+    double c = qualcost_read(g_db, "org.example.b", 48000, 128);
+
+    CHECK(fabs(c - 0.48) < 1e-12, "10000 ns of one binary beats 2000 ns of the other: %g", c);
+}
+
+static void a_plugin_the_store_does_not_name_has_no_figure(void)
+{
+    CHECK(qualcost_read(g_db, "org.example.nobody", 48000, 128) == -1.0, "no such plugin");
+    CHECK(qualcost_read(g_db, NULL, 48000, 128) == -1.0, "no name");
+    CHECK(qualcost_read(NULL, "org.example.a", 48000, 128) == -1.0, "no store");
 }
 
 static void the_cell_is_the_median_and_the_measured_latency(void)
 {
     qualcost_cell_t c;
 
-    CHECK(qualcost_cell(g_dir, "org.example.e", 48000, 128, &c) == QUALCOST_CELL_FOUND, "e has the cell");
+    CHECK(qualcost_cell(g_db, "org.example.e", 48000, 128, &c) == QUALCOST_CELL_FOUND, "e has the cell");
     CHECK(c.median_ns == 3000 && c.latency_frames == 70, "the median and the measured frames: %g %g", c.median_ns,
           c.latency_frames);
 }
@@ -91,7 +120,7 @@ static void a_cell_without_a_measured_latency_takes_the_declared_one(void)
 {
     qualcost_cell_t c;
 
-    CHECK(qualcost_cell(g_dir, "org.example.f", 48000, 128, &c) == QUALCOST_CELL_FOUND, "f has the cell");
+    CHECK(qualcost_cell(g_db, "org.example.f", 48000, 128, &c) == QUALCOST_CELL_FOUND, "f has the cell");
     CHECK(c.latency_frames == 32, "the declared frames: %g", c.latency_frames);
 }
 
@@ -99,147 +128,155 @@ static void a_point_without_a_latency_or_at_another_rate_is_no_cell(void)
 {
     qualcost_cell_t c;
 
-    CHECK(qualcost_cell(g_dir, "org.example.g", 48000, 128, &c) == QUALCOST_CELL_NO_POINT, "g has a cost, no latency");
-    CHECK(qualcost_cell(g_dir, "org.example.a", 48000, 128, &c) == QUALCOST_CELL_NO_POINT, "a has no latency");
-    CHECK(qualcost_cell(g_dir, "org.example.e", 44100, 128, &c) == QUALCOST_CELL_NO_POINT, "no such rate");
-    CHECK(qualcost_cell(g_dir, "org.example.e", 48000, 256, &c) == QUALCOST_CELL_NO_POINT, "no such quantum");
+    CHECK(qualcost_cell(g_db, "org.example.g", 48000, 128, &c) == QUALCOST_CELL_NO_POINT, "g has a cost, no latency");
+    CHECK(qualcost_cell(g_db, "org.example.a", 48000, 128, &c) == QUALCOST_CELL_NO_POINT, "a has no latency");
+    CHECK(qualcost_cell(g_db, "org.example.e", 44100, 128, &c) == QUALCOST_CELL_NO_POINT, "no such rate");
+    CHECK(qualcost_cell(g_db, "org.example.e", 48000, 256, &c) == QUALCOST_CELL_NO_POINT, "no such quantum");
 }
 
 static void a_plugin_no_record_names_has_no_record(void)
 {
     qualcost_cell_t c;
 
-    CHECK(qualcost_cell(g_dir, "org.example.c", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "c has no record");
-    CHECK(qualcost_cell(g_dir, "org.example.liar", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "the id inside decides");
-    CHECK(qualcost_cell(g_dir, "org.example.junk", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "junk is no record");
-    CHECK(qualcost_cell("/nonexistent/qualification", "org.example.e", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD,
-          "no directory");
+    CHECK(qualcost_cell(g_db, "org.example.nobody", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "no such plugin");
 }
 
 static void the_larger_of_each_figure_of_two_records_stands(void)
 {
     qualcost_cell_t c;
+    qualcost_memory_t m;
 
-    CHECK(qualcost_cell(g_dir, "org.example.h", 48000, 128, &c) == QUALCOST_CELL_FOUND, "h has the cell");
+    CHECK(qualcost_cell(g_db, "org.example.h", 48000, 128, &c) == QUALCOST_CELL_FOUND, "h has the cell");
     CHECK(c.median_ns == 2000 && c.latency_frames == 10, "2000 ns of one record, 10 frames of the other: %g %g",
           c.median_ns, c.latency_frames);
+    CHECK(qualcost_memory(g_db, "org.example.h", 48000, 128, &m) == 0, "h has memory");
+    CHECK(m.first_kb == 100 && m.per_instance_kb == 9, "100 KB first of one record, 9 KB per instance of the other: %g %g",
+          m.first_kb, m.per_instance_kb);
 }
 
-static void the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core(void)
+static void the_memory_is_the_first_instance_and_each_one_more(void)
 {
-    double c = qualcost_read(g_dir, "org.example.a", 48000, 128);
+    qualcost_memory_t m;
 
-    CHECK(fabs(c - 0.24) < 1e-12, "5000 ns per sample at 48 kHz is 0.24 of a core, not %g", c);
-    c = qualcost_read(g_dir, "org.example.a", 96000, 64);
-    CHECK(fabs(c - 96000.0 / 1e9) < 1e-12, "the other grid point of the record is its own figure: %g", c);
+    CHECK(qualcost_memory(g_db, "org.example.e", 48000, 128, &m) == 0, "e has memory");
+    CHECK(m.first_kb == 100 && m.per_instance_kb == 10, "firstInstanceKb and perInstanceKb: %g %g", m.first_kb,
+          m.per_instance_kb);
 }
 
-static void a_rate_or_quantum_the_record_lacks_is_unknown(void)
+static void no_memory_figure_is_unknown_and_never_zero(void)
 {
-    CHECK(qualcost_read(g_dir, "org.example.a", 44100, 128) == -1.0, "no such rate");
-    CHECK(qualcost_read(g_dir, "org.example.a", 48000, 256) == -1.0, "no such quantum");
+    qualcost_memory_t m;
+
+    CHECK(qualcost_memory(g_db, "org.example.a", 48000, 128, &m) == -1, "a holds no memory");
+    CHECK(qualcost_memory(g_db, "org.example.e", 44100, 128, &m) == -1, "no such rate");
+    CHECK(qualcost_memory(g_db, "org.example.nobody", 48000, 128, &m) == -1, "no such plugin");
 }
 
-static void the_larger_of_two_records_of_one_plugin_stands(void)
-{
-    double c = qualcost_read(g_dir, "org.example.b", 48000, 128);
-
-    CHECK(fabs(c - 0.48) < 1e-12, "10000 ns beats 2000 ns: %g", c);
-}
-
-/* whichever of the two files the directory lists first holds the smaller figure, so a reader that keeps the first record
- * it meets gives 2000 ns and not 10000 */
-static void the_larger_record_stands_whichever_the_directory_lists_first(void)
-{
-    double c = qualcost_read(g_dir, "org.example.d", 48000, 128);
-
-    CHECK(fabs(c - 0.48) < 1e-12, "10000 ns beats 2000 ns, listed first or last: %g", c);
-}
-
-static void a_record_of_another_plugin_is_not_this_ones(void)
-{
-    CHECK(qualcost_read(g_dir, "org.example.c", 48000, 128) == -1.0, "c has no record");
-    /* the file name begins with the id, the id inside is another */
-    CHECK(qualcost_read(g_dir, "org.example.liar", 48000, 128) == -1.0, "the id inside the record decides");
-}
-
-static void a_file_that_is_no_record_is_skipped(void)
-{
-    CHECK(qualcost_read(g_dir, "org.example.junk", 48000, 128) == -1.0, "junk");
-    CHECK(qualcost_read(g_dir, "org.example.empty", 48000, 128) == -1.0, "empty");
-}
-
-static void a_directory_that_is_not_there_gives_no_figure(void)
-{
-    CHECK(qualcost_read("/nonexistent/qualification", "org.example.a", 48000, 128) == -1.0, "no directory");
-    CHECK(qualcost_read(NULL, "org.example.a", 48000, 128) == -1.0, "no name");
-}
-
+/* LV2 URIs reach the daemon percent-encoded as often as not; the store holds the URI as plugin-qualify wrote it */
 static void a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling(void)
 {
-    record("urn_a_b@1-x.lv2.qualification.json", "urn:a b", 48000, 128, 5000);
-    CHECK(fabs(qualcost_read(g_dir, "urn:a%20b", 48000, 128) - 0.24) < 1e-12, "encoded id, decoded record");
-    record("urn_a_20c@1-x.lv2.qualification.json", "urn:a%20c", 48000, 128, 5000);
-    CHECK(fabs(qualcost_read(g_dir, "urn:a%20c", 48000, 128) - 0.24) < 1e-12, "same spelling still finds it");
-    CHECK(qualcost_read(g_dir, "urn:a%2", 48000, 128) == -1.0, "a stray percent is no escape");
+    CHECK(fabs(qualcost_read(g_db, "urn:a%20b", 48000, 128) - 0.24) < 1e-12, "encoded id, decoded record");
+    CHECK(fabs(qualcost_read(g_db, "urn:a b", 48000, 128) - 0.24) < 1e-12, "the decoded spelling itself");
+    CHECK(fabs(qualcost_read(g_db, "urn:a%20c", 48000, 128) - 0.24) < 1e-12, "a record that holds the encoded spelling");
+    CHECK(qualcost_read(g_db, "urn:a%2", 48000, 128) == -1.0, "a stray percent is no escape");
 }
 
-
-/* the daemon reads a plugin's records on every add, from a directory of thousands: a repeat read neither lists the
- * directory again nor parses a record it parsed, while a record replaced (written and renamed in, as plugin-qualify
- * writes), rewritten in place, or added is read as a fresh read reads it */
-static void a_repeat_read_lists_and_parses_once_and_a_change_is_read(void)
+/* the old directory of record files is read by nothing: a record file there, beside the store, names a plugin the
+ * store does not, and that plugin has no figure */
+static void a_record_file_of_the_old_qualification_dir_is_not_read(void)
 {
-    static const char *const name = "org.example.m@1.0-eeeeeeeeeeee.default.qualification.json";
-    char path[512], tmp[512];
-    struct timespec t[2] = { { 0, 0 }, { 1700000000, 0 } };
-    unsigned long scans, parses;
-    double c;
+    char path[512];
+    qualcost_cell_t c;
+    FILE *f;
 
-    record(name, "org.example.m", 48000, 128, 3000);
-    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
-    CHECK(c > 0, "the record is read: %g", c);
-    scans = qualcost_dir_scans;
-    parses = qualcost_record_parses;
-    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
-    CHECK(qualcost_dir_scans == scans && qualcost_record_parses == parses,
-          "a repeat read lists the directory %lu more times and parses %lu more records", qualcost_dir_scans - scans,
-          qualcost_record_parses - parses);
-    /* replaced: written beside it and renamed over it */
-    snprintf(path, sizeof(path), "%s/%s", g_dir, name);
-    snprintf(tmp, sizeof(tmp), "%s/.tmp-m", g_dir);
-    record(".tmp-m", "org.example.m", 48000, 128, 6000);
-    CHECK(rename(tmp, path) == 0, "renamed in");
-    CHECK(qualcost_read(g_dir, "org.example.m", 48000, 128) > 1.9 * c, "a replaced record is read again");
-    /* rewritten in place, the directory unchanged: its own time says so */
-    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
-    record(name, "org.example.m", 48000, 128, 12000);
-    t[0].tv_sec = 1700000000;
-    t[0].tv_nsec = t[1].tv_nsec = 123;
-    CHECK(utimensat(AT_FDCWD, path, t, 0) == 0, "its time set apart");
-    CHECK(qualcost_read(g_dir, "org.example.m", 48000, 128) > 1.9 * c, "a record rewritten in place is read again");
-    /* another record of the plugin added: the larger stands */
-    c = qualcost_read(g_dir, "org.example.m", 48000, 128);
-    record("org.example.m@2.0-ffffffffffff.default.qualification.json", "org.example.m", 48000, 128, 50000);
-    CHECK(qualcost_read(g_dir, "org.example.m", 48000, 128) > 3.9 * c, "a record added is read");
+    snprintf(path, sizeof(path), "%s/org.example.old@1.0-aaaaaaaaaaaa.default.qualification.json", g_dir);
+    f = fopen(path, "w");
+    CHECK(f != NULL, "the record file is written");
+    fputs("{\"schema\":\"plugin-qualify.qualification-record/1\",\"plugin\":{\"format\":\"clap\",\"id\":\"org.example.old\"},"
+          "\"measurements\":{\"grid\":[{\"rate\":48000,\"quantum\":128,\"outcome\":\"probe.ok\",\"latency\":"
+          "{\"measuredFrames\":9},\"cost\":{\"median\":1,\"percentile\":{\"p\":95,\"value\":5000},\"blocks\":1,"
+          "\"warmupBlocks\":0}}]}}", f);
+    fclose(f);
+    CHECK(qualcost_read(g_db, "org.example.old", 48000, 128) == -1.0, "the file's figure is read");
+    CHECK(qualcost_cell(g_db, "org.example.old", 48000, 128, &c) == QUALCOST_CELL_NO_RECORD, "the file's cell is read");
+}
+
+static int source_holds(const char *needle)
+{
+    char text[1 << 16];
+    FILE *f = fopen(QUALCOST_SOURCE, "r");
+    size_t n;
+
+    if (!f)
+        exit(2);
+    n = fread(text, 1, sizeof(text) - 1, f);
+    fclose(f);
+    text[n] = '\0';
+    return strstr(text, needle) != NULL;
+}
+
+/* no dual read, no fallback (the qualification store spec, section 10): the reader names no directory of records, reads
+ * no variable, and takes the one place pqdb_open gives it, never the test entry pqdb_open_at */
+static void the_reader_names_no_record_directory_variable_or_test_entry(void)
+{
+    static const char *const banned[] = { "qualification.json", "qualification_dir", "OMX_QUALIFICATION_DIR", "opendir",
+                                          "readdir", "getenv", "pqdb_open_at", "fopen", "memset", "pqdb_query q;", NULL };
+    int k;
+
+    for (k = 0; banned[k]; k++)
+        CHECK(!source_holds(banned[k]), "src/qualcost.c names '%s'", banned[k]);
+    CHECK(source_holds("pqdb_open("), "src/qualcost.c does not open the store through pqdb_open");
+    /* a zeroed pqdb_query asks for rate 0 and quantum 0 and matches nothing: every query starts from PQDB_QUERY_ANY */
+    CHECK(source_holds("pqdb_query q = PQDB_QUERY_ANY"), "src/qualcost.c does not start its query from PQDB_QUERY_ANY");
+}
+
+/* plugin-hostd takes the system scope run as root and the user's otherwise (the rule its qualification_dir had) */
+static void the_scope_is_the_system_s_as_root_and_the_user_s_otherwise(void)
+{
+    CHECK(qualcost_scope() == (geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER), "euid %d", (int)geteuid());
+}
+
+static void an_absent_store_is_refused_as_absent(void)
+{
+    refused_as("nowhere", "qualification-db.absent");
+}
+
+static void a_store_of_another_schema_version_is_refused_as_schema_other(void)
+{
+    refused_as("version2", "qualification-db.schema-other");
+}
+
+static void a_file_that_is_no_store_is_refused_as_not_a_store(void)
+{
+    refused_as("version0", "qualification-db.not-a-store");
+}
+
+static void a_word_no_domain_item_holds_is_refused_as_word_unknown(void)
+{
+    refused_as("badword", "qualification-db.word-unknown");
 }
 
 static const struct { const char *name; void (*fn)(void); } g_tests[] = {
 #define T(f) { #f, f }
-    T(a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling),
     T(the_figure_is_the_p95_at_the_rate_and_quantum_as_a_fraction_of_a_core),
-    T(a_rate_or_quantum_the_record_lacks_is_unknown),
+    T(a_rate_or_quantum_the_store_lacks_is_unknown),
     T(the_larger_of_two_records_of_one_plugin_stands),
-    T(the_larger_record_stands_whichever_the_directory_lists_first),
-    T(a_record_of_another_plugin_is_not_this_ones),
-    T(a_file_that_is_no_record_is_skipped),
-    T(a_directory_that_is_not_there_gives_no_figure),
+    T(a_plugin_the_store_does_not_name_has_no_figure),
     T(the_cell_is_the_median_and_the_measured_latency),
     T(a_cell_without_a_measured_latency_takes_the_declared_one),
     T(a_point_without_a_latency_or_at_another_rate_is_no_cell),
     T(a_plugin_no_record_names_has_no_record),
     T(the_larger_of_each_figure_of_two_records_stands),
-    T(a_repeat_read_lists_and_parses_once_and_a_change_is_read),
+    T(the_memory_is_the_first_instance_and_each_one_more),
+    T(no_memory_figure_is_unknown_and_never_zero),
+    T(a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling),
+    T(a_record_file_of_the_old_qualification_dir_is_not_read),
+    T(the_reader_names_no_record_directory_variable_or_test_entry),
+    T(the_scope_is_the_system_s_as_root_and_the_user_s_otherwise),
+    T(an_absent_store_is_refused_as_absent),
+    T(a_store_of_another_schema_version_is_refused_as_schema_other),
+    T(a_file_that_is_no_store_is_refused_as_not_a_store),
+    T(a_word_no_domain_item_holds_is_refused_as_word_unknown),
 #undef T
 };
 
@@ -248,45 +285,35 @@ int main(int argc, char **argv)
     size_t n, ran = 0;
     int bad = 0;
     char cmd[300];
+    pqdb_error err;
+    char dir[] = "/tmp/qualcost-test.XXXXXX";
 
-    snprintf(g_dir, sizeof(g_dir), "/tmp/qualcost-test.%d", (int)getpid());
-    if (mkdir(g_dir, 0700) != 0)
+    if (!mkdtemp(dir))
         return 2;
-    record("org.example.a@1.0-aaaaaaaaaaaa.default.qualification.json", "org.example.a", 48000, 128, 5000);
-    record("org.example.b@1.0-bbbbbbbbbbbb.default.qualification.json", "org.example.b", 48000, 128, 2000);
-    record("org.example.b@2.0-cccccccccccc.default.qualification.json", "org.example.b", 48000, 128, 10000);
-    record("org.example.liar@1.0-dddddddddddd.default.qualification.json", "org.example.other", 48000, 128, 5000);
+    snprintf(g_dir, sizeof(g_dir), "%s", dir);
+    /* cells: sha256 (a hex digit, 64 times), uri, rate, quantum, median, p95, declared, measured, firstKb, perKb */
+    fixture("good",
+            "a,org.example.a,48000,128,1000,5000,-,-,-,- a,org.example.a,96000,64,1,1,-,-,-,- "
+            "b,org.example.b,48000,128,1,2000,-,-,-,- c,org.example.b,48000,128,1,10000,-,-,-,- "
+            "e,org.example.e,48000,128,3000,6000,64,70,100,10 "
+            "f,org.example.f,48000,128,1000,2000,32,-,-,- "
+            "9,org.example.g,48000,128,1000,2000,-,-,-,- "
+            "d,org.example.h,48000,128,1000,2000,0,10,100,5 f,org.example.h,48000,128,2000,3000,0,5,80,9 "
+            "a,'urn:a b',48000,128,1000,5000,-,-,-,- "
+            "b,urn:a%20c,48000,128,1000,5000,-,-,-,-");
+    fixture("version2", "--user-version 2 a,org.example.a,48000,128,1000,5000,-,-,-,-");
+    fixture("version0", "--user-version 0 a,org.example.a,48000,128,1000,5000,-,-,-,-");
+    fixture("badword", "--bad-word a,org.example.a,48000,128,1000,5000,-,-,-,-");
     {
-        /* two records of one plugin: the one the directory lists first is made the smaller */
-        const char *names[2] = { "org.example.d@1.0-111111111111.default.qualification.json",
-                                 "org.example.d@2.0-222222222222.default.qualification.json" };
-        char first[300] = "";
-        struct dirent *e;
-        DIR *d;
-        int k;
+        char path[512];
 
-        record(names[0], "org.example.d", 48000, 128, 2000);
-        record(names[1], "org.example.d", 48000, 128, 2000);
-        if (!(d = opendir(g_dir)))
+        snprintf(path, sizeof(path), "%s/good.sqlite", g_dir);
+        if (pqdb_open_at(path, NULL, TEST_CONTRACT_TREE, &g_db, &err) != 0)
+        {
+            fprintf(stderr, "the good fixture does not open: %s\n", err.message);
             return 2;
-        while ((e = readdir(d)) != NULL)
-            if (!strncmp(e->d_name, "org.example.d@", 14))
-            {
-                snprintf(first, sizeof(first), "%s", e->d_name);
-                break;
-            }
-        closedir(d);
-        for (k = 0; k < 2; k++)
-            if (strcmp(first, names[k]))
-                record(names[k], "org.example.d", 48000, 128, 10000);
+        }
     }
-    cell_record("org.example.e@1.0-eeeeeeeeeee1.default.qualification.json", "org.example.e", 48000, 128, 3000, 64, 70);
-    cell_record("org.example.f@1.0-fffffffffff1.default.qualification.json", "org.example.f", 48000, 128, 1000, 32, -1);
-    cell_record("org.example.g@1.0-999999999999.default.qualification.json", "org.example.g", 48000, 128, 1000, -1, -1);
-    cell_record("org.example.h@1.0-888888888888.default.qualification.json", "org.example.h", 48000, 128, 1000, 0, 10);
-    cell_record("org.example.h@2.0-777777777777.default.qualification.json", "org.example.h", 48000, 128, 2000, 0, 5);
-    put("org.example.junk@1.0-eeeeeeeeeeee.default.qualification.json", "{not json");
-    put("org.example.empty@1.0-ffffffffffff.default.qualification.json", "");
     for (n = 0; n < sizeof(g_tests) / sizeof(g_tests[0]); n++)
     {
         if (argc > 1 && strcmp(argv[1], g_tests[n].name))
@@ -299,6 +326,7 @@ int main(int argc, char **argv)
         else
             printf("ok   %s\n", g_tests[n].name);
     }
+    pqdb_close(g_db);
     snprintf(cmd, sizeof(cmd), "rm -rf %s", g_dir);
     if (system(cmd) != 0)
         bad++;

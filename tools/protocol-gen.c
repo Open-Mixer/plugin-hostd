@@ -116,6 +116,14 @@ static void row(const char *first, const char *second, const char *third, const 
     printf("|\n");
 }
 
+/* a key the protocol still declares and the daemon no longer reads: the qualification store is read through
+ * libplugin-qualification-db, which takes no directory from the settings, so the key is accepted and does nothing, and the
+ * documents do not name it. The protocol drops the declaration; the entry here goes with it. */
+static int ignored_key(const char *key)
+{
+    return !strcmp(key, "qualification_dir");
+}
+
 static void region_config(void)
 {
     char buffer[PATH_MAX_DOC];
@@ -123,11 +131,14 @@ static void region_config(void)
     row(" key ", " default ", " meaning ", NULL);
     printf("|---|---|---|\n");
 #define X(key, size, def, env, meaning) \
-    if (*(env)) \
-        snprintf(buffer, sizeof(buffer), " `$" env "`, else `%s` ", def); \
-    else \
-        snprintf(buffer, sizeof(buffer), " `%s` ", def); \
-    row(" `" #key "` ", buffer, " " meaning " ", NULL);
+    if (!ignored_key(#key)) \
+    { \
+        if (*(env)) \
+            snprintf(buffer, sizeof(buffer), " `$" env "`, else `%s` ", def); \
+        else \
+            snprintf(buffer, sizeof(buffer), " `%s` ", def); \
+        row(" `" #key "` ", buffer, " " meaning " ", NULL); \
+    }
     PHD_CONF_STRINGS(X)
 #undef X
 #define X(key, def, unit, meaning) \
@@ -323,7 +334,7 @@ static void region_man_keys(void)
     const char *sep = "";
 
     printf(".RI \\(dq key \" value\" \\(dq\nper line: ");
-#define X(key, size, def, env, meaning) printf("%s" #key, sep); sep = ", ";
+#define X(key, size, def, env, meaning) if (!ignored_key(#key)) { printf("%s" #key, sep); sep = ", "; }
     PHD_CONF_STRINGS(X)
 #undef X
 #define X(key, def, unit, meaning) printf("%s" #key, sep); sep = ", ";
@@ -338,7 +349,7 @@ static void region_man_dirs(void)
     char buffer[256];
 
 #define X(key, size, def, env, meaning) \
-    if (!strcmp(#key, "descriptor_dir") || !strcmp(#key, "qualification_dir")) \
+    if (!strcmp(#key, "descriptor_dir")) \
     { \
         printf(".TP\n.B " #key "\n"); \
         roff_escape(meaning); \

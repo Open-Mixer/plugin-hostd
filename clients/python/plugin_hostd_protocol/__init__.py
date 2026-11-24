@@ -564,10 +564,10 @@ class Protocol:
     # ---- the replies with a shape of their own
 
     def _cores_of(self, segments, cores):
-        """a plan's cores in its segments' shape: each member's core, None for one that is not pinned, and for every
-        member when the daemon answers no cores; ProtocolError when the shapes differ"""  # noqa: D205, D209, D403, D415
+        """a plan's cores in its segments' shape: each member's core, None for one that is not pinned;
+        ProtocolError when the reply has none (protocol 0.7.0 made them mandatory) or the shapes differ"""  # noqa: D205, D209, D403, D415
         if cores is None:
-            return [[None] * len(seg) for seg in segments]
+            raise ProtocolError("a plan reply carries its cores")
         if [len(c) for c in cores] != [len(seg) for seg in segments]:
             raise ProtocolError("the cores %r are not the shape of the segments %r" % (cores, segments))
         return cores
@@ -575,7 +575,7 @@ class Protocol:
     def read_plan(self, data):
         """What plan answers after resp 0, as words, read by the table's reply_forms: the segments in signal order, each
         the instances that share a worker, and the cores, the same shape with the audio core of each member's worker
-        (None for one that is not pinned, and for every member when the daemon answers no cores)."""  # noqa: D205, D209
+        (None for one that is not pinned)."""  # noqa: D205, D209
         r = self.read_reply("plan", data)
         return {"segments": r["segments"], "cores": self._cores_of(r["segments"], r.get("cores"))}
 

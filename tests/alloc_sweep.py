@@ -8,6 +8,7 @@ import concurrent.futures, hashlib, json, os, shutil, signal, socket, subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
+import qual_fixture
 
 EXE = os.path.abspath(os.environ.get("ALLOC_SWEEP_DAEMON", "tests/plugin-hostd-alloc-fail"))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", "tests/fake-host"))
@@ -89,12 +90,9 @@ def one_run(site=None, nth=1, every_after=False):
             write("%s/lv2/%s.lv2/manifest.ttl" % (tmp, name), (MANIFEST % uri).encode())
             write("%s/lv2/%s.lv2/pinned.so" % (tmp, name), b"lv2 binary " + name.encode())
             write("%s/lv2/%s.lv2/pinned.ttl" % (tmp, name), (PLUGIN_TTL % uri).encode())
-        # a qualification record: read as JSON whenever a plan or an estimate asks the plugin's cost
-        doc = {"schema": "plugin-qualify.qualification-record/1", "plugin": {"format": "clap", "id": "org.openmixer.4"},
-               "measurements": {"grid": [{"rate": 48000, "quantum": 256, "outcome": "probe.ok",
-                                          "cost": {"median": 1000, "percentile": {"p": 95, "value": 2000}, "blocks": 100,
-                                                   "warmupBlocks": 10}}]}}
-        write("%s/qualification/org.openmixer.4@1.0-0123456789ab.default.qualification.json" % tmp, json.dumps(doc).encode())
+        # a qualification store: read through libplugin-qualification-db whenever a plan or an estimate asks the plugin's cost
+        qual_fixture.build(qual_fixture.schema_path(), "%s/qualification.sqlite" % tmp,
+                           [("a", "org.openmixer.4", 48000, 256, 1000, 2000, "-", "-", "-", "-")])
         layout = subprocess.check_output([FAKE, "-L"], text=True).strip()
         cmds = scenario(tmp, layout)
         conf = "%s/plugin-hostd.conf" % tmp
@@ -103,7 +101,7 @@ def one_run(site=None, nth=1, every_after=False):
                          ("pin_mode", "first-use"), ("clap_path", tmp), ("grouping", "on"), ("lv2_worker", "mod-host"),
                          ("lv2_path", tmp + "/lv2"), ("pin_store", tmp + "/pins"), ("pins_dir", tmp + "/pins.d"),
                          ("history_file", tmp + "/history"), ("descriptor_dir", tmp + "/descriptors"),
-                         ("qualification_dir", tmp + "/qualification"), ("probe", shutil.which("true")),
+                         ("probe", shutil.which("true")),
                          ("backoff_base_ms", 10), ("backoff_max_ms", 20), ("ready_timeout_ms", 2000),
                          ("rpc_timeout_ms", 1000), ("idle_ms", 5), ("checkpoint_ms", 600000)):
                 f.write("%s %s\n" % (k, v))
@@ -111,6 +109,7 @@ def one_run(site=None, nth=1, every_after=False):
         # the workers are found on PATH; one younger than FAKE_CONNECT_AFTER_MS refuses a connect, as a jack client does
         env = dict(os.environ, ALLOC_FAIL_LOG=log, FAKE_CRASH_AFTER_MS="1", FAKE_CONNECT_AFTER_MS="15",
                    PATH=os.path.dirname(FAKE) + ":" + os.environ["PATH"])
+        env["PLUGIN_HOSTD_TEST_QUALIFICATION_STORE"] = "%s/qualification.sqlite" % tmp
         if site:
             env.update(ALLOC_FAIL_SITE=site, ALLOC_FAIL_NTH=str(nth))
         if every_after:

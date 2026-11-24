@@ -3987,11 +3987,15 @@ static int plan_pin(const char *uri)
     return PLANNER_PIN_NO_VERDICT;
 }
 
+/* the qualification store, open while one plan or one estimate reads its figures (qualcost_open): the one place the daemon
+ * reads what a plugin costs. NULL outside a read, and when the store cannot be opened, which is no figure for any plugin. */
+static pqdb *g_qual;
+
 /* the cost the planner reads for a plugin: its record's at group_rate and group_quantum, PLANNER_COST_UNKNOWN for none */
 static double plan_cost(const char *uri)
 {
     double cost = g_conf.group_rate > 0 && g_conf.group_quantum > 0
-                      ? qualcost_read(g_conf.qualification_dir, record_id(uri), g_conf.group_rate, g_conf.group_quantum)
+                      ? qualcost_read(g_qual, record_id(uri), g_conf.group_rate, g_conf.group_quantum)
                       : PLANNER_COST_UNKNOWN;
 
     return cost < 0 ? PLANNER_COST_UNKNOWN : cost;
@@ -4258,8 +4262,11 @@ static plan_t *plan_run(int id, const int *ids, int n, int *code)
     planner_plan_t pp;
     int k, first, refused = 0;
 
+    g_qual = qualcost_open();
     for (k = 0; k < n; k++)
         plan_member(g_inst[ids[k]], &m[k], &h[k]);
+    qualcost_close(g_qual);
+    g_qual = NULL;
     plan_settings(&s);
     planner_plan(&s, m, n, &pp);
 
@@ -4546,7 +4553,7 @@ static double estimate_ram_added(int rate, int quantum, const char *const *uris,
             int j, shared = 0;
 
             format_of_uri(uris[m[at].id], &fwd);
-            if (qualcost_memory(g_conf.qualification_dir, record_id(fwd), rate, quantum, &mem) != 0)
+            if (qualcost_memory(g_qual, record_id(fwd), rate, quantum, &mem) != 0)
             {
                 (*unknown)++;
                 continue;
@@ -4580,6 +4587,7 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     if (!list)
         return NULL;
     list[0] = '\0';
+    g_qual = qualcost_open();
     for (k = 0; k < n; k++)
     {
         const char *fwd = uris[k];
@@ -4590,7 +4598,7 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
         if (fmt < 0 || !estimate_installed(fmt, fwd))
             code = OMX_REPLY_PLUGIN_HOSTD_UNKNOWN_PLUGIN_RESP;
         else
-            switch (qualcost_cell(g_conf.qualification_dir, record_id(fwd), rate, quantum, &cell))
+            switch (qualcost_cell(g_qual, record_id(fwd), rate, quantum, &cell))
             {
             case QUALCOST_CELL_FOUND:
                 latency += cell.latency_frames;
@@ -4630,6 +4638,8 @@ char *sup_estimate(int rate, int quantum, const char *const *uris, int n)
     }
     else
         ram_unknown = n;
+    qualcost_close(g_qual);
+    g_qual = NULL;
     ram_used = estimate_ram_used();
     if (ram_used < 0)
         snprintf(used_word, sizeof(used_word), PHD_WORD_NONE);
