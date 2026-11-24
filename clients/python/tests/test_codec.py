@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 """The Python client on clients/fixtures/codec.json (docs/clients.md), and what JSON cannot carry: a number that is
-not finite, a boolean where a number goes."""
+not finite, a boolean where a number goes."""  # noqa: D205, D209
 import json
 import math
 import os
@@ -14,7 +14,7 @@ FIXTURES = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "code
 GROUPING = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "grouping.json")
 
 
-def clean(value):
+def clean(value):  # noqa: D103
     if isinstance(value, dict):
         return {k: clean(v) for k, v in value.items() if v is not None}
     if isinstance(value, list):
@@ -22,14 +22,14 @@ def clean(value):
     return value
 
 
-class Fixtures(unittest.TestCase):
+class Fixtures(unittest.TestCase):  # noqa: D101
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls):  # noqa: D102
         cls.protocol = Protocol()
         with open(FIXTURES) as f:
             cls.cases = json.load(f)["cases"]
 
-    def test_every_fixture(self):
+    def test_every_fixture(self):  # noqa: D102
         self.assertGreater(len(self.cases), 40)
         for case in self.cases:
             with self.subTest(op=case["op"], arg=case["in"]):
@@ -41,7 +41,7 @@ class Fixtures(unittest.TestCase):
                 if "expect" in case:
                     self.assertEqual(clean(got), clean(case["expect"]))
 
-    def test_a_sentence_comes_from_the_installed_vocabulary_and_catalog(self):
+    def test_a_sentence_comes_from_the_installed_vocabulary_and_catalog(self):  # noqa: D102
         p = self.protocol
         self.assertTrue(p.sentence(p.code("reply.host.param-symbol-invalid"), "en"))
         self.assertTrue(p.sentence(p.code("reply.plugin-hostd.preset-not-applied"), "ca"))
@@ -49,8 +49,8 @@ class Fixtures(unittest.TestCase):
 
     def test_a_catalog_entry_reads_as_its_text_whatever_its_shape(self):
         """#78: omx-contract 3.18.0 stores a catalog entry as an object ({text, by, source}); sentence() is the text,
-        read through omx-contract's catalog reader, and English for a machine entry made from another source sentence"""
-        import hashlib, tempfile
+        read through omx-contract's catalog reader, and English for a machine entry made from another source sentence"""  # noqa: D205, D209, D415
+        import hashlib, tempfile  # noqa: E401
         p0 = self.protocol
         name = "reply.plugin-hostd.preset-not-applied"
         owner = p0.owners[name]
@@ -73,19 +73,19 @@ class Fixtures(unittest.TestCase):
 class Replies(unittest.TestCase):
     """The replies with a shape of their own, on the lines docs/guide.md shows."""
 
-    def setUp(self):
+    def setUp(self):  # noqa: D102
         self.protocol = Protocol()
 
-    def data(self, line):
+    def data(self, line):  # noqa: D102
         reply = self.protocol.parse(line)
         self.assertEqual(reply["code"], 0)
         return reply["data"]
 
-    def test_a_plan_is_read_from_the_reply_as_it_is_parsed(self):
+    def test_a_plan_is_read_from_the_reply_as_it_is_parsed(self):  # noqa: D102
         plan = self.protocol.read_plan(self.data("resp 0 1,2;3 0,0;-"))
         self.assertEqual(plan, {"segments": [[1, 2], [3]], "cores": [[0, 0], [None]]})
 
-    def test_a_plan_read_back_names_the_reason_and_whether_to_ask_again(self):
+    def test_a_plan_read_back_names_the_reason_and_whether_to_ask_again(self):  # noqa: D102
         plan = self.protocol.read_plan_get(self.data("resp 0 1,2;3 3:plan-refused:-544 0,0;-"))
         self.assertEqual(plan["reasons"], [{"instance": 3, "reason": "plan-refused:-544", "word": "plan-refused",
                                             "code": -544, "name": "reply.plugin-hostd.preset-not-applied",
@@ -93,7 +93,7 @@ class Replies(unittest.TestCase):
         self.assertEqual(self.protocol.read_plan_get(self.data("resp 0 1 1:verdict-isolated -"))["reasons"][0]["retry"],
                          False)
 
-    def test_an_estimate_names_every_figure(self):
+    def test_an_estimate_names_every_figure(self):  # noqa: D102
         e = self.protocol.read_estimate(self.data("resp 0 192 24.00 - 2 1 1:-544 0 - - 3"))
         self.assertEqual((e["latency_frames"], e["cpu_percent"], e["ram_bytes"], e["workers"], e["unknown_count"]),
                          (192, 24.0, None, 2, 1))
@@ -101,7 +101,15 @@ class Replies(unittest.TestCase):
         self.assertEqual((e["ram_used_bytes"], e["ram_added_bytes"], e["ram_budget_bytes"], e["ram_unknown_count"]),
                          (0, None, None, 3))
 
-    def test_the_reasons_to_ask_again_are_the_reasons_the_file_declares_retry(self):
+    def test_a_reply_without_the_figures_the_protocol_requires_is_refused(self):  # noqa: D102
+        # no reading for an older daemon (owner rule 2026-11-16): a plan without cores, an estimate without the four
+        # memory figures, is refused, never read with the missing figures as None
+        with self.assertRaises(ProtocolError):
+            self.protocol.read_plan(self.data("resp 0 1,2;3"))
+        with self.assertRaises(ProtocolError):
+            self.protocol.read_estimate(self.data("resp 0 192 24.00 - 2 1 1:-544"))
+
+    def test_the_reasons_to_ask_again_are_the_reasons_the_file_declares_retry(self):  # noqa: D102
         # RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
         with open(GROUPING) as f:
             item = json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]
@@ -112,15 +120,15 @@ class Replies(unittest.TestCase):
 
 class Constants(unittest.TestCase):
     """plugin-hostd-protocol#24 and #23 (D22, D23): a client compares what it decoded against the owner's names, never a
-    literal it writes, and asks a refusal's transient of the code, never a list of names it keeps."""
+    literal it writes, and asks a refusal's transient of the code, never a list of names it keeps."""  # noqa: D205, D209
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls):  # noqa: D102
         cls.protocol = Protocol()
         with open(cls.protocol.table_path) as f:
             cls.table = json.load(f)
 
-    def test_every_declared_verb_has_its_constant_and_every_constant_is_a_declared_verb(self):
+    def test_every_declared_verb_has_its_constant_and_every_constant_is_a_declared_verb(self):  # noqa: D102
         declared = {c["verb"] for c in self.table["commands"]} | {f["line"] for f in self.table["feedback"]}
         self.assertIn("output_set", declared)
         for verb in declared:
@@ -129,7 +137,7 @@ class Constants(unittest.TestCase):
         with self.assertRaises(AttributeError):
             self.protocol.verb.no_such_verb
 
-    def test_every_reply_code_has_its_constant_and_every_constant_names_a_declared_code(self):
+    def test_every_reply_code_has_its_constant_and_every_constant_names_a_declared_code(self):  # noqa: D102
         declared = {r["code"] for r in self.table["reply_codes"]}
         for code in declared:
             self.assertEqual(getattr(self.protocol.code, code.rsplit(".", 1)[1].replace("-", "_")), code)
@@ -140,7 +148,7 @@ class Constants(unittest.TestCase):
         # the code's number by its name, as before
         self.assertEqual(self.protocol.code("reply.plugin-hostd.worker-spawn"), -503)
 
-    def test_a_code_declared_transient_reads_transient_and_one_not_declared_so_does_not(self):
+    def test_a_code_declared_transient_reads_transient_and_one_not_declared_so_does_not(self):  # noqa: D102
         rows = self.table["reply_codes"]
         self.assertTrue(any(r.get("transient") is True for r in rows), "the table declares a transient code")
         for r in rows:
@@ -156,26 +164,26 @@ class GroupingReasons(unittest.TestCase):
     """The reasons a plan gives are constants of the reader, written from data/grouping.json (#67)."""
 
     @staticmethod
-    def declared():
+    def declared():  # noqa: D102
         with open(GROUPING) as f:
             return {w["word"] for w in json.load(f)["PLUGIN_HOSTD_GROUPING_REASONS"]["words"].values()}
 
     @staticmethod
-    def constants():
+    def constants():  # noqa: D102
         return {k: v for k, v in vars(GroupingReason).items() if not k.startswith("_")}
 
-    def test_every_declared_reason_has_its_constant_with_the_files_value(self):
+    def test_every_declared_reason_has_its_constant_with_the_files_value(self):  # noqa: D102
         by_value = {v: k for k, v in self.constants().items()}
         for word in sorted(self.declared()):
             with self.subTest(word=word):
                 self.assertIn(word, by_value)
                 self.assertEqual(by_value[word], word.upper().replace("-", "_"))
 
-    def test_no_constant_names_a_reason_the_file_does_not_declare(self):
+    def test_no_constant_names_a_reason_the_file_does_not_declare(self):  # noqa: D102
         self.assertEqual(sorted(set(self.constants().values()) - self.declared()), [])
         self.assertEqual(len(self.constants()), len(self.declared()))
 
-    def test_every_reason_declares_its_retry_property(self):
+    def test_every_reason_declares_its_retry_property(self):  # noqa: D102
         with open(GROUPING) as f:
             file = json.load(f)
         groups = {w["word"] for w in file["PLUGIN_HOSTD_GROUPING_REASON_GROUPS"]["words"].values()}
@@ -185,24 +193,24 @@ class GroupingReasons(unittest.TestCase):
             with self.subTest(reason=key):
                 self.assertIn(row.get("group"), groups)
 
-    def test_the_known_reasons_are_the_files(self):
+    def test_the_known_reasons_are_the_files(self):  # noqa: D102
         self.assertEqual(GroupingReason.GROUPING_OFF, "grouping-off")
         self.assertEqual(GroupingReason.PLAN_REFUSED, "plan-refused")
 
 
-class Numbers(unittest.TestCase):
-    def test_a_number_that_is_not_finite_or_a_boolean_is_refused(self):
+class Numbers(unittest.TestCase):  # noqa: D101
+    def test_a_number_that_is_not_finite_or_a_boolean_is_refused(self):  # noqa: D102
         p = Protocol()
         for bad in (math.nan, math.inf, -math.inf, True):
             with self.subTest(value=bad), self.assertRaises(ProtocolError):
                 p.encode("param_set", [3, "gain", bad])
 
-    def test_the_shortest_spelling_reads_back_to_the_same_double(self):
+    def test_the_shortest_spelling_reads_back_to_the_same_double(self):  # noqa: D102
         for x in (0.1, 1 / 3, 2.5e-7, 123456789.125, 1e21, 5e-324, 1.7976931348623157e308, -0.000001, 1e-6, 100.0):
             with self.subTest(x=x):
                 self.assertEqual(float(format_number(x)), x)
 
-    def test_the_layout_is_the_ecmascript_one(self):
+    def test_the_layout_is_the_ecmascript_one(self):  # noqa: D102
         cases = {1.0: "1", 1e20: "100000000000000000000", 1e21: "1e+21", 1e-6: "0.000001", 1e-7: "1e-7",
                  1.5e-7: "1.5e-7", 123.456: "123.456", -2.0: "-2", 0.0: "0", 2.5e100: "2.5e+100"}
         for x, want in cases.items():
@@ -210,8 +218,8 @@ class Numbers(unittest.TestCase):
                 self.assertEqual(format_number(x), want)
 
 
-class Files(unittest.TestCase):
-    def test_a_missing_table_is_named(self):
+class Files(unittest.TestCase):  # noqa: D101
+    def test_a_missing_table_is_named(self):  # noqa: D102
         with self.assertRaises(ProtocolError) as e:
             Protocol(table="/nonexistent/plugin-hostd-protocol.json")
         self.assertIn("/nonexistent/plugin-hostd-protocol.json", str(e.exception))

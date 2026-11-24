@@ -112,7 +112,7 @@ def render_overlay(tree, verbs):
         os.makedirs(os.path.join(work, "data"))
         shutil.copy(verbs, os.path.join(work, "data", "verbs.json"))
         subprocess.run(["sh", os.path.join(datadir, "install-contract-dir.sh"), PACKAGE, "0.0.0", "3", "data",
-                        os.path.join(work, "stage"), "data"], cwd=work, check=True, stdout=subprocess.DEVNULL)
+                        os.path.join(work, "stage"), "data"], cwd=work, check=True, stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
         # the installed package of the same name is left out: the staged one replaces it
         others = os.path.join(work, "others", "3")
         os.makedirs(others)
@@ -123,7 +123,7 @@ def render_overlay(tree, verbs):
                     shutil.copytree(os.path.join(base, pkg), os.path.join(others, pkg))
         env = dict(os.environ, OMX_CONTRACT_PATH=os.path.join(work, "stage") + ":" + os.path.join(work, "others"))
         subprocess.run([os.environ.get("OMX_CONTRACT", "omx-contract"), "render", "--target", "c", "--package", PACKAGE,
-                        "--installed", "--out", os.path.join(tree, "include", "plugin-hostd")], env=env, check=True,
+                        "--installed", "--out", os.path.join(tree, "include", "plugin-hostd")], env=env, check=True, stderr=subprocess.PIPE, text=True,
                        stdout=subprocess.DEVNULL)
     finally:
         shutil.rmtree(work, ignore_errors=True)

@@ -7,9 +7,12 @@ VERSION = $(shell sed -n "s/^Version: *//p" packaging/plugin-hostd.spec)
 FAKE = tests/fake-host
 # LD_PRELOAD into the daemon under test: fsync as slow as a disk under contention (tests/slow_fsync.c)
 SLOW_FSYNC = tests/slow-fsync.so
+# LD_PRELOAD into the daemon under test: scandir lists in the order the bundle rule's test sets (tests/scandir_listing.c)
+SCANDIR_LISTING = tests/scandir-listing.so
 FORMAT_TEST = tests/format-test
 HISTORY_TEST = tests/history-test
 PROC_TEST = tests/proc-test
+PROC_TERM_TEST = tests/proc-term-test
 CONF_TEST = tests/conf-test
 PLANNER_TEST = tests/planner-test
 PLACEMENT_TEST = tests/placement-test
@@ -63,6 +66,20 @@ PROTOCOL_HEADERS = $(wildcard include/plugin-hostd/*.h $(PROTOCOL_INCLUDE)/plugi
 # parameter scales are read from it; CONTRACT_CFLAGS=-I<dir> for a header that is not installed
 CONTRACT_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags omx-contract 2>/dev/null)
 
+# the qualification store's reader, plugin-qualification-db (<plugin-qualification-db/pqdb.h>): pkg-config when it is installed, a
+# checkout of it otherwise (PQDB_DIR, its library built in place). Its DDL builds the fixtures of the tests: the installed
+# one (pkg-config --variable=schema), else PQDB_SCHEMA, else the checkout's schema/qualification.sql; the daemon reads the store through the library only, never a file of records
+PQDB_DIR ?= ../plugin-db-qualification
+ifeq ($(shell $(PKG_CONFIG) --exists plugin-qualification-db && echo true), true)
+PQDB_CFLAGS = $(shell $(PKG_CONFIG) --cflags plugin-qualification-db)
+PQDB_LIBS = $(shell $(PKG_CONFIG) --libs plugin-qualification-db)
+PQDB_SCHEMA ?= $(shell $(PKG_CONFIG) --variable=schema plugin-qualification-db)
+else
+PQDB_CFLAGS = -I$(PQDB_DIR)/include
+PQDB_LIBS = -L$(PQDB_DIR) -lplugin-qualification-db -Wl,-rpath,$(abspath $(PQDB_DIR))
+PQDB_SCHEMA ?= $(PQDB_DIR)/schema/qualification.sql
+endif
+
 # CLAP headers for the test plugin: pkg-config when clap-devel is installed, CLAP_CFLAGS=-I<dir> otherwise
 CLAP_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags clap 2>/dev/null)
 
@@ -85,19 +102,28 @@ endif
 # <plugin-db/pin.h>: the pins, the layout digests, and what its SHA-256 links (plugin-db.pc requires libcrypto)
 PIN_CFLAGS := $(shell $(PKG_CONFIG) --cflags plugin-db)
 PIN_LIBS := $(shell $(PKG_CONFIG) --libs plugin-db)
-INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS)
+INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS)
+
+# the machine domain (contract.d/machine/) and plugin-qualify's qualification domain (contract.d/qualification/ there) are
+# read at start-up through omx-contract's C loader (libomx-domain), never rendered here (src/domain_words.c, src/machine.c,
+# src/qualification_words.c). The probe and the generator read OMX_CONTRACT_PATH (their test entry: a ':' list, the first
+# directory holding the domain wins) and the daemon the installed contract directory only; the tests of this tree run the
+# CLIs over this checkout's own machine document, the installed contract directory after it for plugin-qualify's
+DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
+DOMAIN_LIBS ?= $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
+INSTALLED_CONTRACT_DIR := $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null)
+export OMX_CONTRACT_PATH := $(strip $(OMX_CONTRACT_PATH)$(if $(strip $(OMX_CONTRACT_PATH)),:)$(CURDIR)/contract.d$(if $(INSTALLED_CONTRACT_DIR),:$(INSTALLED_CONTRACT_DIR)))
 
 LDFLAGS += -Wl,--no-undefined
 
 # source and object files
 SRC = src/main.c src/conf.c src/proc.c src/confine.c src/supervisor.c src/verbs.c src/pins.c src/pin_words.c src/relay.c src/formats.c src/lv2.c \
-      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
+      src/descriptors.c src/describe.c src/transforms.c src/json.c src/fsutil.c src/writer.c src/domain_words.c src/machine.c src/history.c src/planner.c src/qualcost.c src/placement.c src/session.c src/words.c
 OBJ = $(SRC:.c=.o)
 
 # the C names of the words of this tree's tables (data/grouping.json, data/history.json), rendered by omx-contract
 # (render-verbs below); the daemon's verbs and reply codes are rendered in plugin-hostd-protocol, beside protocol.h
 RENDERED = include/plugin-hostd/plugin_hostd_vocabulary.h
-
 # the error words of the extension errors: every refusal number the protocol declares a code for, written at build time
 # from plugin-hostd-protocol's JSON of the protocol (beside PROTOCOL_JSON) and never committed (src/session.c)
 .DEFAULT_GOAL := all
@@ -109,15 +135,50 @@ $(REPLY_WORDS): $(dir $(PROTOCOL_JSON))plugin-hostd-protocol.json tools/reply-wo
 all: $(PROG) $(PROBE) $(PROBE_LOCK)
 
 $(PROG): $(OBJ) $(PROTOCOL_LIB)
-	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) $(OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
+
+# the test build of the daemon, never installed or packaged: src/main.c compiled with OMX_CONTRACTDIR, the one directory it
+# reads the machine domain from (the packaged daemon reads the installed contract directory only, no path and no
+# environment variable). TEST_CONTRACT_TREE is the checkout's contract.d/machine installed as the loader reads it;
+# tests/contract-empty holds no domain, for the refusal arm of tests/machine_domain.py
+TEST_CONTRACT_TREE = $(CURDIR)/tests/contract-tree
+TEST_CONTRACT_EMPTY = $(CURDIR)/tests/contract-empty
+TEST_OBJ = $(filter-out src/main.o,$(OBJ)) src/main-test.o
+TEST_OBJ_EMPTY = $(filter-out src/main.o,$(OBJ)) src/main-test-empty.o
+PROG_TEST = tests/plugin-hostd-test
+PROG_TEST_EMPTY = tests/plugin-hostd-test-empty
+
+$(TEST_CONTRACT_TREE): $(wildcard contract.d/machine/*)
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	rm -rf $@
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(TEST_CONTRACT_TREE)
+
+$(TEST_CONTRACT_EMPTY):
+	mkdir -p $@
+
+# and with OMX_QUALIFICATION_TEST_STORE, the other seam of the test builds: the qualification store is read from the file
+# PLUGIN_HOSTD_TEST_QUALIFICATION_STORE (pqdb_open_at) instead of the installed one, so each test has a
+# store of its own (tests/qual_fixture.py). A packaged daemon is built with neither: it opens the store of its scope (pqdb_open)
+# and reads no path and no environment variable
+src/main-test.o: src/main.c $(TEST_CONTRACT_TREE)
+	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -c -o $@ src/main.c
+
+src/main-test-empty.o: src/main.c $(TEST_CONTRACT_EMPTY)
+	$(CC) $(INCS) $(CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_EMPTY)"' -DOMX_QUALIFICATION_TEST_STORE -c -o $@ src/main.c
+
+$(PROG_TEST): $(TEST_OBJ) $(PROTOCOL_LIB)
+	$(CC) $(TEST_OBJ) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
+
+$(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
+	$(CC) $(TEST_OBJ_EMPTY) $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # the probe runner: it loads no plugin and links nothing of the daemon or of the protocol library
 # describe reads the installed table of a format by default (docs/formats.md)
-PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c
-$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
+PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/probe_words.c src/domain_words.c src/qualification_words.c
+$(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_words.h src/domain_words.h src/qualification_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
 	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
-	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(CJSON_LIBS)
+	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
 
 # the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
 # its main; installed where the runner looks for it by default, $(LIBEXECDIR)/plugin-hostd/probe-lock.so
@@ -130,9 +191,9 @@ $(PROTOCOL_LIB):
 endif
 
 # the declared protocol is compiled into every object
-$(OBJ): $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
+$(OBJ) src/main-test.o src/main-test-empty.o: $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS)
 
-# the host class of the history is the probe's machine class: the contract's band words; the JSON string literals of the
+# the host class of the history is the probe's machine class: the machine domain's band words; the JSON string literals of the
 # daemon and the probe are spelled by omx-contract's one writer, <omxcontract/omx_json_write.h> (check-no-json-escape-loop)
 src/machine.o src/json.o src/transforms.o: INCS += $(CONTRACT_CFLAGS)
 
@@ -153,7 +214,7 @@ DATADIR = $(PREFIX)/share
 INCLUDEDIR = $(PREFIX)/include
 LIBEXECDIR = $(PREFIX)/libexec
 
-install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_tests
+install: $(PROG) $(PROBE) $(PROBE_LOCK) install_man install_protocol install_machine_domain install_probe_domain install_tests
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROG) $(DESTDIR)$(BINDIR)
 	install -m 755 $(PROBE) $(DESTDIR)$(BINDIR)
@@ -171,8 +232,23 @@ install_protocol:
 	install -d $(DESTDIR)$(INCLUDEDIR)/plugin-hostd
 	install -m 644 $(RENDERED) $(DESTDIR)$(INCLUDEDIR)/plugin-hostd/
 	install -d $(DESTDIR)$(DATADIR)/pkgconfig
-	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
+	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's,@VERSION@,$(VERSION),g' -e 's,@PROTOCOL_FLOOR@,$(shell tools/dep-floor.sh plugin-hostd-protocol-devel),g' -e 's,@PLUGIN_DB_FLOOR@,$(shell tools/dep-floor.sh plugin-db-devel),g' protocol/plugin-hostd.pc.in > $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
 	chmod 644 $(DESTDIR)$(DATADIR)/pkgconfig/plugin-hostd.pc
+
+# the domain machine (contract.d/machine: its document and its catalogs), installed to <contractdir>/machine/ by the
+# domain mode of omx-contract's installer and by nothing else, no copy of ours: plugin-hostd-contract ships it.
+# INSTALL_CONTRACT_DIR (below) names the installer: omx-contract's own when installed, a checkout's otherwise
+.PHONY: install_machine_domain
+install_machine_domain:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_machine_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(DESTDIR)$(CONTRACTDIR)
+
+# the domain probe (contract.d/probe: the words a probe run writes), installed to <contractdir>/probe/ the same way:
+# plugin-hostd-contract ships it, and the probe and the schema generator refuse to start without it (78)
+.PHONY: install_probe_domain
+install_probe_domain:
+	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_probe_domain: no install-contract-dir.sh: install omx-contract-devel, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/probe $(DESTDIR)$(CONTRACTDIR)
 
 # the format tables (data/formats/, docs/formats.md) and the grouping and history words this tree owns, installed as the
 # package plugin-hostd into omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/, with a
@@ -240,6 +316,28 @@ render-verbs check-rendered:
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi
 
+# the machine domain's codes header (include/plugin-hostd/machine_codes.h) is the render of the items marked x-c-codes,
+# and there is none while no item is marked: validate, fmt --check and render --check
+.PHONY: check-machine-codes
+check-machine-codes:
+	$(OMX_CONTRACT) validate --contract-dir contract.d
+	$(OMX_CONTRACT) fmt --check --contract-dir contract.d
+	$(OMX_CONTRACT) render --target c --package machine --contract-dir contract.d --out include/plugin-hostd --check
+
+# the machine domain is a valid document, the codes header is its render, and the installed tree opens through the
+# loader (tests/machine_domain.py; DOMAIN_CFLAGS and DOMAIN_LIBS name a loader that pkg-config does not find)
+.PHONY: test-machine-domain
+test-machine-domain: $(PROBE) $(PROG_TEST) $(PROG_TEST_EMPTY) tools/protocol-gen tests/probe-child tests/stress.clap
+	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' PROBE=./$(PROBE) GEN=./tools/protocol-gen DAEMON=$(abspath $(PROG_TEST)) DAEMON_EMPTY=$(abspath $(PROG_TEST_EMPTY)) \
+	  DOMAIN_CFLAGS='$(DOMAIN_CFLAGS)' DOMAIN_LIBS='$(DOMAIN_LIBS)' CONTRACT_CFLAGS='$(CONTRACT_CFLAGS)' python3 tests/machine_domain.py
+
+# the probe domain (contract.d/probe) holds exactly the words the probe writes, the probe and the generated schema write
+# the domain's words, and a missing or short one is refused by name at start-up (tests/probe_domain.py)
+.PHONY: test-probe-domain
+test-probe-domain: $(PROBE) tools/protocol-gen tests/probe-child tests/stress.clap
+	OMX_CONTRACT='$(OMX_CONTRACT)' INSTALL_CONTRACT_DIR='$(INSTALL_CONTRACT_DIR)' PROBE=./$(PROBE) GEN=./tools/protocol-gen \
+	  PROTOCOL_HEADER='$(PROTOCOL_INCLUDE)/plugin-hostd/protocol.h' DOMAIN_CFLAGS='$(DOMAIN_CFLAGS)' DOMAIN_LIBS='$(DOMAIN_LIBS)' python3 tests/probe_domain.py
+
 # a release build is reproducible at its tag (#120): tests/rendered_at_tag.sh
 .PHONY: test-rendered-at-tag
 test-rendered-at-tag:
@@ -289,10 +387,16 @@ check-no-json-escape-loop:
 	python3 tests/no_json_escape_loop.py
 	python3 tests/no_json_escape_loop.py --self-test
 
+# An item's x-since is the version of its domain document that added it, never a release of a package or of omx-contract
+# (tests/domain_x_since.py, with its --self-test, which plants each wrong x-since in a scratch copy and must see it red)
+check-domain-x-since:
+	python3 tests/domain_x_since.py
+	python3 tests/domain_x_since.py --self-test
+
 # No tracked file points into a private repository, issue, branch or path: Open-Mixer/.github's private-refs check, from a
 # checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
 FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
-.PHONY: private-refs check-no-protocol-copy check-no-json-escape-loop
+.PHONY: private-refs check-no-protocol-copy check-no-json-escape-loop check-domain-x-since
 private-refs:
 	$(FREEMIXER_DOTGITHUB)/.github/actions/private-refs-check/check.sh .
 
@@ -379,8 +483,8 @@ fuzz-corpus-check:
 
 # clean rule
 clean:
-	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(SLOW_FSYNC) $(HISTORY_TEST) $(PROC_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
-	@rm -rf build tests/alloc-fail-objs tests/plan-refused-objs
+	@rm -f src/*.o $(REPLY_WORDS) $(PROG) $(PROG_TEST) $(PROG_TEST_EMPTY) $(PROBE) $(PROBE_LOCK) tests/probe-child tests/lv2-probe-child tests/rt_interpose.so tests/sched-refuse.so tests/plugin-hostd-plan-refused tests/plan-refused.out $(FAKE) $(SLOW_FSYNC) $(SCANDIR_LISTING) $(HISTORY_TEST) $(PROC_TEST) $(PROC_TERM_TEST) $(CONF_TEST) $(PLANNER_TEST) $(QUALCOST_TEST) $(RELAY_TEST) tests/relay-test-relay.o $(FORMAT_TEST) tests/plugin-hostd-alloc-fail $(GESTURE_ALLOC_TEST) $(LV2_ALLOC_TEST) tests/lv2-alloc-lv2.o $(VERBS_ALLOC_TEST) $(TRANSFORMS_TEST) $(GEN) tests/stress.clap tests/jack_levels tests/host_scenarios $(LV2_FIXTURE) $(PLACEMENT_TEST)
+	@rm -rf build $(TEST_CONTRACT_TREE) $(TEST_CONTRACT_EMPTY) tests/alloc-fail-objs tests/plan-refused-objs
 
 # the daemon against workers that are not plugin hosts at all (tests/fake-host speaks the same protocol and can be
 # made to die on cue): placement, forwarding, ledger, replay, attribution, the storm bound; no jack, no plugin
@@ -395,7 +499,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop test-probe-schema test-vocabulary test-probe test-contract test-consumer test-perturbation check-readme check-own-host-page check-no-pins check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-clap-core-floor check-plugin-db-floor check-readme-facts test-pin-files test-search-path check-no-moved-packages test-no-backcompat
+test: test-bounded-install test-bundle-rule test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag check-grouping-reasons check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-qualification-domain test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-contract-floor check-floors-only check-readme-facts test-pin-files test-search-path check-no-moved-packages test-no-backcompat
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -414,25 +518,25 @@ test-sabotage-pool:
 	python3 tests/sabotage_pool_test.py
 
 # the first connect after the ready line, many starts, no retry (issue 238)
-test-ready-connect: $(PROG) $(FAKE)
-	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/ready_connect_test.py
+test-ready-connect: $(PROG_TEST) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/ready_connect_test.py
 
 # the same test against a daemon whose ready line goes out before its sockets exist: it must fail (issue 238)
 .PHONY: test-ready-connect test-ready-connect-sabotage
-test-ready-connect-sabotage: $(PROG) $(FAKE)
-	python3 tests/ready_connect_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+test-ready-connect-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
+	python3 tests/ready_connect_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # who reaches the ports: 127.0.0.1 by default, other addresses only when asked (tests/bind_test.py), and the same test
 # against a daemon built with each guard taken out, which must fail
 .PHONY: test-bind test-bind-sabotage
-test-bind: $(PROG) $(FAKE)
-	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
-test-bind-sabotage: $(PROG) $(FAKE)
-	python3 tests/bind_sabotage.py ./$(PROG) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS)" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+test-bind: $(PROG_TEST) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
+test-bind-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
+	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
-test-daemon: $(PROG) $(FAKE) $(SLOW_FSYNC)
-	PLUGIN_HOSTD=./$(PROG) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
+test-daemon: $(PROG_TEST) $(FAKE) $(SLOW_FSYNC)
+	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/daemon_test.py
 
 # a timing proof reads the load (ruling 2026-11-11): on a node loaded past its cores a missed bound warns, naming the
 # load, for the gate to rerun on a quiet node; on a quiet node it fails (tests/timing_load_test.py, with a fake load)
@@ -442,14 +546,14 @@ test-timing-load:
 # the declared verbs on the daemon's socket (tests/verbs_declared.py): each answers its declared reply and codes, the
 # daemon answers no undeclared word itself, and a verb both hosts owe answers in one shape from both; omx-clap-core's
 # declarations come from OMX_CONTRACT_PATH or the installed contract directory
-test-verbs-declared: $(PROG) $(PROBE) $(FAKE)
+test-verbs-declared: $(PROG_TEST) $(PROBE) $(FAKE)
 	python3 tests/verbs_ahead.py --self-test
-	PLUGIN_HOSTD=./$(PROG) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/verbs_declared.py
+	PLUGIN_HOSTD=./$(PROG_TEST) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/verbs_declared.py
 
 # panel_get on the wire against the installed omx-clap-scan (omx-clap-core 0.20.0 or later) and real plugins: one that
 # publishes a panel (omx-plugins-clap's omx-delay) and one that publishes none (omx-clap-host-tests' fake compressor)
-test-panel-wire: $(PROG) $(PROBE) $(FAKE)
-	PLUGIN_HOSTD=./$(PROG) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/panel_wire.py
+test-panel-wire: $(PROG_TEST) $(PROBE) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG_TEST) PROBE=./$(PROBE) FAKE_HOST=./$(FAKE) python3 tests/panel_wire.py
 
 $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 	$(CC) $(INCS) $(CFLAGS) -Werror -o $@ $< $(PROTOCOL_LIBS) $(PIN_LIBS) -lm
@@ -457,13 +561,16 @@ $(FAKE): tests/fake_host.c src/verbs.h $(PROTOCOL_LIB)
 $(SLOW_FSYNC): tests/slow_fsync.c
 	$(CC) $(CFLAGS) -Werror -shared -o $@ $< -ldl
 
+$(SCANDIR_LISTING): tests/scandir_listing.c
+	$(CC) $(CFLAGS) -Werror -shared -o $@ $<
+
 # the command socket's framing, by omx-clap-core's socket_conformance.py. Which copy runs, in this order: the one
 # SOCKET_CONFORMANCE names; ../omx-clap-core/tests/socket_conformance.py when an omx-clap-core checkout sits beside
 # this one (a developer working on both runs the script being changed); else the one omx-clap-host-tests installs.
 # The run prints the path it used.
 SOCKET_CONFORMANCE ?= $(firstword $(wildcard ../omx-clap-core/tests/socket_conformance.py) /usr/libexec/omx-clap-host/tests/socket_conformance.py)
-test-socket: $(PROG)
-	PLUGIN_HOSTD=./$(PROG) SOCKET_CONFORMANCE=$(SOCKET_CONFORMANCE) ./tests/socket_e2e.sh
+test-socket: $(PROG_TEST)
+	PLUGIN_HOSTD=./$(PROG_TEST) SOCKET_CONFORMANCE=$(SOCKET_CONFORMANCE) ./tests/socket_e2e.sh
 
 # a format registered only by the test goes through add, param, pin and remove; a row with a capability missing is refused
 test-format: $(FORMAT_TEST) $(FAKE)
@@ -473,7 +580,7 @@ test-format: $(FORMAT_TEST) $(FAKE)
 FORMAT_OBJ = $(filter-out src/main.o src/verbs.o,$(OBJ))
 
 $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
-	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm
 
 
 # the running history (src/history.c, the grouping-planner design note): its line grammar, its file, what its
@@ -481,8 +588,8 @@ $(FORMAT_TEST): tests/format_test.c $(FORMAT_OBJ) $(PROTOCOL_LIB)
 test-history: $(HISTORY_TEST)
 	./$(HISTORY_TEST)
 
-$(HISTORY_TEST): tests/history_test.c src/history.c src/words.c src/words.h src/history.h src/fsutil.c src/fsutil.h src/writer.c src/writer.h src/machine.c src/machine.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/words.c src/fsutil.c src/writer.c src/machine.c $(PROTOCOL_LIBS) $(PIN_LIBS) -lm
+$(HISTORY_TEST): tests/history_test.c src/history.c src/words.c src/words.h src/history.h src/fsutil.c src/fsutil.h src/writer.c src/writer.h src/machine.c src/machine.h src/domain_words.c src/domain_words.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -Werror -o $@ tests/history_test.c src/history.c src/words.c src/fsutil.c src/writer.c src/machine.c src/domain_words.c $(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) -lm
 
 # tests/own_host_lv2_probe.py closes its JACK client on every exit path: run against a fake libjack whose realtime thread
 # keeps firing the callback, a probe that skips the close dies with SIGSEGV at interpreter teardown
@@ -502,6 +609,14 @@ test-proc: $(PROC_TEST)
 $(PROC_TEST): tests/proc_test.c src/proc.c src/confine.c src/proc.h src/confine.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_test.c src/proc.c src/confine.c -pthread $(PIN_LIBS) -lm
 
+# a worker the daemon gives up on is sent SIGTERM and has two seconds to leave before SIGKILL (src/proc.c)
+.PHONY: test-proc-term
+test-proc-term: $(PROC_TERM_TEST)
+	./$(PROC_TERM_TEST)
+
+$(PROC_TERM_TEST): tests/proc_term_test.c src/proc.c src/confine.c src/conf.c src/proc.h src/confine.h src/conf.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -o $@ tests/proc_term_test.c src/proc.c src/confine.c src/conf.c -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm
+
 # the search settings (src/conf.c, plugin-hostd-protocol's plugin-hostd/search_paths.h): the default lists, $LV2_PATH, lv2_extra, $CLAP_PATH
 test-conf: $(CONF_TEST)
 	./$(CONF_TEST)
@@ -516,8 +631,13 @@ test-planner: $(PLANNER_TEST) $(QUALCOST_TEST)
 	./$(PLANNER_TEST)
 	./$(QUALCOST_TEST)
 
-$(QUALCOST_TEST): tests/qualcost_test.c src/qualcost.c src/qualcost.h src/json.c src/json.h $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(CFLAGS) -Werror -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(CJSON_LIBS) -lm
+# the fixtures are built from plugin-qualification-db's schema (tests/qual_fixture.py); the word check of the unknown-word arm
+# reads this checkout's machine domain, installed as the loader reads it
+$(QUALCOST_TEST): tests/qualcost_test.c tests/qual_fixture.py src/qualcost.c src/qualcost.h src/json.c src/json.h $(PROTOCOL_HEADERS) $(RENDERED) $(TEST_CONTRACT_TREE)
+	$(CC) -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(PQDB_CFLAGS) $(CFLAGS) -Werror \
+	    -DQUAL_SCHEMA='"$(abspath $(PQDB_SCHEMA))"' -DQUAL_FIXTURE='"$(abspath tests/qual_fixture.py)"' \
+	    -DQUALCOST_SOURCE='"$(abspath src/qualcost.c)"' -DTEST_CONTRACT_TREE='"$(TEST_CONTRACT_TREE)"' \
+	    -o $@ tests/qualcost_test.c src/qualcost.c src/json.c $(PIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm
 
 $(PLANNER_TEST): tests/planner_test.c src/planner.c src/planner.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CFLAGS) -Werror -o $@ tests/planner_test.c src/planner.c $(PIN_LIBS)
@@ -548,20 +668,20 @@ $(RELAY_TEST): tests/relay_test.c src/relay.c src/relay.h $(PROTOCOL_HEADERS) $(
 # the whole daemon when memory runs out: built with every allocation of its own sources going through tests/alloc_fail.c,
 # and the scenario of tests/alloc_sweep.py run with each allocation refused in turn
 ALLOC_SWEEP_DAEMON = tests/plugin-hostd-alloc-fail
-$(ALLOC_SWEEP_DAEMON): $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
+$(ALLOC_SWEEP_DAEMON): $(TEST_CONTRACT_TREE) $(SRC) tests/alloc_fail.c tests/alloc_fail.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
 	mkdir -p tests/alloc-fail-objs
-	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
+	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -include tests/alloc_fail.h -c -o tests/alloc-fail-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/alloc-fail-objs/alloc_fail.o tests/alloc_fail.c
-	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -o $@
+	$(CC) tests/alloc-fail-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -o $@
 
 # a refused plan over a longer one: the daemon's joint world cannot be built, and a pointer array ends against a guard page
 PLAN_REFUSED_DAEMON = tests/plugin-hostd-plan-refused
-$(PLAN_REFUSED_DAEMON): $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
+$(PLAN_REFUSED_DAEMON): $(TEST_CONTRACT_TREE) $(SRC) tests/world_refuse.c tests/guard_calloc.c tests/guard_calloc.h $(wildcard src/*.h) $(PROTOCOL_HEADERS) $(RENDERED) $(REPLY_WORDS) $(PROTOCOL_LIB)
 	mkdir -p tests/plan-refused-objs
-	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
+	for f in $(SRC); do $(CC) $(CFLAGS) $(INCS) $(CONTRACT_CFLAGS) -DOMX_CONTRACTDIR='"$(TEST_CONTRACT_TREE)"' -DOMX_QUALIFICATION_TEST_STORE -include tests/guard_calloc.h -c -o tests/plan-refused-objs/$$(basename $$f .c).o $$f || exit 1; done
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/guard_calloc.o tests/guard_calloc.c
 	$(CC) $(CFLAGS) -c -o tests/plan-refused-objs/world_refuse.o tests/world_refuse.c
-	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
+	$(CC) tests/plan-refused-objs/*.o $(PROTOCOL_LIBS) $(LDFLAGS) -pthread $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) -lm -ldl -o $@
 
 .PHONY: test-plan-refused
 test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
@@ -572,7 +692,7 @@ test-plan-refused: $(PLAN_REFUSED_DAEMON) $(FAKE)
 .PHONY: test-alloc-sweep
 test-alloc-sweep: $(ALLOC_SWEEP_DAEMON) $(FAKE)
 	ALLOC_SWEEP_DAEMON=./$(ALLOC_SWEEP_DAEMON) FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep.py
-	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
+	FAKE_HOST=./$(FAKE) python3 tests/alloc_sweep_sabotage.py "$(CC)" "$(CFLAGS) $(INCS) $(CONTRACT_CFLAGS)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)" tests/alloc-fail-objs
 
 # the relay's gesture table, lv2.c's refusal and pick tables, and the verbs' copies and answer when memory runs out:
 # each is built with its allocation calls renamed, so the test picks the one that fails
@@ -590,13 +710,13 @@ $(LV2_ALLOC_TEST): tests/lv2_alloc_test.c src/lv2.c src/formats.h
 
 $(VERBS_ALLOC_TEST): tests/verbs_alloc_test.c src/verbs.c src/verbs.h $(FORMAT_OBJ) $(PROTOCOL_LIB)
 	$(CC) $(INCS) -Isrc $(CFLAGS) -Werror -Dstrndup=alloc_test_strndup -Dstrdup=alloc_test_strdup \
-	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(CJSON_LIBS)
+	  -Dfree=alloc_test_free -o $@ tests/verbs_alloc_test.c $(FORMAT_OBJ) $(PROTOCOL_LIBS) -pthread -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS)
 
 tests/stress.clap: tests/stress_plugin.c
 	$(CC) $(CLAP_CFLAGS) $(CFLAGS) -Werror -shared -o $@ $<
 
 # every guard broken on purpose, one at a time: its test must go red
-sabotage: $(PROG) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
+sabotage: $(PROG_TEST) $(FAKE) tests/probe-child tests/stress.clap tests/lv2-probe-child tests/rt_interpose.so $(LV2_FIXTURE)
 	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/sabotage.py
 
 # the jack server the real-worker tests run over: pipewire's own jack implementation (default) or JACK2's jackd
@@ -607,14 +727,14 @@ JACK_SERVER ?= pipewire
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
 # the reply curve_points must give, from omx-dsp's omx_curve_points (header only): the real instances' curves are held
 # to it in tests/jack_e2e.py
-OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= 0.32.0' 'omxdsp < 0.33' 2>/dev/null)
+OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags 'omxdsp >= $(shell tools/dep-floor.sh omx-dsp-devel)' 2>/dev/null)
 tests/curve_reply: tests/curve_reply.c
-	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel >= 0.32.0 and < 0.33" >&2; exit 1; }
+	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel (the floor of packaging/deps.txt)" >&2; exit 1; }
 	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) -o $@ $< -lm
 
-test-jack: $(PROG) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply
+test-jack: $(PROG_TEST) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply
 	CURVE_REPLY=$(abspath tests/curve_reply) \
-	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
+	JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=./$(PROG_TEST) STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) \
 	HOST_SCENARIOS=$(abspath tests/host_scenarios) SCENARIOS=$(abspath $(PROTOCOL_SCENARIOS)) ./tests/jack_e2e.sh
 
 # a preset an instance saved loads back after a factory patch of Surge XT (#27), through the daemon and a real
@@ -628,11 +748,11 @@ SURGE_FACTORY_PATCH ?= /usr/share/surge-xt/patches_factory/Basses/Squared.fxp
 OMX_CLAP_HOST ?= $(shell command -v omx-clap-host)
 
 .PHONY: test-preset-identity
-test-preset-identity: $(PROG) plugin-hostd-probe tests/stress.clap tests/jack_levels
+test-preset-identity: $(PROG_TEST) plugin-hostd-probe tests/stress.clap tests/jack_levels
 	@for f in "$(SURGE_CLAP)" "$(SURGE_FACTORY_PATCH)" "$(OMX_CLAP_HOST)"; do \
 	    [ -e "$$f" ] || { echo "test-preset-identity: missing '$$f' (Surge XT: clap-surge-xt and surge-xt; omx-clap-host)" >&2; exit 2; }; \
 	done
-	JACK_E2E_PY=preset_identity_e2e.py JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=$(abspath $(PROG)) OMX_CLAP_HOST=$(OMX_CLAP_HOST) \
+	JACK_E2E_PY=preset_identity_e2e.py JACK_SERVER=$(JACK_SERVER) PLUGIN_HOSTD=$(abspath $(PROG_TEST)) OMX_CLAP_HOST=$(OMX_CLAP_HOST) \
 	SURGE_CLAP=$(SURGE_CLAP) SURGE_FACTORY_PATCH=$(SURGE_FACTORY_PATCH) PATH=$(abspath .):$$PATH \
 	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
 
@@ -665,10 +785,10 @@ test-lv2-adapter:
 	    $(MAKE) lv2-adapter-e2e; \
 	fi
 
-lv2-adapter-e2e: $(PROG) tests/stress.clap tests/jack_levels $(LV2_FIXTURE)
+lv2-adapter-e2e: $(PROG_TEST) tests/stress.clap tests/jack_levels $(LV2_FIXTURE)
 	@set -e; src=$$(cd $(OMX_CLAP_HOST_SRC) && pwd); \
 	$(MAKE) -C $$src PLUGIN_HOSTD_DIR=$(abspath .) omx-clap-host build/lv2/omx-host-fixture.lv2/omx-host-fixture.so; \
-	JACK_E2E_PY=lv2_adapter_e2e.py JACK_SERVER=pipewire PLUGIN_HOSTD=./$(PROG) OMX_CLAP_HOST=$$src/omx-clap-host \
+	JACK_E2E_PY=lv2_adapter_e2e.py JACK_SERVER=pipewire PLUGIN_HOSTD=./$(PROG_TEST) OMX_CLAP_HOST=$$src/omx-clap-host \
 	ADAPTER_BUNDLES=$$src/build/lv2 LV2_FIXTURE=$(abspath tests) MOD_HOST=$${MOD_HOST:-$$(command -v mod-host)} \
 	STRESS_CLAP=$(abspath tests/stress.clap) JACK_LEVELS=$(abspath tests/jack_levels) ./tests/jack_e2e.sh
 
@@ -688,8 +808,8 @@ tests/jack_levels: tests/jack_levels.c
 GEN = tools/protocol-gen
 GENERATED = docs/guide.md doc/plugin-hostd.1 protocol/probe-output.schema.json
 
-$(GEN): tools/protocol-gen.c $(PROTOCOL_HEADERS) $(RENDERED)
-	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) -o $@ tools/protocol-gen.c $(PIN_LIBS)
+$(GEN): tools/protocol-gen.c src/domain_words.c src/domain_words.h src/machine.h src/probe_words.h src/qualification_words.c src/qualification_words.h $(PROTOCOL_HEADERS) $(RENDERED)
+	$(CC) -Wall -Wextra -Werror -std=gnu99 -Iinclude -Isrc $(PROTOCOL_CFLAGS) $(CONTRACT_CFLAGS) $(DOMAIN_CFLAGS) -o $@ tools/protocol-gen.c src/domain_words.c src/qualification_words.c $(PIN_LIBS) $(DOMAIN_LIBS)
 
 gen: $(GEN)
 	$(GEN) probe-schema protocol/probe-output.schema.in > protocol/probe-output.schema.json.new && mv protocol/probe-output.schema.json.new protocol/probe-output.schema.json
@@ -727,27 +847,38 @@ check-own-host-page:
 check-no-pins:
 	python3 tests/no_pins.py
 
+# the packaged daemon carries no test seam for the qualification store: the binary built here is the one the packages hold;
+# BIN names an installed one instead
+BIN ?= $(PROG)
+.PHONY: check-no-test-seam
+check-no-test-seam: $(BIN)
+	python3 tests/no_test_seam.py $(BIN)
+
 # the package that ships contract.d/<major>/plugin-hostd requires omx-contract 3.2.0 or later at run time, in the spec and
 # debian/control: the first whose schema takes every row key of the tables (#165)
-check-clap-core-floor:
-	python3 tests/clap_core_floor.py
-
-check-plugin-db-floor:
-	python3 tests/plugin_db_floor.py
+# the dependency floors are declared once, in packaging/deps.txt (floors only); the engine is Open-Mixer/.github's
+# deps-render (CI runs it as that action): locally name a checkout of it, make deps-check DOTGITHUB=<dir>;
+# make deps writes the floors into the spec and debian/control
+DOTGITHUB ?=
+.PHONY: deps deps-check
+deps:
+	@test -n "$(DOTGITHUB)" || { echo "$@: name a checkout of Open-Mixer/.github: make $@ DOTGITHUB=<dir>" >&2; exit 2; }
+	$(DOTGITHUB)/.github/actions/deps-render/render.sh --write .
+deps-check:
+	@test -n "$(DOTGITHUB)" || { echo "$@: name a checkout of Open-Mixer/.github: make $@ DOTGITHUB=<dir>" >&2; exit 2; }
+	$(DOTGITHUB)/.github/actions/deps-render/render.sh --check .
 
 check-contract-floor:
 	python3 tests/contract_floor.py
+
+# every dependency deps.txt lists is declared at its floor and no ceiling, in the spec and in debian/control (tests/floors_only.py)
+check-floors-only:
+	python3 tests/floors_only.py
 
 # plugin-hostd builds neither package that moved out: plugin-hostd-full is Open-Mixer/plugin-hostd-full's (#84), the
 # Python codec python3-plugin-hostd-protocol is plugin-hostd-protocol's, at epoch 1 (tests/no_moved_packages.py)
 check-no-moved-packages:
 	python3 tests/no_moved_packages.py
-
-# SABOTAGE_SHARD=i/n keeps every n-th arm of tests/sabotage.py; this proves the partition for every shard count
-# ci.yml's matrix might use, not a live run (#23)
-test: check-sabotage-shard
-check-sabotage-shard:
-	python3 tests/sabotage_shard_test.py
 
 # the plugin-hostd-protocol floor is one number, at or above the first protocol release that declares what the sources
 # use (tests/protocol_floor.py)
@@ -770,20 +901,38 @@ test-install-schemas: all
 	done; \
 	echo "install carries the two schemas"
 
+# the C documentation gate is doxygen (tools/Doxyfile over the headers): a warning that tools/doxygen.baseline does not
+# list fails, and so does a listed one that is gone; the baseline only shrinks. Needs doxygen.
+.PHONY: check-doxygen
+check-doxygen:
+	sh tools/doxygen_gate.sh
+
+# ruff's own ratchet on the Python clients: D and the default rules (ruff.toml), today's findings carried by `# noqa`
+# comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff.
+.PHONY: check-ruff
+check-ruff:
+	ruff check clients/python tests/lib/plugin_hostd_client.py
+
+# the two gates only shrink, by mechanism (tools/doc_shrink.sh against the base branch: DOC_GATE_BASE, origin/main by
+# default); tests/doc_gate_test.sh proves it, and that doxygen_gate.sh --update only lowers the baseline
+.PHONY: check-doc-shrink test-doc-gates
+check-doc-shrink:
+	sh tools/doc_shrink.sh
+test-doc-gates:
+	sh tests/doc_gate_test.sh
+
 check-ci-guards:
 	python3 tests/ci_guards.py
-
-# ci.yml's sabotage-gate job sums what each shard of the matrix reports; this proves the gate itself is red when a
-# shard went missing, reported twice, disagreed on the table size, or the shards together ran fewer arms than the
-# table holds (#23)
-test: check-sabotage-gate
-check-sabotage-gate:
-	python3 tests/sabotage_gate_test.py
 
 # the probe output's words shared with omx-contract are the contract's: each enum the template takes from it matches the
 # installed omx-vocabulary.schema.json, and the template types none of the contract's lists by hand
 test-vocabulary:
 	python3 tests/vocabulary_derived.py
+
+# the qualification words are plugin-qualify's domain, read by the probe through the C loader: no render of it here, the
+# probe's words follow a changed copy, an absent or too old domain is refused by name
+test-qualification-domain: $(PROBE) tests/probe-child tests/stress.clap
+	PROBE=./$(PROBE) python3 tests/qualification_domain.py
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates
@@ -826,32 +975,40 @@ test-probe-schema:
 	python3 tests/probe_schema.py
 
 # the declaration is the one copy: change values in a scratch copy of it, regenerate, rebuild, and the daemon and the docs follow
-test-perturbation: $(PROG) $(FAKE) $(GEN)
+test-perturbation: $(PROG_TEST) $(FAKE) $(GEN)
 	PROTOCOL_DIR=$(PROTOCOL_DIR) FAKE_HOST=./$(FAKE) python3 tests/perturbation.py
 
 # a consumer compiles against the installed header alone, through pkg-config, as plain C
+# each step names itself when it fails; pkg-config prints its own reason (an unmet Requires: of plugin-hostd.pc)
 test-consumer:
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
-	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR=; \
+	$(MAKE) -s install_protocol PREFIX=$$tmp DESTDIR= \
+	  || { echo "FAIL test-consumer: make install_protocol into a scratch prefix"; exit 1; }; \
 	export PKG_CONFIG_PATH=$$tmp/share/pkgconfig$${PKG_CONFIG_PATH:+:$$PKG_CONFIG_PATH}; \
-	$(PKG_CONFIG) --exists plugin-hostd; \
+	$(PKG_CONFIG) --print-errors --exists plugin-hostd \
+	  || { echo "FAIL test-consumer: pkg-config --exists plugin-hostd: the installed plugin-hostd.pc's Requires: are not met (pkg-config's reason above)"; exit 1; }; \
 	$(CC) $$($(PKG_CONFIG) --cflags plugin-hostd) -std=c99 -Wall -Wextra -Werror \
-	  -o $$tmp/consumer tests/consumer.c $$($(PKG_CONFIG) --libs plugin-hostd); \
-	$$tmp/consumer
+	  -o $$tmp/consumer tests/consumer.c $$($(PKG_CONFIG) --libs plugin-hostd) \
+	  || { echo "FAIL test-consumer: tests/consumer.c against the installed headers and library"; exit 1; }; \
+	$$tmp/consumer || { echo "FAIL test-consumer: the consumer built against the installed package"; exit 1; }
+
+# test-consumer's own failure names its step and pkg-config's reason (tests/consumer_errors_test.sh)
+test-consumer-errors:
+	MAKE="$(MAKE)" sh tests/consumer_errors_test.sh
 
 # --pin-files: the files a pin holds as an add collects them, the list plugin-qualify takes (plugin-qualify#228)
-test-pin-files: $(PROG)
-	sh tests/pin_files_test.sh ./$(PROG)
+test-pin-files: $(PROG_TEST)
+	sh tests/pin_files_test.sh ./$(PROG_TEST)
 
 # which bundle an LV2 uri is when several name it: plugin-db's declared rule, newest version then search path and byte
 # order (#57)
-test-bundle-rule: $(PROG)
-	sh tests/bundle_rule_test.sh ./$(PROG)
+test-bundle-rule: $(PROG_TEST) $(SCANDIR_LISTING)
+	sh tests/bundle_rule_test.sh ./$(PROG_TEST) ./$(SCANDIR_LISTING)
 
 # --search-path: the LV2 and CLAP directories the daemon searches and their sources, the lists plugin-qualify scans
 # (plugin-qualify#9)
-test-search-path: $(PROG)
-	sh tests/search_path_test.sh ./$(PROG)
+test-search-path: $(PROG_TEST)
+	sh tests/search_path_test.sh ./$(PROG_TEST)
 
 # the backward-compatibility paths the owner rule removed stay gone (tests/no-backcompat.sh)
 .PHONY: test-no-backcompat

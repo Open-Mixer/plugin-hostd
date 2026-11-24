@@ -2,7 +2,7 @@
 # The pool tests/sabotage.py runs its arms in. An arm is one broken line, one rebuild, one test; arms share nothing but the
 # read-only checkout, so they run side by side, and what they print comes out in the order of the table, whichever
 # finishes first.
-import multiprocessing, os, shutil
+import multiprocessing, os, shutil, subprocess
 from concurrent.futures import ProcessPoolExecutor
 
 # every slot owns this many ports below the range the kernel hands out for bind(0) (32768 and up), starting here:
@@ -10,6 +10,18 @@ from concurrent.futures import ProcessPoolExecutor
 PORT_BASE = 20000
 PORTS_PER_SLOT = 200
 MAX_JOBS = (32768 - PORT_BASE) // PORTS_PER_SLOT
+
+
+class Failed(str):
+    """the FAIL line of an arm whose command exited non-zero: what the pool emits for that arm in place of its result"""
+
+
+def failure_line(label, e):
+    """the FAIL line for an arm whose command (a CalledProcessError e) exited non-zero: the command, its exit code and its stderr"""
+    cmd = e.cmd if isinstance(e.cmd, str) else " ".join(str(c) for c in e.cmd)
+    err = e.stderr.decode(errors="replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+    err = " | ".join(line.strip() for line in err.strip().splitlines() if line.strip())
+    return Failed("FAIL %s: `%s` exited %d%s" % (label, cmd, e.returncode, ": " + err if err else " with no stderr"))
 
 
 def jobs_from(env, cpus=None):
@@ -41,17 +53,27 @@ def _start(slots, exclusive):
     os.environ["PLUGIN_HOSTD_TEST_PORT_SPAN"] = str(PORTS_PER_SLOT)
 
 
-def _call(fn, arm, exclusive):
+def _call(fn, arm, exclusive, label):
     # an arm that needs a server of its own (the jack arms start a PipeWire) takes the one lock, so two never run at once
     if exclusive:
         with _exclusive:
-            return fn(arm)
-    return fn(arm)
+            return _named(fn, arm, label)
+    return _named(fn, arm, label)
 
 
-def run(arms, fn, jobs, emit, exclusive=lambda arm: False):
+def _named(fn, arm, label):
+    # a command of the arm that exits non-zero is said by name here, in the arm's own process, where its stderr is
+    # still whole; the pool goes on with the arms beside it
+    try:
+        return fn(arm)
+    except subprocess.CalledProcessError as e:
+        return failure_line(label(arm), e)
+
+
+def run(arms, fn, jobs, emit, exclusive=lambda arm: False, label=str):
     """fn(arm) for each arm, `jobs` at a time in processes of their own; emit(arm, result) is called in the order of
-    `arms`, each as soon as it and every arm before it is done. An arm that raises ends the run with its exception."""
+    `arms`, each as soon as it and every arm before it is done. An arm whose command exits non-zero yields a Failed
+    result named by label(arm); any other exception ends the run with it."""
     ctx = multiprocessing.get_context("fork")
     slots = ctx.Queue()
     for n in range(jobs):
@@ -59,7 +81,7 @@ def run(arms, fn, jobs, emit, exclusive=lambda arm: False):
     lock = ctx.Lock()
     pool = ProcessPoolExecutor(max_workers=jobs, mp_context=ctx, initializer=_start, initargs=(slots, lock))
     try:
-        futures = [(arm, pool.submit(_call, fn, arm, exclusive(arm))) for arm in arms]
+        futures = [(arm, pool.submit(_call, fn, arm, exclusive(arm), label)) for arm in arms]
         for arm, future in futures:
             emit(arm, future.result())
     finally:

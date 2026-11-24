@@ -15,6 +15,8 @@ import declared
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROTOCOL_DIR = os.path.abspath(os.environ.get("PROTOCOL_DIR", os.path.join(ROOT, "..", "plugin-hostd-protocol")))
+# the daemon the tests run: the Makefile's test build (PROG_TEST), which reads the machine domain of this tree's contract.d
+DAEMON_TEST = os.path.join("tests", "plugin-hostd-test")
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 
 
@@ -105,6 +107,15 @@ def make(tree, *args):
     return subprocess.run(["make", "-s", "PROTOCOL_DIR=" + PROTOCOL_DIR] + list(args), cwd=tree, capture_output=True, text=True)
 
 
+# a line that spells an old value but is a DIFFERENT quantity that happens to equal it, so it is not a copy of the
+# declaration: (what, the exact text of that line, why). Only the exact text is exempt; the pattern stays as it is.
+OLD_COPY_EXEMPT = {
+    "the suspect window default": [
+        ("#define QUIET_EXIT_MS 500",
+         "how long a worker whose socket went quiet has to exit on its own before it is asked to leave; not the suspect window"),
+    ],
+}
+
 # (the definition in the header, the pattern to find it, its replacement, a pattern for an old copy that must be gone)
 EDITS = [
     ("the suspect window default", r"(#define PHD_DEFAULT_SUSPECT_WINDOW_MS )500\b", r"\g<1>731", r"\b500\b"),
@@ -140,7 +151,7 @@ def perturb_modhost():
     assert after not in modhost.commands(include).values(), "%s is already a command of mod-host.h" % after
     protocol = declared.variable("protocoljson")
 
-    subprocess.run([sys.executable, __file__, "behave-modhost", os.path.join(ROOT, "plugin-hostd"), FAKE, include, after],
+    subprocess.run([sys.executable, __file__, "behave-modhost", os.path.join(ROOT, DAEMON_TEST), FAKE, include, after],
                    check=True, env=dict(os.environ, PLUGIN_HOSTD_PROTOCOL=protocol))
 
     work = tempfile.mkdtemp(prefix="plugin-hostd-perturbation.")
@@ -148,7 +159,7 @@ def perturb_modhost():
         tree = os.path.join(work, "t")
         headers = os.path.join(work, "mod-host")
         os.mkdir(tree)
-        for name in ("include", "src", "tests", "tools", "Makefile"):
+        for name in ("contract.d", "include", "src", "tests", "tools", "Makefile"):
             src = os.path.join(ROOT, name)
             if os.path.isdir(src):
                 shutil.copytree(src, os.path.join(tree, name), ignore=shutil.ignore_patterns("*.o", "fake-host", "reply_words.h"))
@@ -161,9 +172,9 @@ def perturb_modhost():
         open(header, "w").write(text)
         assert modhost.commands(headers)[macro] == after
 
-        r = make(tree, "PROTOCOL_CFLAGS=-I" + headers, "plugin-hostd", "tests/fake-host")
+        r = make(tree, "PROTOCOL_CFLAGS=-I" + headers, DAEMON_TEST, "tests/fake-host")
         assert r.returncode == 0, "make against the perturbed mod-host.h: %s%s" % (r.stdout, r.stderr)
-        subprocess.run([sys.executable, __file__, "behave-modhost", os.path.join(tree, "plugin-hostd"),
+        subprocess.run([sys.executable, __file__, "behave-modhost", os.path.join(tree, DAEMON_TEST),
                         os.path.join(tree, "tests", "fake-host"), headers, before],
                        check=True, env=dict(os.environ, PLUGIN_HOSTD_PROTOCOL=protocol))
     finally:
@@ -188,14 +199,14 @@ def main():
     if len(sys.argv) == 6 and sys.argv[1] == "behave-modhost":
         behave_modhost(*sys.argv[2:])
         return 0
-    exe = os.path.join(ROOT, "plugin-hostd")
+    exe = os.path.join(ROOT, DAEMON_TEST)
     subprocess.run([sys.executable, __file__, "behave", exe, declared.variable("protocoljson"), VERB_AFTER], check=True)
 
     work = tempfile.mkdtemp(prefix="plugin-hostd-perturbation.")
     try:
         tree = os.path.join(work, "t")
         os.mkdir(tree)
-        for name in ("data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "docs", "Makefile"):
+        for name in ("contract.d", "data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "docs", "Makefile"):
             src = os.path.join(ROOT, name)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name),
                                                                        **({"ignore": shutil.ignore_patterns("*.o", "reply_words.h")} if os.path.isdir(src) else {}))
@@ -251,21 +262,23 @@ def main():
         assert r.returncode != 0, "check-generated passed over a changed declaration"
         print("ok   check-generated fails on a changed declaration whose pages were not written again")
 
-        for target in ("gen", "check-generated", "plugin-hostd"):
+        for target in ("gen", "check-generated", DAEMON_TEST):
             r = make(tree, target, "GENERATED_COMPARE=always")
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
         after = protocol_json(tree, os.path.join(tree, "protocol", "plugin-hostd.json"))
 
         for what, _, _, old in EDITS + DATA_EDITS + CODE_EDITS:
             if old:
-                left = grep(old, os.path.join(tree, "src"), os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"))
+                exempt = [text for text, _ in OLD_COPY_EXEMPT.get(what, [])]
+                left = [l for l in grep(old, os.path.join(tree, "src"), os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"))
+                        if not any(text in l for text in exempt)]
                 assert not left, "a copy of the old value of %s remains:\n%s" % (what, "\n".join(left))
         for new in (r"\b731\b", r"\(?-595\b", "plugin-hostd is up!", r"\binstance_where\b"):
             assert grep(new, os.path.join(tree, "docs", "guide.md"), os.path.join(tree, "doc"), after), \
                 "the docs did not move to " + new
         print("ok   the docs moved and no copy of an old value remains in src/, docs/guide.md or the man page")
 
-        subprocess.run([sys.executable, __file__, "behave", os.path.join(tree, "plugin-hostd"), after, VERB_BEFORE],
+        subprocess.run([sys.executable, __file__, "behave", os.path.join(tree, DAEMON_TEST), after, VERB_BEFORE],
                        check=True)
     finally:
         shutil.rmtree(work, ignore_errors=True)

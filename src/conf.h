@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file conf.h
+ * @brief The declarations of conf.h.
+ */
+
 #ifndef CONF_H
 #define CONF_H
 

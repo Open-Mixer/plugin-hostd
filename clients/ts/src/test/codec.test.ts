@@ -106,6 +106,13 @@ describe('the replies with a shape of their own', () => {
     });
   });
 
+  it('refuses a reply without the figures the protocol requires', () => {
+    // no reading for an older daemon (owner rule 2026-11-16): a plan without cores, an estimate without the four
+    // memory figures, is refused, never read with the missing figures as null
+    assert.throws(() => protocol.readPlan(data('resp 0 1,2;3')), ProtocolError);
+    assert.throws(() => protocol.readEstimate(data('resp 0 192 24.00 - 2 1 1:-544')), ProtocolError);
+  });
+
   it('asks again for exactly the reasons the file declares retry', () => {
     // RETRY_REASONS is read from the property each reason declares in data/grouping.json (#67), not chosen in code
     const declared = JSON.parse(readFileSync(GROUPING, 'utf8')) as { PLUGIN_HOSTD_GROUPING_REASONS: { words: Record<string, { word: string; group?: string }> } };

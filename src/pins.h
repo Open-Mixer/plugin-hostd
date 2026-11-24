@@ -18,6 +18,10 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+/** @file pins.h
+ * @brief The declarations of pins.h.
+ */
+
 #ifndef PINS_H
 #define PINS_H
 
