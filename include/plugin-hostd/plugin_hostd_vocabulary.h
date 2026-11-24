@@ -14,7 +14,7 @@
  * @brief The vocabulary of plugin-hostd: every code and every word as a string define, with its sentence
  * where it carries one. */
 
-/* PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json) */
+/* PLUGIN_HOSTD_GROUPING_REASONS (contract.d/plugin-hostd/grouping/grouping.json) */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_REFUSED "refused" ///< The pin's verdict is refused: the plugin is not run in a group, and an add of it answers -516.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_PIN "no-pin" ///< The plugin has no pin and pin_mode is strict: an add of it answers -508.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_VERDICT "no-verdict" ///< The pin carries no verdict (a pin the daemon learned on first use): the plugin stays alone.
@@ -42,7 +42,7 @@
     X(8u, "format-mixed", FORMAT_MIXED) X(9u, "group-full", GROUP_FULL) X(10u, "group-cost", GROUP_COST) X(11u, "cost-assumed", COST_ASSUMED) \
     X(12u, "no-neighbour", NO_NEIGHBOUR) X(13u, "grouping-off", GROUPING_OFF) X(14u, "history-unavailable", HISTORY_UNAVAILABLE) X(15u, "plan-refused", PLAN_REFUSED)
 
-/* PLUGIN_HOSTD_GROUPING_REASON_GROUPS (data/grouping.json) */
+/* PLUGIN_HOSTD_GROUPING_REASON_GROUPS (contract.d/plugin-hostd/grouping/grouping.json) */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_RETRY "retry" ///< A later plan may not give this reason again with the chain as it is: a pin may gain a verdict, what refused a segment may pass. A controller may ask again.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_FINAL "final" ///< The reason holds while the chain, the pins, the history and the settings are as they are: asking again gives it again.
 /** The number of words of PLUGIN_HOSTD_GROUPING_REASON_GROUPS. */
@@ -53,7 +53,7 @@
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS(X) \
     X(0u, "retry", RETRY) X(1u, "final", FINAL)
 
-/* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
+/* PLUGIN_HOSTD_HISTORY_KEYS (contract.d/plugin-hostd/history/history.json) */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST "last" ///< UTC seconds of the last window.
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_WINDOWS_SOLO "windows_solo" ///< Windows the plugin ran in a worker of its own.

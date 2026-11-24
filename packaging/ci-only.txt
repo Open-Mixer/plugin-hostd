@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
+# The OpenMixer packages a CI job installs by hand that the packaging does not declare, each with why: a job whose
+# target no package build runs (%check runs make test-daemon check-generated check-rendered). deps-render refuses an
+# install line naming any other undeclared OpenMixer package, a row here with no reason, a row the packaging declares
+# and a row no install line names.
+# <package>             <why>
+omx-plugins-clap        make test-panel-wire reads a real plugin's panel (ci.yml), and the real-worker and bench jobs host its plugins
+omx-plugins-contract    make test-panel-wire reads the panel of omx-plugins-clap's plugin from its contract
+omx-plugins-lv2         the real-worker integration job and the bench host its LV2 plugins through mod-host

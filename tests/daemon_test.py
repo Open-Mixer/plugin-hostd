@@ -119,7 +119,7 @@ def hello_opens_a_session_the_daemon_grants_and_no_worker_hears():
     # the control: a worker built on the protocol library answers hello and reads a tag once granted
     got = worker_answers(["hello 1 tags", "@t1 quit_not_a_verb"])
     check(got == ["resp 0 1 tags", "@t1 not found"], "the fake worker answers hello as the library does: %r" % got)
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -220,7 +220,7 @@ def a_new_controller_starts_with_nothing_granted():
 
 @test
 def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_replayed():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -253,7 +253,7 @@ def the_bulk_verbs_reach_only_the_worker_that_holds_the_instance_and_a_set_is_re
 
 @test
 def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_the_worker_held_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -265,26 +265,26 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
         # a 32-band binding in three lines, as a controller sends one that does not fit a line
         thirds = []
         for k in range(3):
-            terms = " ".join("band_freq.%d=f%d:hz band_gain.%d=g%d:db band_q.%d=q%d band_type.%d=t%d@bell|lowshelf" % ((b,) * 8)
+            terms = " ".join("band_freq.%d=f%d:Hz band_gain.%d=g%d:dB band_q.%d=q%d band_type.%d=t%d@bell|lowshelf" % ((b,) * 8)
                              for b in range(k * 11, min(32, (k + 1) * 11)))
             thirds.append("curve_bind 1 0 eq_response eq " + terms)
             d.expect(thirds[-1], "resp 0")
         d.expect("curve_points 1 0 64", "resp 0 1 0,128")
         # a term replaced: the binding is the same terms
-        d.expect("curve_bind 1 0 eq_response eq band_freq.0=f0:hz", "resp 0")
+        d.expect("curve_bind 1 0 eq_response eq band_freq.0=f0:Hz", "resp 0")
         d.expect("curve_points 1 0 64", "resp 0 1 0,128")
         # a second display, a transfer curve that is then started again by another family, and a third that is cleared
-        d.expect("curve_bind 1 1 transfer_curve dynamics threshold=thr:db ratio=r:ratio knee=k:db", "resp 0")
-        d.expect("curve_bind 1 1 transfer_curve gate threshold=thr:db range=rg:db", "resp 0")
+        d.expect("curve_bind 1 1 transfer_curve dynamics threshold=thr:dB ratio=r:ratio knee=k:dB", "resp 0")
+        d.expect("curve_bind 1 1 transfer_curve gate threshold=thr:dB range=rg:dB", "resp 0")
         d.expect("curve_points 1 1 9", "resp 0 1 1,2")
-        d.expect("curve_bind 1 2 transfer_curve dynamics threshold=thr:db ratio=r:ratio", "resp 0")
+        d.expect("curve_bind 1 2 transfer_curve dynamics threshold=thr:dB ratio=r:ratio", "resp 0")
         d.expect("curve_bind 1 2 clear", "resp 0")
         d.expect("curve_points 1 2 9", "resp -537")
         # the first third sent again, as a panel that opens again sends it
         d.expect(thirds[0], "resp 0")
         # refused by the worker: the ledger keeps nothing of it
-        d.expect("curve_bind 1 3 transfer_curve dynamics threshold=nope:db", "resp -103")
-        d.expect("curve_bind 7 0 transfer_curve dynamics threshold=thr:db", "resp -3")
+        d.expect("curve_bind 1 3 transfer_curve dynamics threshold=nope:dB", "resp -103")
+        d.expect("curve_bind 7 0 transfer_curve dynamics threshold=thr:dB", "resp -3")
         d.expect("curve_points 7 0 9", "resp -3")
         d.expect("curve_bind 1 0", "resp -902")
         d.expect("curve_points 1 0", "resp -902")
@@ -306,8 +306,8 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
         with open(log) as f:
             replayed = [l.split(" ", 1)[1] for l in f.read().splitlines() if l.startswith("%d curve_bind" % wb2["pid"])]
         # display 0's four lines (the third sent again last, once), display 1's gate, nothing of 2 and 3, in order
-        want = [thirds[1], thirds[2], "curve_bind 1 0 eq_response eq band_freq.0=f0:hz",
-                "curve_bind 1 1 transfer_curve gate threshold=thr:db range=rg:db", thirds[0]]
+        want = [thirds[1], thirds[2], "curve_bind 1 0 eq_response eq band_freq.0=f0:Hz",
+                "curve_bind 1 1 transfer_curve gate threshold=thr:dB range=rg:dB", thirds[0]]
         check(replayed == want, "the respawn was given %r, not %r" % (replayed, want))
         # remove drops the binding with the instance: a new add of the same number holds none
         d.expect("remove 1", "resp 0")
@@ -319,7 +319,7 @@ def a_curve_binding_reaches_only_its_worker_and_is_replayed_into_a_respawn_as_th
 
 @test
 def the_whitespace_that_ends_a_command_is_not_part_of_its_last_word():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -403,7 +403,7 @@ def plain_verbs_pass_through_unchanged():
 
 @test
 def a_command_whose_first_argument_is_a_uri_reaches_every_worker():
-    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    log = harness.scratch_path("plugin-hostd-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -434,7 +434,7 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
     verb to the worker that holds the instance and the others to every worker, and passes the worker's answer back. It
     answers -902 only while the worker does"""
     for answers, want in ((True, "resp 0"), (False, "resp -902")):
-        log = tempfile.mktemp(prefix="plugin-hostd-log.")
+        log = harness.scratch_path("plugin-hostd-log.")
         d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer" if answers else "refuse"})
         try:
             d.expect("add clap:fake#a 0", "resp 0")
@@ -481,7 +481,7 @@ def preset_show_of_an_instance_is_answered_by_the_worker_that_holds_it_whatever_
     """preset_show has two forms, told apart by their number of words: preset_show <instance> <key>, plugin-hostd's,
     goes to the worker that holds the instance alone, so a worker that does not hold it (and would answer -3) is never
     asked and never answers for it"""
-    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    log = harness.scratch_path("plugin-hostd-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -548,7 +548,7 @@ def preset_show_of_a_uri_the_adapter_holds_is_not_hidden_by_mod_hosts_refusal_of
 def preset_show_counts_a_quoted_key_as_one_word_and_asks_the_holder_alone():
     """a key that holds a space is quoted, and is one word as the worker reads it: preset_show <instance> "<key>" is
     the instance form, the holder's to answer, not a line of four words every worker is sent"""
-    log = tempfile.mktemp(prefix="plugin-hostd-log.")
+    log = harness.scratch_path("plugin-hostd-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_PRESETS_LEARN": "answer"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -706,20 +706,42 @@ def connections_are_replayed_and_disconnect_forgets():
 
 @test
 def a_connect_the_new_worker_cannot_make_yet_is_asked_again():
-    d = daemon(env={"FAKE_CONNECT_AFTER_MS": "400"})
+    # the fake refuses a connect (-205) until FAKE_CONNECT_AFTER_MS after its own start. What is proved is read from
+    # events, never from a sleep: the connect the respawned worker was sent while new, its refusal and the connect
+    # asked again are the worker's own log (FAKE_LOG, one "<pid> <line>" per command it received). The window is long
+    # (3 s) so the replay, sent right after the restore, falls inside it on a loaded machine too; a list_connections
+    # read between the restore and the retry was a race (the retry could already have landed).
+    log = harness.scratch_path("plugin-hostd-fake-log.")
+    after_ms = 3000
+    d = daemon(env={"FAKE_CONNECT_AFTER_MS": str(after_ms), "FAKE_LOG": log})
+
+    def connects(pid):
+        if not os.path.exists(log):
+            return []
+        with open(log) as f:
+            return [l for l in f if l.startswith("%d connect " % pid)]
     try:
         d.expect("add fake:a 0", "resp 0")
-        time.sleep(0.5)
-        d.expect("connect effect_0:out_1 system:playback_1", "resp 0")
+        # the first worker's own window: asked until it is past it (the daemon answers the worker's -205 while new)
+        wait_for(lambda: d.send("connect effect_0:out_1 system:playback_1") == "resp 0", "the first worker to take the connect",
+                 after_ms / 1000.0 + 5)
         d.expect("list_connections", "resp 0 effect_0:out_1>system:playback_1")
         _, w = d.holder(0)
         mark = d.mark()
         os.kill(w["pid"], signal.SIGKILL)
         d.wait_event("instance_restored 0 ", since=mark)
-        check(d.send("list_connections") == "resp 0", "the worker refused the connect while it was new")
-        wait_for(lambda: d.send("list_connections") == "resp 0 effect_0:out_1>system:playback_1", "the connection to come back", 5)
+        _, w2 = d.holder(0)
+        check(w2["pid"] != w["pid"], "the instance is held by a new worker")
+        # the connection comes back, and the new worker's log shows it was asked more than once: refused while new, then
+        # asked again
+        wait_for(lambda: d.send("list_connections") == "resp 0 effect_0:out_1>system:playback_1", "the connection to come back",
+                 after_ms / 1000.0 + 5)
+        sent = connects(w2["pid"])
+        check(len(sent) >= 2, "the new worker refused the connect while it was new and was asked again: %s" % sent)
     finally:
         d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 
 @test
@@ -1110,7 +1132,7 @@ def a_dropped_suspect_gives_back_the_value_it_replaced():
 
 @test
 def a_crash_well_after_the_reply_replays_the_verb_as_before():
-    marker = tempfile.mktemp(prefix="plugin-hostd-once.")
+    marker = harness.scratch_path("plugin-hostd-once.")
     d = daemon(env={"FAKE_CRASH_ONCE": marker, "FAKE_CRASH_AFTER_MS": "900"})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1399,8 +1421,7 @@ def an_isolated_plugin_gets_a_worker_of_its_own_placed_by_the_same_rule_and_a_se
 def the_owner_client_reads_every_typed_reply_and_feedback_line_the_daemon_writes():
     """plugin-hostd-protocol#17, #19: the owner's Python client reads, by the table alone, what this daemon writes:
     worker_list, instance_info, plan, plan_get, estimate and hello's replies, and every feedback line of the run"""
-    sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
-    from plugin_hostd_protocol import Protocol
+    from plugin_hostd_protocol import Protocol  # plugin-hostd-protocol's package, installed: this tree keeps no codec
     proto = Protocol()
     cpus = four_cpus()
     p = Plugins()
@@ -1624,7 +1645,7 @@ def worker_feedback_reaches_the_controller_verbatim_and_in_order():
 
 @test
 def a_respawned_worker_reports_the_same_outputs_once_each():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1658,7 +1679,7 @@ def a_respawned_worker_reports_the_same_outputs_once_each():
 
 @test
 def monitor_output_off_ends_one_monitor_and_a_respawn_does_not_replay_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1711,7 +1732,7 @@ def monitor_output_off_refuses_what_this_connection_did_not_monitor():
 
 @test
 def a_monitor_ends_with_the_connection_that_set_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:a 0", "resp 0")
@@ -1769,7 +1790,7 @@ def sent_to(log, pid=None):
 
 @test
 def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verbs():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         # the verbs this test drives by name must be declared; a protocol release may declare more (a minor adds rows),
@@ -1820,7 +1841,7 @@ PORTS_DIR = os.path.join(ROOT, "tests", "fixtures")
 
 @test
 def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param_info_from_its_ports():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
     try:
         d.expect("add lv2:%s 0" % PORTS_URI, "resp 0")
@@ -1863,7 +1884,7 @@ def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param
 
 @test
 def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1889,7 +1910,7 @@ def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
 
 @test
 def track_info_is_replayed_once_after_the_add_and_before_the_state():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1929,7 +1950,7 @@ DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
 
 @test
 def the_window_verbs_go_to_the_worker_that_holds_the_instance_and_its_resp_comes_back():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env=dict(DISPLAY_ENV, FAKE_LOG=log))
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1956,7 +1977,7 @@ def the_window_verbs_go_to_the_worker_that_holds_the_instance_and_its_resp_comes
 
 @test
 def a_shown_window_is_shown_again_after_a_respawn_and_a_hidden_one_is_not():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"checkpoint_ms": 300}, env=dict(DISPLAY_ENV, FAKE_LOG=log))
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -1990,7 +2011,7 @@ def a_shown_window_is_shown_again_after_a_respawn_and_a_hidden_one_is_not():
 
 @test
 def a_daemon_with_no_display_refuses_the_window_verbs_and_sends_the_worker_nothing():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log, "DISPLAY": None, "WAYLAND_DISPLAY": ""})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -2060,7 +2081,7 @@ def from_plugin(d, since):
 
 @test
 def presets_are_listed_by_a_clap_worker_and_an_lv2_instance_on_mod_host_answers_no_list():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -2236,7 +2257,7 @@ NOTE_VERBS = ("note_input", "note_on", "note_off", "all_notes_off")
 
 @test
 def notes_reach_a_clap_worker_unchanged_and_an_effect_refuses_them():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#synth 0", "resp 0")
@@ -2279,7 +2300,7 @@ def a_worker_whose_note_queue_is_full_answers_the_declared_code_and_the_daemon_p
 
 @test
 def notes_are_never_replayed():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#synth 0", "resp 0")
@@ -2301,7 +2322,7 @@ def notes_are_never_replayed():
 
 @test
 def an_lv2_instance_on_mod_host_answers_notes_by_jack_and_mod_host_never_sees_them():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add fake:synth 0", "resp 0")
@@ -2323,7 +2344,7 @@ SETTINGS = ["set_bpb 3", "transport 1 4 140", "set_bpm 133", "transport_sync non
 
 @test
 def tempo_and_transport_are_handed_to_a_respawned_worker_before_its_add():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         # before any worker: kept for the first one
@@ -2390,7 +2411,7 @@ def a_worker_lost_in_its_replay_of_the_tempo_keeps_no_socket_number_of_another_w
 
 @test
 def a_tempo_the_worker_refuses_is_kept_written_and_the_worker_still_comes_back():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_SETTINGS": "1"})
     try:
         d.expect("add clap:fake#a 0", "resp 0")
@@ -4144,7 +4165,7 @@ def gains(d, ids):
 
 @test
 def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         for i in (1, 2, 3, 4):
@@ -4216,7 +4237,7 @@ def a_chain_is_declared_over_existing_instances_and_each_refusal_is_named():
 @test
 def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
     """chain_members_min is 1: one isolated plugin is a chain like any other, and a chain with no member is no line"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         d.expect("add clap:fake#solo 21", "resp 21")
@@ -4248,7 +4269,7 @@ def a_chain_of_one_runs_in_a_worker_of_its_own_and_a_chain_of_none_is_refused():
 def an_add_into_a_chain_goes_into_its_worker_with_no_worker_of_its_own_and_no_move():
     """add <uri> <instance> chain:<chain> (#348): the first member starts the chain's worker, the next ones join it, and the
     worker is told the order; no member ever has a worker of its own, so no state is saved and nothing is removed"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         mark = d.mark()
@@ -4297,7 +4318,7 @@ def an_add_the_chain_worker_refuses_to_run_in_the_chain_is_refused_and_left_out(
     told to expect into the chain, so nothing of it is there; a worker that does not know chain_expect refuses the order
     line instead, and the member is taken out again and the order sent as it was"""
     for no_expect in (False, True):
-        log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+        log = harness.scratch_path("plugin-hostd-fake-log.")
         env = {"FAKE_LOG": log, "FAKE_REFUSE_CHAIN_MEMBER": "3"}
         if no_expect:
             env["FAKE_NO_CHAIN_EXPECT"] = "1"
@@ -4331,8 +4352,8 @@ def a_chain_that_does_not_form_is_said_once_with_the_member_the_step_and_the_cod
     """a chain whose worker will not take its members (every replayed add refused) never forms: after
     chain_form_timeout_ms the daemon says chain_stalled once, naming the member, the step and the code it answered,
     and goes on; a chain that forms says no such thing"""
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
-    refuse = tempfile.mktemp(prefix="plugin-hostd-refuse-add.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
+    refuse = harness.scratch_path("plugin-hostd-refuse-add.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_REFUSE_ADD": refuse}, conf={"chain_form_timeout_ms": "800"})
     try:
         # a chain that forms: no stall
@@ -4417,7 +4438,7 @@ def under_require_pins_a_chain_of_lv2_members_runs_in_a_world_of_the_union_of_th
 
 @test
 def a_chain_of_three_runs_in_one_worker_and_its_crashed_member_is_quarantined_while_the_others_go_on_in_order():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         for i in (10, 11, 12):
@@ -4511,7 +4532,7 @@ def each_alone(d, ids):
 @test
 def a_chain_its_worker_refuses_is_answered_and_each_member_runs_alone():
     path = refusal_file()
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_REFUSE_CHAIN": path, "FAKE_LOG": log})
     try:
         for i in (40, 41):
@@ -4646,8 +4667,8 @@ def chain_get_reads_a_chain_back_as_declared_and_as_it_runs():
 
 @test
 def a_joiner_whose_worker_dies_saving_its_state_is_quarantined_and_does_not_join_the_chain():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
-    flag = tempfile.mktemp(prefix="plugin-hostd-save-crash.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
+    flag = harness.scratch_path("plugin-hostd-save-crash.")
     d = daemon(env={"FAKE_LOG": log, "FAKE_SAVE_CRASH_FILE": flag})
     try:
         d.expect("add clap:fake#m2 2", "resp 2")
@@ -4679,7 +4700,7 @@ def a_joiner_whose_worker_dies_saving_its_state_is_quarantined_and_does_not_join
 
 @test
 def chain_form_leaves_out_a_member_whose_worker_dies_saving_its_state():
-    flag = tempfile.mktemp(prefix="plugin-hostd-save-crash.")
+    flag = harness.scratch_path("plugin-hostd-save-crash.")
     d = daemon(env={"FAKE_SAVE_CRASH_FILE": flag})
     try:
         d.expect("add clap:fake#m1 1 pool:p", "resp 1")
@@ -4725,7 +4746,7 @@ def chain_get_reports_no_survivor_running_while_the_chains_worker_waits_to_resta
 
 @test
 def a_chain_declared_again_keeps_its_running_worker_and_restarts_no_survivor():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(env={"FAKE_LOG": log})
     try:
         for i in (1, 3, 4):
@@ -5089,7 +5110,7 @@ def plan_clear_gives_every_member_a_worker_of_its_own_and_forgets_the_plan():
 
 @test
 def a_member_that_is_removed_leaves_its_segment_and_the_worker_is_told_the_order_without_it():
-    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"grouping": "on"}, env={"FAKE_LOG": log})
     try:
         for i in (1, 2, 3):
@@ -5211,18 +5232,18 @@ def an_estimate_adds_up_the_latency_and_the_cpu_of_the_members_and_counts_the_wo
     try:
         ref = lambda n: clap_n(p, n)
         no_cell, no_record, unknown = (harness.CODE[k] for k in ("NO_CELL", "NO_RECORD", "UNKNOWN_PLUGIN"))
-        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d 0 - - 3" % no_cell)
+        d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 192 24.00 - 2 1 1:%d 0 - - 3 warn no-cell" % no_cell)
         check(d.workers() == {}, "no worker was spawned to answer: %s" % d.workers())
         # one member, and two that share: one worker; 4 has no record at all
-        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 - 0 - - 1")
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2" % no_record)
+        d.expect("estimate 48000 128 %s" % ref(1), "resp 0 64 9.60 - 1 0 - 0 - - 1 warn ram-unknown")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2 not-measured no-record" % no_record)
         # at 96000/128 2 has its cell and 1 and 3 have none
-        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d 0 - - 3" % (no_cell, no_cell))
+        d.expect("estimate 96000 128 %s %s %s" % (ref(1), ref(2), ref(3)), "resp 0 32 9.60 - 2 2 0:%d,2:%d 0 - - 3 not-measured no-cell" % (no_cell, no_cell))
         # a uri that names no plugin installed here is placed nowhere: 3 alone is one worker
         d.expect("estimate 48000 128 urn:plugin-hostd:test:nosuch %s clap:/nonexistent/x.clap#org.example.x" % ref(3),
-                 "resp 0 128 14.40 - 1 2 0:%d,2:%d 0 - - 3" % (unknown, unknown))
+                 "resp 0 128 14.40 - 1 2 0:%d,2:%d 0 - - 3 refuse unknown-plugin" % (unknown, unknown))
         # the same plugin twice is two members
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 - 0 - - 2")
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(1)), "resp 0 128 19.20 - 1 0 - 0 - - 2 warn ram-unknown")
         for bad in ("estimate", "estimate 48000 128", "estimate 0 128 %s" % ref(1), "estimate 48000 -1 %s" % ref(1),
                     "estimate x 128 %s" % ref(1)):
             d.expect(bad, "resp -902")
@@ -5240,8 +5261,8 @@ def an_estimate_adds_up_the_ram_of_the_members_only_when_every_one_has_a_figure(
     try:
         ref = lambda n: clap_n(p, n)
         d.expect("estimate 48000 128 %s %s %s" % (ref(1), ref(2), ref(3)),
-                 "resp 0 192 24.00 %d 2 1 1:%d 0 - - 3" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
-        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2" % harness.CODE["NO_RECORD"])
+                 "resp 0 192 24.00 %d 2 1 1:%d 0 - - 3 warn no-cell" % (35 * 1024 * 1024, harness.CODE["NO_CELL"]))
+        d.expect("estimate 48000 128 %s %s" % (ref(1), ref(4)), "resp 0 64 9.60 - 1 1 1:%d 0 - - 2 not-measured no-record" % harness.CODE["NO_RECORD"])
     finally:
         d.close()
         p.close()
@@ -5263,7 +5284,8 @@ def an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_coun
         cell_for(d, "org.openmixer.fault.1", 2000, measured=64, memory={"firstInstanceKb": 100 * 1024, "perInstanceKb": 10 * 1024})
         cell_for(d, "org.openmixer.fault.2", 2000, measured=64)
         cell_for(d, "org.openmixer.fault.3", 3000, declared=128, memory={"firstInstanceKb": 40 * 1024, "perInstanceKb": 40 * 1024})
-        words = lambda line: d.send(line).split()[-4:]
+        # the four memory words, before the verdict and its reason
+        words = lambda line: d.send(line).split()[-6:-2]
         check(words("estimate 48000 128 %s" % ref(1)) == ["0", str(100 * mib), str(2048 * mib), "0"], "one instance holds all it shares")
         check(words("estimate 48000 128 %s %s" % (ref(1), ref(1))) == ["0", str(110 * mib), str(2048 * mib), "0"],
               "what two instances share is counted once")
@@ -5278,6 +5300,137 @@ def an_estimate_says_what_is_held_what_the_members_add_with_what_they_share_coun
     finally:
         d.close()
         p.close()
+
+
+# ---------------------------------------------------------------- the insert verdict of estimate (the host judges)
+
+def verdict_daemon(budget_mb=120):
+    """the host's insert verdict on the last uri of an estimate, the candidate (coordinator ruling, 2026-11-20): plugins
+    1, 2, 4 and 5 of one file pinned in-process, 3 isolated, a memory budget of budget_mb MiB. The records: 1 at
+    48000/128 (2000 ns, 64 frames, 100 MiB first and 10 per instance), 2 only at 96000/128 (1000 ns, no memory figure), 3
+    at 48000/128 (3000 ns, 128 frames declared, 40 and 40 MiB), 4 none, 5 at 48000/128 (12500 ns: 60.00 percent of a core
+    at 48 kHz, the ceiling itself; 10 and 10 MiB), and 5 again at 44100/128 in a record of its own (13606 ns: 60.00246
+    percent, which the reply writes 60.00 and is over the ceiling)"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use", "grouping": "on", "ram_budget_mb": budget_mb})
+    for n in (1, 2, 4, 5):
+        d.expect(pin_n(p, n, "in-process"), "resp 0")
+    d.expect(pin_n(p, 3, "isolated"), "resp 0")
+    cell_for(d, "org.openmixer.fault.1", 2000, measured=64, memory={"firstInstanceKb": 100 * 1024, "perInstanceKb": 10 * 1024})
+    cell_for(d, "org.openmixer.fault.2", 1000, measured=32, rate=96000)
+    cell_for(d, "org.openmixer.fault.3", 3000, declared=128, memory={"firstInstanceKb": 40 * 1024, "perInstanceKb": 40 * 1024})
+    cell_for(d, "org.openmixer.fault.5", 12500, measured=16, memory={"firstInstanceKb": 10 * 1024, "perInstanceKb": 10 * 1024})
+    put_cell(d, "org.openmixer.fault.5@1.1-0123456789ac.default.qualification.json", "org.openmixer.fault.5", 44100, 128, 13606,
+             13606 * 2, "-", 16, 10 * 1024, 10 * 1024)
+    return p, d
+
+
+def verdict_of(d, line):
+    """the last two words of an estimate's reply: the verdict and its reason"""
+    words = d.send(line).split()
+    check(len(words) == 14 and words[:2] == ["resp", "0"], "%s: an estimate reply of 12 words: %s" % (line, words))
+    return words[-2:]
+
+
+def verdict_case(line_of, want, why):
+    """one estimate through the verb, its verdict and reason held to want; line_of(ref) writes the line"""
+    p, d = verdict_daemon()
+    try:
+        line = line_of(lambda n: clap_n(p, n))
+        got = verdict_of(d, line)
+        check(got == want, "%s: %s answers %s, want %s" % (why, line, got, want))
+        check(d.workers() == {}, "no worker was spawned to judge: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_insert_verdict_golden_reply_of_a_candidate_within_every_budget():
+    """golden: 1 alone at 48000/128, budget 120 MiB: 64 frames, 9.60 percent, no history RAM, one worker, every member
+    with a figure, nothing held, 100 MiB added, the budget, no memory unknown; then the host's words, recommend within"""
+    mib = 1024 * 1024
+    p, d = verdict_daemon()
+    try:
+        d.expect("estimate 48000 128 %s" % clap_n(p, 1), "resp 0 64 9.60 - 1 0 - 0 %d %d 0 recommend within" % (100 * mib, 120 * mib))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_insert_verdict_is_within_at_the_cpu_ceiling_itself():
+    """5 alone is 12500 ns per sample at 48 kHz, 60.00 percent of one core: at the real-time admission ceiling of one core,
+    not over it, and its 10 MiB are within the budget: the host recommends"""
+    verdict_case(lambda ref: "estimate 48000 128 %s" % ref(5), ["recommend", "within"], "at the ceiling")
+
+
+@test
+def the_insert_verdict_warns_when_the_cpu_is_over_the_ceiling_of_one_core():
+    """1 then 5: (2000 + 12500) ns per sample at 48 kHz is 69.60 percent of one core, over the ceiling: warn
+    cpu-over-budget. With 3 as well the memory is over the budget too (150 MiB), and the CPU is the first reason"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(5)), ["warn", "cpu-over-budget"], "the CPU over")
+    verdict_case(lambda ref: "estimate 48000 128 %s %s %s" % (ref(1), ref(3), ref(5)), ["warn", "cpu-over-budget"],
+                 "the CPU and the memory over, the CPU first")
+
+
+@test
+def the_insert_verdict_judges_the_cpu_figure_and_not_the_word_the_reply_rounds_it_to():
+    """5 alone at 44100/128 is 13606 ns per sample, 60.00246 percent of one core: over the ceiling, though the reply
+    writes it 60.00, so the host warns cpu-over-budget; 5 at 48000/128 is 60.00 exactly, within"""
+    p, d = verdict_daemon()
+    try:
+        words = d.send("estimate 44100 128 %s" % clap_n(p, 5)).split()
+        check(words[3] == "60.00" and words[-2:] == ["warn", "cpu-over-budget"],
+              "60.00246 percent, written 60.00, is over the ceiling: %s" % words)
+        words = d.send("estimate 48000 128 %s" % clap_n(p, 5)).split()
+        check(words[3] == "60.00" and words[-2:] == ["recommend", "within"], "60.00 exactly is within: %s" % words)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def the_insert_verdict_warns_when_the_memory_used_and_added_is_over_the_budget():
+    """1 then 3: 100 + 40 MiB added, nothing held, over a budget of 120 MiB, the CPU 24.00 percent: warn ram-over-budget"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(3)), ["warn", "ram-over-budget"], "the memory over")
+
+
+@test
+def the_insert_verdict_warns_when_a_memory_figure_is_missing():
+    """2 alone at 96000/128 has its cost and no memory figure: warn ram-unknown"""
+    verdict_case(lambda ref: "estimate 96000 128 %s" % ref(2), ["warn", "ram-unknown"], "no memory figure")
+
+
+@test
+def the_insert_verdict_refuses_a_candidate_that_names_no_plugin_installed_here():
+    """1 then a uri that names no plugin installed here: refuse unknown-plugin, whatever the rest says"""
+    verdict_case(lambda ref: "estimate 48000 128 %s urn:plugin-hostd:test:nosuch" % ref(1), ["refuse", "unknown-plugin"],
+                 "an unknown candidate")
+    verdict_case(lambda ref: "estimate 48000 128 %s clap:/nonexistent/x.clap#org.example.x" % ref(1),
+                 ["refuse", "unknown-plugin"], "a clap: candidate whose file is not there")
+
+
+@test
+def the_insert_verdict_is_not_measured_for_a_candidate_with_no_record():
+    """1 then 4, which no qualification record names: not-measured no-record"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(4)), ["not-measured", "no-record"], "no record")
+
+
+@test
+def the_insert_verdict_is_not_measured_for_a_candidate_with_no_cell_at_the_rate():
+    """1 then 2, whose records hold no point at 48000/128: not-measured no-cell"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(1), ref(2)), ["not-measured", "no-cell"], "no cell")
+
+
+@test
+def the_insert_verdict_warns_with_the_code_of_another_member_that_has_no_figure():
+    """the candidate 1 is measured, a member before it is not: the host warns with that member's word, ahead of the
+    memory it then cannot add up (4 no-record, 2 no-cell, an uninstalled uri unknown-plugin)"""
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(4), ref(1)), ["warn", "no-record"], "another member, no record")
+    verdict_case(lambda ref: "estimate 48000 128 %s %s" % (ref(2), ref(1)), ["warn", "no-cell"], "another member, no cell")
+    verdict_case(lambda ref: "estimate 48000 128 urn:plugin-hostd:test:nosuch %s" % ref(1), ["warn", "unknown-plugin"],
+                 "another member, not installed")
 
 
 # ---------------------------------------------------------------- the planner reads the history, and plans again

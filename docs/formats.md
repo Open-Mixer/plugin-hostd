@@ -6,7 +6,7 @@ plugin-hostd turns what a CLAP or LV2 plugin states about itself into a `scanned
 
 | Layer | What | Where |
 |---|---|---|
-| L1 description | one mapping table per format, data: every field a scan reads, mapped to a descriptor word, carried in the extension bag, or dropped by a named decision | `data/formats/clap.json` (`PLUGIN_HOSTD_CLAP_MAP`), `data/formats/lv2.json` (`PLUGIN_HOSTD_LV2_MAP`), item kind `formatMap` |
+| L1 description | one mapping table per format, data: every field a scan reads, mapped to a descriptor word, carried in the extension bag, or dropped by a named decision | the domain `plugin-hostd/clap` (`contract.d/plugin-hostd/clap/clap.json`, `PLUGIN_HOSTD_CLAP_MAP`) and the domain `plugin-hostd/lv2` (`PLUGIN_HOSTD_LV2_MAP`), each item a `sheet` whose value is the map `{ format, rows }` |
 | L2 transforms | a closed list of named functions, each with its inverse, which a table names and never defines | `src/transforms.h` (`TRANSFORMS(X)`), `src/transforms.c` |
 | L3 runtime | the field dump of one plugin, read as a host reads it | omx-clap-core's `omx-clap-scan --fields` |
 
@@ -17,15 +17,22 @@ is the proof.
 
 ## The tables
 
-`make install-contract` installs both tables, with omx-contract-devel's `install-contract-dir.sh`, as the package
-`plugin-hostd` of the contract directory: `<contractdir>/3/plugin-hostd/formats/{clap,lv2}.json`, with its
-`MANIFEST.json`, beside the daemon's verbs (`verbs.json`). The noarch package plugin-hostd-contract
+Each table is a domain of the contract directory (`docs/contract-dir.md` of omx-contract, Domains): `plugin-hostd/clap` and
+`plugin-hostd/lv2`, named by their item's prefix, installed by `make install` (`install_vocabulary_domains`, with
+omx-contract-devel's `install-contract-dir.sh --domain`) to `<contractdir>/plugin-hostd/<format>/<format>.json`, beside the
+domains `plugin-hostd/grouping` and `plugin-hostd/history`. The document is a domain header (`$id`
+`https://openmixer.org/contract/plugin-hostd/<format>`, `info.version`, `x-owner plugin-hostd`, `x-stability`) over one
+item, `PLUGIN_HOSTD_<FORMAT>_MAP`, of `x-kind` `sheet`: its `description` is the table's doc, its `x-value` the map
+`{ "format": "<format>", "rows": { <source field>: <row> } }`, which is what `plugin-hostd-probe describe`, `tests/format_coverage.py`
+and omx-plugins' generators (`tools/format-tables.mjs`) read. The one `MANIFEST.json` of `<contractdir>/3/plugin-hostd/`
+(`make install-contract`) names no file and the top-level domains this tree owns; it is what tells omx-contract's reader that
+`<contractdir>/plugin-hostd/` holds domains. No copy of the tables stays under `3/plugin-hostd/formats/`. The noarch package plugin-hostd-contract
 (`plugin-hostd-contract` on Debian too) ships them, and a program that reads them at run time requires it.
 It requires omx-contract 3.2.0 or later (`Requires`, Debian `Depends`): the tables live in omx-contract's contract
 directory and are read against its schema, and 3.2.0 is the first whose source field takes an index
 (`omx_clap_panel_display.meter_ids[0]`), so an older omx-contract never sits beside a table it refuses.
 
-`make check-contract-dir` installs the package into a staging directory and runs `omx-contract validate` over it
+`make check-contract-dir` installs the package and the domains into a staging directory and runs `omx-contract validate` over it
 together with the installed contract directory (omx-contract's own tables, omx-clap-core's): red on any table the
 installed schema refuses, and red, never a skip, when the `omx-contract` command is absent. The coverage test below
 walks the schema for the words only, never for the row keys; this gate reads every key as a reader of the installed
@@ -43,7 +50,7 @@ A record of the plugin's scope whose row is a control's or a port's word (`contr
 the plugin, not of a control: LV2 lets a plugin carry its own `lv2:symbol`, and mda Piano does. It is carried as an
 extension (`extensions.lv2.lv2:symbol`), never refused and never read as a control.
 
-Each row names what it covers, one of two: `term`, a TERM of omx-contract's format files (`LV2_UNITS_TERMS#unit`), or
+Each row names what it covers, one of two: `term`, a TERM of the format's domain (`LV2_UNITS_TERMS#unit`: plugin-db's domain lv2; CLAP's: omx-clap's domain clap), or
 `from`, the header or specification link of a field no TERM file lists (the CLAP struct fields and `clap_entry`,
 `rdf:type`, `rdfs:comment`, `rdfs:seeAlso`, `doap:name`, `doap:license`).
 
@@ -81,7 +88,7 @@ which the coverage test holds.
 
 ### What a table drops
 
-A row is `dropped` only by a decision it names. The TERMs omx-contract marks `out-of-scope` are dropped by that mark,
+A row is `dropped` only by a decision it names. The TERMs their domain marks `out-of-scope` are dropped by that mark,
 which the row quotes. A field this section rules out is dropped by `docs/formats.md#what-a-table-drops`:
 
 - a runtime handle that is no fact of the plugin (`clap_param_info.cookie`, a pointer the host passes back);
@@ -93,7 +100,7 @@ which the row quotes. A field this section rules out is dropped by `docs/formats
   roles": a declared panel names the role, a descriptor the meaning). `describe` refuses a table that makes any other
   panel field a word or the bag, and the role field a word by any other transform.
 
-A TERM omx-contract marks `used` is never dropped: its row is a word or the bag.
+A TERM its domain marks `used` is never dropped: its row is a word or the bag.
 
 ### Outbound-read rows
 
@@ -126,7 +133,8 @@ over its vectors (in, out, back in, equal).
 ## The coverage test
 
 `make test-format-coverage` runs `tests/format_coverage.py` once per format. The field list is every term of the
-installed TERM files (`<contractdir>/3/omx-contract/formats/<format>/**`) plus every row with a `from`; each field has
+format's TERMs, the items of its domain (`<contractdir>/lv2/lv2.json`, plugin-db's, for LV2; `<contractdir>/clap/clap.json`,
+omx-clap's, for CLAP) plus every row with a `from`; each field has
 exactly one row. It prints, per field, `mapped <word> <transform>`, `extension <format>` or `dropped <decision>`, then the
 count per class. It is red for:
 

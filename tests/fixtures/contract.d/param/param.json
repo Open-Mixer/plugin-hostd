@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmixer.org/contract/param",
+  "info": {
+    "title": "The standard parameter words (a fixture of the interface this package reads: omx-contract's domain param)",
+    "version": "1.0.0",
+    "x-owner": "omx-contract",
+    "x-stability": "experimental"
+  },
+  "components": {
+    "schemas": {
+      "PARAM_SCALES": {
+        "description": "How a host draws a parameter: linear, logarithmic or in discrete steps.",
+        "x-since": "1.3.0",
+        "x-c-codes": true,
+        "x-c-xmacro": true,
+        "oneOf": [
+          {
+            "const": "linear",
+            "title": "linear",
+            "description": "The value is linear in position.",
+            "x-code": 0,
+            "x-text": "The value is linear in position."
+          },
+          {
+            "const": "log",
+            "title": "log",
+            "description": "The value is geometric in position; both bounds are positive.",
+            "x-code": 1,
+            "x-text": "The value is geometric in position; both bounds are positive."
+          },
+          {
+            "const": "stepped",
+            "title": "stepped",
+            "description": "The whole numbers from min to max, step 1.",
+            "x-code": 2,
+            "x-text": "The whole numbers from min to max, step 1."
+          }
+        ]
+      }
+    }
+  }
+}
