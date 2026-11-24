@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
-"""The production daemon carries no test seam for the qualification store.
+"""The production daemon carries no test seam for the qualification store or the descriptions store.
 
 Usage: no_test_seam.py <plugin-hostd binary>
 
@@ -14,7 +14,7 @@ daemon reads, and its own scan finds the seam in a copy that has it planted.
 """
 import sys
 
-SEAM = b"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE"
+SEAMS = (b"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE", b"PLUGIN_HOSTD_TEST_DESCRIPTIONS_STORE")
 CONTROL = b"PLUGIN_HOSTD_CONF"
 
 
@@ -22,8 +22,9 @@ def check(data):
     """(ok, why) for the bytes of a daemon binary"""
     if CONTROL not in data:
         return False, "the scan cannot see the daemon's own strings (no %s): nothing is proved" % CONTROL.decode()
-    if SEAM in data:
-        return False, "the daemon carries the test seam %s: it was built with OMX_QUALIFICATION_TEST_STORE" % SEAM.decode()
+    for seam in SEAMS:
+        if seam in data:
+            return False, "the daemon carries the test seam %s: it was built with OMX_QUALIFICATION_TEST_STORE" % seam.decode()
     return True, ""
 
 
@@ -33,14 +34,15 @@ def main(argv):
         sys.exit(__doc__)
     with open(argv[1], "rb") as f:
         data = f.read()
-    planted_ok, _ = check(data + SEAM)
-    if planted_ok:
-        sys.exit("FAIL the scan does not see a planted seam")
+    for seam in SEAMS:
+        planted_ok, _ = check(data + seam)
+        if planted_ok:
+            sys.exit("FAIL the scan does not see the planted seam %s" % seam.decode())
     ok, why = check(data)
     if not ok:
         print("FAIL no_test_seam: %s" % why)
         sys.exit(1)
-    print("ok   no_test_seam: %s holds no test seam for the qualification store" % argv[1])
+    print("ok   no_test_seam: %s holds no test seam for either store" % argv[1])
 
 
 if __name__ == "__main__":
