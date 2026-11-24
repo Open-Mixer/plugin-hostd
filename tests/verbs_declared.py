@@ -11,11 +11,11 @@
 #     refusal it declares from that host;
 #   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
 #     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
-# omx-clap's declarations (its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS) are read from the domains omx-clap
-# owns (omx-clap and host) in the contract directory: the first of OMX_CONTRACT_PATH (directories that stand where
+# omx-clap's declarations (its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS, HOSTING_WINDOW_CODES) are read from the
+# domains omx-clap owns (omx-clap, host and hosting) in the contract directory: the first of OMX_CONTRACT_PATH (directories that stand where
 # contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
-# 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from
-# its domains only: one in the package is refused by name, and one no domain holds fails by name.
+# 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS and
+# HOSTING_WINDOW_CODES are read from its domains only: one in the package is refused by name, and one no domain holds fails by name.
 # Without the package the run fails: the domain plugin-hostd-protocol requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
@@ -154,9 +154,11 @@ def domain_docs(owner):
     return out
 
 
-# the items that left omx-clap's package for its domains (the sorting pass, V15): its verbs (domain omx-clap) and its
-# reply codes, track kinds and events (domain host), read from the domains only
-MOVED = ("OMX_CLAP_CORE_SHARED_VERBS", "OMX_CLAP_HOST_VERBS", "HOST_REPLY_CODES", "HOST_TRACK_KINDS", "HOST_EVENTS")
+# the items that left omx-clap's package for its domains: its verbs (domain omx-clap) and its reply codes, track kinds
+# and events (domain host) in the sorting pass (V15), and the window codes (domain hosting, the one home of its hosting
+# codes: omx-clap-core#156), read from the domains only
+MOVED = ("OMX_CLAP_CORE_SHARED_VERBS", "OMX_CLAP_HOST_VERBS", "HOST_REPLY_CODES", "HOST_TRACK_KINDS", "HOST_EVENTS",
+         "HOSTING_WINDOW_CODES")
 
 
 def items_of(docs):
@@ -201,8 +203,8 @@ def moved_arms(docs, domains):
     missing = [k for k in MOVED if not (any(r.startswith(k + " is in omx-clap's package") for r in got) and
                                         any(r.startswith(k + " is in no domain") for r in got))]
     if len(held) == len(MOVED) and not missing:
-        print("ok   sabotage: the domains emptied and the package holding the verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and "
-              "HOST_EVENTS: each refused in the package and named missing from the domains")
+        print("ok   sabotage: the domains emptied and the package holding the verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, "
+              "HOST_EVENTS and HOSTING_WINDOW_CODES: each refused in the package and named missing from the domains")
     else:
         fail("sabotage: with the domains emptied the package's copy is read for %s (planted %s)" % (missing, sorted(held)))
 
