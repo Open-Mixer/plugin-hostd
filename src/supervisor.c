@@ -3212,7 +3212,15 @@ char *sup_quarantine_clear(const char *which)
         }
         return sup_resp(SUCCESS);
     }
-    id = atoi(which);
+    {
+        char *end;
+        long v = strtol(which, &end, 10);
+
+        /* the instance is a whole number: a word atoi reads as 0, or 5x as 5, is no instance */
+        if (!*which || *end)
+            return sup_resp(ERR_INVALID_OPERATION);
+        id = v < 0 || v >= MAX_INSTANCE ? -1 : (int)v;
+    }
     if (id < 0 || id >= MAX_INSTANCE || (!g_inst[id] && !g_meta[id].quarantined))
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     if (meta_of(id)->quarantined)
@@ -3324,7 +3332,7 @@ char *sup_pool_config(const char *name, int max)
 
 char *sup_worker_env(const char *format, const char *cpus, const char *nice)
 {
-    int f, lo = 0, hi = formats_count() - 1, n;
+    int f, lo = 0, hi = formats_count() - 1, n, nice_value = 0;
     worker_env_t env;
     size_t i;
 
@@ -3337,7 +3345,17 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
     for (i = 0; strcmp(cpus, PHD_WORD_NONE) && i < strlen(cpus); i++)
         if (!((cpus[i] >= '0' && cpus[i] <= '9') || cpus[i] == ',' || cpus[i] == '-'))
             return sup_resp(ERR_INVALID_OPERATION);
-    if (strlen(cpus) >= sizeof(env.cpus) || (strcmp(nice, PHD_WORD_NONE) && (atoi(nice) < -20 || atoi(nice) > 19)))
+    if (strcmp(nice, PHD_WORD_NONE))
+    {
+        char *end;
+        long v = strtol(nice, &end, 10);
+
+        /* a nice is a whole number from -20 to 19: a word is not nice 0 */
+        if (!*nice || *end || v < -20 || v > 19)
+            return sup_resp(ERR_INVALID_OPERATION);
+        nice_value = (int)v;
+    }
+    if (strlen(cpus) >= sizeof(env.cpus))
         return sup_resp(ERR_INVALID_OPERATION);
     for (f = lo; f <= hi; f++)
     {
@@ -3347,7 +3365,7 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
             snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
         }
         if (strcmp(nice, PHD_WORD_NONE))
-            g_env[f].nice = atoi(nice);
+            g_env[f].nice = nice_value;
         for (n = 0; n < g_nworkers; n++)
             if (g_workers[n]->fmt == f && g_workers[n]->state == W_UP)
             {

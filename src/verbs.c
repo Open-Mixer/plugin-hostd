@@ -253,7 +253,11 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, OMX_VERB_LV2_WORKER_SET))
         return ntok == 3 ? sup_lv2_worker_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_POOL_CONFIG))
-        return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
+    {
+        int size;
+
+        return ntok == 3 && number(tok[2], &size) ? sup_pool_config(tok[1], size) : sup_resp(ERR_INVALID_OPERATION);
+    }
     if (!strcmp(verb, OMX_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_CHAIN))

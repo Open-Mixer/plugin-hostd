@@ -18,6 +18,8 @@
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +88,20 @@ static int set_string(char *dest, size_t size, const char *value)
     return 0;
 }
 
+/* an integer setting: a whole number and nothing else, never what atoi makes of a word; 0, or -1 with *out untouched */
+static int whole_number(const char *value, int *out)
+{
+    char *end;
+    long v;
+
+    errno = 0;
+    v = strtol(value, &end, 10);
+    if (!*value || *end || errno || v < INT_MIN || v > INT_MAX)
+        return -1;
+    *out = (int)v;
+    return 0;
+}
+
 static int set_key(conf_t *conf, const char *key, const char *value)
 {
 #define X(name, size, def, env, meaning) \
@@ -98,10 +114,7 @@ static int set_key(conf_t *conf, const char *key, const char *value)
 #undef X
 #define X(name, def, unit, meaning) \
     if (!strcmp(key, #name)) \
-    { \
-        conf->name = atoi(value); \
-        return 0; \
-    }
+        return whole_number(value, &conf->name);
     PHD_CONF_INTS(X)
 #undef X
     return -1;
@@ -124,6 +137,13 @@ int conf_load(conf_t *conf, const char *path, int required)
         char *key = line, *value, *end;
 
         lineno++;
+        /* a line the buffer cannot hold is refused whole: fgets would hand its tail back as a line of its own */
+        if (!strchr(line, '\n') && !feof(file))
+        {
+            fprintf(stderr, "%s:%d: line longer than %zu bytes\n", path, lineno, sizeof(line) - 2);
+            fclose(file);
+            return -1;
+        }
         while (*key == ' ' || *key == '\t')
             key++;
         if (*key == '#' || *key == '\n' || *key == '\0')
