@@ -101,9 +101,11 @@ class Replies(unittest.TestCase):
         self.assertEqual((e["ram_used_bytes"], e["ram_added_bytes"], e["ram_budget_bytes"], e["ram_unknown_count"]),
                          (0, None, None, 3))
 
-    def test_a_reply_without_the_figures_the_protocol_requires_is_refused(self):  # noqa: D102
-        # no reading for an older daemon (owner rule 2026-11-16): a plan without cores, an estimate without the four
-        # memory figures, is refused, never read with the missing figures as None
+    def test_a_reply_without_the_figures_the_protocol_requires_is_refused(self):
+        """A plan without cores and an estimate without the four memory figures are refused, never read as None.
+
+        No reading for an older daemon (owner rule 2026-11-16).
+        """
         with self.assertRaises(ProtocolError):
             self.protocol.read_plan(self.data("resp 0 1,2;3"))
         with self.assertRaises(ProtocolError):
