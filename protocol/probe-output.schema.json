@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Open-Mixer/plugin-hostd/protocol/probe-output.schema.json",
+  "$id": "https://openmixer.org/schema/plugin-hostd/probe-output.schema.json",
   "title": "What one probe run of one plugin binary observed",
   "description": "Facts only. A verdict, a rating or a classification is never a field here: plugin-qualify writes those in the qualification record.",
   "type": "object",
@@ -130,10 +130,7 @@
       "additionalProperties": false,
       "properties": {
         "format": {
-          "enum": [
-            "clap",
-            "lv2"
-          ]
+          "enum": ["clap", "lv2"]
         },
         "id": {
           "type": "string",
@@ -571,7 +568,8 @@
       "additionalProperties": false,
       "properties": {
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": ["SIGSEGV", "SIGABRT", "SIGBUS", "SIGFPE", "SIGILL", "SIGKILL", "SIGTERM", "SIGXCPU", "SIGXFSZ", "SIGSYS", "SIGPIPE", "SIGINT", "SIGHUP", "SIGNAL"]
         },
         "topFrame": {
           "type": "string"
@@ -875,7 +873,8 @@
           "minimum": 0
         },
         "signal": {
-          "type": "string"
+          "type": "string",
+          "enum": ["SIGSEGV", "SIGABRT", "SIGBUS", "SIGFPE", "SIGILL", "SIGKILL", "SIGTERM", "SIGXCPU", "SIGXFSZ", "SIGSYS", "SIGPIPE", "SIGINT", "SIGHUP", "SIGNAL"]
         },
         "exitStatus": {
           "type": "integer"

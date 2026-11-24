@@ -16,6 +16,7 @@ tools/protocol-gen
 tests/pin-test
 tests/history-test
 tests/proc-test
+tests/proc-term-test
 tests/conf-test
 tests/relay-test
 tests/relay-test-relay.o
@@ -38,3 +39,8 @@ tests/qualcost-test
 tests/sched-refuse.so
 tests/slow-fsync.so
 src/reply_words.h
+tests/*.so
+tests/plugin-hostd-test
+tests/plugin-hostd-test-empty
+tests/contract-tree/
+tests/contract-empty/

@@ -143,7 +143,6 @@ class Daemon:
             # what an add gathers goes to the test's own directories, never the user's state; no scanner runs unless
             # a test names one
             "descriptor_dir": os.path.join(self.tmp, "descriptors"),
-            "qualification_dir": os.path.join(self.tmp, "qualification"),
             "probe": os.path.join(self.tmp, "no-probe"),
             # the running history is the test's own, never the user's
             "history_file": os.path.join(self.tmp, "history"),
@@ -155,6 +154,8 @@ class Daemon:
                 if v is not None:
                     f.write("%s %s\n" % (k, v))
         e = dict(os.environ)
+        # the test build of the daemon reads the qualification store from this file (src/main.c, OMX_QUALIFICATION_TEST_STORE)
+        e["PLUGIN_HOSTD_TEST_QUALIFICATION_STORE"] = os.path.join(self.tmp, "qualification.sqlite")
         # a name given None is not in the daemon's environment at all
         for k, v in (env or {}).items():
             if v is None:
