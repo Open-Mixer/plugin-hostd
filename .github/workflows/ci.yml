@@ -7,7 +7,7 @@ name: ci
 # The RPM build and the channel are the composite actions of
 # Open-Mixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
 # omx-clap-host-tests packages of the OpenMixer channel, installed by dnf builddep / apt-get build-dep from the
-# floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here. A pull request
+# names the spec and debian/control declare; nothing of omx-clap-core is checked out or built here. A pull request
 # into dedupe/all, and a push to it, take the siblings listed in .github/wave-deps from their own dedupe/all instead.
 
 on:
