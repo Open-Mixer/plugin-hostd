@@ -106,7 +106,7 @@ feedback events, the settings and the verbs (`pkg-config --cflags plugin-hostd-p
 grammar, and the protocol and mod-host's as JSON (`pkg-config --variable=table`, `grammar`, `protocoljson` and
 `modhostjson` of `plugin-hostd-protocol`). The verbs the daemon adds are its package of omx-contract's contract
 directory (`plugin-hostd-protocol-contract`). A refusal number omx-clap-host answers too carries omx-clap-core's
-`reply.host.*` code (package `omx-clap-core-contract`), the others plugin-hostd's `reply.plugin-hostd.*`: one name per
+`reply.host.*` code (package `omx-clap-contract`), the others plugin-hostd's `reply.plugin-hostd.*`: one name per
 number. The tables here and the man page's key list are generated from that header; this tree keeps no copy of it.
 
 This tree's development package installs what it declares beside the protocol: the schemas `probe-output.schema.json`
@@ -300,13 +300,13 @@ Verbs the daemon adds
 | `chain_clear` | `<chain>` | `resp 0` | forget the chain: each member goes to a worker of its own; -522 for a chain no chain declared |
 | `chain_get` | `<chain>` | `resp 0 <worker> <instance>,... <instance>,...` | read a chain back: its worker (- when it has none), its members in the declared order, and the members its worker runs now in their order (- for none); a quarantined member is declared and not running; -522 for a chain no chain declared, -902 for a chain that is not a number |
 | `plan` | `<chain> <instance> [<instance> ...]` | `resp 0 <instance>,...;<instance>,...;... <core>,...;<core>,...;...` | the instances, in signal order, are planned (the grouping-planner design note): the daemon decides, from the pin and the cost of each, which runs of consecutive members share a worker. A run of two or more is declared as a chain of place chain:<chain>.<k>, k counting segments from 0; a member that shares with no neighbour is placed own. The reply names the segments in order, the members of one joined by commas and the segments by semicolons, then the cores: the segments again with each member replaced by the audio core of the worker that runs it now, - for one the setting placement did not pin (docs/placement.md). A chain planned again keeps the running worker of every segment that did not change, and the daemon plans it again by itself when a member is quarantined and, history_regroup_s after a death that split its group, to gather it. The plan numbers are its own, apart from chain's. While the setting grouping is off the plan is answered and kept for plan_get and nothing moves. A segment that cannot be formed refuses the whole plan with its own code, moves nothing and is told by plan_get as plan-refused:<code>. A segment its worker refuses, which is known only once it has moved, refuses the plan with -501 too, and then every segment ends and each member runs in a worker of its own. -518 for an instance no add made, -519 for one named twice, -520 for one in a chain or in the plan of another chain, -501 for a segment no world can be built for or its worker refuses, -902 for a chain or an instance that is not a number, or fewer than chain_members_min (1) instances |
-| `plan_get` | `<chain>` | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...` | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json), then the cores of the members as plan answers them; -532 for a chain no plan planned, -902 for a chain that is not a number |
+| `plan_get` | `<chain>` | `resp 0 <instance>,...;<instance>,...;... <instance>:<reason>,... <core>,...;<core>,...;...` | read the last plan of a chain back: its segments as plan answered them, then the members that have a reason, instance:reason joined by commas (- for none); the reasons are the words of PLUGIN_HOSTD_GROUPING_REASONS (domain plugin-hostd/grouping), then the cores of the members as plan answers them; -532 for a chain no plan planned, -902 for a chain that is not a number |
 | `plan_clear` | `<chain>` | `resp 0` | forget the plan: each member goes to a worker of its own; -532 for a chain no plan planned |
 | `descriptor_get` | `<uri>` | `resp 0 "<path>"` | the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now (<id>@<version>-<hash>.json), written by the scan the plugin's add ran. -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>, "meters": [<the clap.meters/1 meters the panel's displays index, each a row of descriptor_get's meters[], same ids>]} (the keys of PHD_PANEL_FILE_KEYS; meters is optional, absent from a file written before it); an LV2 plugin's panel is null and its meters empty. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
-| `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (data/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
+| `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (domain plugin-hostd/history, contract.d/plugin-hostd/history/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
 | `history_clear` | `<uri> \| all` | `resp 0` | delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the file at once; -902 while the history is blocked or off, or for a line that is not one word |
-| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,... <ram_used_bytes> <ram_added_bytes> <ram_budget_bytes> <ram_unknown_count>` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
+| `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,... <ram_used_bytes> <ram_added_bytes> <ram_budget_bytes> <ram_unknown_count> <verdict> <reason>` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. Then the memory: ram_used_bytes, what the workers hold now (- when one cannot be read), ram_added_bytes, what the members would add, ram_budget_bytes, the host's ram_budget_mb in bytes (- when none is set), and ram_unknown_count, how many members have no such figure. Last the host's insert verdict on the last uri, the candidate, added to the chain the others make: a word of PHD_ESTIMATE_VERDICTS and the word of PHD_ESTIMATE_REASONS that gave it, the first that holds in this order: the candidate's -535 refuses, its -533 or -534 is not measured; the CPU over PHD_ESTIMATE_CPU_CEILING, used and added over the budget, another member's code, a memory figure missing each warns; else recommend, within. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
 
 A `<state>` is `up` (accepting commands), `starting` (spawned, not yet accepting), `backoff` (dead, waiting to be respawned), `given-up` (the storm bound is spent for its placement).
 <!-- END GENERATED protocol:verbs -->
@@ -337,7 +337,7 @@ Turtle, read when they are asked (the manifest and the files it names with `rdfs
 `rdfs:label`; a further page, "Name 2", for each 8 past the first), one page named Controls for the control inputs in
 no group, the pages in the order their group first appears; outputs and `pprops:notOnGUI` ports are on no page, a slot
 is the port's symbol, and the section is empty. `param_info` answers a control port from its own statements: its
-`units:unit` (the words of `data/formats/lv2.json`, empty for a port with none), `stepped` for an integer, toggled or
+`units:unit` (the words of the domain `plugin-hostd/lv2`, empty for a port with none), `stepped` for an integer, toggled or
 enumeration port, `log` for a `pprops:logarithmic` port whose bounds are positive and `linear` otherwise, its
 `lv2:minimum`, `lv2:maximum` and `lv2:default` (a toggled port's are 0, 1 and 0 when it states none), a step of 1 for
 a stepped port and 0 for the others, and its symbol. `-511` stays the answer for a port with a unit the table has no
@@ -790,7 +790,7 @@ The first line is `# plugin-hostd history/1`, then one line per key, `history <u
 key=value ...`. The binary digest is the SHA-256 of the first file the plugin's pin holds, so a plugin with no pin has
 no history and a changed plugin starts a record of its own, the old one kept and not read. The host class is
 `arch/cores/clock` as the probe writes it (`x86_64/5-8/2.5-3.5GHz`), or the `host_class` setting. The keys are the
-words of `PLUGIN_HOSTD_HISTORY_KEYS` in [data/history.json](../data/history.json): `first`, `last`, `windows_solo`,
+words of `PLUGIN_HOSTD_HISTORY_KEYS` in [the domain plugin-hostd/history](../contract.d/plugin-hostd/history/history.json): `first`, `last`, `windows_solo`,
 `windows_grouped`, `cpu_p95_solo`, `cpu_max_solo`, `pss_mb_solo`, `xrun_windows_solo`, `xrun_windows_grouped`,
 `crashes_solo`, `crashes_grouped`, `restarts_grouped`, `quarantines`, `last_crash`, `last_crash_grouped`.
 
@@ -845,11 +845,29 @@ every worker, `-` when one cannot be read. `ram_added_bytes` is what the members
 qualification records at that rate and quantum: what instances of one plugin share is counted once in a segment, since a
 segment is one process, and again in another segment, which loads it again. `ram_budget_bytes` is the host's `ram_budget_mb`,
 `-` when none is set. `ram_unknown_count` is how many members have no figure: they add nothing to the sum and are not 0, and
-when no member has one `ram_added_bytes` is `-`:
+when no member has one `ram_added_bytes` is `-`.
+
+The last two words are the host's insert verdict on the last uri, the candidate, added to the chain the others make: a
+verdict word and the reason word that gave it, the words of plugin-hostd-protocol's domain `estimate`
+(`PHD_ESTIMATE_VERDICTS`, `PHD_ESTIMATE_REASONS`). The host judges; a chain editor shows the two words and computes no
+verdict of its own. The first reason that holds, in this order, gives the verdict:
+
+| what the host finds | verdict | reason |
+|---|---|---|
+| the candidate's code is `-535` | `refuse` | `unknown-plugin` |
+| the candidate's code is `-533` | `not-measured` | `no-record` |
+| the candidate's code is `-534` | `not-measured` | `no-cell` |
+| the CPU figure (not the word the reply rounds it to: 60.004 is over) is over `PHD_ESTIMATE_CPU_CEILING` (60 percent, the domain estimate's scalar ESTIMATE_CPU_CEILING), the real-time admission ceiling of one core | `warn` | `cpu-over-budget` |
+| a budget is set, and what is held now plus what the members add is over it | `warn` | `ram-over-budget` |
+| another member has a code | `warn` | that code's word: `unknown-plugin`, `no-record` or `no-cell` |
+| a member has no memory figure, or what is held now cannot be read | `warn` | `ram-unknown` |
+| none of these | `recommend` | `within` |
+
+A warning never refuses: the add judges the write as it always does.
 
 ```
 estimate 48000 128 clap:/usr/lib64/clap/a.clap#org.example.a clap:/usr/lib64/clap/a.clap#org.example.b
-resp 0 64 9.60 - 1 1 1:-534 0 104857600 2147483648 1
+resp 0 64 9.60 - 1 1 1:-534 0 104857600 2147483648 1 not-measured no-cell
 ```
 
 What a worker must do

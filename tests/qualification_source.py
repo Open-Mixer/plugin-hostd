@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Where the tests find plugin-qualify's qualification domain, the document plugin-hostd reads and does not own
-# (contract.d/qualification/qualification.json of plugin-qualify): the first directory of $OMX_CONTRACT_PATH (a ':' list)
-# that holds it, else the installed contract directory (pkg-config omx-contract). A test that changes a word writes a
+# Where the tests find the qualification domain, the document plugin-hostd owns
+# (contract.d/qualification/qualification.json of this tree): the first directory of $OMX_CONTRACT_PATH (a ':' list)
+# that holds it, else this checkout's contract.d, else the installed contract directory (pkg-config omx-contract). A test that changes a word writes a
 # scratch copy with fixture() and points the loader at it; the source is never edited.
 import json, os, shutil, subprocess
 
@@ -12,15 +12,16 @@ DOMAIN = "qualification"
 def search_path():
     listed = [d for d in os.environ.get("OMX_CONTRACT_PATH", "").split(":") if d]
     installed = subprocess.run([PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
-    return listed + ([installed] if installed else [])
+    here = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "contract.d")
+    return listed + [here] + ([installed] if installed else [])
 
 
 def source_dir():
-    """the contract directory that holds plugin-qualify's qualification domain"""
+    """the contract directory that holds the qualification domain"""
     for d in search_path():
         if os.path.exists(os.path.join(d, DOMAIN, DOMAIN + ".json")):
             return d
-    raise SystemExit("plugin-qualify's qualification domain is in none of %s: install plugin-qualify, or put a checkout's "
+    raise SystemExit("the qualification domain is in none of %s: install plugin-hostd-contract, or put a checkout's "
                      "contract.d in OMX_CONTRACT_PATH" % (search_path(),))
 
 

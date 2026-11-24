@@ -206,7 +206,7 @@ def main():
     try:
         tree = os.path.join(work, "t")
         os.mkdir(tree)
-        for name in ("contract.d", "data", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "docs", "Makefile"):
+        for name in ("contract.d", "include", "src", "tools", "protocol", "doc", "packaging", "tests", "docs", "Makefile"):
             src = os.path.join(ROOT, name)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name),
                                                                        **({"ignore": shutil.ignore_patterns("*.o", "reply_words.h")} if os.path.isdir(src) else {}))

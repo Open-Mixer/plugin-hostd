@@ -11,7 +11,7 @@
 #   - a meter whose symbol a parameter answers to, two meters of one symbol, and a meter that answers to another's
 #     channel symbol are refused, naming the symbol;
 #   - the descriptor validates against omx-contract's schema.
-# Sabotage: drop one meter or contract row of data/formats/clap.json and the describe is refused or a value goes.
+# Sabotage: drop one meter or contract row of the domain plugin-hostd/clap and the describe is refused or a value goes.
 #   describe_clap_meters_test.py   PROBE is the runner (default ./plugin-hostd-probe); the schema as describe_test.py
 import json, os, sys, tempfile
 

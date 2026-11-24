@@ -17,6 +17,15 @@ CODE = {e["name"]: e["code"] for e in DECLARED["errors"]}
 READY_LINE = DECLARED["readiness"]["daemon_line"]
 
 
+def scratch_path(prefix):
+    """a path no file holds yet, in a directory of its own made for it (tempfile.mkdtemp, removed at exit): a log, a
+    marker or a flag a test hands a worker to create, without mktemp's race between naming a path and creating it"""
+    import atexit
+    d = tempfile.mkdtemp(prefix=prefix)
+    atexit.register(shutil.rmtree, d, True)
+    return os.path.join(d, "f")
+
+
 def resp(name):
     """the reply for a declared error, by its name: resp(\"GAVE_UP\") is "resp -505" while the header says so"""
     return "resp %d" % CODE[name]

@@ -26,24 +26,25 @@
 #define MACHINE_H
 
 #include <omxcontract/omx_domain.h>
+#include <plugin-hostd/machine_codes.h>
 #include <stddef.h>
 
 /** the domain the band words are read from */
 #define MACHINE_DOMAIN "machine"
 /** the lowest info.version of the machine domain this package reads */
 #define MACHINE_FLOOR "1.1.0"
-/** the core bands machine_bands() cuts: the words of MACHINE_CORE_BANDS at these indexes, in order */
-#define MACHINE_CORE_BAND_COUNT 6
-/** the clock bands machine_bands() cuts: the words of MACHINE_CLOCK_BANDS at these indexes, in order */
-#define MACHINE_CLOCK_BAND_COUNT 5
-/** the families the probe names a CPU by, the words of MACHINE_FAMILIES at these indexes, in order */
+/** the core bands machine_bands() cuts: the words of MACHINE_CORE_BANDS at these indexes, in order (the domain's count) */
+#define MACHINE_CORE_BAND_COUNT ((int)OMX_MACHINE_CORE_BANDS_COUNT)
+/** the clock bands machine_bands() cuts: the words of MACHINE_CLOCK_BANDS at these indexes, in order (the domain's count) */
+#define MACHINE_CLOCK_BAND_COUNT ((int)OMX_MACHINE_CLOCK_BANDS_COUNT)
+/** the families the probe names a CPU by, the words of MACHINE_FAMILIES at these indexes: the domain's codes */
 enum machine_family
 {
-    MACHINE_FAMILY_INTEL,
-    MACHINE_FAMILY_AMD,
-    MACHINE_FAMILY_ARM,
-    MACHINE_FAMILY_UNKNOWN,
-    MACHINE_FAMILY_COUNT
+    MACHINE_FAMILY_INTEL = OMX_MACHINE_FAMILIES_INTEL,
+    MACHINE_FAMILY_AMD = OMX_MACHINE_FAMILIES_AMD,
+    MACHINE_FAMILY_ARM = OMX_MACHINE_FAMILIES_ARM,
+    MACHINE_FAMILY_UNKNOWN = OMX_MACHINE_FAMILIES_UNKNOWN,
+    MACHINE_FAMILY_COUNT = OMX_MACHINE_FAMILIES_COUNT
 };
 
 /** The band and family words, read once at start-up from the machine domain (contract.d/machine/machine.json, shipped by
