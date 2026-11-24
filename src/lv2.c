@@ -1144,7 +1144,8 @@ char *lv2_param_info(int id, const char *symbol)
         {
             scale = p->integer || p->toggled || p->enumeration ? "stepped" :
                     p->logarithmic && p->min > 0 && p->max > 0 ? "log" : "linear";
-            quoted(unit, sizeof(unit), p->unit ? p->unit : "");
+            /* a port that states no unit answers PARAM_UNITS' none, a standard id like every other (#215 D1) */
+            quoted(unit, sizeof(unit), p->unit ? p->unit : "none");
             reply = NULL;
             if (asprintf(&reply, "resp 0 %s %s %.9g %.9g %.9g %d %s", unit, scale, p->min, p->max, p->def,
                          !strcmp(scale, "stepped"), p->symbol) < 0)

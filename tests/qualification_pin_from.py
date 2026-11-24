@@ -81,12 +81,15 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     # term domains the latency and voice words name (plugin-db's lv2, omx-clap's clap), copied from the installed directory
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
     stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_FLOOR_STUB")
-    for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed: a package of the schema major
+    for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
         src = os.path.join(installed, "3", package)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, "3", package))
-    # the term domains, and their owners where they are installed as domains (plugin-db's since V16, <contractdir>/plugin-db/)
-    for domain in ("lv2", "clap", "plugin-db", "omx-clap"):
+        elif os.path.isdir(os.path.join(installed, package)):
+            # an owner that installs only domains (plugin-db from 0.5.0, V11: no package directory) is read as the domain
+            # of its name, as the installed contract directory answers the floor
+            shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
+    for domain in ("lv2", "clap"):
         src = os.path.join(installed, domain)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, domain))
