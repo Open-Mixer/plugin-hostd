@@ -55,8 +55,11 @@ EXCLUDED = ",= \t\r\n"
 
 
 def _no_nul(text):
-    """text itself; ProtocolError when it holds a NUL: the protocol's line end, so one command would be two and every
-    reply after it would answer the wrong one"""
+    """Return text itself, or raise ProtocolError when it holds a NUL.
+
+    A NUL is the protocol's line end: sent inside a word, one command would be two, and every reply after it would
+    answer the wrong one.
+    """
     if "\0" in text:
         raise ProtocolError("a NUL is the end of a line, it is in no word")
     return text

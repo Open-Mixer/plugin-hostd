@@ -226,13 +226,15 @@ class Files(unittest.TestCase):  # noqa: D101
 
 
 class NulDoor(unittest.TestCase):
-    """a NUL is the protocol's line end: a word or a line that holds one is refused, never one command made two"""
+    """A NUL is the protocol's line end: a word or a line that holds one is refused, never one command made two."""
 
     def test_a_value_with_a_nul_is_not_quoted(self):
+        """quote() refuses a value with a NUL in it."""
         with self.assertRaises(ProtocolError):
             quote("a\0b")
 
     def test_a_line_with_a_nul_is_not_split(self):
+        """words() refuses a line with a NUL in it."""
         with self.assertRaises(ProtocolError):
             words("add a\0b")
 
