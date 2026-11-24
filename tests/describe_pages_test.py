@@ -7,10 +7,11 @@
 #   describe_pages_test.py   PROBE is the runner (default ./plugin-hostd-probe)
 import json, os, subprocess, sys, tempfile
 
+import format_tables
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
-TABLES = os.path.join(ROOT, "data", "formats")
 failed = 0
 
 
@@ -23,7 +24,7 @@ def check(cond, what):
 
 def describe_pages(target, dump):
     fmt = target.split(":", 1)[0]
-    cmd = [PROBE, "describe", "--pages", "--table", os.path.join(TABLES, fmt + ".json"), "--fields-from", dump, target]
+    cmd = [PROBE, "describe", "--pages", "--table", format_tables.path(fmt), "--fields-from", dump, target]
     return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
 

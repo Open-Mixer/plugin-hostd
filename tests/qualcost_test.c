@@ -236,9 +236,26 @@ static void the_scope_is_the_system_s_as_root_and_the_user_s_otherwise(void)
     CHECK(qualcost_scope() == (geteuid() == 0 ? PQDB_SCOPE_SYSTEM : PQDB_SCOPE_USER), "euid %d", (int)geteuid());
 }
 
-static void an_absent_store_is_refused_as_absent(void)
+static int open_nowhere(pqdb **db, pqdb_error *err)
 {
-    refused_as("nowhere", "qualification-db.absent");
+    return open_fixture("nowhere", db, err);
+}
+
+/* plugin-qualification-db v2026112001 on: a base file that does not exist is an empty base layer, not a refusal, so the
+ * daemon opens it and reads every plugin as one with no figure (unqualified) */
+static void an_absent_store_opens_empty_and_names_no_plugin(void)
+{
+    pqdb *db;
+
+    qualcost_use_opener(open_nowhere);
+    db = qualcost_open();
+    qualcost_use_opener(NULL);
+    CHECK(db != NULL, "an absent store opens");
+    if (!db)
+        return;
+    CHECK(pqdb_base_absent(db) == 1, "its base layer is the empty one of an absent file");
+    CHECK(qualcost_read(db, "org.example.a", 48000, 128) == -1.0, "a plugin the fixture stores has no figure there");
+    qualcost_close(db);
 }
 
 static void a_store_of_another_schema_version_is_refused_as_schema_other(void)
@@ -273,7 +290,7 @@ static const struct { const char *name; void (*fn)(void); } g_tests[] = {
     T(a_record_file_of_the_old_qualification_dir_is_not_read),
     T(the_reader_names_no_record_directory_variable_or_test_entry),
     T(the_scope_is_the_system_s_as_root_and_the_user_s_otherwise),
-    T(an_absent_store_is_refused_as_absent),
+    T(an_absent_store_opens_empty_and_names_no_plugin),
     T(a_store_of_another_schema_version_is_refused_as_schema_other),
     T(a_file_that_is_no_store_is_refused_as_not_a_store),
     T(a_word_no_domain_item_holds_is_refused_as_word_unknown),

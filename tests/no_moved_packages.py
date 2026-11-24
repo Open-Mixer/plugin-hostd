@@ -2,11 +2,11 @@
 # plugin-hostd builds neither package that has moved out of it:
 # - plugin-hostd-full, the metapackage of the whole plugin host stack, is Open-Mixer/plugin-hostd-full's (#84), the
 #   outermost layer, released last in each pass;
-# - python3-plugin-hostd-protocol, the Python codec, is plugin-hostd-protocol's package, at epoch 1 (its 0.5.10).
+# - python3-plugin-hostd-protocol, the Python codec, is plugin-hostd-protocol's package (no epoch: owner ruling 2026-11-18).
 # Here: no %package, %description or %files of either in the spec, no `Package:` stanza of either in debian/control,
 # no debian/python3-plugin-hostd-protocol.install, no install-python step in debian/rules or the spec, no release job
 # that installs plugin-hostd-full and no tool of its own left behind; and a dependency on python3-plugin-hostd-protocol,
-# if any, names the protocol's package by its epoch with a range.
+# if any, is a floor only, with no epoch (rulings 2026-11-16 floors only, 2026-11-18 no epochs).
 #
 # Usage: no_moved_packages.py [root]. The check proves it sees each kind of leftover on a planted copy before it trusts
 # its verdict on the tree. Exit 0 clean, 1 a leftover, 2 a check that cannot see.
@@ -62,11 +62,11 @@ def leftovers(root):
         p.append(f"debian/{CODEC}.install")
     if re.search(r"^[^#\n]*\binstall-python\b", read(root, "debian/rules"), re.M):
         p.append("debian/rules: an install-python step")
-    # a dependency on the codec names the protocol's package: epoch 1, a floor and a ceiling
+    # a dependency on the codec is a floor only (>=), with no epoch and no ceiling
     for path, line in dependency_lines(spec, control):
         for m in re.finditer(r"%s\s*(\(?\s*(>=|<<|<|=|>)\s*([^\s,)]+))?" % re.escape(CODEC), line):
-            if m.group(1) is None or not m.group(3).startswith("1:"):
-                p.append(f"{path}: {CODEC} without its epoch and range: {line.strip()}")
+            if m.group(1) is None or m.group(2) != ">=" or ":" in m.group(3):
+                p.append(f"{path}: {CODEC} is not a floor without an epoch: {line.strip()}")
     wf = read(root, ".github/workflows/release.yml")
     if re.search(r"^  full-(deb|rpm):", wf, re.M) or "full-install-check" in wf:
         p.append("release.yml: a job that installs plugin-hostd-full")
@@ -90,7 +90,8 @@ def planted():
         "control codec": ("debian/control", "\nPackage: python3-plugin-hostd-protocol\nArchitecture: all\n"),
         "install file": ("debian/python3-plugin-hostd-protocol.install", "usr/lib/python3\n"),
         "rules": ("debian/rules", "\n\t$(MAKE) install-python DESTDIR=x\n"),
-        "no epoch": ("packaging/plugin-hostd.spec", "\nBuildRequires: (python3-plugin-hostd-protocol >= 0.5.10)\n"),
+        "epoch": ("packaging/plugin-hostd.spec", "\nBuildRequires: python3-plugin-hostd-protocol >= 1:0.5.10\n"),
+        "ceiling": ("debian/control", "\nBuild-Depends: python3-plugin-hostd-protocol (<< 0.9~),\n"),
         "bare": ("debian/control", "\nBuild-Depends: python3-plugin-hostd-protocol,\n"),
         "job": (".github/workflows/release.yml", "\n  full-rpm:\n    runs-on: x\n"),
         "tool": ("tools/full-install-check.sh", "#!/bin/sh\n"),
@@ -105,11 +106,13 @@ def planted():
                 open(os.path.join(t, f), "w").close()
             if leftovers(t):
                 return ["an empty tree"]
-            # the epoch form #109 writes is no leftover
+            # the floor deps.txt renders is no leftover
             with open(os.path.join(t, "packaging/plugin-hostd.spec"), "a") as f:
-                f.write("BuildRequires: (python3-plugin-hostd-protocol >= 1:0.5.10 with python3-plugin-hostd-protocol < 1:0.6)\n")
+                f.write("BuildRequires: python3-plugin-hostd-protocol >= 0.8.0\n")
+            with open(os.path.join(t, "debian/control"), "a") as f:
+                f.write("Build-Depends: python3-plugin-hostd-protocol (>= 0.8.0~) <!nocheck>,\n")
             if leftovers(t):
-                return ["the epoch range as a leftover"]
+                return ["the floor as a leftover"]
             os.makedirs(os.path.join(t, os.path.dirname(path)), exist_ok=True)
             with open(os.path.join(t, path), "a") as f:
                 f.write(text)

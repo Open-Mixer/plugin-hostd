@@ -11,9 +11,12 @@
 #     refusal it declares from that host;
 #   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
 #     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
-# omx-clap-core's declarations are read from its package in the contract directory: the first of OMX_CONTRACT_PATH
-# (directories that stand where contractdir stands) that holds 3/omx-clap-core, else pkg-config's contractdir. Without
-# one the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
+# omx-clap's declarations (its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS) are read from the domains omx-clap
+# owns (omx-clap and host) in the contract directory: the first of OMX_CONTRACT_PATH (directories that stand where
+# contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
+# 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are read from
+# its domains only: one in the package is refused by name, and one no domain holds fails by name.
+# Without the package the run fails: verbs.json requires it. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
@@ -47,9 +50,9 @@ FLOOR = subprocess.run(["sh", os.path.join(ROOT, "tools", "protocol-floor.sh")],
                        check=True).stdout.strip()
 
 
-# the omx-clap-core release this tree is written against: the spec's floor of omx-clap-core-contract, whose verbs.json
+# the omx-clap-core release this tree is written against: the spec's floor of omx-clap-contract, whose verbs.json
 # declares the verbs both hosts owe; their since is an omx-clap-core version, never a protocol one
-CLAP_CORE_FLOOR = re.search(r"^BuildRequires:\s*\(?omx-clap-core-contract\s*>=\s*([0-9.]+)",
+CLAP_CORE_FLOOR = re.search(r"^BuildRequires:\s*\(?omx-clap-contract\s*>=\s*([0-9.]+)",
                             open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M).group(1)
 
 
@@ -91,7 +94,7 @@ def check_one_name(own_docs, shared_docs):
     PHD_ERRORS answers is named by one code of the two packages; the lower package, omx-clap-core, owns the numbers
     both hosts answer and plugin-hostd names only its own"""
     named = {}
-    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap", shared_docs)):
         for ref, (code, resp) in codes_of(docs).items():
             if resp is not None:
                 named.setdefault(resp, []).append("%s %s (%s)" % (pkg, code, ref))
@@ -101,7 +104,7 @@ def check_one_name(own_docs, shared_docs):
     header = protocol_files.read_header("protocol.h", TREE)
     # the numbers PHD_ERRORS answers are the rendered OMX_REPLY_*_RESP macros it names; the header defines none of its own
     rendered = {}
-    for name in ("omx_clap_core_vocabulary.h", "plugin_hostd_protocol_vocabulary.h"):
+    for name in ("omx_clap_vocabulary.h", "plugin_hostd_protocol_vocabulary.h"):
         rendered.update({m: int(n) for m, n in re.findall(r"^#define\s+(OMX_REPLY_\w+_RESP)\s+\((-[0-9]+)\)",
                                                           protocol_files.read_header(name, TREE), re.M)})
     if re.search(r"^#define\s+PHD_ERR_", header, re.M):
@@ -112,7 +115,7 @@ def check_one_name(own_docs, shared_docs):
     if absent:
         fail("PHD_ERRORS names %s, which no rendered vocabulary header defines" % absent)
     # the daemon is compiled against the rendered numbers: one that is not the declared resp of its code is a stale render
-    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap-core", shared_docs)):
+    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap", shared_docs)):
         for ref, (code, resp) in codes_of(docs).items():
             macro = "OMX_" + re.sub(r"[^A-Za-z0-9]+", "_", code).upper() + "_RESP"
             if resp is not None and macro in rendered and rendered[macro] != resp:
@@ -124,7 +127,7 @@ def check_one_name(own_docs, shared_docs):
     if unnamed:
         fail("protocol.h answers %s, which no code of plugin-hostd or omx-clap-core names" % unnamed)
     print("ok   one name per number: %d numbers, %d of protocol.h's, %d of them named by omx-clap-core"
-          % (len(named), len(errors), len([r for r in errors if any(n.startswith("omx-clap-core") for n in named.get(r, []))])))
+          % (len(named), len(errors), len([r for r in errors if any(n.startswith("omx-clap") for n in named.get(r, []))])))
 
 
 def contract_dirs():
@@ -136,8 +139,95 @@ def contract_dirs():
     return dirs
 
 
-def package(name):
-    """the files of a package of the contract directory, and where they were read, or (None, None)"""
+# the data form of a domain's items, rebuilt by omx-contract's own reader (domainDataFiles of the installed command's
+# lib/domain.mjs, the rebuild render --with-domain runs): the file of each x-file, as the package's own table would be
+REBUILD = """
+import { readFileSync } from 'node:fs';
+const [clidir, name, path] = process.argv.slice(1);
+const { domainDataFiles } = await import('file://' + clidir + '/lib/domain.mjs');
+process.stdout.write(JSON.stringify(domainDataFiles(name, JSON.parse(readFileSync(path, 'utf8')))));
+"""
+
+
+def domain_docs(owner):
+    """the data form of every domain <owner> owns in the contract directory (omx-clap's domains omx-clap and host hold
+    its verbs, HOST_REPLY_CODES and HOST_EVENTS since the sorting pass, V15), as tables the readers here read"""
+    clidir = subprocess.run([os.environ.get("PKG_CONFIG", "pkg-config"), "--variable=clidir", "omx-contract"],
+                            capture_output=True, text=True).stdout.strip() or "/usr/lib/omx-contract"
+    out, seen = [], set()
+    for d in contract_dirs():
+        for e in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            path = os.path.join(d, e, e + ".json")
+            if e in seen or not os.path.isfile(path):
+                continue
+            with open(path) as f:
+                doc = json.load(f)
+            if not isinstance(doc, dict) or doc.get("info", {}).get("x-owner") != owner:
+                continue
+            seen.add(e)
+            r = subprocess.run(["node", "--input-type=module", "-e", REBUILD, clidir, e, path], capture_output=True, text=True)
+            if r.returncode != 0:
+                fail("omx-contract's reader refuses the domain %s of %s: %s" % (e, owner, r.stderr.strip()[-300:]))
+                continue
+            out.extend(json.loads(text) for text in json.loads(r.stdout).values())
+    return out
+
+
+# the items that left omx-clap's package for its domains (the sorting pass, V15): its verbs (domain omx-clap) and its
+# reply codes, track kinds and events (domain host), read from the domains only
+MOVED = ("OMX_CLAP_CORE_SHARED_VERBS", "OMX_CLAP_HOST_VERBS", "HOST_REPLY_CODES", "HOST_TRACK_KINDS", "HOST_EVENTS")
+
+
+def items_of(docs):
+    return {k for doc in docs for k, v in doc.items() if isinstance(v, dict) and "kind" in v}
+
+
+def moved_refusals(package_docs, domain_docs_):
+    """why the moved items are not read from the domains alone: each one a package table holds (whether or not a
+    domain holds it too), and each one no domain holds; [] when every moved item is a domain's and none the package's"""
+    in_package, in_domains = items_of(package_docs), items_of(domain_docs_)
+    out = ["%s is in omx-clap's package: it is read from omx-clap's domains only" % k for k in MOVED if k in in_package]
+    out += ["%s is in no domain of omx-clap: it is read from omx-clap's domains only" % k for k in MOVED if k not in in_domains]
+    return out
+
+
+def moved_arms(docs, domains):
+    """sabotage, three arms: HOST_EVENTS planted in a copy of the package's tables is refused while the domain holds it,
+    and refused (with the domain's absence named) when the domain's copy is removed too; and every moved item in the
+    package with every domain emptied"""
+    events = next((doc["HOST_EVENTS"] for doc in domains if "HOST_EVENTS" in doc), None)
+    if events is None:
+        fail("sabotage: no domain of omx-clap holds HOST_EVENTS to plant")
+        return
+    planted = [dict(docs[0], HOST_EVENTS=events) if docs else {"HOST_EVENTS": events}] + docs[1:]
+    got = moved_refusals(planted, domains)
+    if any(r.startswith("HOST_EVENTS is in omx-clap's package") for r in got):
+        print("ok   sabotage: HOST_EVENTS planted in omx-clap's package is refused by name, the domain holding it too")
+    else:
+        fail("sabotage: HOST_EVENTS planted in omx-clap's package is not refused: %s" % got)
+    without = [{k: v for k, v in doc.items() if k != "HOST_EVENTS"} for doc in domains]
+    got = moved_refusals(planted, without)
+    if any(r.startswith("HOST_EVENTS is in omx-clap's package") for r in got) and \
+            any(r.startswith("HOST_EVENTS is in no domain") for r in got):
+        print("ok   sabotage: HOST_EVENTS in the package alone, the domain's copy removed, is refused and its absence named")
+    else:
+        fail("sabotage: HOST_EVENTS in the package alone is read from the old home: %s" % got)
+    # every moved item in a copy of the package's tables, every domain emptied: each is refused in the package and
+    # named missing from the domains
+    held = {k: v for doc in domains for k, v in doc.items() if k in MOVED}
+    full = [dict(docs[0], **held) if docs else dict(held)] + docs[1:]
+    got = moved_refusals(full, [])
+    missing = [k for k in MOVED if not (any(r.startswith(k + " is in omx-clap's package") for r in got) and
+                                        any(r.startswith(k + " is in no domain") for r in got))]
+    if len(held) == len(MOVED) and not missing:
+        print("ok   sabotage: the domains emptied and the package holding the verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS and "
+              "HOST_EVENTS: each refused in the package and named missing from the domains")
+    else:
+        fail("sabotage: with the domains emptied the package's copy is read for %s (planted %s)" % (missing, sorted(held)))
+
+
+def package_tables(name):
+    """the tables of a package of the contract directory alone (its MANIFEST's files), [] when none holds it"""
     for d in contract_dirs():
         base = os.path.join(d, MAJOR, name)
         manifest = os.path.join(base, "MANIFEST.json")
@@ -148,7 +238,30 @@ def package(name):
             for rel in m["files"]:
                 with open(os.path.join(base, rel)) as f:
                     docs.append(json.load(f))
-            return docs, "%s %s from %s" % (name, m["version"], base)
+            return docs
+    return []
+
+
+def package(name):
+    """the files of a package of the contract directory and of the domains its owner owns, and where they were read,
+    or (None, None)"""
+    for d in contract_dirs():
+        base = os.path.join(d, MAJOR, name)
+        manifest = os.path.join(base, "MANIFEST.json")
+        if os.path.exists(manifest):
+            with open(manifest) as f:
+                m = json.load(f)
+            docs = []
+            for rel in m["files"]:
+                with open(os.path.join(base, rel)) as f:
+                    docs.append(json.load(f))
+            domains = domain_docs(name)
+            if name == "omx-clap":
+                for why in moved_refusals(docs, domains):
+                    fail("%s (%s)" % (why, base))
+                # the moved items are read from the domains alone, never from the package's tables
+                docs = [{k: v for k, v in doc.items() if k not in MOVED} for doc in docs]
+            return docs + domains, "%s %s from %s" % (name, m["version"], base)
     return None, None
 
 
@@ -260,7 +373,7 @@ LINES = {
     "property_info": ("1 0", "1", ("99 0", "1 5")),
     "property_get": ("1 file", "1", ("99 file", "1 nope", "1 writeonly_key")),
     "property_set": ('1 file "/tmp/take.wav"', "1 file", ("99 file x", "1 readonly_mode x")),
-    "curve_bind": ("1 0 transfer_curve dynamics threshold=0:db ratio=1:ratio", "1 x transfer_curve", ("99 0 transfer_curve dynamics threshold=0:db",)),
+    "curve_bind": ("1 0 transfer_curve dynamics threshold=0:dB ratio=1:ratio", "1 x transfer_curve", ("99 0 transfer_curve dynamics threshold=0:dB",)),
     "curve_points": ("1 0 9", "1 x 9", ("99 0 9",)),
     "monitor_output_off": ("1 out", "1", ()),
     "chain": ("7 1 2", "7", ("8 99", "8 1 1")),
@@ -356,7 +469,7 @@ def binary_words(exe):
 def answered_by_daemon(candidates):
     """the words whose line the daemon answers without relaying it: a line of eleven words no verb takes, sent with one
     worker up, that never reaches the worker"""
-    log = tempfile.mktemp(prefix="plugin-hostd-verbs-log.")
+    log = harness.scratch_path("plugin-hostd-verbs-log.")
     s = scan_fixture.Scan(lambda **kw: Daemon(EXE, FAKE, **kw))
     d = s.daemon(env={"FAKE_LOG": log})
     try:
@@ -466,11 +579,12 @@ def check_both(declared):
 def main():
     with open(OWN) as f:
         own_docs = [json.load(f)]
-    docs, source = package("omx-clap-core")
+    docs, source = package("omx-clap")
     if not docs:
         fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: verbs.json requires it "
-             "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap-core"))
+             "(%s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0]["requires"].get("omx-clap"))
         return 1
+    moved_arms(package_tables("omx-clap"), domain_docs("omx-clap"))
     own = verbs_of(own_docs, own_docs + docs)
     shared = verbs_of(docs, docs)
     CODE_WORDS.update(c for c, _ in codes_of(own_docs + docs).values())
@@ -508,7 +622,7 @@ def main():
             events = {k: w["word"] for k, w in item["words"].items()}
     xruns = re.search(r'^#define\s+PHD_EVENT_XRUNS\s+"(\w+)"', header, re.M)
     if "xruns" not in events:
-        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap-core"))
+        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0]["requires"].get("omx-clap"))
     elif not xruns or xruns.group(1) != events["xruns"]:
         fail("protocol.h's PHD_EVENT_XRUNS is %r, omx-clap-core's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
     else:

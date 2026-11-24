@@ -14,6 +14,7 @@
 import json, os, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import format_tables
 import harness
 from harness import Daemon, check, resp, run_tests, wait_for
 
@@ -83,7 +84,7 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-panel.")
     wrapper = os.path.join(tmp, "probe")
     with open(wrapper, "w") as f:
-        f.write(WRAPPER % {"probe": PROBE, "table": os.path.join(ROOT, "data", "formats", "clap.json")})
+        f.write(WRAPPER % {"probe": PROBE, "table": format_tables.path("clap")})
     os.chmod(wrapper, 0o755)
     descriptors = os.path.join(tmp, "descriptors")
     d = Daemon(EXE, FAKE, conf={"probe": wrapper, "descriptor_dir": descriptors})

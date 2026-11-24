@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include <omxdsp/omx_curve.h>
+#include <omxdsp/omxdsp_definitions.h>
 
 static int word(const char *const *words, uint32_t n, const char *s, size_t len)
 {
@@ -65,7 +66,8 @@ int main(int argc, char **argv)
         colon = *end == ':' ? end : NULL;
         at = strchr(end, '@');
         u->unit = OMX_CURVE_UNITS_NONE;
-        if (colon && (v = word(OMX_CURVE_UNIT_WORDS, OMX_CURVE_UNITS_COUNT, colon + 1,
+        /* a term's unit is a standard unit id (Hz, dB, ...), as curve_bind takes it: OMX_CURVE_UNITS_STANDARD */
+        if (colon && (v = word(OMX_CURVE_UNITS_STANDARD, OMX_CURVE_UNITS_COUNT, colon + 1,
                                at ? (size_t)(at - colon - 1) : strlen(colon + 1))) >= 0)
             u->unit = (enum omx_curve_units)v;
         u->shape = at ? omx_curve_word(OMX_CURVE_SHAPE_WORDS, OMX_CURVE_SHAPES_COUNT, at + 1) : OMX_CURVE_NO_SHAPE;
