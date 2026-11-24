@@ -1429,7 +1429,7 @@ static char *property_reply(char *reply, int answered, int full)
         return sup_resp(SUCCESS);
     if (code == ERR_INSTANCE_NON_EXISTS)
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
-    if (code == ERR_LV2_INVALID_URI)
+    if (code == ERR_HOST_INVALID_URI)
         return sup_resp(OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
     if (full && code == ERR_MEMORY_ALLOCATION)
         return sup_resp(OMX_REPLY_HOST_PROPERTY_QUEUE_FULL_RESP);
