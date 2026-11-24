@@ -127,6 +127,8 @@ typedef struct WORKER_T {
     int ndeaths;                /**< the entries in deaths */
     int backoff_ms;             /**< the wait before its last respawn was scheduled */
     int64_t next_try_ms;        /**< when the tick respawns it, while it is in W_BACKOFF */
+    pid_t leaving_pid;          /**< the process of a death not yet finished: the worker stays in W_BACKOFF, not respawned, until it is gone */
+    int leave_flight;           /**< the in_flight on_death was called with, applied when the death finishes */
     /** connects a replay could not make yet: the peer port may not be visible to the new client */
     char **pend;
     int npend;                  /**< the lines in pend */

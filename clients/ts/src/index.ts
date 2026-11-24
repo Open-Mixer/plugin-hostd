@@ -356,11 +356,11 @@ function escapeRegExp(s: string): string {
 const NONE = '-';
 
 /**
- * A plan's cores in its segments' shape: each member's core, null for one that is not pinned, and for every member
- * when the daemon answers no cores; ProtocolError when the shapes differ.
+ * A plan's cores in its segments' shape: each member's core, null for one that is not pinned; ProtocolError when the
+ * reply has none (protocol 0.7.0 made them mandatory) or the shapes differ.
  */
 function coresOf(cores: Value | undefined, segments: number[][]): (number | null)[][] {
-  if (cores === undefined) return segments.map((s) => s.map(() => null));
+  if (cores === undefined) throw new ProtocolError('a plan reply carries its cores');
   const c = cores as (number | null)[][];
   if (c.length !== segments.length || c.some((x, i) => x.length !== segments[i]!.length)) {
     throw new ProtocolError(`the cores ${JSON.stringify(cores)} are not the shape of the segments`);

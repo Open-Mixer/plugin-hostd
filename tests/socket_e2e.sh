@@ -25,7 +25,7 @@ done
 log=$(mktemp)
 # what an add gathers goes to a directory of the test's own, never the user's state
 state=$(mktemp -d)
-OMX_DESCRIPTOR_DIR=$state/descriptors OMX_QUALIFICATION_DIR=$state/qualification "$daemon" -n -p "$port" >"$log" 2>&1 &
+OMX_DESCRIPTOR_DIR=$state/descriptors "$daemon" -n -p "$port" >"$log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; rm -rf "$log" "$state"' EXIT
 for _ in $(seq 50); do grep -q "ready" "$log" && break; sleep 0.1; done
