@@ -7,6 +7,7 @@
 #   machine 1.0.0: MACHINE_CLASS_FIELDS, MACHINE_PROFILE_FIELDS, MACHINE_CORE_BANDS, MACHINE_CLOCK_BANDS, MACHINE_ARCHES
 #   machine 1.1.0: MACHINE_FAMILIES
 #   qualification 1.0.0 / 1.2.0 / 1.3.0 / 1.4.0: the items as plugin-qualify's 1.3.0 carried them, and the five of 1.4.0 (SINCE below)
+#   qualification 1.5.0: QUALIFICATION_UNIT_PROVENANCES
 #
 # An item a domain gains later is added to SINCE with the version that adds it, or this check is red.
 #
@@ -77,6 +78,7 @@ SINCE = {
         "QUALIFICATION_HISTORY_BLOCKERS": "1.4.0",
         "QUALIFICATION_ADAPTER_CODE_KINDS": "1.3.0",
         "QUALIFICATION_MEMORY_BOUND_OUTCOMES": "1.3.0",
+        "QUALIFICATION_UNIT_PROVENANCES": "1.5.0",
     },
 }
 
