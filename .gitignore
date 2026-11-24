@@ -20,6 +20,7 @@ tests/proc-term-test
 tests/conf-test
 tests/relay-test
 tests/relay-test-relay.o
+tests/relay-seq-test
 tests/format-test
 tests/plugin-hostd-fixture.lv2/*.so
 /plugin-hostd-probe

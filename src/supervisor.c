@@ -2957,7 +2957,10 @@ char *sup_instance_verb(const char *line, int ledger)
     word = words(copy, &count);
     window = count > 0 && (!strcmp(word[0], PHD_VERB_SHOW_EXTERNAL_UI) || !strcmp(word[0], OMX_VERB_HIDE_EXTERNAL_UI));
     id = count > 1 ? strtol(word[1], &end, 10) : -1;
-    if (count < 2 || *end || end == word[1])
+    /* no memory to cut the line into words: said as that, not as a command read wrong */
+    if (!word)
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    else if (count < 2 || *end || end == word[1])
         reply = sup_resp(ERR_INVALID_OPERATION);
     else if (!(i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL))
         reply = sup_resp(ERR_INSTANCE_NON_EXISTS);

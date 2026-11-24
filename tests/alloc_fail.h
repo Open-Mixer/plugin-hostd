@@ -14,6 +14,8 @@ void *alloc_fail_calloc(size_t n, size_t size);
 void *alloc_fail_realloc(void *p, size_t size);
 char *alloc_fail_strdup(const char *s);
 char *alloc_fail_strndup(const char *s, size_t n);
+/* the protocol library's line reader allocates its word list: the daemon's call of it is a site like its own */
+char **alloc_fail_strarr_split(char *str);
 
 #undef strdup
 #undef strndup
@@ -22,5 +24,6 @@ char *alloc_fail_strndup(const char *s, size_t n);
 #define realloc alloc_fail_realloc
 #define strdup alloc_fail_strdup
 #define strndup alloc_fail_strndup
+#define strarr_split alloc_fail_strarr_split
 
 #endif

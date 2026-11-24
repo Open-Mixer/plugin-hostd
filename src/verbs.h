@@ -82,8 +82,8 @@ extern volatile int g_quitting;
  * @brief Sends the answers that wait, as far as they can go.
  *
  * From the front of the queue: a reply whose writes have ended is sent, as invalid-operation when a write failed and
- * the verb had succeeded; a queued command is run; the refusals counted in its place are sent. It stops at a reply
- * whose writes still wait, and at a command that reads files while a write waits.
+ * the verb had succeeded; a queued command is run; the refusals counted on an answer are sent right after it. It stops
+ * at a reply whose writes still wait, and at a command that reads files while a write waits.
  *
  * @note Not thread-safe: the queue has no lock; call on the daemon's main thread only.
  */

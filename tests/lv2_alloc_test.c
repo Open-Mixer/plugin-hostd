@@ -19,14 +19,22 @@
  */
 
 
-/* src/lv2.c's refusal and pick tables when memory runs out. lv2.c is built for this test with its realloc calls renamed
- * to alloc_test_realloc (the Makefile's -Drealloc), so the test decides which allocation fails. The stubs below stand for
- * the daemon parts lv2.c calls and these tables never reach. */
+/* src/lv2.c's refusal and pick tables, and its param_info answer, when memory runs out. lv2.c is built for this test with
+ * its realloc and asprintf calls renamed to alloc_test_realloc and alloc_test_asprintf (the Makefile's -D), so the test
+ * decides which allocation fails. The stubs below stand for the daemon parts lv2.c calls: an instance is the bundle the
+ * test writes, and a reply is mod-host's resp line. */
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <stdarg.h>
+#include <unistd.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <host-errors.h>
 #include <plugin-hostd/protocol.h>
 
 #include "conf.h"
@@ -41,7 +49,27 @@ static int failures, checks;
 /* how many reallocs succeed before the next one fails; -1 is never */
 static int g_fail_after = -1;
 
+/* whether the next asprintf of lv2.c fails */
+static int g_asprintf_fails;
+
+/* the bundle the test wrote, which every instance is */
+static char g_bundle[64];
+
 void *alloc_test_realloc(void *ptr, size_t size);
+int alloc_test_asprintf(char **out, const char *fmt, ...);
+
+int alloc_test_asprintf(char **out, const char *fmt, ...)
+{
+    va_list ap;
+    int n;
+
+    if (g_asprintf_fails)
+        return -1;
+    va_start(ap, fmt);
+    n = vasprintf(out, fmt, ap);
+    va_end(ap);
+    return n;
+}
 
 void *alloc_test_realloc(void *ptr, size_t size)
 {
@@ -71,7 +99,7 @@ char *proc_find_lv2_bundle(const char *lv2_path, const char *uri, proc_lv2_versi
     (void)lv2_path;
     (void)uri;
     (void)version;
-    return NULL;
+    return g_bundle[0] ? strdup(g_bundle) : NULL;
 }
 
 int proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int (*fn)(void *ctx, const char *bundle), void *ctx)
@@ -85,14 +113,12 @@ int proc_lv2_preset_bundles(const char *lv2_path, const char *uri, int (*fn)(voi
 
 const char *sup_instance_uri(int id)
 {
-    (void)id;
-    return NULL;
+    return id == 0 && g_bundle[0] ? "urn:test:param" : NULL;
 }
 
 const char *sup_instance_search(int id)
 {
-    (void)id;
-    return NULL;
+    return id == 0 && g_bundle[0] ? g_bundle : NULL;
 }
 
 /* the store holds no groups here: lv2.c pages by the declared ones (src/descriptions.c is the daemon's) */
@@ -117,8 +143,9 @@ int sup_reply_code(const char *reply)
 
 char *sup_resp(int code)
 {
-    (void)code;
-    return NULL;
+    char *reply = NULL;
+
+    return asprintf(&reply, "resp %d", code) < 0 ? NULL : reply;
 }
 
 static void check(int ok, const char *what)
@@ -129,6 +156,74 @@ static void check(int ok, const char *what)
         failures++;
         printf("FAIL lv2 tables: %s\n", what);
     }
+}
+
+static void write_file(const char *dir, const char *name, const char *text)
+{
+    char path[128];
+    FILE *f;
+
+    snprintf(path, sizeof(path), "%s/%s", dir, name);
+    f = fopen(path, "w");
+    if (f)
+    {
+        fputs(text, f);
+        fclose(f);
+    }
+}
+
+/* a bundle of one plugin with one control input, gain, ranged 0..1 */
+static int bundle_write(void)
+{
+    snprintf(g_bundle, sizeof(g_bundle), "/tmp/lv2-alloc-test-XXXXXX");
+    if (!mkdtemp(g_bundle))
+    {
+        g_bundle[0] = '\0';
+        return -1;
+    }
+    write_file(g_bundle, "manifest.ttl",
+               "@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+               "<urn:test:param> a lv2:Plugin ; lv2:binary <param.so> ; rdfs:seeAlso <param.ttl> .\n");
+    write_file(g_bundle, "param.ttl",
+               "@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n<urn:test:param> a lv2:Plugin ; lv2:port [ a lv2:InputPort , "
+               "lv2:ControlPort ; lv2:index 0 ; lv2:symbol \"gain\" ; lv2:name \"Gain\" ;\n  lv2:minimum 0 ; lv2:maximum 1 ; "
+               "lv2:default 0.5 ] .\n");
+    return 0;
+}
+
+static void bundle_remove(void)
+{
+    char path[128];
+
+    snprintf(path, sizeof(path), "%s/manifest.ttl", g_bundle);
+    unlink(path);
+    snprintf(path, sizeof(path), "%s/param.ttl", g_bundle);
+    unlink(path);
+    rmdir(g_bundle);
+    g_bundle[0] = '\0';
+}
+
+/* param_info of a ranged control port with no memory for its answer: mod-host's ERR_MEMORY_ALLOCATION, not -511, which
+ * would tell the controller the port has no contract */
+static void param_info_without_memory(void)
+{
+    char *reply, want[32];
+
+    if (bundle_write() != 0)
+    {
+        check(0, "a bundle in /tmp");
+        return;
+    }
+    reply = lv2_param_info(0, "gain");
+    check(reply && !strncmp(reply, "resp 0 ", 7), "positive control: a ranged port's param_info answers resp 0");
+    free(reply);
+    g_asprintf_fails = 1;
+    reply = lv2_param_info(0, "gain");
+    g_asprintf_fails = 0;
+    snprintf(want, sizeof(want), "resp %d", ERR_MEMORY_ALLOCATION);
+    check(reply && !strcmp(reply, want), "param_info with no memory for its answer answers ERR_MEMORY_ALLOCATION");
+    free(reply);
+    bundle_remove();
 }
 
 static const char *route(const char *uri, const char *worker)
@@ -155,6 +250,8 @@ int main(void)
     check(route(u1, "mod-host") != NULL, "the pick held before is still there");
     check(lv2_worker_pick(u2, clap) == 0 && route(u2, "mod-host") != NULL, "with memory again the pick is kept");
     check(lv2_worker_pick(u1, PHD_WORD_NONE) == 0 && route(u1, "mod-host") == NULL, "a pick is taken back");
+
+    param_info_without_memory();
 
     printf("lv2 tables: %d checks, %s\n", checks, failures ? "FAILED" : "ok");
     return failures ? 1 : 0;
