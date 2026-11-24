@@ -4,18 +4,24 @@
 # generated schema holds at a token's place must be the contract's omx-vocabulary.schema.json $defs.<ITEM>.enum, the
 # same words in the same order. A list of the template that is the whole of a contract item, typed by hand, is refused
 # even when its words are right today: it is the second copy that drifts.
-#   vocabulary_derived.py [tree]   tree holds protocol/ (default: this checkout); the contract's schema is
+# The probe words (the reasons, outcomes, steps and signals of a run) are the domain `probe` (contract.d/probe, plugin-hostd's own),
+# read the same way (@PROBE_<ITEM>@).
+# The machine band words are not omx-contract's: they are the domain `machine` (contract.d/machine/machine.json, plugin-hostd's
+# own), the template names them @MACHINE_<ITEM>@ and the generator reads them through the loader; the generated enum must be
+# the document's words in x-code order, which is the index.
+#   vocabulary_derived.py [tree]   tree holds protocol/ and contract.d/ (default: this checkout); the contract's schema is
 #                                  $OMX_VOCABULARY, or omx-vocabulary.schema.json in pkg-config's datadir of omx-contract
 import copy, json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TREE = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
-TOKEN = re.compile(r"@((?:OMX|PHD)_[A-Z0-9_]+)@")
-# the items the probe output must take from the contract (#115); any other @OMX_<ITEM>@ the template names is held to
-# the contract all the same
-REQUIRED = ("MEASUREMENT_LATENCY_METHODS", "MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS",
-            "RESOURCE_THREAD_SCHEDULING")
+TOKEN = re.compile(r"@((?:OMX|PHD|PROBE|MACHINE|QUALIFICATION|PLUGIN_DB)_[A-Z0-9_]+)@")
+# the items the probe output must take from a domain: the machine domain's (this tree's), the qualification domain's
+# (plugin-qualify's) and the address formats of plugin-db's domain (plugin-db >= 0.4.7), their item names the tokens; any other @OMX_<ITEM>@ the template names is held to the contract all the same
+REQUIRED = ("QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "QUALIFICATION_MEASUREMENT_VOICE_BASES", "MACHINE_CORE_BANDS",
+            "MACHINE_CLOCK_BANDS", "QUALIFICATION_RESOURCE_THREAD_SCHEDULING", "PROBE_REASONS", "PROBE_OUTCOMES",
+            "PROBE_STEPS", "PROBE_SIGNALS", "PLUGIN_DB_ADDRESS_FORMATS")
 failed = 0
 
 
@@ -62,12 +68,14 @@ def template(path):
 
 
 def derived(tmpl):
-    """{pointer: item} of every enum of the template that is one @OMX_<ITEM>@ token"""
+    """{pointer: item} of every enum of the template that is one @OMX_<ITEM>@ or @MACHINE_<ITEM>@ token"""
     out = {}
     for pointer, values in enums(tmpl):
         m = TOKEN.fullmatch(values[0]) if len(values) == 1 and isinstance(values[0], str) else None
         if m and m.group(1).startswith("OMX_"):
             out[pointer] = m.group(1)[len("OMX_"):]
+        elif m and m.group(1).startswith(("PROBE_", "MACHINE_", "QUALIFICATION_", "PLUGIN_DB_")):
+            out[pointer] = m.group(1)
     return out
 
 
@@ -85,11 +93,36 @@ def differences(generated, places, core):
     return out
 
 
+def domains(tree):
+    """{ITEM: {"enum": [...]}} of every words schema of the domain documents under contract.d/ (this package's own
+    domains: the contract's json fragment carries only what omx-contract owns)"""
+    out = {}
+    # beside this tree's own domains, plugin-qualify's (the measurement and resource words), installed in the contract
+    # directory: $OMX_CONTRACT_PATH (a ':' list of directories standing where contractdir stands), else pkg-config's
+    paths = os.environ.get("OMX_CONTRACT_PATH") or subprocess.run(
+        [PKG_CONFIG, "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
+    bases = [os.path.join(tree, "contract.d")] + [p for p in paths.split(":") if p]
+    for base in bases:
+        for name in sorted(os.listdir(base)) if base and os.path.isdir(base) else []:
+            path = os.path.join(base, name, name + ".json")
+            if not os.path.exists(path):
+                continue
+            for item, schema in json.load(open(path))["components"]["schemas"].items():
+                # the domain's order is its x-code order, which is the index
+                out.setdefault(item, {"enum": [e["const"] for e in sorted(schema["oneOf"], key=lambda e: e.get("x-code", 0))]})
+    return out
+
+
 def main():
     core = json.load(open(vocabulary_path()))["$defs"]
+    core.update(domains(TREE))
     tmpl = template(os.path.join(TREE, "protocol", "probe-output.schema.in"))
     generated = json.load(open(os.path.join(TREE, "protocol", "probe-output.schema.json")))
     places = derived(tmpl)
+
+    stale = sorted({t for t in TOKEN.findall(open(os.path.join(TREE, "protocol", "probe-output.schema.in")).read())
+                    if t.startswith("OMX_MACHINE_")})
+    check(not stale, "the template names no omx-contract token for a machine word, they are the domain's (@MACHINE_<ITEM>@): %s" % stale)
 
     for item in REQUIRED:
         check(item in places.values(), "the template takes %s from the contract" % item)
@@ -104,15 +137,15 @@ def main():
         check((pointer, item) not in found, "%s at %s is the contract's%s" % (item, pointer, "" if (pointer, item) not in found
               else ": the schema has %s, the contract %s" % found[(pointer, item)]))
 
-    methods = [at(generated, p)["enum"] for p, i in places.items() if i == "MEASUREMENT_LATENCY_METHODS"]
+    methods = [at(generated, p)["enum"] for p, i in places.items() if i == "QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]
     check(any("note-onset" in m for m in methods), "the latency methods include note-onset: %s" % methods)
 
     # positive control: a contract whose item has one word more, or its words in another order, is told apart
     moved = copy.deepcopy(core)
-    moved["MEASUREMENT_LATENCY_METHODS"]["enum"] = moved["MEASUREMENT_LATENCY_METHODS"]["enum"] + ["x-onset"]
+    moved["QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]["enum"] = moved["QUALIFICATION_MEASUREMENT_LATENCY_METHODS"]["enum"] + ["x-onset"]
     moved["MACHINE_CLOCK_BANDS"]["enum"] = list(reversed(moved["MACHINE_CLOCK_BANDS"]["enum"]))
     told = {i for _, i, _, _ in differences(generated, places, moved)}
-    check(told == {"MEASUREMENT_LATENCY_METHODS", "MACHINE_CLOCK_BANDS"},
+    check(told == {"QUALIFICATION_MEASUREMENT_LATENCY_METHODS", "MACHINE_CLOCK_BANDS"},
           "positive control: a contract with a word more and one in another order differs there only: %s" % sorted(told))
 
     print("vocabulary: %s" % ("FAILED (%d)" % failed if failed else "ok"))

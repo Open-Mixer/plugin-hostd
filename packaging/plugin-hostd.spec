@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.20.6
+Version: 0.20.8
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -13,23 +13,35 @@ BuildRequires: gcc
 BuildRequires: make
 BuildRequires: diffutils
 BuildRequires: python3
-# %%{python3_sitelib}, where the Python client of the protocol goes (docs/clients.md)
-BuildRequires: python3-devel
 # <plugin-db/pin.h>, and through it libcrypto; a floor, and the plugin-db that builds on protocol 0.5
-BuildRequires: (pkgconfig(plugin-db) >= 0.4.1 with pkgconfig(plugin-db) < 0.5)
+BuildRequires: plugin-db-devel >= 0.4.7
 BuildRequires: cjson-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's. 0.5.0 is the first with the curve verbs, whose words and texts the docs are generated from;
 # a floor and the next minor
-BuildRequires: (plugin-hostd-protocol-devel >= 0.5.8 with plugin-hostd-protocol-devel < 0.6)
+BuildRequires: plugin-hostd-protocol-devel >= 0.7.0
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
 # (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (3.9.0 the first with the writer, the
 # schema_major of its pkg-config file and the %%{omx_contract_dir} macro this spec names its files by); a floor only
-BuildRequires: (omx-contract-devel >= 3.12.0 with omx-contract-devel < 4)
+BuildRequires: omx-contract-devel >= 3.20.0
+# the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
+# and plugin-qualify's qualification domain through it (3.20.0 the first release that ships it); a floor only
+BuildRequires: libomx-domain-devel >= 3.20.0
+# the reader of the qualification store, <plugin-qualification-db/pqdb.h>: the daemon reads what a plugin costs through it and
+# reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
+# declared in); a floor only
+BuildRequires: libplugin-qualification-db-devel >= 2026111901
+# the reader's pkg-config file asks for sqlite3, which the Debian package of the reader does not pull in: named here too
+BuildRequires: sqlite-devel >= 3.37.0
+Requires: libplugin-qualification-db >= 2026111901
+Requires: sqlite-libs >= 3.37.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
-Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.8 with plugin-hostd-protocol%{?_isa} < 0.6)
+Requires: plugin-hostd-protocol%{?_isa}
+Requires: plugin-hostd-protocol >= 0.7.0
+# the loader the daemon and the probe runner read the machine domain through, at start-up
+Requires: libomx-domain >= 3.20.0
 # omx-clap-core is a build dependency of the check stage only: the CLAP worker and the fixtures the real-worker
 # tests drive. A build with `--without check` needs nothing of omx-clap-core, so plugin-hostd and omx-clap-core
 # do not build-depend on each other. A floor only: the lowest release with what the tests need (omx-clap-core 0.21,
@@ -37,22 +49,25 @@ Requires: (plugin-hostd-protocol%{?_isa} >= 0.5.8 with plugin-hostd-protocol%{?_
 # ships fault-14.clap and jack_identity; 0.25 for param_info answered from clap.params when a plugin has no contract;
 # 0.31 for the curve verbs)
 %if %{with check}
-BuildRequires: (omx-clap-host-tests >= 0.32.3 with omx-clap-host-tests < 0.33)
+BuildRequires: omx-clap-host-tests >= 0.33.1
 # omx_curve.h, which tests/curve_reply.c draws the curve the real worker must answer with
-BuildRequires: (omx-dsp-devel >= 0.32.0 with omx-dsp-devel < 0.33)
+BuildRequires: omx-dsp-devel >= 0.32.0
 # the reader that holds the committed render of data/ (make check-rendered)
-BuildRequires: (omx-contract >= 3.12.0 with omx-contract < 4)
+BuildRequires: omx-contract >= 3.20.0
+# the qualification domain, plugin-qualify's (contract.d/qualification/), which the tests read from the contract directory
+# its data package installs into (0.20.6 the first release that ships it)
+BuildRequires: plugin-qualify-contract >= 0.20.6
 # the daemon's verbs (plugin-hostd-protocol's package of the contract directory) and the shared verbs and the
 # reply.host.* codes they refer to (make test-verbs-declared)
-BuildRequires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
-BuildRequires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
+BuildRequires: plugin-hostd-protocol-contract >= 0.7.0
+BuildRequires: omx-clap-core-contract >= 0.33.1
 %endif
 # the format tables, which readers read at run time
 Requires: %{name}-contract = %{version}-%{release}
 
 # the workers: a format whose worker is not installed refuses its adds (-502, no-backend), the other formats are
 # unaffected. omx-clap-host runs CLAP plugins and, through its LV2 adapter, LV2 plugins.
-Recommends: (omx-clap-host >= 0.32.3 with omx-clap-host < 0.33)
+Recommends: omx-clap-host >= 0.33.1
 # mod-host runs an LV2 plugin only when lv2_worker or lv2_worker_set names it, and it is the reference host H3 of the
 # benchmark (bench/run.sh), measured when it is installed. Nothing else uses it, so it is only suggested; a machine that
 # runs a published benchmark installs mod-host (and jalv) itself.
@@ -73,9 +88,9 @@ Summary: Talk to plugin-hostd from your own controller without retyping its prot
 BuildArch: noarch
 Requires: %{name}-contract = %{version}-%{release}
 # the declared protocol, <plugin-hostd/protocol.h>, which plugin-hostd.pc requires; a floor only
-Requires: (plugin-hostd-protocol-devel >= 0.5.8 with plugin-hostd-protocol-devel < 0.6)
+Requires: plugin-hostd-protocol-devel >= 0.7.0
 # <plugin-db/pin.h>, which plugin-hostd.pc requires; a floor, and the plugin-db that builds on protocol 0.5
-Requires: (plugin-db-devel >= 0.4.1 with plugin-db-devel < 0.5)
+Requires: plugin-db-devel >= 0.4.7
 
 %description devel
 The pin header, the words of the grouping planner and the running history,
@@ -85,37 +100,21 @@ declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
 
-%package -n python3-plugin-hostd-protocol
-Summary: The Python client of plugin-hostd's protocol
-BuildArch: noarch
-Requires: python3
-# what the client reads when it is loaded (docs/clients.md): the protocol table, the vocabulary of the contract
-# directory and the catalogs of the codes' owners; 0.5.5 the first that declares node_metadata, 0.5.8 the first that declares a code's transient (#70); a floor and the
-# next minor
-Requires: (plugin-hostd-protocol >= 0.5.8 with plugin-hostd-protocol < 0.6)
-Requires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
-Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
-
-%description -n python3-plugin-hostd-protocol
-The Python client of plugin-hostd's protocol, plugin_hostd_protocol: one codec
-over the files plugin-hostd-protocol installs, which encodes and decodes every
-command the protocol declares, parses the replies, feedback lines and protocol
-errors, and gives each reply code its sentence. A controller speaks the
-protocol through it and restates nothing; the npm package
-@openmixer/plugin-hostd-client is the same codec in TypeScript.
-
 %package contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
 # package's before): a reader of this package reads that one too; a floor only
-Requires: (plugin-hostd-protocol-contract >= 0.5.8 with plugin-hostd-protocol-contract < 0.6)
-Requires: (omx-clap-core-contract >= 0.32.3 with omx-clap-core-contract < 0.33)
+Requires: plugin-hostd-protocol-contract >= 0.7.0
+Requires: omx-clap-core-contract >= 0.33.1
 # the tables live in omx-contract's contract directory and are read against its schema: 3.2.0 is the first whose
 # source field takes an index (omx_clap_panel_display.meter_ids[0]), so an older one never sits beside a table it
 # refuses; a floor only
-Requires: (omx-contract >= 3.12.0 with omx-contract < 4)
+Requires: omx-contract >= 3.20.0
+# the probe runner reads the qualification domain through the loader at start-up: the loader, and plugin-qualify's data
+# package that holds the domain (noarch data, so plugin-qualify's own requirement of this package is no cycle)
+Requires: libomx-domain >= 3.20.0
+Requires: plugin-qualify-contract >= 0.20.6
 
 %description contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
@@ -125,34 +124,6 @@ running history (history.json) and the reasons a plan gives for a plugin it
 leaves alone (grouping.json), under
 %{omx_contract_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
-Its documentation is on openmixer.org.
-
-%package full
-Summary: Whole plugin host stack: daemon, workers, plugins, qualifier
-BuildArch: noarch
-# The whole plugin host stack in one install, on any Fedora (docs/install.md): the daemon at its own version, its
-# CLAP/LV2 worker, the OpenMixer plugins, the qualifier and the qualification records (plugin-qualification-records,
-# one package built per architecture: the desk sets on x86_64, the Raspberry Pi 5 set on aarch64). Each a floor at the
-# release this one is tested with and a ceiling below the next minor; the records' dated version (YYYYMMDDXX) below the
-# next year's first (tests/full_ranges.py). The panel is a weak
-# dependency: `dnf install --setopt=install_weak_deps=False plugin-hostd-full` is the headless install, with no panel.
-Requires: %{name} = %{version}-%{release}
-Requires: (omx-clap-host >= 0.32.3 with omx-clap-host < 0.33)
-Requires: (omx-plugins >= 0.19.3 with omx-plugins < 0.20)
-Requires: (plugin-qualify >= 0.20.1 with plugin-qualify < 0.21)
-Recommends: (omx-panel >= 0.13.0 with omx-panel < 0.14)
-# recommended until the package is in the channel: a hard dependency now would leave plugin-hostd-full uninstallable
-Recommends: (plugin-qualification-records >= 2026110902 with plugin-qualification-records < 2027000000)
-
-%description full
-Installs plugin-hostd with everything it runs plugins with: omx-clap-host,
-the CLAP worker that also runs LV2 plugins through its adapter, the OpenMixer
-plugins, plugin-qualify, which measures each installed plugin before it is
-trusted live, and the qualification records of this machine's class, so the
-plugins measured on a machine like this one are taken from the records.
-
-omx-panel, the plugin panels in a browser, is a weak dependency. Install with
---setopt=install_weak_deps=False for a machine with no screen.
 Its documentation is on openmixer.org.
 
 %package tests
@@ -186,13 +157,11 @@ sed -i 's,LDFLAGS += -s,LDFLAGS +=,g' Makefile
 %make_install PREFIX=%{_prefix}
 # the format tables, as the package plugin-hostd of omx-contract's contract directory (docs/formats.md)
 %make_build install-contract DESTDIR=%{buildroot} PREFIX=%{_prefix}
-# the Python client, told where pkg-config finds the files it reads (docs/clients.md)
-%make_build install-python DESTDIR=%{buildroot} PREFIX=%{_prefix} PYTHON3_SITELIB=%{python3_sitelib}
 
 # the verb table is checked against mod-host's README, which a build does not have
 %check
 %if %{with check}
-make test-daemon check-generated check-rendered
+make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %endif
 
 %files
@@ -207,9 +176,6 @@ make test-daemon check-generated check-rendered
 %{_mandir}/man1/plugin-hostd-probe.1*
 # the read-only pins of packages: a package that ships pins co-owns it with %dir
 %dir %{_datadir}/plugin-hostd/pins.d
-
-%files full
-%license COPYING
 
 %files tests
 %license COPYING
@@ -226,17 +192,106 @@ make test-daemon check-generated check-rendered
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
 
-%files -n python3-plugin-hostd-protocol
-%license COPYING
-%doc docs/clients.md
-%{python3_sitelib}/plugin_hostd_protocol/
-
 %files contract
 %license COPYING
 %doc README.md
 %{omx_contract_dir}/plugin-hostd/
+# the domain machine (contract.d/machine), installed by omx-contract's installer in its domain mode into the contract
+# directory itself, beside the schema major's directory: the loader reads <contractdir>/machine/
+%{omx_contract_domain_dir}/machine/
+# the domain probe (contract.d/probe), the words a probe run writes, the same way
+%{omx_contract_domain_dir}/probe/
 
 %changelog
+* Thu Nov 19 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.8-1
+- Floors, at the releases this one is built and run against, floors only:
+  plugin-hostd-protocol (and -devel, -contract) >= 0.7.0 (was 0.5.9),
+  omx-clap-core-contract, omx-clap-host-tests and omx-clap-host >= 0.33.1
+  (were 0.32.5). Since 0.20.7 the ceilings are gone from every dependency,
+  omx-contract is >= 3.20.0 (was 3.18.0), and two dependencies are new:
+  libomx-domain (and -devel) >= 3.20.0, the loader of the contract's domains,
+  and plugin-qualify-contract >= 0.20.6, the data package that holds the
+  qualification domain (#161, #166, #167).
+- Conflicts dropped: plugin-hostd-contract no longer Breaks and Replaces
+  plugin-hostd-dev (<< version) in debian/control; no relation between our own
+  packages remains, and the package check in ci.yml asserts there is none. The
+  spec carried no Conflicts.
+- The machine domain, contract.d/machine, is plugin-hostd's: the daemon and
+  the probe read the machine words through the loader, MACHINE_FAMILIES is the
+  domain's, and x-since is the domain version that added an item (#166, #170,
+  #176).
+- The probe domain 1.0.0, contract.d/probe: the reasons, outcomes, steps and
+  signals a probe run writes, read at start-up (#173).
+- The qualification words are plugin-qualify's domain, read through the
+  loader; no render here (#167).
+- A worker the daemon stops is asked to leave before it is killed, so it
+  closes its JACK client, and is stopped without the daemon waiting for it to
+  leave (#148, #152).
+- The vocabulary is rendered with omx-contract 3.19.1 (#154).
+- Schema addresses: the descriptor writer, its fixtures and the probe-output
+  schema name https://openmixer.org/schema/ (#158).
+- Dependency floors are declared once, in packaging/deps.txt, floors only; the
+  spec and debian/control are rendered from it (#161).
+- Documentation gates: Doxygen for the C headers with a baseline that only
+  shrinks, and ruff D1 on the Python clients; the daemon's core headers are
+  documented (#135, #145, #147).
+- tests: the bundle rule's one-directory arm can fail; test-consumer names its
+  failing step and pkg-config's reason; the package jobs run a named smoke and
+  the dead shard machinery is gone; an arm whose command fails is a named
+  FAIL; the chain-refusal arm tells a refusal from a death again (#137, #141,
+  #142, #159, #164).
+- The daemon reads qualifications through libplugin-qualification-db
+  (>= 2026111901, with sqlite >= 3.37.0 as a build and run floor), no record
+  file is read any more, the qualification_dir key does nothing and the
+  daemon makes no qualification directory (#180).
+- The plugin address formats are read from plugin-db's domain, not typed in
+  the probe-output template; plugin-db is >= 0.4.7 (#178, #180).
+- A worker stopped twice leaves one entry in the stopped-worker list, and
+  the list grows instead of dropping past 64 (#181, #153).
+- The TypeScript client's codec command decides run or imported with
+  isMain, also through a symlinked bin; omx-contract there is a floor only
+  (#185).
+- CI: Fedora 45 only, the contract rpm's file list holds the machine and
+  probe domains, the deb jobs run on the arm64 runner from check-matrix and
+  the deb smoke takes the OpenMixer channel (#178, #183).
+
+* Sat Nov 14 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.7-1
+- Built and run against the 3.18.0 pass's releases, every floor at the chain
+  line's needs with its ceiling: omx-contract >= 3.18.0 and < 4,
+  plugin-hostd-protocol >= 0.5.9 and < 0.6, omx-clap-host and omx-clap-core
+  >= 0.32.5 and < 0.33, plugin-db >= 0.4.4 and < 0.5.
+- Every child the daemon starts that runs plugin code runs confined: a daemon
+  worker, the descriptor scan and the probe runner's child, by one
+  proc_confine (src/confine.c): no_new_privs, no descriptor of its parent's past
+  the ones it is given, and a seccomp filter that answers EPERM to ptrace,
+  process_vm_readv/writev, mount, kexec, module loading and the like. A worker
+  reads /dev/null on stdin. A qualification verdict describes the plugin as the
+  console hosts it (#16, #61).
+- The probe document carries the rt-safety arm's thread figures: ownThreads,
+  the threads the plugin started, and otherThreads {allocations, locks,
+  syscalls}, what other threads did while the audio thread was armed (a figure,
+  never a verdict); both optional in the schema (D20, #63, #64).
+- tests: a sabotage arm for the checkpoint of a value the plugin moved itself
+  (#24, #60).
+- node_label <instance> [<label word> ...]: a client's label joins its hosted
+  node's pretty-name, and the daemon replays it after a respawn, so it outlives
+  its worker; an LV2 instance answers -902 (#35, #46).
+- The protocol clients read the grouping reasons as constants written from
+  grouping.json, and each reason's retry from its declaration (#67, #69).
+- proc_confine is the one setter of no_new_privs, checked: a worker, the
+  descriptor scan or the probe child that cannot have it is not run. The
+  sabotage arm for a nice the daemon cannot apply goes red on any host, through
+  a daemon started under RLIMIT_NICE 0 (#68, #74).
+- tests: make test-preset-identity, a Surge XT preset the instance saved loads
+  back after a factory patch that renames its parameters (#27, #30).
+- release: a catch-up dispatch input builds only the cells a served version
+  lacks (#71).
+- plugin-hostd builds no plugin-hostd-full and no
+  python3-plugin-hostd-protocol: the metapackage is
+  Open-Mixer/plugin-hostd-full's own, released after the layers it installs
+  (#84), and the Python codec is plugin-hostd-protocol's package, at epoch 1.
+  tests/no_moved_packages.py holds both out.
+
 * Fri Nov 13 2026 Pau Aliagas <linuxnow@gmail.com> - 0.20.6-1
 - An LV2 uri that several bundles of the search path name is the bundle
   plugin-db's declared rule gives, newest-version: of the bundles that realise

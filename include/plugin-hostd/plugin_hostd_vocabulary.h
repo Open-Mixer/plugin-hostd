@@ -10,6 +10,10 @@
  * literal of its own.
  */
 
+/** @file
+ * @brief The vocabulary of plugin-hostd: every code and every word as a string define, with its sentence
+ * where it carries one. */
+
 /* PLUGIN_HOSTD_GROUPING_REASONS (data/grouping.json) */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_REFUSED "refused" ///< The pin's verdict is refused: the plugin is not run in a group, and an add of it answers -516.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_NO_PIN "no-pin" ///< The plugin has no pin and pin_mode is strict: an add of it answers -508.
@@ -27,14 +31,27 @@
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_GROUPING_OFF "grouping-off" ///< The setting grouping is off: the plugin would share a worker, and the plan was answered and not applied.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_HISTORY_UNAVAILABLE "history-unavailable" ///< The history cannot be read, its file is blocked or history_window_s is 0: the plan was made from the pins and the costs alone, as for a plugin with no history, and this plugin had nothing harder to say.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_PLAN_REFUSED "plan-refused" ///< A segment could not be formed: the plan was not applied and nothing moved. The word is followed by a colon and the number of the refusal, plan-refused:-501.
+/** The number of words of PLUGIN_HOSTD_GROUPING_REASONS. */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_COUNT 16u
+/** The words of PLUGIN_HOSTD_GROUPING_REASONS in their declared order, as a C initializer list. */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASONS_INIT { "refused", "no-pin", "no-verdict", "verdict-isolated", "format-world", "history-crashed", "history-xruns", "cost-over", "format-mixed", "group-full", "group-cost", "cost-assumed", "no-neighbour", "grouping-off", "history-unavailable", "plan-refused" }
+/** Expands `X(code, "word", NAME)` once per word of PLUGIN_HOSTD_GROUPING_REASONS, in order, the code being its place in the order. Why a member of a plan is not in a segment with its neighbours, or is in one on an assumption (the grouping-planner design note, The planner), in the order the planner's rules decide them. plan_get answers them as instance:reason; a plan_reason event carries the same. A controller reads these words and retypes none. */
+#define OMX_PLUGIN_HOSTD_GROUPING_REASONS(X) \
+    X(0u, "refused", REFUSED) X(1u, "no-pin", NO_PIN) X(2u, "no-verdict", NO_VERDICT) X(3u, "verdict-isolated", VERDICT_ISOLATED) \
+    X(4u, "format-world", FORMAT_WORLD) X(5u, "history-crashed", HISTORY_CRASHED) X(6u, "history-xruns", HISTORY_XRUNS) X(7u, "cost-over", COST_OVER) \
+    X(8u, "format-mixed", FORMAT_MIXED) X(9u, "group-full", GROUP_FULL) X(10u, "group-cost", GROUP_COST) X(11u, "cost-assumed", COST_ASSUMED) \
+    X(12u, "no-neighbour", NO_NEIGHBOUR) X(13u, "grouping-off", GROUPING_OFF) X(14u, "history-unavailable", HISTORY_UNAVAILABLE) X(15u, "plan-refused", PLAN_REFUSED)
 
 /* PLUGIN_HOSTD_GROUPING_REASON_GROUPS (data/grouping.json) */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_RETRY "retry" ///< A later plan may not give this reason again with the chain as it is: a pin may gain a verdict, what refused a segment may pass. A controller may ask again.
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_FINAL "final" ///< The reason holds while the chain, the pins, the history and the settings are as they are: asking again gives it again.
+/** The number of words of PLUGIN_HOSTD_GROUPING_REASON_GROUPS. */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_COUNT 2u
+/** The words of PLUGIN_HOSTD_GROUPING_REASON_GROUPS in their declared order, as a C initializer list. */
 #define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS_INIT { "retry", "final" }
+/** Expands `X(code, "word", NAME)` once per word of PLUGIN_HOSTD_GROUPING_REASON_GROUPS, in order, the code being its place in the order. The property every reason of PLUGIN_HOSTD_GROUPING_REASONS declares (its group): whether a later plan may answer otherwise with the chain unchanged. A client that asks again reads the reasons of the group retry from here and chooses none in code. */
+#define OMX_PLUGIN_HOSTD_GROUPING_REASON_GROUPS(X) \
+    X(0u, "retry", RETRY) X(1u, "final", FINAL)
 
 /* PLUGIN_HOSTD_HISTORY_KEYS (data/history.json) */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_FIRST "first" ///< UTC seconds of the first window.
@@ -52,7 +69,15 @@
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_QUARANTINES "quarantines" ///< Times the supervisor quarantined the plugin.
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST_CRASH "last_crash" ///< UTC seconds of the last crash the plugin was blamed for alone.
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_LAST_CRASH_GROUPED "last_crash_grouped" ///< UTC seconds of the last crash the plugin was blamed for in a group.
+/** The number of words of PLUGIN_HOSTD_HISTORY_KEYS. */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_COUNT 15u
+/** The words of PLUGIN_HOSTD_HISTORY_KEYS in their declared order, as a C initializer list. */
 #define OMX_PLUGIN_HOSTD_HISTORY_KEYS_INIT { "first", "last", "windows_solo", "windows_grouped", "cpu_p95_solo", "cpu_max_solo", "pss_mb_solo", "xrun_windows_solo", "xrun_windows_grouped", "crashes_solo", "crashes_grouped", "restarts_grouped", "quarantines", "last_crash", "last_crash_grouped" }
+/** Expands `X(code, "word", NAME)` once per word of PLUGIN_HOSTD_HISTORY_KEYS, in order, the code being its place in the order. The keys of a line of the running-history file, in the order the daemon writes them (the grouping-planner design note, The history record): history \<uri\> \<binary digest\> \<host class\> key=value ..., after the header line '# plugin-hostd history/1'. The value of every key is a whole number or a decimal, never negative. A line with a key outside these words is kept as it is by every save and never read. */
+#define OMX_PLUGIN_HOSTD_HISTORY_KEYS(X) \
+    X(0u, "first", FIRST) X(1u, "last", LAST) X(2u, "windows_solo", WINDOWS_SOLO) X(3u, "windows_grouped", WINDOWS_GROUPED) \
+    X(4u, "cpu_p95_solo", CPU_P95_SOLO) X(5u, "cpu_max_solo", CPU_MAX_SOLO) X(6u, "pss_mb_solo", PSS_MB_SOLO) X(7u, "xrun_windows_solo", XRUN_WINDOWS_SOLO) \
+    X(8u, "xrun_windows_grouped", XRUN_WINDOWS_GROUPED) X(9u, "crashes_solo", CRASHES_SOLO) X(10u, "crashes_grouped", CRASHES_GROUPED) X(11u, "restarts_grouped", RESTARTS_GROUPED) \
+    X(12u, "quarantines", QUARANTINES) X(13u, "last_crash", LAST_CRASH) X(14u, "last_crash_grouped", LAST_CRASH_GROUPED)
 
 #endif /* PLUGIN_HOSTD_VOCABULARY_H */

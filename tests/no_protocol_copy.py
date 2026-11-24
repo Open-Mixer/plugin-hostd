@@ -13,6 +13,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from tree_files import tracked  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # the paths that moved to plugin-hostd-protocol
@@ -41,16 +44,6 @@ MARKS = [
 SCANNED = ("src", "include", "data", "protocol", "tools", "tests", "fuzz")
 SUFFIXES = (".c", ".h", ".json", ".py", ".in")
 SKIP = {os.path.join("tests", "no_protocol_copy.py")}
-
-
-def tracked(tree):
-    p = subprocess.run(["git", "-C", tree, "ls-files"], capture_output=True, text=True)
-    if p.returncode == 0 and p.stdout:
-        return p.stdout.splitlines()
-    out = []
-    for base, _, files in os.walk(tree):
-        out += [os.path.relpath(os.path.join(base, f), tree) for f in files]
-    return out
 
 
 def copies(tree):
