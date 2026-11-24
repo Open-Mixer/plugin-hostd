@@ -37,81 +37,183 @@
  * package pin of verdict=refused, which always holds. One line format for all: <uri> <path>=<sha256>[,...]
  * <scheme>:<sha256> [verdict=<word>], the verb pin_set in front or not. */
 
-/* start: the *.pins files of `dir` (empty is none) in byte order of their names, of two pins of one uri a refusal
- * winning, else the later; then the store (empty is the XDG default), then `file` (empty is none), which wins over the
- * store. -1 with the line named on stderr when `file` has a line outside the grammar; a bad line of the store is kept
- * verbatim by every save, announced on stderr, and its uri is not learned again; a store that can't be read blocks
- * learning and saving; a bad line or an unreadable file of `dir` is announced and skipped, and a missing `dir` holds
- * no pins */
+/** @brief reads the pins at start
+ *
+ * First the *.pins files of dir in byte order of their names, of two pins of one uri a refusal winning, else the
+ * later; then the store; then file, which wins over the store. A bad line of the store is kept verbatim by every
+ * save, announced on stderr, and its uri is not learned again; a store that cannot be read blocks learning and
+ * saving; a bad line or an unreadable file of dir is announced and skipped, and a missing dir holds no pins.
+ *
+ * @param store the pin store; "" is the XDG default.
+ * @param file the pin file; "" is none.
+ * @param dir the package pins' directory; "" is none.
+ * @return 0; -1 with the line named on stderr when file has a line outside the grammar.
+ */
 int pins_init(const char *store, const char *file, const char *dir);
 
-/* pin_reload: the pins read again from the places pins_init read, put in at once; a controller's pin_set pins are kept.
- * SUCCESS, or -1 with the earlier pins left as they are (a pin_file with a line outside the grammar, or gone) */
+/** @brief pin_reload: the pins read again from the places pins_init read, put in at once
+ *
+ * A controller's pin_set pins are kept.
+ *
+ * @return SUCCESS, or -1 with the earlier pins left as they are (a pin_file with a line outside the grammar, or
+ *         gone).
+ */
 int pins_reload(void);
-/* whether the pin_file or a pins_dir file is not the one the pins were last read from: inode, size or mtime */
+/** @brief whether the pin_file or a pins_dir file is not the one the pins were last read from: inode, size or mtime
+ *
+ * @return 1 when one changed, 0 otherwise or when neither is set.
+ */
 int pins_changed(void);
-/* the optional words of a pin line after its layout, each once and in either order: verdict=<word>, pool=<word>. Their
- * values (NULL for a word that is not there), and SUCCESS, or ERR_INVALID_OPERATION for another word or a repeated one */
+/** @brief reads the optional words of a pin line after its layout: verdict=\<word\> and pool=\<word\>, each once, in either
+ * order
+ *
+ * @param word the words.
+ * @param n how many words.
+ * @param[out] verdict the verdict's value, NULL when it is not there.
+ * @param[out] pool the pool's value, NULL when it is not there.
+ * @return SUCCESS, or ERR_INVALID_OPERATION for another word or a repeated one.
+ */
 int pins_words(char **word, int n, const char **verdict, const char **pool);
 
-/* pin_set: SUCCESS, or ERR_INVALID_OPERATION for a word outside the grammar, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when the package pin
- * of the uri carries verdict=refused; it replaces an earlier pin of the uri. `verdict` is NULL, or one of
- * PHD_PIN_VERDICTS; `pool` likewise, one of PHD_PIN_POOLS */
+/** @brief pin_set: the host's pin of a uri, replacing an earlier one
+ *
+ * @param uri the plugin.
+ * @param files the files and their digests, \<path\>=\<sha256\>[,...].
+ * @param layout the layout pin, \<scheme\>:\<sha256\>.
+ * @param verdict NULL, or one of PHD_PIN_VERDICTS.
+ * @param pool NULL, or one of PHD_PIN_POOLS.
+ * @return SUCCESS; ERR_INVALID_OPERATION for a word outside the grammar; OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when
+ *         the package pin of the uri carries verdict=refused.
+ */
 int pins_set(const char *uri, const char *files, const char *layout, const char *verdict, const char *pool);
 
-/* pin_clear of the host's pin of one uri, or of every one for "all"; a package pin holds again. SUCCESS */
+/** @brief pin_clear: removes the host's pin of one uri, or of every one; a package pin holds again
+ *
+ * @param uri the plugin, or "all".
+ * @return SUCCESS.
+ */
 int pins_clear(const char *uri);
 
-/* whether the uri has a pin, and whether it is one a verdict of in-process qualified */
+/** @brief whether a uri has a pin
+ *
+ * @param uri the plugin.
+ * @return 1 when it has one, 0 otherwise.
+ */
 int pins_known(const char *uri);
-/* the SHA-256 of the first file the pin of the uri holds, as the pin holds it: the binary the running history is kept
- * under. -1 when the uri has no pin */
+/** @brief the SHA-256 of the first file the pin of a uri holds, as the pin holds it: the binary the running history is
+ * kept under
+ *
+ * @param uri the plugin.
+ * @param[out] hex the digest in hex, NUL-terminated.
+ * @return 0; -1 when the uri has no pin.
+ */
 int pins_digest(const char *uri, char hex[OMX_PLUGIN_DB_PIN_SHA256_HEX_LEN + 1]);
+/** @brief whether a uri's pin carries the verdict in-process, qualified to run in a shared worker
+ *
+ * @param uri the plugin.
+ * @return 1 when it does, 0 otherwise or with no pin.
+ */
 int pins_in_process(const char *uri);
-/* whether the pin of the uri grants it the CLAP thread pool: it carries pool=cores and is not a refusal (the pool is the
- * plugin's qualification's to give, never a global switch) */
+/** @brief whether the pin of a uri grants it the CLAP thread pool: it carries pool=cores and is not a refusal
+ *
+ * The pool is the plugin's qualification's to give, never a global switch.
+ *
+ * @param uri the plugin.
+ * @return 1 when it does, 0 otherwise or with no pin.
+ */
 int pins_pool_cores(const char *uri);
-/* the verdict of the uri's pin as the pin line spells it (one of PHD_PIN_VERDICTS), "" for a pin without one, NULL when
- * there is no pin; valid until the next pin verb */
+/** @brief the verdict of a uri's pin as the pin line spells it, one of PHD_PIN_VERDICTS
+ *
+ * @param uri the plugin.
+ * @return the verdict, "" for a pin without one, NULL when there is no pin; valid until the next pin verb.
+ */
 const char *pins_verdict(const char *uri);
 
-/* first use: the files the format loads for the uri, hashed, recorded with an unknown layout and written to the store.
- * Only files that resolve inside a directory of `declared` (the format's declared search path, ':'-separated, a leading
- * ~ the home) are learned. SUCCESS; OMX_REPLY_HOST_PIN_ABSENT_RESP when a file lies outside it, or `declared` is NULL
- * (nothing is recorded, the uri stays unpinned); OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP when they cannot be
- * collected (nothing is recorded) */
+/** @brief first use: the files the format loads for a uri, hashed, recorded with an unknown layout and written to the
+ * store
+ *
+ * Only files that resolve inside a directory of declared are learned.
+ *
+ * @param format the plugin's format.
+ * @param uri the plugin.
+ * @param search the search path the files are found in.
+ * @param declared the format's declared search path, ':'-separated, a leading ~ the home.
+ * @return SUCCESS; OMX_REPLY_HOST_PIN_ABSENT_RESP when a file lies outside declared, or declared is NULL (nothing is
+ *         recorded, the uri stays unpinned); OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP when they cannot be
+ *         collected (nothing is recorded).
+ */
 int pins_learn(const format_t *format, const char *uri, const char *search, const char *declared);
 
-/* pin_accept: the same collection for a uri that has a pin, which it replaces; the layout is unknown again and the
- * verdict gone; over a package pin it is the host's that then holds. OMX_REPLY_HOST_PIN_ABSENT_RESP when there is no pin to replace,
- * OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP when the package pin carries verdict=refused */
+/** @brief pin_accept: the same collection as pins_learn for a uri that has a pin, which it replaces
+ *
+ * The layout is unknown again and the verdict gone; over a package pin it is the host's that then holds. A pin of
+ * verdict=refused is replaced only while pins_accepting is on: the user's choice, kept, and the plugin then runs
+ * alone in a worker of its own.
+ *
+ * @param format the plugin's format.
+ * @param uri the plugin.
+ * @param search the search path the files are found in.
+ * @return SUCCESS, or what pins_learn answers when the files cannot be collected; OMX_REPLY_HOST_PIN_ABSENT_RESP when
+ *         there is no pin to replace; OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP for a refused pin while pins_accepting
+ *         is off; ERR_MEMORY_ALLOCATION when the choice cannot be kept.
+ */
 int pins_accept(const format_t *format, const char *uri, const char *search);
 
-/* the layout a worker found after init, for a pin that has none; false for a layout that is not omx-layout/1 */
+/** @brief records the layout a worker found after init, for a pin that has none
+ *
+ * @param uri the plugin.
+ * @param layout the layout pin, \<scheme\>:\<sha256\>.
+ * @return SUCCESS; ERR_INVALID_OPERATION with no pin or for a layout that is not omx-layout/1; ERR_MEMORY_ALLOCATION.
+ */
 int pins_set_layout(const char *uri, const char *layout);
 
-/* The pin and the binary of an add, before any worker sees it: the pin of the uri, the files the format says the host
- * loads for it (format->pin_collect, searched in `search`) all held by the pin, then every file the pin names hashed
- * over one open descriptor. SUCCESS, with *layout the
- * layout pin "<scheme>:<sha256>" (the table's, valid until the next pin verb) or NULL while the pin's layout is
- * unknown, or OMX_REPLY_HOST_PIN_ABSENT_RESP or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP, or OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP for the pinned files under a
- * verdict of refused. */
+/** @brief the pin and the binary of an add, before any worker sees it
+ *
+ * The uri's pin must hold every file the format says the host loads for it (format->pin_collect, searched in search);
+ * then every file the pin names is hashed over one open descriptor.
+ *
+ * @param format the plugin's format.
+ * @param uri the plugin.
+ * @param search the search path the files are found in.
+ * @param[out] layout the layout pin "\<scheme\>:\<sha256\>" (the table's, valid until the next pin verb), or NULL while
+ *             the pin's layout is unknown.
+ * @return SUCCESS; OMX_REPLY_HOST_PIN_ABSENT_RESP; OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP;
+ *         OMX_REPLY_PLUGIN_HOSTD_PIN_REFUSED_RESP for the pinned files under a verdict of refused.
+ */
 int pins_check(const format_t *format, const char *uri, const char *search, const char **layout);
 
-/* After the worker `worker` answered the add of `uri` that the last pins_check admitted: every file that check hashed is
- * still, at its path, the file it hashed (device, inode, size and change time as the hashed descriptor had them: a file
- * renamed, replaced or written since changes one), and the worker maps `binary` (the file the plugin's code is loaded
- * from, NULL for none) as that very inode. SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP: the worker
- * loaded something the pin did not check. */
+/** @brief checks, after a worker answered an add the last pins_check admitted, that it loaded what the pin checked
+ *
+ * Every file that check hashed is still, at its path, the file it hashed (device, inode, size and change time as the
+ * hashed descriptor had them: a file renamed, replaced or written since changes one), and the worker maps binary as
+ * that very inode.
+ *
+ * @param uri the plugin.
+ * @param worker the worker that answered the add.
+ * @param binary the file the plugin's code is loaded from; NULL for none.
+ * @return SUCCESS, or OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP: the worker loaded something the pin did not
+ *         check.
+ */
 int pins_loaded(const char *uri, pid_t worker, const char *binary);
 
-/* a refusal of a pin, with the reason on stderr: OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP */
+/** @brief a refusal of a pin, with the reason on stderr
+ *
+ * @param uri the plugin.
+ * @param path the file refused.
+ * @param why the reason.
+ * @return OMX_REPLY_PLUGIN_HOSTD_PIN_BINARY_MISMATCH_RESP.
+ */
 int pin_refuse(const char *uri, const char *path, const char *why);
 
-/* whether the user's choice (pin_accept of a plugin whose pins.d pin carries verdict=refused) counts: under pin_mode
- * first-use only, set before pins_init */
+/** @brief whether the user's choice (pin_accept of a plugin whose pin carries verdict=refused) counts
+ *
+ * On under pin_mode first-use only; set before pins_init.
+ *
+ * @param on 1 when it counts, 0 otherwise.
+ */
 void pins_accepting(int on);
 
+/** @brief frees every pin and what pins_init read */
 void pins_finish(void);
 
 #endif
