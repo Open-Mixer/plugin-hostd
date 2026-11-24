@@ -17,7 +17,9 @@ arms 1 to 8.
    word and a catalog text;
 8. MACHINE_FAMILIES holds exactly the families the probe writes as machine.class.family (intel, amd, arm, unknown), the
    probe writes the domain's word (a scratch copy with every family renamed gives the renamed word), and a domain short of
-   a family is refused by item at start-up.
+   a family is refused by item at start-up; the generated probe-output schema's machine.class.family is an enum of the
+   domain's MACHINE_FAMILIES words, rendered at build time (the renamed copy gives the renamed words), with an x-from
+   naming the item (plugin-hostd#172).
 
 9. the call-level read (machine_words_open, sorting pass V7): the family ids and the band counts of the call are the golden
    ones frozen from the hand copy (intel 0, amd 1, arm 2, unknown 3; counts 6, 5, 4), they are the codes of the domain's
@@ -58,6 +60,7 @@ GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protoco
 WORDS_OPEN = "machine_words_open"
 BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
 FAMILIES = ["intel", "amd", "arm", "unknown"]
+FAMILIES_REF = "https://openmixer.org/contract/machine#/components/schemas/MACHINE_FAMILIES"
 # the probe domain is plugin-hostd-protocol's: where its contract package installs it, PROTOCOL_CONTRACT_DIR for a checkout's
 PROBE_SOURCE = os.environ.get("PROTOCOL_CONTRACT_DIR") or subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"],
                                                                          capture_output=True, text=True).stdout.strip() or "/usr/share/omx-contract/contract.d"
@@ -414,6 +417,17 @@ def arm8(doc, tmp):
         fail("arm 8: the probe does not run over the domain with renamed families: rc %d %s" % (p.returncode, p.stderr[-200:]))
     elif not out["machine"]["class"]["family"].endswith("-x"):
         fail("arm 8: machine.class.family is %r, not the renamed domain's word" % out["machine"]["class"]["family"])
+    for name, change, want in (("families-gen", None, FAMILIES),
+                               ("families-renamed-gen", renamed_families, [w + "-x" for w in FAMILIES])):
+        g = generate(fixture(tmp, name, change))
+        if g.returncode != 0:
+            fail("arm 8: the generator does not run over %s: %s" % (name, g.stderr[-200:]))
+            continue
+        family = json.loads(g.stdout)["properties"]["machine"]["properties"]["class"]["properties"]["family"]
+        if family.get("enum") != want:
+            fail("arm 8: the generated schema's family is %s, not the %s domain's words %s" % (family, name, want))
+        if family.get("x-from") != [{"$ref": FAMILIES_REF}]:
+            fail("arm 8: the generated schema's family names no item: x-from %r" % family.get("x-from"))
     p, out = run_probe(fixture(tmp, "families-short", short), tmp)
     if not (p.returncode == 78 and out is None and "MACHINE_FAMILIES" in p.stderr and "machine" in p.stderr):
         fail("arm 8: a family short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))

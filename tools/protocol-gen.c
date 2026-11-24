@@ -516,6 +516,7 @@ typedef struct
 
 /* the items of the machine domain (plugin-hostd's own) the probe output shares: the token is the item's own name */
 static const char *const MACHINE_ITEMS[] = {
+    "MACHINE_FAMILIES",
     "MACHINE_CORE_BANDS",
     "MACHINE_CLOCK_BANDS",
 };
@@ -590,6 +591,7 @@ static int probe_schema(const char *path)
         PROBE_LIST("PHD_PROBE_SCHED_POLICIES", PROBE_SCHED_POLICIES),
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
         { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 }, { NULL, NULL, 0 },
+        { NULL, NULL, 0 },
     };
     /* the six lists of the headers, then one slot for each item of the domains below: a miscounted slot is a build error */
     _Static_assert(sizeof(LISTS) / sizeof(*LISTS) ==

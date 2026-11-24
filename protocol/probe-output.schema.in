@@ -233,7 +233,12 @@
               "type": "string"
             },
             "family": {
-              "type": "string"
+              "enum": [@MACHINE_FAMILIES@],
+              "x-from": [
+                {
+                  "$ref": "https://openmixer.org/contract/machine#/components/schemas/MACHINE_FAMILIES"
+                }
+              ]
             },
             "coreBand": {
               "enum": [@MACHINE_CORE_BANDS@]
