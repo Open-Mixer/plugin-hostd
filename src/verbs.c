@@ -328,12 +328,14 @@ static char *handle(char *line, char **tok, int ntok)
 /* ---------------------------------------------------------------- the controller's answers, in order */
 
 /* An answer that waits: the reply of a verb whose writes have not landed (group), or a command that came while one
- * waited, run in its turn (line), or replies refused because too many waited (refusals). A controller reads its answers
- * in the order it sent the commands, so nothing is answered past one that waits. */
+ * waited, run in its turn (line). A controller reads its answers in the order it sent the commands, so nothing is
+ * answered past one that waits. The commands of its controller refused after it, because too many waited or there was
+ * no memory to hold them, are counted on it (refused) and answered right after its own answer: a refusal needs no
+ * memory. */
 typedef struct out
 {
     struct out *next;
-    int fd, group, refusals, reads;
+    int fd, group, refused, reads;
     char *text, *tag, *line;
     size_t tag_len, size;
 } out_t;
@@ -364,6 +366,31 @@ static void out_free(out_t *o)
     free(o->tag);
     free(o->line);
     free(o);
+}
+
+/* `count` refusals to controller `fd`, mod-host's ERR_MEMORY_ALLOCATION each, written on the stack */
+static void send_refusals(int fd, int count)
+{
+    char refusal[32];
+
+    snprintf(refusal, sizeof(refusal), "resp %d", ERR_MEMORY_ALLOCATION);
+    while (count-- > 0)
+        socket_send(fd, refusal, strlen(refusal) + 1);
+}
+
+/* a command of controller `fd` refused while answers wait: counted on that controller's last waiting answer, so it is
+ * answered in its place; a controller with none waiting has every earlier answer already, and is answered now */
+static void out_refuse(int fd)
+{
+    out_t *o, *last = NULL;
+
+    for (o = g_out; o; o = o->next)
+        if (o->fd == fd)
+            last = o;
+    if (last)
+        last->refused++;
+    else
+        send_refusals(fd, 1);
 }
 
 static void out_push_front(out_t *o)
@@ -524,7 +551,6 @@ static out_t *run(int fd, const char *data, size_t size)
 
 void verbs_flush(void)
 {
-    char refusal[32];
     out_t *o;
     int err;
 
@@ -533,23 +559,23 @@ void verbs_flush(void)
         if (o->line)
         {
             out_t *answer;
+            int fd, refused;
 
             if (o->reads && writer_busy())
                 return;
             o = out_pop();
-            answer = run(o->fd, o->line, o->size);
+            fd = o->fd;
+            refused = o->refused;
+            answer = run(fd, o->line, o->size);
             out_free(o);
+            /* the refusals after this command follow its answer: now, or after the answer that waits */
             if (answer)
+            {
+                answer->refused += refused;
                 out_push_front(answer);
-            continue;
-        }
-        if (o->refusals)
-        {
-            o = out_pop();
-            snprintf(refusal, sizeof(refusal), "resp %d", ERR_MEMORY_ALLOCATION);
-            while (o->refusals-- > 0)
-                socket_send(o->fd, refusal, strlen(refusal) + 1);
-            out_free(o);
+            }
+            else
+                send_refusals(fd, refused);
             continue;
         }
         if (!writer_group(o->group, &err))
@@ -562,6 +588,7 @@ void verbs_flush(void)
             o->text = sup_resp(ERR_INVALID_OPERATION);
         }
         reply(o->fd, o->text, o->tag, o->tag_len);
+        send_refusals(o->fd, o->refused);
         o->text = NULL;
         out_free(o);
     }
@@ -593,15 +620,8 @@ void verbs_receive(msg_t *msg)
     {
         if (g_nout >= OUTBOX_MAX || !(o = out_command(msg->sender_id, msg->data, (size_t)msg->data_size)))
         {
-            /* too many wait: refused in its place, in order, counted on one entry so the queue stays bounded */
-            if (g_out_tail->refusals)
-                g_out_tail->refusals++;
-            else if ((o = calloc(1, sizeof(*o))) != NULL)
-            {
-                o->fd = msg->sender_id;
-                o->refusals = 1;
-                out_push_back(o);
-            }
+            /* too many wait, or no memory to wait: refused in its place, in order, with no memory asked for */
+            out_refuse(msg->sender_id);
             return;
         }
         out_push_back(o);
