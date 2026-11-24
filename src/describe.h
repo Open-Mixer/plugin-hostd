@@ -42,27 +42,64 @@ void describe_scopes(const scan_words *words);
  */
 void describe_owners(const char *dirs);
 
-/* the format of a target, clap:<path>#<id> or lv2:<uri>: "clap", "lv2", or NULL */
+/** @brief the format of a target, clap:\<path\>#\<id\> or lv2:\<uri\>
+ *
+ * @param target the target, NUL-terminated.
+ * @return "clap", "lv2", or NULL.
+ */
 const char *describe_format(const char *target);
 
-/* the plugin id a target names: the CLAP id after its last '#', or the LV2 URI; a pointer into target, or NULL */
+/** @brief the plugin id a target names: the CLAP id after its last '#', or the LV2 URI
+ *
+ * @param target the target, NUL-terminated.
+ * @return a pointer into target, or NULL.
+ */
 const char *describe_id(const char *target);
 
-/* the scanned descriptor of a dump: the format table's text, the dump's text, the target asked for and the contract
- * directory's major (<contract dir>/<major>, NULL for none) whose role tables a role-to-meaning row reads; 0 with the
- * descriptor in out, -1 refused (a table it cannot read, a dump it refuses, a role table it refuses) with why */
+/** @brief the scanned descriptor of a field dump
+ *
+ * @param table_text the format table's text.
+ * @param dump_text the dump's text.
+ * @param target the target asked for, clap:\<path\>#\<id\> or lv2:\<uri\>.
+ * @param roles_dir the contract directory's major, \<contract dir\>/\<major\>, whose role tables a role-to-meaning row
+ *        reads; NULL for none.
+ * @param[out] out the descriptor.
+ * @param[out] why the reason of a refusal, NUL-terminated.
+ * @param why_size the size of why, in bytes.
+ * @return 0 with the descriptor in out; -1 refused (a table it cannot read, a dump it refuses, a role table it
+ *         refuses) with why.
+ */
 int describe_dump(const char *table_text, const char *dump_text, const char *target, const char *roles_dir, sb_t *out,
                   char *why, size_t why_size);
 
-/* the panel document of a CLAP target (docs/panel.md): the panel object omx-clap-scan --json prints for the target's
- * id, its bytes as the scan wrote them, null when the plugin serves none; 0 with the document in out, -1 refused (no
- * JSON, no such plugin, a plugin the scan states no panel for) with why. An LV2 target's panel is null, scan_json
- * unread. */
+/** @brief the panel document of a CLAP target (docs/panel.md)
+ *
+ * The panel object omx-clap-scan --json prints for the target's id, its bytes as the scan wrote them, null when the
+ * plugin serves none. An LV2 target's panel is null, scan_json unread.
+ *
+ * @param scan_json what omx-clap-scan --json printed.
+ * @param target the target, clap:\<path\>#\<id\> or lv2:\<uri\>.
+ * @param[out] out the document.
+ * @param[out] why the reason of a refusal, NUL-terminated.
+ * @param why_size the size of why, in bytes.
+ * @return 0 with the document in out; -1 refused (no JSON, no such plugin, a plugin the scan states no panel for)
+ *         with why.
+ */
 int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size);
 
-/* the pages of the target's descriptor (docs/formats.md#the-pages-describe-pages-writes): the same table, dump and
- * contract directory as describe_dump, every control of exactly one page of its group's run, in declared order, cut
- * at PAGE_SLOTS (src/pages.h); 0 with the pages in out, -1 refused as describe_dump refuses, with why. */
+/** @brief the pages of a target's descriptor (docs/formats.md\#the-pages-describe-pages-writes)
+ *
+ * Every control on exactly one page of its group's run, in declared order, cut at PAGE_SLOTS (src/pages.h).
+ *
+ * @param table_text the format table's text, as describe_dump reads it.
+ * @param dump_text the dump's text.
+ * @param target the target asked for.
+ * @param roles_dir the contract directory's major, as describe_dump reads it; NULL for none.
+ * @param[out] out the pages.
+ * @param[out] why the reason of a refusal, NUL-terminated.
+ * @param why_size the size of why, in bytes.
+ * @return 0 with the pages in out; -1 refused as describe_dump refuses, with why.
+ */
 int describe_pages(const char *table_text, const char *dump_text, const char *target, const char *roles_dir,
                    sb_t *out, char *why, size_t why_size);
 

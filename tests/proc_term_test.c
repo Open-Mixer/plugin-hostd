@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -81,6 +82,64 @@ static pid_t spawn_mute(int closes, int *fd)
     close(pair[1]);
     *fd = pair[0];
     return pid;
+}
+
+static volatile sig_atomic_t g_ticks;
+
+static void on_tick(int sig)
+{
+    (void)sig;
+    g_ticks++;
+}
+
+/* A handled signal is no timeout (plugin-hostd#146 4): a worker that answers after 300 ms while a handler without
+ * SA_RESTART fires every 20 ms gets its answer read, is not ended and is not reported unanswered. */
+static void a_handled_signal_is_no_timeout(void)
+{
+    struct sigaction sa, old_sa;
+    struct itimerval every = { { 0, 20000 }, { 0, 20000 } }, off = { { 0, 0 }, { 0, 0 } };
+    conf_t conf;
+    char *reply = NULL;
+    int pair[2], result, status = 0;
+    pid_t pid;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair) != 0)
+    {
+        check(0, "a socket pair for the slow worker");
+        return;
+    }
+    pid = fork();
+    if (pid == 0)
+    {
+        char line[64];
+
+        close(pair[0]);
+        if (recv(pair[1], line, sizeof(line), 0) <= 0)
+            _exit(1);
+        usleep(300000);
+        send(pair[1], "resp 0", 7, MSG_NOSIGNAL);
+        pause();
+        _exit(0);
+    }
+    close(pair[1]);
+    conf_defaults(&conf);
+    conf.rpc_timeout_ms = 2000;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = on_tick;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGALRM, &sa, &old_sa);
+    g_ticks = 0;
+    setitimer(ITIMER_REAL, &every, NULL);
+    result = proc_rpc(&conf, pid, pair[0], "ping", &reply);
+    setitimer(ITIMER_REAL, &off, NULL);
+    sigaction(SIGALRM, &old_sa, NULL);
+    check(g_ticks > 0, "positive control: the handler ran during the call");
+    check(result == RPC_OK && reply && !strcmp(reply, "resp 0"), "a call a signal cut answers the worker's reply");
+    free(reply);
+    kill(pid, SIGKILL);
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+        ;
+    close(pair[0]);
 }
 
 /* proc_rpc to a mute worker: the wait status of the worker after, and how long the call took */
@@ -179,6 +238,7 @@ int main(void)
 
     many_stopped();
     term_twice();
+    a_handled_signal_is_no_timeout();
 
     if (failures)
         printf("proc_term: %d failed\n", failures);

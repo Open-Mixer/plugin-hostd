@@ -942,6 +942,23 @@ test-install-schemas: all
 check-doxygen:
 	sh tools/doxygen_gate.sh
 
+# The published reference: Open-Mixer/.github's docs-publish.yml runs this with DOCS_OUT, an empty absolute directory,
+# then renders the Markdown and the man pages and, at a release tag, publishes the tree under
+# https://www.openmixer.org/reference/plugin-hostd/<version>/. The base-free doc check runs first (check-doxygen: every
+# documented symbol of src/ is documented or in the shrink-only baseline), then only what the tree generates or keeps:
+# doxygen's html (api/), the man pages, README, BUILDING, COPYING and docs/.
+.PHONY: docs-site
+docs-site: check-doxygen
+	@case "$(DOCS_OUT)" in /*) ;; *) echo "docs-site: FAIL - DOCS_OUT '$(DOCS_OUT)' is not an absolute directory: name the directory the reference is written to" >&2; exit 1;; esac
+	rm -rf build/doxygen && mkdir -p build/doxygen
+	DOXYGEN_LOG=build/doxygen/warnings.log DOXYGEN_OUT=build/doxygen doxygen tools/Doxyfile >/dev/null
+	@test -f build/doxygen/html/index.html || { echo "docs-site: FAIL - doxygen wrote no build/doxygen/html/index.html" >&2; exit 1; }
+	mkdir -p $(DOCS_OUT)/api $(DOCS_OUT)/doc $(DOCS_OUT)/docs
+	cp -a build/doxygen/html/. $(DOCS_OUT)/api/
+	cp README.md BUILDING.md COPYING $(DOCS_OUT)/
+	cp doc/*.1 $(DOCS_OUT)/doc/
+	cp -a docs/. $(DOCS_OUT)/docs/
+
 # ruff's own ratchet on the Python plugin-hostd-tests ships (tests/lib): D and the default rules (ruff.toml), findings
 # carried by `# noqa` comments, so a new one is a plain ruff failure and fixing one deletes its noqa. Needs ruff. The
 # Python client is plugin-hostd-protocol's (python3-plugin-hostd-client, its issue 45) and ratcheted there.

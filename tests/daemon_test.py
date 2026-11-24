@@ -1018,6 +1018,9 @@ def quarantined_instance_is_placed_own_until_cleared():
         d.expect("add fake:m30 30 pool:p", "resp 30")
         wait_for(lambda: d.holder(30)[1]["place"].startswith("pool:p"), "instance 30 back in the pool")
         d.expect("quarantine_clear 999", "resp -3")
+        # the instance is a whole number, never what atoi makes of a word (plugin-hostd#146 1)
+        d.expect("quarantine_clear 30x", "resp -902")
+        d.expect("quarantine_clear abc", "resp -902")
         d.expect("quarantine_clear all", "resp 0")
     finally:
         d.close()
@@ -1253,6 +1256,8 @@ def policy_and_pool_config():
         d.expect("policy_set lv2 pool:!", resp("PLACEMENT_INVALID"))
         d.expect("policy_set midi own", "resp -902")
         d.expect("pool_config y 0", "resp -902")
+        d.expect("pool_config x 2x", "resp -902")
+        d.expect("pool_config x abc", "resp -902")
     finally:
         d.close()
 
@@ -1552,6 +1557,9 @@ def worker_env_reaches_new_and_running_workers():
         check(("keeps nice %d, the nice %d was not applied" % (have, have - 1) in d.log()) == (applied(have - 1, have) != have - 1),
               "a nice below the worker's is logged when it is not applied: %r" % d.log())
         d.expect("worker_env lv2 abc -", "resp -902")
+        # a nice is a whole number, never 0 for a word (plugin-hostd#146 2)
+        d.expect("worker_env lv2 - abc", "resp -902")
+        d.expect("worker_env lv2 - 5x", "resp -902")
         d.expect("worker_env lv2 - 99", "resp -902")
         d.expect("worker_env lv2 - - 50", "resp -902")   # no fifth word: a priority is not offered
         d.expect("worker_env midi - -", "resp -902")

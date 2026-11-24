@@ -19,26 +19,48 @@
 
 #include <limits.h>
 
+/** @brief where the cgroup v2 hierarchy is mounted: the root probe_cgroup_open makes the child's cgroup under */
 #define PROBE_CGROUP_ROOT "/sys/fs/cgroup"
 
+/** @brief the cgroup a probed child runs in, with its memory limit, and where the runner was before it */
 typedef struct PROBE_CGROUP_T {
-    char dir[PATH_MAX];        /* the child's cgroup; empty when none */
-    char own[PATH_MAX];        /* the cgroup the runner was in, when it moved itself to enable the controller */
-    char self_leaf[PATH_MAX];  /* where the runner moved itself, under own */
+    char dir[PATH_MAX];        /**< the child's cgroup; empty when none */
+    char own[PATH_MAX];        /**< the cgroup the runner was in, when it moved itself to enable the controller */
+    char self_leaf[PATH_MAX];  /**< where the runner moved itself, under own */
 } probe_cgroup_t;
 
-/* Make the cgroup under root (PROBE_CGROUP_ROOT, or a test's tree) with this memory.max. 0 and *cg ready; else *cg is
- * empty and the answer is PROBE_CGROUP_ABSENT or PROBE_CGROUP_NOT_DELEGATED. */
+/** @brief the answers of probe_cgroup_open */
 enum { PROBE_CGROUP_OK, PROBE_CGROUP_ABSENT, PROBE_CGROUP_NOT_DELEGATED };
+
+/** @brief makes the child's cgroup with a memory limit
+ *
+ * @param[out] cg the cgroup, ready on PROBE_CGROUP_OK, empty otherwise.
+ * @param root the cgroup tree it is made under: PROBE_CGROUP_ROOT, or a test's tree.
+ * @param max_bytes its memory.max, in bytes.
+ * @return PROBE_CGROUP_OK (0), PROBE_CGROUP_ABSENT or PROBE_CGROUP_NOT_DELEGATED.
+ */
 int probe_cgroup_open(probe_cgroup_t *cg, const char *root, long long max_bytes);
 
-/* Move the calling process into the cgroup, before its exec: 0, or -1. */
+/** @brief moves the calling process into the cgroup, before its exec
+ *
+ * @param cg the cgroup probe_cgroup_open made.
+ * @return 0, or -1.
+ */
 int probe_cgroup_enter(const probe_cgroup_t *cg);
 
-/* How many processes the kernel killed at the limit: memory.events' oom_kill. -1 when it cannot be read. */
+/** @brief how many processes the kernel killed at the limit: memory.events' oom_kill
+ *
+ * @param cg the cgroup.
+ * @return the count; -1 when it cannot be read.
+ */
 long long probe_cgroup_oom_kills(const probe_cgroup_t *cg);
 
-/* Kill what is left in it, remove it, and put the runner back where it was. Safe on an empty *cg and a second time. */
+/** @brief kills what is left in the cgroup, removes it and puts the runner back where it was
+ *
+ * Safe on an empty *cg and a second time.
+ *
+ * @param[in,out] cg the cgroup, empty after.
+ */
 void probe_cgroup_close(probe_cgroup_t *cg);
 
 #endif

@@ -521,10 +521,13 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
     for (;;)
     {
         struct pollfd pfd = { fd, POLLIN, 0 };
-        int left = conf->rpc_timeout_ms - (int)(proc_now_ms() - start);
+        int left = conf->rpc_timeout_ms - (int)(proc_now_ms() - start), ready = 0;
         ssize_t n;
 
-        if (left <= 0 || poll(&pfd, 1, left) <= 0)
+        /* a handled signal cuts the wait short: it is no timeout, the wait goes on for what is left of it */
+        if (left > 0 && (ready = poll(&pfd, 1, left)) < 0 && errno == EINTR)
+            continue;
+        if (left <= 0 || ready <= 0)
         {
             free(buffer);
             say_unanswered(pid, fd, msg, proc_now_ms() - start);
@@ -546,6 +549,8 @@ int proc_rpc(const conf_t *conf, pid_t pid, int fd, const char *msg, char **repl
             cap *= 2;
         }
         n = recv(fd, buffer + used, cap - used, 0);
+        if (n < 0 && errno == EINTR)
+            continue;
         if (n <= 0)
         {
             free(buffer);
