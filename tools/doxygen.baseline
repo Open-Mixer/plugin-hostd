@@ -1,23 +1,3 @@
-src/conf.h: warning: Compound CONF_T is not documented.
-src/conf.h: warning: Member CONF_SIZE_path (macro definition) of file conf.h is not documented.
-src/conf.h: warning: Member CONF_SIZE_pathlist (macro definition) of file conf.h is not documented.
-src/conf.h: warning: Member CONF_SIZE_word (macro definition) of file conf.h is not documented.
-src/conf.h: warning: Member X(key, def, unit, meaning) (macro definition) of file conf.h is not documented.
-src/conf.h: warning: Member X(key, size, def, env, meaning) (macro definition) of file conf.h is not documented.
-src/conf.h: warning: Member conf_check(const conf_t *conf) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_defaults(conf_t *conf) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_grouping_on(const conf_t *conf) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_load(conf_t *conf, const char *path, int required) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_lv2_worker_valid(const char *word) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_lv2_workers[] (variable) of file conf.h is not documented.
-src/conf.h: warning: Member conf_lv2_workers_print(FILE *out) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_merge_extra(conf_t *conf) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_pins_first_use(const conf_t *conf) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_source(const conf_t *conf, enum conf_string_key key) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_spread(const conf_t *conf) (function) of file conf.h is not documented.
-src/conf.h: warning: Member conf_string_key (enumeration) of file conf.h is not documented.
-src/conf.h: warning: Member conf_t (typedef) of file conf.h is not documented.
-src/conf.h: warning: Member from_file[CONF_STRINGS_N] (variable) of struct CONF_T is not documented.
 src/pins.h: warning: Member pin_refuse(const char *uri, const char *path, const char *why) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_accept(const format_t *format, const char *uri, const char *search) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_accepting(int on) (function) of file pins.h is not documented.
@@ -37,13 +17,3 @@ src/pins.h: warning: Member pins_set(const char *uri, const char *files, const c
 src/pins.h: warning: Member pins_set_layout(const char *uri, const char *layout) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_verdict(const char *uri) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_words(char **word, int n, const char **verdict, const char **pool) (function) of file pins.h is not documented.
-src/probe_cgroup.h: warning: Compound PROBE_CGROUP_T is not documented.
-src/probe_cgroup.h: warning: Member PROBE_CGROUP_ROOT (macro definition) of file probe_cgroup.h is not documented.
-src/probe_cgroup.h: warning: Member dir[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
-src/probe_cgroup.h: warning: Member own[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
-src/probe_cgroup.h: warning: Member probe_cgroup_close(probe_cgroup_t *cg) (function) of file probe_cgroup.h is not documented.
-src/probe_cgroup.h: warning: Member probe_cgroup_enter(const probe_cgroup_t *cg) (function) of file probe_cgroup.h is not documented.
-src/probe_cgroup.h: warning: Member probe_cgroup_oom_kills(const probe_cgroup_t *cg) (function) of file probe_cgroup.h is not documented.
-src/probe_cgroup.h: warning: Member probe_cgroup_open(probe_cgroup_t *cg, const char *root, long long max_bytes) (function) of file probe_cgroup.h is not documented.
-src/probe_cgroup.h: warning: Member probe_cgroup_t (typedef) of file probe_cgroup.h is not documented.
-src/probe_cgroup.h: warning: Member self_leaf[PATH_MAX] (variable) of struct PROBE_CGROUP_T is not documented.
