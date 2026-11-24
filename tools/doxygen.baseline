@@ -29,18 +29,6 @@ src/descriptors.h: warning: Member descriptors_get(const char *uri) (function) o
 src/descriptors.h: warning: Member descriptors_init(conf_t *conf) (function) of file descriptors.h is not documented.
 src/descriptors.h: warning: Member descriptors_panel_get(const char *uri) (function) of file descriptors.h is not documented.
 src/descriptors.h: warning: Member descriptors_tick(void) (function) of file descriptors.h is not documented.
-src/fsutil.h: warning: Member fs_into_place(const char *tmp, const char *final) (function) of file fsutil.h is not documented.
-src/fsutil.h: warning: Member fs_mkdir_parents(char *path) (function) of file fsutil.h is not documented.
-src/fsutil.h: warning: Member fs_sync_dir(const char *path) (function) of file fsutil.h is not documented.
-src/fsutil.h: warning: Member fs_write_atomic(const char *path, const char *bytes, size_t len) (function) of file fsutil.h is not documented.
-src/names.h: warning: Compound NAMES_T is not documented.
-src/names.h: warning: Member n (variable) of struct NAMES_T is not documented.
-src/names.h: warning: Member name (variable) of struct NAMES_T is not documented.
-src/names.h: warning: Member names_add(names_t *names, const char *name) (function) of file names.h is not documented.
-src/names.h: warning: Member names_free(names_t *names) (function) of file names.h is not documented.
-src/names.h: warning: Member names_has(const names_t *names, const char *name) (function) of file names.h is not documented.
-src/names.h: warning: Member names_t (typedef) of file names.h is not documented.
-src/pages.h: warning: Member PAGE_SLOTS (macro definition) of file pages.h is not documented.
 src/pins.h: warning: Member pin_refuse(const char *uri, const char *path, const char *why) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_accept(const format_t *format, const char *uri, const char *search) (function) of file pins.h is not documented.
 src/pins.h: warning: Member pins_accepting(int on) (function) of file pins.h is not documented.
@@ -79,6 +67,3 @@ src/probe_lock.h: warning: Member PROBE_LOCK_FD (macro definition) of file probe
 src/probe_lock.h: warning: Member PROBE_LOCK_FD_ENV (macro definition) of file probe_lock.h is not documented.
 src/probe_lock.h: warning: Member error (variable) of struct probe_lock_report_t is not documented.
 src/probe_lock.h: warning: Member locked (variable) of struct probe_lock_report_t is not documented.
-src/words.h: warning: Member words_need_quotes(const char *word) (function) of file words.h is not documented.
-src/words.h: warning: Member words_read(char *line, char **tok, int max) (function) of file words.h is not documented.
-src/words.h: warning: Member words_write(const char *word, char *buf, size_t size) (function) of file words.h is not documented.

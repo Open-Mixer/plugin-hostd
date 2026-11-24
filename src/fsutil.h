@@ -27,19 +27,39 @@
 
 #include <stddef.h>
 
-/* the parent directories of `path`, each made mode 0700 when missing; `path` is written through and restored. 0, or -1
- * with errno set */
+/** @brief makes the parent directories of a path, each mode 0700 when missing
+ *
+ * @param[in,out] path the path; it is written through and restored.
+ * @return 0, or -1 with errno set.
+ */
 int fs_mkdir_parents(char *path);
 
-/* fsync the directory that holds `path`, so a rename into it survives a power cut */
+/** @brief fsyncs the directory that holds a path, so a rename into it survives a power cut
+ *
+ * @param path the path whose directory is synced.
+ */
 void fs_sync_dir(const char *path);
 
-/* `len` bytes as the whole of `path`: a temporary file of its own beside it (mkstemp, mode 0600), written, fsynced and
- * renamed over it, then the directory fsynced. 0, or the errno of the step that failed, with no temporary file left */
+/** @brief writes bytes as the whole of a file, atomically
+ *
+ * A temporary file of its own beside it (mkstemp, mode 0600) is written, fsynced and renamed over it, then the
+ * directory fsynced.
+ *
+ * @param path the file.
+ * @param bytes what it holds.
+ * @param len the length of bytes, in bytes.
+ * @return 0, or the errno of the step that failed, with no temporary file left.
+ */
 int fs_write_atomic(const char *path, const char *bytes, size_t len);
 
-/* the file `tmp` as `final`: fsynced, then renamed into place and the directory fsynced. When `final` is there already it
- * is kept and `tmp` removed. 0, or the errno of the step that failed */
+/** @brief puts a written file in place: fsynced, renamed to its final path and the directory fsynced
+ *
+ * When final is there already it is kept and tmp removed.
+ *
+ * @param tmp the file written.
+ * @param final the path it takes.
+ * @return 0, or the errno of the step that failed.
+ */
 int fs_into_place(const char *tmp, const char *final);
 
 #endif
