@@ -34,10 +34,10 @@ BuildRequires: omx-dsp-devel >= 0.34.0
 # the reader of the qualification store, <plugin-qualification-db/pqdb.h>: the daemon reads what a plugin costs through it and
 # reads no record file; its library opens the store with sqlite (3.37.0 the first with the strict tables the store is
 # declared in); a floor only
-BuildRequires: libplugin-qualification-db-devel >= 2026111901
+BuildRequires: libplugin-qualification-db-devel >= 2026112001
 # the reader's pkg-config file asks for sqlite3, which the Debian package of the reader does not pull in: named here too
 BuildRequires: sqlite-devel >= 3.37.0
-Requires: libplugin-qualification-db >= 2026111901
+Requires: libplugin-qualification-db >= 2026112001
 Requires: sqlite-libs >= 3.37.0
 # the protocol library, ports on 127.0.0.1 unless told otherwise (socket_set_bind_address()); the daemon is built
 # against the declared protocol of 0.5.0; a floor and the next minor
@@ -215,6 +215,9 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
   and 0.21.0 failed its %check without it (#264).
 - The plugin-db-devel floor in packaging/deps.txt is 0.5.0, the one the spec
   and debian/control already state.
+- The libplugin-qualification-db floor is 2026112001, the first release that
+  opens an absent store as an empty base layer (pqdb_base_absent); the
+  qualcost test asserts it (#234).
 
 * Sun Nov 22 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.0-1
 - Sorting pass: V5, V7, V8, V9, V12, V15, V17, V18, V19, V21, V24 and V25.
