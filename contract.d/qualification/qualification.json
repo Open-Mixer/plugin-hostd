@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/qualification",
   "info": {
     "title": "What a qualification measures and records",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": {
@@ -1676,6 +1676,26 @@
             "description": "The run outgrew the memory bound plugin-qualify put on it.",
             "x-code": 0,
             "x-text": "The run outgrew the memory bound plugin-qualify put on it."
+          }
+        ]
+      },
+      "QUALIFICATION_UNIT_PROVENANCES": {
+        "description": "Where the unit a record gives a parameter comes from.",
+        "x-since": "1.5.0",
+        "oneOf": [
+          {
+            "const": "declared",
+            "title": "declared",
+            "description": "The unit is the one the plugin declares for the parameter.",
+            "x-code": 0,
+            "x-text": "The unit is the one the plugin declares for the parameter."
+          },
+          {
+            "const": "inferred",
+            "title": "inferred",
+            "description": "Qualification inferred the unit from the text the plugin writes for a value.",
+            "x-code": 1,
+            "x-text": "Qualification inferred the unit from the text the plugin writes for a value."
           }
         ]
       }

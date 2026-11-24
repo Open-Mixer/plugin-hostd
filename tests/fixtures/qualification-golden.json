@@ -41,5 +41,6 @@
  "QUALIFICATION_HISTORY_REASONS": [["historyCrashed","history.crashed"],["historyXrunsGrouped","history.xruns-grouped"],["historyCrashedAlone","history.crashed-alone"],["historySteady","history.steady"],["historyNoRecord","history.no-record"],["historyNoChange","history.no-change"],["historyNotLiftable","history.not-liftable"]],
  "QUALIFICATION_HISTORY_BLOCKERS": [["unknown","unknown"],["refused","refused"],["noDecidingReason","no-deciding-reason"]],
  "QUALIFICATION_ADAPTER_CODE_KINDS": [["resp","resp"],["signal","signal"],["diedOnAdd","died-on-add"],["died","died"],["noAnswer","no-answer"],["noJackClient","no-jack-client"],["notStarted","not-started"],["notInstalled","not-installed"],["silentUnderNote","silent-under-note"],["levelUnmeasured","level-unmeasured"],["silentNeedsContent","silent-needs-content"],["admissionFailed","admission-failed"],["unknownPortType","unknown-port-type"],["exit","exit"],["noPrivateServer","no-private-server"]],
- "QUALIFICATION_MEMORY_BOUND_OUTCOMES": [["probeOom","probe.oom"]]
+ "QUALIFICATION_MEMORY_BOUND_OUTCOMES": [["probeOom","probe.oom"]],
+ "QUALIFICATION_UNIT_PROVENANCES": [["declared","declared"],["inferred","inferred"]]
 }
