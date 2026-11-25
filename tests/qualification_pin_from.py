@@ -7,8 +7,8 @@
 a. every word of the item carries an `x-from` of one entry: the `$ref` of the domain pin's PIN_VERDICTS and the word's
    `title` as `x-term`, and its `const` is the word the domain pin gives that key (golden: in-process, isolated, refused);
 b. omx-contract validate of this document beside the domain pin accepts it (the real reader of an `x-from`);
-c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS and no domain pin at all are refused by
-   validate, by name.
+c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, no domain pin at all, and an
+   info.x-requires that no longer names pin are refused by validate, by name.
 
 The document declares `info.x-requires`, a sorted array of names with no version (the devel wave of 2026-11-24): the domains
 its x-from names (the read refuses an x-from into a domain x-requires does not declare) and the package plugin-hostd-protocol
@@ -80,17 +80,24 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     # term domains the latency and voice words name (plugin-db's lv2, omx-clap's clap), copied from the installed directory
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
     stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_STUB")
+    # an owner's manifest names every domain its package installs (plugin-db#94), and omx-contract refuses a manifest whose
+    # domain is absent, so each listed domain comes with it
+    listed = set()
     for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
         src = os.path.join(installed, "3", package)
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(d, "3", package))
+            manifest = os.path.join(src, "MANIFEST.json")
+            if os.path.isfile(manifest):
+                with open(manifest) as f:
+                    listed.update(json.load(f).get("domains", []))
         elif os.path.isdir(os.path.join(installed, package)):
             # an owner that installs only domains (plugin-db from 0.5.0, V11: no package directory) is read as the domain
             # of its name, as the installed contract directory answers it
             shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
-    for domain in ("lv2", "clap"):
+    for domain in sorted({"lv2", "clap"} | listed):
         src = os.path.join(installed, domain)
-        if os.path.isdir(src):
+        if os.path.isdir(src) and not os.path.exists(os.path.join(d, domain)):
             shutil.copytree(src, os.path.join(d, domain))
     return d, installed
 
@@ -164,9 +171,13 @@ def main():
         check(rc == 0, "(d) fmt --check accepts the document as it is: %s" % out[-160:])
         rc, out = fmt_check(tmp, "fmt-misformatted", json.dumps(json.loads(text), indent=4), open(pin_path).read())
         check(rc != 0, "(d) fmt --check refuses the document in another formatting: %s" % out[-120:])
+        undeclared = json.loads(json.dumps(qual))
+        undeclared["info"]["x-requires"] = [n for n in undeclared["info"]["x-requires"] if n != "pin"]
+        rc, out = validate(tmp, "undeclared-pin", undeclared, pin)
+        check(rc != 0 and "contract.ref.undeclared" in out and "info.x-requires does not declare" in out,
+              "(c) an info.x-requires without pin, the domain the x-from names, is refused by contract.ref.undeclared: %s" % out[-160:])
     check(qual["info"].get("x-requires") == ["clap", "lv2", "omx-clap", "pin", "plugin-db", "plugin-hostd-protocol"],
-          "(a) info.x-requires is the sorted array of names, no version: the domain pin and plugin-hostd-protocol, and the term "
-          "domains lv2 (plugin-db) and clap (omx-clap)")
+          "(a) info.x-requires lists, sorted and with no version, the domain pin and plugin-hostd-protocol, and the term domains lv2 (plugin-db) and clap (omx-clap)")
     return 1 if failed else 0
 
 
