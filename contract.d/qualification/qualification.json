@@ -6,14 +6,14 @@
     "version": "1.4.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
-    "x-requires": {
-      "clap": ">= 2.18.0",
-      "lv2": ">= 1.0.0",
-      "omx-clap": ">= 0.34.0",
-      "pin": ">= 1.0.0",
-      "plugin-db": ">= 0.5.0",
-      "plugin-hostd-protocol": ">= 0.8.0"
-    }
+    "x-requires": [
+      "clap",
+      "lv2",
+      "omx-clap",
+      "pin",
+      "plugin-db",
+      "plugin-hostd-protocol"
+    ]
   },
   "components": {
     "schemas": {
