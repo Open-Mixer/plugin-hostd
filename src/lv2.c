@@ -857,10 +857,10 @@ typedef struct PORTS_T {
 
 /* units: the words param_info answers, as the domain plugin-hostd/lv2 maps them */
 static const struct { const char *iri; const char *word; } g_unit[] = {
-    { NS_UNITS "bpm", "bpm" },          { NS_UNITS "cent", "cents" },   { NS_UNITS "coef", "x" },
+    { NS_UNITS "bpm", "bpm" },          { NS_UNITS "cent", "cents" },   { NS_UNITS "coef", "coef" },
     { NS_UNITS "db", "dB" },            { NS_UNITS "degree", "deg" },   { NS_UNITS "frame", "frames" },
     { NS_UNITS "hz", "Hz" },            { NS_UNITS "midiNote", "midiNote" }, { NS_UNITS "min", "min" },
-    { NS_UNITS "ms", "ms" },            { NS_UNITS "oct", "oct" },      { NS_UNITS "pc", "%" },
+    { NS_UNITS "ms", "ms" },            { NS_UNITS "oct", "oct" },      { NS_UNITS "pc", "percent" },
     { NS_UNITS "s", "s" },              { NS_UNITS "semitone12TET", "st" },
     { "urn:openmixer:unit#dBFS", "dBFS" }, { "urn:openmixer:unit#LUFS", "LUFS" },
 };
