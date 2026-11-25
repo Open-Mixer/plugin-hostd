@@ -100,6 +100,11 @@ typedef struct INSTANCE_T {
     int pin_refused;            /**< the pins read again refuse its files; it keeps running, worker_list marks it */
     char *node_label;           /**< the latest node_label with a label it took, replayed after its add */
     char *track_info;           /**< the latest track_info it took, replayed after its add, never to an LV2 worker */
+    /** the latest property_set of each symbol, in the order each was first set, replayed after the state and the verb
+     * tail; a checkpoint keeps them, a preset load drops them (R-111) */
+    entry_t *props;
+    int nprops,                 /**< the entries in props */
+        capprops;               /**< the room allocated for props, in entries */
     struct CHAIN_T *chain;      /**< the chain it is a member of, NULL for none */
     int bypassed;               /**< it has no verdict and no worker: its insert passes dry, its quick check is asked for
                                  * (R-112); w is NULL until its verdict is a pass or the user accepted it */

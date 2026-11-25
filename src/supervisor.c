@@ -217,9 +217,9 @@ static int valid_place(const char *place)
 
 /* ---------------------------------------------------------------- ledger */
 
-/* *replaced is the line a keyed entry gave up, NULL when the entry is new; the caller owns it. -1, the ledger as it was,
- * when memory runs out */
-static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+/* a line onto a list of entries: a keyed one replaces the entry of its key where it stands. *replaced is the line a keyed
+ * entry gave up, NULL when the entry is new; the caller owns it. -1, the list as it was, when memory runs out */
+static int entries_add(entry_t **list, int *count, int *cap, const char *line, const char *key, int kind, char **replaced)
 {
     char *copy = strdup(line), *key_copy;
     int n;
@@ -228,11 +228,11 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
     if (!copy)
         return -1;
     if (key)
-        for (n = 0; n < i->ntail; n++)
-            if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+        for (n = 0; n < *count; n++)
+            if ((*list)[n].key && !strcmp((*list)[n].key, key))
             {
-                *replaced = i->tail[n].line;
-                i->tail[n].line = copy;
+                *replaced = (*list)[n].line;
+                (*list)[n].line = copy;
                 return 0;
             }
     key_copy = key ? strdup(key) : NULL;
@@ -241,10 +241,10 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
         free(copy);
         return -1;
     }
-    if (i->ntail == i->captail)
+    if (*count == *cap)
     {
-        int cap = i->captail ? i->captail * 2 : 16;
-        entry_t *grown = realloc(i->tail, cap * sizeof(entry_t));
+        int grow = *cap ? *cap * 2 : 16;
+        entry_t *grown = realloc(*list, grow * sizeof(entry_t));
 
         if (!grown)
         {
@@ -252,14 +252,32 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
             free(key_copy);
             return -1;
         }
-        i->tail = grown;
-        i->captail = cap;
+        *list = grown;
+        *cap = grow;
     }
-    i->tail[i->ntail].line = copy;
-    i->tail[i->ntail].key = key_copy;
-    i->tail[i->ntail].kind = kind;
-    i->ntail++;
+    (*list)[*count].line = copy;
+    (*list)[*count].key = key_copy;
+    (*list)[*count].kind = kind;
+    (*count)++;
     return 0;
+}
+
+static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+{
+    return entries_add(&i->tail, &i->ntail, &i->captail, line, key, kind, replaced);
+}
+
+/* an instance's property_set lines, all of them: a preset load replaces the plugin's state, the properties with it */
+static void props_drop(instance_t *i)
+{
+    int n;
+
+    for (n = 0; n < i->nprops; n++)
+    {
+        free(i->props[n].line);
+        free(i->props[n].key);
+    }
+    i->nprops = 0;
 }
 
 static void tail_drop_state(instance_t *i)
@@ -339,6 +357,8 @@ static void instance_free(instance_t *i)
     free(i->client);
     free(i->sus_line);
     free(i->sus_prev);
+    props_drop(i);
+    free(i->props);
     free(i->track_info);
     free(i->node_label);
     free(i->byp_uri);
@@ -1582,13 +1602,21 @@ static int replay_add(worker_t *w, instance_t *i)
     return 1;
 }
 
-/* an instance's verb ledger, after the state; -1 when the worker died on it */
+/* an instance's verb ledger, after the state: the verb tail, then the latest property_set of each symbol, in the order
+ * each was first set (R-111). The properties go last: each was set after the last preset load, which drops the ones
+ * before it, so after a preset load the tail still holds (an instance that writes no state); -1 when the worker died */
 static int replay_tail(worker_t *w, instance_t *i)
 {
     int m;
 
     for (m = 0; m < i->ntail; m++)
         if (replay_line(w, i->tail[m].line) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+    for (m = 0; m < i->nprops; m++)
+        if (replay_line(w, i->props[m].line) != RPC_OK)
         {
             on_death(w, i->id);
             return -1;
@@ -2599,8 +2627,12 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
             }
             else if (g_recorded[v].key_arg)
                 return 0;
+            /* a preset is the plugin's whole state: the state verbs and the properties set before it are superseded */
             if (verb_is(tok[0], EFFECT_PRESET_LOAD))
+            {
                 tail_drop_state(i);
+                props_drop(i);
+            }
             if (tail_add(i, line, key, g_recorded[v].kind, &prev) != 0)
                 return -1;
             free(i->sus_line);
@@ -3135,6 +3167,23 @@ char *sup_instance_verb(const char *line, int ledger)
                 free(reply);
                 reply = sup_resp(ERR_MEMORY_ALLOCATION);
             }
+        }
+        /* replace-keyed (property_set): the latest per instance and first argument, apart from the verb tail, which a
+         * checkpoint truncates and a property outlives (R-111) */
+        if (ledger == PHD_LEDGER_REPLACE_KEYED && count > 2 && resp_code(reply) >= 0 && g_inst[id] == i)
+        {
+            size_t size = strlen(word[0]) + strlen(word[2]) + 2;
+            char *key = malloc(size), *replaced = NULL;
+
+            if (key)
+                snprintf(key, size, "%s %s", word[0], word[2]);
+            if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+            {
+                free(reply);
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
+            }
+            free(replaced);
+            free(key);
         }
     }
     /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker; mod-host sets no

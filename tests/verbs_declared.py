@@ -29,7 +29,6 @@ import declared as protocol_files
 import harness  # puts PLUGIN_HOSTD_CLIENT_DIR, when set, on sys.path
 import plugin_hostd_client  # the protocol's, python3-plugin-hostd-client
 import scan_fixture
-from verbs_ahead import AHEAD, ahead_of_daemon
 from harness import Daemon, Fail, check, wait_for
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -349,6 +348,10 @@ LINES = {
     "note_off": ("1 0 60 0", "1 0 60", ("99 0 60 0",)),
     "all_notes_off": ("1", "", ("99",)),
     "hide_external_ui": ("1", "1 x", ("99",)),
+    "property_list": ("1", "1 x", ("99",)),
+    "property_info": ("1 0", "1", ("99 0", "1 5")),
+    "property_get": ("1 file", "1", ("99 file", "1 nope", "1 writeonly_key")),
+    "property_set": ('1 file "/tmp/take.wav"', "1 file", ("99 file x", "1 readonly_mode x")),
     "curve_bind": ("1 0 transfer_curve dynamics threshold=0:dB ratio=1:ratio", "1 x transfer_curve", ("99 0 transfer_curve dynamics threshold=0:dB",)),
     "curve_points": ("1 0 9", "1 x 9", ("99 0 9",)),
     "monitor_output_off": ("1 out", "1", ()),
@@ -387,7 +390,7 @@ def setup(s):
     return d, {"uri": s.clap_uri, "layout": lay, "sha": scan_fixture.sha(s.clap)}
 
 
-def check_verbs(declared):
+def check_verbs(declared, shared):
     s = scan_fixture.Scan(lambda **kw: Daemon(EXE, FAKE, **kw))
     d = None
     try:
@@ -467,23 +470,19 @@ def check_answered(declared):
         modhost = {c["verb"] for c in json.load(f)["commands"]}
     candidates = binary_words(EXE)
     ours = {v for v in declared if owes(declared[v], HOSTD)}
-    answered = answered_by_daemon(candidates)
-    # the four declared ahead of the daemon (tests/verbs_ahead.py) are left out while they stay unanswered
-    unseen, relayed, problems = ahead_of_daemon(ours, ours - set(candidates), ours - answered, answered)
-    for p in problems:
-        fail(p)
+    unseen = ours - set(candidates)
     if unseen:
         fail("positive control: the scan of the binary does not see the declared %s" % sorted(unseen))
+    answered = answered_by_daemon(candidates)
     extra = answered - ours - modhost
     if extra:
         fail("the daemon answers %s itself, which no declaration and no mod-host command holds" % sorted(extra))
+    relayed = ours - answered
     if relayed:
         fail("declared for plugin-hostd, but the daemon relays them and never answers them: %s" % sorted(relayed))
     if not extra and not relayed:
         print("ok   the daemon answers %d words of its %d itself: the %d declared for it and %d of mod-host's"
               % (len(answered), len(candidates), len(ours), len(answered - ours)))
-    if AHEAD & ours:
-        print("note %s: declared ahead of the daemon, answered from 0.20.8 (plugin-hostd#124)" % sorted(AHEAD & ours))
 
 
 # ---------------------------------------------------------------- the same line to both hosts
@@ -615,7 +614,7 @@ def main():
     print("the protocol declares %d verbs of the daemon's own and %d of both hosts, %d of them owed by plugin-hostd" %
           (len(own), len(shared), len([v for v in declared_verbs if owes(declared_verbs[v], HOSTD)])))
 
-    check_verbs(declared_verbs)
+    check_verbs(declared_verbs, set(shared))
     check_answered(dict(shared, **declared_verbs))
     check_both(declared_verbs)
 
