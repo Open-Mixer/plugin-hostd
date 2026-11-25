@@ -441,11 +441,11 @@ check-domain-x-since:
 	python3 tests/domain_x_since.py --self-test
 
 # No tracked file points into a private repository, issue, branch or path: Open-Mixer/.github's private-refs check, from a
-# checkout of it (FREEMIXER_DOTGITHUB, else ../freemixer-dotgithub); CI runs it through the public-sources-check workflow.
-FREEMIXER_DOTGITHUB ?= ../freemixer-dotgithub
+# checkout of it (OPENMIXER_DOTGITHUB, else the cache clone, $(HOME)/.cache/omx/openmixer-dotgithub); CI runs it through the public-sources-check workflow.
+OPENMIXER_DOTGITHUB ?= $(HOME)/.cache/omx/openmixer-dotgithub
 .PHONY: private-refs check-no-protocol-copy check-no-json-escape-loop check-domain-x-since
 private-refs:
-	$(FREEMIXER_DOTGITHUB)/.github/actions/private-refs-check/check.sh .
+	$(OPENMIXER_DOTGITHUB)/.github/actions/private-refs-check/check.sh .
 
 # libFuzzer harnesses (fuzz/README.md): the command parser and dispatcher, src/verbs.c with the mod-host side replaced by
 # a recorder, and the reply stream, src/relay.c with its sockets answered by the harness; clang with libFuzzer,
