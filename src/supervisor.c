@@ -2841,16 +2841,14 @@ static char *verb_dropped(instance_t *i, const char *line)
     return sup_resp(OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP);
 }
 
-char *sup_call(int id, const char *line)
+/* the line to the worker of the instance, the ledger untouched: *answered is 1 when the reply is the worker's */
+static char *call_worker(instance_t *i, const char *line, int *answered)
 {
-    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
-    worker_t *w;
+    worker_t *w = i->w;
     char *reply = NULL;
     int rc;
 
-    if (!i)
-        return sup_resp(ERR_INSTANCE_NON_EXISTS);
-    w = i->w;
+    *answered = 0;
     if (!w || w->state != W_UP)
         return refuse_worker(w);
     rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
@@ -2863,15 +2861,92 @@ char *sup_call(int id, const char *line)
     {
         char *dropped = verb_dropped(i, line);
 
-        on_death(w, id);
+        on_death(w, i->id);
         return dropped;
     }
+    *answered = 1;
+    return reply;
+}
+
+char *sup_call(int id, const char *line)
+{
+    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
+    char *reply;
+    int answered;
+
+    if (!i)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    reply = call_worker(i, line, &answered);
     /* the worker did it and the ledger cannot say so, so a restart would lose it: the controller hears */
-    if (resp_code(reply) >= 0 && ledger_verb(i, line) != 0)
+    if (answered && resp_code(reply) >= 0 && ledger_verb(i, line) != 0)
     {
         free(reply);
         return sup_resp(ERR_MEMORY_ALLOCATION);
     }
+    return reply;
+}
+
+static char **words(char *copy, int *count);
+
+/* the key a replace-keyed line is kept by in an instance's properties: its verb and its second argument ("patch_set
+ * <uri>", as "property_set <symbol>"), malloc'd; NULL for a line with fewer words or no memory */
+static char *key_of(const char *line)
+{
+    char *copy = strdup(line), **word, *key = NULL;
+    int count;
+
+    if (!copy)
+        return NULL;
+    word = words(copy, &count);
+    if (word && count > 2)
+    {
+        size_t size = strlen(word[0]) + strlen(word[2]) + 2;
+
+        if ((key = malloc(size)))
+            snprintf(key, size, "%s %s", word[0], word[2]);
+    }
+    free(word);
+    free(copy);
+    return key;
+}
+
+char *sup_call_keyed(int id, const char *line, int *answered)
+{
+    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
+    char *reply, *key, *replaced = NULL;
+
+    *answered = 0;
+    if (!i)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    reply = call_worker(i, line, answered);
+    if (!*answered || resp_code(reply) < 0 || g_inst[id] != i)
+        return reply;
+    key = key_of(line);
+    if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+    {
+        free(reply);
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+        *answered = 0;
+    }
+    free(replaced);
+    free(key);
+    return reply;
+}
+
+char *sup_call_seen(int id, const char *line, const char *prefix, int ms, int *answered, char **seen)
+{
+    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
+    char *reply;
+    int watched;
+
+    *answered = 0;
+    *seen = NULL;
+    if (!i)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    watched = i->w->state == W_UP && i->w->fb_fd >= 0 && relay_watch(i->w->fb_fd, prefix) == 0;
+    reply = call_worker(i, line, answered);
+    if (watched)
+        *seen = relay_watched(*answered && resp_code(reply) >= 0 ? ms : 0);
     return reply;
 }
 
@@ -3186,7 +3261,8 @@ char *sup_instance_verb(const char *line, int ledger)
             free(key);
         }
     }
-    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker; mod-host sets no
+    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker but the property verbs
+     * the format maps onto lines of the worker's own; mod-host sets no
      * JACK metadata, so an LV2 instance's node takes no label (the lv2-worker level of node_label is absent) */
     else if (!strcmp(word[0], OMX_VERB_NODE_LABEL))
         reply = sup_resp(ERR_INVALID_OPERATION);
@@ -3213,6 +3289,19 @@ char *sup_instance_verb(const char *line, int ledger)
     }
     else if (!strcmp(word[0], OMX_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_LIST) && format_at(i->fmt)->property_list)
+        reply = count == 2 ? format_at(i->fmt)->property_list(id) : sup_resp(ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_INFO) && format_at(i->fmt)->property_info)
+    {
+        long index = count == 3 ? strtol(word[2], &end, 10) : -1;
+
+        reply = count == 3 && !*end && end != word[2] && index >= 0 && index <= INT_MAX ?
+                format_at(i->fmt)->property_info(id, (int)index) : sup_resp(ERR_INVALID_OPERATION);
+    }
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_GET) && format_at(i->fmt)->property_get)
+        reply = count == 3 ? format_at(i->fmt)->property_get(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_SET) && format_at(i->fmt)->property_set)
+        reply = count == 4 ? format_at(i->fmt)->property_set(id, word[2], word[3]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
         reply = sup_resp(OMX_REPLY_HOST_NOTES_BY_JACK_RESP);
     else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))

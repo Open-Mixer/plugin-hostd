@@ -90,6 +90,11 @@ typedef struct FORMAT_T {
     char *(*remote_pages)(int id);
     /** the daemon's remote_page_get when it answers; NULL for a format with no pages: invalid-operation for a page */
     char *(*remote_page_get)(int id, int page);
+    /* the daemon's property verbs when it answers (a worker that has none of its own, as mod-host); NULL: -902 for each */
+    char *(*property_list)(int id);                                         /**< the daemon's property_list */
+    char *(*property_info)(int id, int index);                              /**< the daemon's property_info */
+    char *(*property_get)(int id, const char *symbol);                      /**< the daemon's property_get */
+    char *(*property_set)(int id, const char *symbol, const char *value);   /**< the daemon's property_set */
 } format_t;
 
 /**
@@ -289,6 +294,52 @@ char *lv2_remote_pages(int id);
  * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
  */
 char *lv2_remote_page_get(int id, int page);
+/**
+ * @brief Answers property_list of an LV2 instance: how many properties its bundle declares.
+ *
+ * @param id the instance
+ * @return "resp \<count\>", malloc'd; 0 for a bundle that cannot be read; ERR_MEMORY_ALLOCATION, or NULL, when memory
+ *         ran out
+ * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
+ */
+char *lv2_property_list(int id);
+/**
+ * @brief Answers property_info of an LV2 instance: one property's symbol, kind (path or string), access and name.
+ *
+ * @param id the instance
+ * @param index the property's place in the list, from 0
+ * @return the reply line, malloc'd; OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for a bundle that cannot be read or an
+ *         index that is no property; NULL when memory ran out
+ * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
+ */
+char *lv2_property_info(int id, int index);
+/**
+ * @brief Answers property_get of an LV2 instance: mod-host's patch_get of the property's URI.
+ *
+ * The plugin answers with a patch:Set, which mod-host writes on its feedback port. A plugin that does not answer within
+ * PROPERTY_GET_MS is -902: the value it holds cannot be told.
+ *
+ * @param id the instance
+ * @param symbol the property's symbol
+ * @return the reply line, malloc'd; NULL when memory ran out
+ * @pre symbol is not NULL.
+ * @note Not thread-safe: it reads the supervisor's state and waits on mod-host; call on the daemon's main thread only.
+ */
+char *lv2_property_get(int id, const char *symbol);
+/**
+ * @brief Answers property_set of an LV2 instance: mod-host's patch_set of the property's URI, the value one quoted word.
+ *
+ * mod-host's reader cannot carry a value holding a backslash or a quote: such a value is -108 and mod-host hears
+ * nothing. The set mod-host took is kept in the replace-keyed ledger, by the URI.
+ *
+ * @param id the instance
+ * @param symbol the property's symbol
+ * @param value the value to set
+ * @return the reply line, malloc'd; NULL when memory ran out
+ * @pre symbol and value are not NULL.
+ * @note Not thread-safe: it reads and writes the supervisor's state; call on the daemon's main thread only.
+ */
+char *lv2_property_set(int id, const char *symbol, const char *value);
 
 /**
  * @brief Which LV2 row runs a uri: by the lv2_worker_set override of the uri, else by the lv2_worker setting.

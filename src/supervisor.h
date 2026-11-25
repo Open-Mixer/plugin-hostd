@@ -267,6 +267,34 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
  */
 char *sup_call(int id, const char *line);
 /**
+ * @brief Gives the instance's worker a command, kept out of the verb tail: once the worker did it, the line is kept as
+ *        the latest of its key (its verb and second word) in the instance's properties and replayed after the state
+ *        (the replace-keyed ledger, R-111).
+ *
+ * @param id the instance
+ * @param line the command as it goes to the worker
+ * @param answered set to 1 when the reply is the worker's
+ * @return the reply, malloc'd
+ * @note Not thread-safe: call on the daemon's main thread only.
+ */
+char *sup_call_keyed(int id, const char *line, int *answered);
+
+/**
+ * @brief The same, the ledger untouched, and the first line the worker writes on its feedback port that starts with
+ *        prefix, waited for up to ms once the worker did the command.
+ *
+ * @param id the instance
+ * @param line the command as it goes to the worker
+ * @param prefix what the awaited feedback line starts with
+ * @param ms how long to wait for it
+ * @param answered set to 1 when the reply is the worker's
+ * @param seen set to the feedback line, malloc'd, or NULL when none came
+ * @return the reply, malloc'd
+ * @note Not thread-safe: call on the daemon's main thread only.
+ */
+char *sup_call_seen(int id, const char *line, const char *prefix, int ms, int *answered, char **seen);
+
+/**
  * @brief Removes an instance from its worker and from the ledger.
  *
  * A worker that is not up is not asked: the instance leaves the ledger alone. A worker left with no instance is

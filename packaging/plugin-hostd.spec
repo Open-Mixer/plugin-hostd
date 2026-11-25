@@ -16,6 +16,8 @@ BuildRequires: python3
 # <plugin-db/pin.h>, and through it libcrypto
 BuildRequires: plugin-db-devel
 BuildRequires: cjson-devel
+# the LV2 vocabulary the daemon reads a bundle's properties with: <lv2/patch/patch.h> and its siblings, headers only
+BuildRequires: lv2-devel
 # the protocol library and the declared protocol: <plugin-hostd/protocol.h> and the headers it includes, the protocol's
 # JSON and mod-host's, whose words and texts the docs are generated from
 BuildRequires: plugin-hostd-protocol-devel

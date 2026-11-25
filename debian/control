@@ -2,7 +2,7 @@ Source: plugin-hostd
 Section: sound
 Priority: optional
 Maintainer: Pau Aliagas <linuxnow@gmail.com>
-Build-Depends: debhelper-compat (= 13), libplugin-hostd-protocol-dev, libomx-contract-dev, libomx-domain-dev, libplugin-qualification-db-dev, libsqlite3-dev (>= 3.37.0~), libomx-panel-store-dev, omx-panel-store <!nocheck>, omx-clap-contract <!nocheck>, plugin-db-contract <!nocheck>, omx-clap-host-tests <!nocheck>, libomxdsp-dev, omx-contract <!nocheck>, plugin-hostd-protocol-contract <!nocheck>, plugin-db-dev, libcjson-dev, pkgconf, python3, python3-plugin-hostd-protocol <!nocheck>, python3-plugin-hostd-client <!nocheck>
+Build-Depends: debhelper-compat (= 13), libplugin-hostd-protocol-dev, libomx-contract-dev, libomx-domain-dev, libplugin-qualification-db-dev, libsqlite3-dev (>= 3.37.0~), libomx-panel-store-dev, omx-panel-store <!nocheck>, omx-clap-contract <!nocheck>, plugin-db-contract <!nocheck>, omx-clap-host-tests <!nocheck>, libomxdsp-dev, omx-contract <!nocheck>, plugin-hostd-protocol-contract <!nocheck>, plugin-db-dev, libcjson-dev, lv2-dev, pkgconf, python3, python3-plugin-hostd-protocol <!nocheck>, python3-plugin-hostd-client <!nocheck>
 Standards-Version: 4.6.2
 Homepage: https://github.com/Open-Mixer/plugin-hostd
 Rules-Requires-Root: no
