@@ -41,7 +41,7 @@ def main():
     items = declared.verbs()
     got = {k: (v["kind"], len(v[v["kind"]])) for k, v in items.items() if k in GOLDEN}
     check(got == GOLDEN, "(b) the four items hold %s" % got)
-    check(items["PLUGIN_HOSTD_PROTOCOL_LIBRARY_VERBS"]["verbs"]["hello"].get("since") == "0.3.0", "(b) hello's since is the domain's")
+    check(items["PLUGIN_HOSTD_PROTOCOL_LIBRARY_VERBS"]["verbs"]["hello"].get("since") == "0.1.0", "(b) hello's since is the domain's")
     work = tempfile.mkdtemp(prefix="declared-domain.")
     try:
         copy = os.path.join(work, "contract.d", "plugin-hostd-protocol", "plugin-hostd-protocol.json")

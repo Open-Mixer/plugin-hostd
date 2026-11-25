@@ -49,17 +49,14 @@ def pkg(*args):
 
 
 def contract_data(name):
-    """an item of omx-contract's own data, as the installed package lays it out (contract.d/<major>/omx-contract)"""
-    base = pkg("--variable=contractdir")
-    for major in sorted(os.listdir(base), reverse=True):
-        if not major.isdigit():
-            continue  # a domain's directory (qualification/), not a schema major
-        for f in sorted(os.listdir(os.path.join(base, major, "omx-contract"))):
-            if f.endswith(".json") and f != "MANIFEST.json":
-                with open(os.path.join(base, major, "omx-contract", f)) as fh:
-                    data = json.load(fh)
-                if name in data:
-                    return data[name]
+    """an item of omx-contract's own data, as the installed package lays it out (contract.d/omx-contract)"""
+    root = os.path.join(pkg("--variable=contractdir"), "omx-contract")
+    for f in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+        if f.endswith(".json") and f != "MANIFEST.json":
+            with open(os.path.join(root, f)) as fh:
+                data = json.load(fh)
+            if name in data:
+                return data[name]
     raise SystemExit("omx-contract declares no %s" % name)
 
 
@@ -91,19 +88,15 @@ GOLDEN_FLOOR = "44100,48000,96000,192000"  # omx-dsp's ORACLE_FLOOR_RATES
 
 
 def dsp_data(name):
-    """an item of omx-dsp's package of the contract directory (contract.d/<major>/omx-dsp/**.json)"""
-    base = pkg("--variable=contractdir")
-    for major in sorted(os.listdir(base), reverse=True):
-        root = os.path.join(base, major, "omx-dsp")
-        if not major.isdigit() or not os.path.isdir(root):
-            continue
-        for dirpath, _dirs, files in sorted(os.walk(root)):
-            for f in sorted(files):
-                if f.endswith(".json") and f != "MANIFEST.json":
-                    with open(os.path.join(dirpath, f)) as fh:
-                        data = json.load(fh)
-                    if isinstance(data, dict) and name in data:
-                        return data[name]
+    """an item of omx-dsp's package of the contract directory (contract.d/omx-dsp/**.json)"""
+    root = os.path.join(pkg("--variable=contractdir"), "omx-dsp")
+    for dirpath, _dirs, files in sorted(os.walk(root)):
+        for f in sorted(files):
+            if f.endswith(".json") and f != "MANIFEST.json":
+                with open(os.path.join(dirpath, f)) as fh:
+                    data = json.load(fh)
+                if isinstance(data, dict) and name in data:
+                    return data[name]
     raise SystemExit("omx-dsp declares no %s" % name)
 
 

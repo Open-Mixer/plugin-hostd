@@ -145,6 +145,11 @@ def render_overlay(tree, domain):
         os.makedirs(others)
         for d in contract_dirs():
             for entry in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                # a package's directory with no manifest and no document is this checkout's contract.d/plugin-hostd/ (its
+                # nested domains alone): no package to the render, which reads the installed one
+                if not os.path.exists(os.path.join(d, entry, "MANIFEST.json")) and \
+                        not os.path.exists(os.path.join(d, entry, entry + ".json")):
+                    continue
                 if not os.path.exists(os.path.join(others, entry)):
                     os.symlink(os.path.join(d, entry), os.path.join(others, entry))
         env = dict(os.environ, OMX_CONTRACT_PATH=others)

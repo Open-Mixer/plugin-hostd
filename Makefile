@@ -125,6 +125,10 @@ INCS = -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) $(DOMAIN_CFLAGS) $(PQDB_CFLAGS
 DOMAIN_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags libomx-domain 2>/dev/null)
 DOMAIN_LIBS ?= $(shell $(PKG_CONFIG) --libs libomx-domain 2>/dev/null)
 INSTALLED_CONTRACT_DIR := $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null)
+# the caller's own OMX_CONTRACT_PATH, before this checkout's contract.d joins it: what a recipe that stages the package
+# plugin-hostd itself reads beside its staging (the checkout's contract.d/plugin-hostd/ holds the nested domains and no
+# MANIFEST.json, so as a contract directory it is a package with no manifest)
+CALLER_CONTRACT_PATH := $(strip $(OMX_CONTRACT_PATH))
 export OMX_CONTRACT_PATH := $(strip $(OMX_CONTRACT_PATH)$(if $(strip $(OMX_CONTRACT_PATH)),:)$(CURDIR)/contract.d$(if $(INSTALLED_CONTRACT_DIR),:$(INSTALLED_CONTRACT_DIR)))
 
 LDFLAGS += -Wl,--no-undefined
@@ -279,7 +283,7 @@ install_vocabulary_domains:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install_vocabulary_domains: no install-contract-dir.sh: install omx-contract-devel 3.22.0 or later, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	for d in $(VOCABULARY_DOMAINS) $(FORMAT_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $(DESTDIR)$(CONTRACTDIR) $(PROG) || exit 1; done
 
-# the package plugin-hostd of omx-contract's contract directory, <contractdir>/<schema major>/plugin-hostd/: a MANIFEST.json
+# the package plugin-hostd of omx-contract's contract directory, <contractdir>/plugin-hostd/: a MANIFEST.json
 # naming this version and no file (this tree's contract is domains alone: the install script's --owner form), which is
 # also what tells omx-contract's reader that the directory <contractdir>/plugin-hostd/ holds the domains
 # plugin-hostd/<name> and is no domain of its own. The manifest lists the owner's top-level domains (OWNER_DOMAINS): the
@@ -348,7 +352,7 @@ render-verbs check-rendered:
 	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	for d in $(OWNER_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $$tmp $(PROG) >/dev/null; done; \
 	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $$tmp $(OWNER_DOMAINS) >/dev/null; \
-	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
+	OMX_CONTRACT_PATH=$$tmp$(if $(CALLER_CONTRACT_PATH),:$(CALLER_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed $(foreach d,$(VOCABULARY_DOMAINS),--with-domain contract.d/$(d)) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
 	  echo "$$renderer" > $(RENDERED_WITH); fi

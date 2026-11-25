@@ -74,10 +74,9 @@ def floor_rates():
     """omx-dsp's ORACLE_FLOOR_RATES, the rates a run measures at by default, read from omx-dsp's package of the installed
     contract directory (the sorting pass, V25: the oracle rates left omx-contract)"""
     base = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True, check=True).stdout.strip()
-    for major in sorted(os.listdir(base), reverse=True):
-        rates = os.path.join(base, major, "omx-dsp", "primitives", "rates.json")
-        if os.path.exists(rates):
-            return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
+    rates = os.path.join(base, "omx-dsp", "primitives", "rates.json")
+    if os.path.exists(rates):
+        return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
     raise AssertionError("omx-dsp declares no ORACLE_FLOOR_RATES")
 
 
