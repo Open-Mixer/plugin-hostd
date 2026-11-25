@@ -999,14 +999,17 @@ static void receive(msg_t *msg)
     }
     else if (verb_is(verb, EFFECT_PATCH_GET) && ntok == 3)
     {
-        char key[80], *event = NULL;
+        char key[80], *typed = NULL, *event = NULL;
         const char *value;
 
         snprintf(key, sizeof(key), "patch:%s", tok[2]);
         value = get_param(&g_inst[n], key);
         answer(fd, "resp 0");
-        if (value && asprintf(&event, "patch_set %d %s %c %s", n, tok[2], value[0] == '/' ? 'p' : 's', value) > 0)
+        /* mod-host's line on the feedback port: its patch_set, the atom type before the value */
+        if (value && asprintf(&typed, "%c %s", value[0] == '/' ? 'p' : 's', value) > 0 &&
+            asprintf(&event, EFFECT_PATCH_SET, n, tok[2], typed) > 0)
             socket_send_feedback(event);
+        free(typed);
         free(event);
     }
     else if (verb_is(verb, STATE_SAVE) && ntok == 2)
