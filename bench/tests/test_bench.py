@@ -856,6 +856,61 @@ class Params(unittest.TestCase):
                 self.assertIsInstance(v, (int, float), "%s %s" % (k, sym))
 
 
+class PoolAdd(unittest.TestCase):
+    """pool-add: every plugin added pool:g1, one worker holds them all, or the row fails"""
+
+    def setUp(self):
+        keep = bench.READY_LIMIT_S
+        bench.READY_LIMIT_S = 0.5
+        self.addCleanup(setattr, bench, "READY_LIMIT_S", keep)
+
+    def test_one_pool_worker_holds_every_plugin(self):
+        d = FakeDaemon(isolated=[])
+        try:
+            host = daemon_host(d, self)
+            for i in range(3):
+                host.add("lv2:urn:x%d" % i, i, "pool:g1")
+            ws = host.pooled_all([0, 1, 2], bench.POOL_MAX)
+            self.assertEqual((ws[0][4], sorted(ws[0][5])), ("pool:g1", [0, 1, 2]))
+            self.assertIn("add lv2:urn:x0 0 pool:g1", d.log)
+        finally:
+            d.close()
+
+    def test_a_daemon_that_spreads_the_pool_fails_the_row(self):
+        d = FakeDaemon(isolated=[], pool_apart=True)
+        try:
+            host = daemon_host(d, self)
+            for i in range(3):
+                host.add("lv2:urn:x%d" % i, i, "pool:g1")
+            with self.assertRaises(bench.Failed):
+                host.pooled_all([0, 1, 2], bench.POOL_MAX)
+        finally:
+            d.close()
+
+    def test_a_pool_of_another_name_fails_the_row(self):
+        d = FakeDaemon(isolated=[], pool_as="pool:other")
+        try:
+            host = daemon_host(d, self)
+            for i in range(2):
+                host.add("lv2:urn:x%d" % i, i, "pool:g1")
+            with self.assertRaises(bench.Failed) as cm:
+                host.pooled_all([0, 1], bench.POOL_MAX)
+            self.assertIn("not pool:g1", str(cm.exception))
+        finally:
+            d.close()
+
+    def test_the_pedalboard_family_runs_every_host_and_the_pool(self):
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            table = json.load(f)
+        modes = [(m["host"], m["mode"]) for m in table["modes"]["pedalboard"]]
+        self.assertIn(("H1", "shared-process"), modes)
+        self.assertIn(("H2", "pool-add"), modes)
+        self.assertIn(("H3", "shared-process"), modes)
+        self.assertIn(("H4", "individual"), modes)
+        pedal = next(s for s in table["scenarios"] if s["id"] == "pedal7")
+        self.assertLessEqual(len(pedal["plugins"]), bench.POOL_MAX)
+
+
 class Grouping(unittest.TestCase):
     def setUp(self):
         keep = bench.READY_LIMIT_S

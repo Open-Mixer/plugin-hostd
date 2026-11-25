@@ -64,7 +64,7 @@
       "stress": true, "family": "chains-vs-processes" },
     { "id": "pedal7", "title": "a guitar pedalboard, every stomp on (zynthian-sys examples/guitar-rack, 003-Stomp pedalboard)",
       "plugins": ["x42-tuna", "hex-trim", "hex-drive", "hex-wah", "hex-phaser", "hex-delay", "hex-reverb"],
-      "format": "lv2", "family": "chains-vs-processes" },
+      "format": "lv2", "family": "pedalboard" },
     { "id": "grp8",  "title": "grouping vs processes, 8 plugins, some of them pinned isolated",
       "plugins": ["comp", "drive", "delay", "drive", "comp"], "count": 8, "unshared": ["drive"], "stress": true,
       "family": "grouping-vs-processes" },
@@ -78,6 +78,14 @@
       { "host": "H2", "mode": "chain" },
       { "host": "H2", "mode": "chain-add" },
       { "host": "H1", "mode": "shared-process" },
+      { "host": "H3", "mode": "shared-process" },
+      { "host": "H4", "mode": "individual" }
+    ],
+    "pedalboard": [
+      { "host": "H1", "mode": "shared-process" },
+      { "host": "H2", "mode": "individual" },
+      { "host": "H2", "mode": "chain-add" },
+      { "host": "H2", "mode": "pool-add" },
       { "host": "H3", "mode": "shared-process" },
       { "host": "H4", "mode": "individual" }
     ],

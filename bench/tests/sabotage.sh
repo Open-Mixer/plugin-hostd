@@ -94,6 +94,9 @@ break_unit params-jalv lib/bench.py '[a for k, v in params.items() for a in ("-c
 break_unit params-refused lib/bench.py '            if reply != "resp 0":
                 raise Failed("%s answered '"'"'%s'"'"' to: %s" % (HOST_PROGRAM[self.key], reply, line))
         return client' '        return client' Params.test_a_refused_control_fails_the_row
+break_unit pool-add-holder lib/bench.py 'if ws[0][4] != "pool:g1" or sorted(ws[0][5]) != sorted(insts):' 'if False:' PoolAdd.test_a_pool_of_another_name_fails_the_row
+break_unit pool-add-family scenarios.json '      { "host": "H2", "mode": "pool-add" },
+' '' PoolAdd.test_the_pedalboard_family_runs_every_host_and_the_pool
 break_unit probe-count lib/bench.py 'self.total += 1' 'self.total += 0' Xruns.test_the_probe_counts_what_jack_reports
 break_unit probe-server lib/bench.py 'self.NO_START | self.SERVER_NAME' 'self.SERVER_NAME' Xruns.test_the_probe_joins_the_private_server_only
 break_unit probe-deaf lib/bench.py 'return max(counted, logged), note' 'return counted, note' Xruns.test_a_deaf_probe_is_not_zero_and_not_a_failure
@@ -145,7 +148,7 @@ break_unit table-ratio lib/table.py 'ind[key] / grp[key]' 'grp[key] / ind[key]' 
 break_unit table-stress lib/table.py 'key = (label(r), r.get("stress", "none") != "none")' 'key = (label(r), False)' Table.test_xruns_are_summed_per_mode_with_and_without_stress
 break_unit table-spread lib/table.py 'if lo != hi:' 'if False:' Table.test_a_spread_shows_beside_its_median
 break_unit table-failed lib/table.py 'if r["status"] != "ok":' 'if False:' Table.test_a_failed_row_is_shown_with_its_reason
-break_unit table-family lib/table.py '(cvp|cvc|cvl|grp)[0-9]+$' '.*$' Table.test_a_scenario_that_is_not_a_family_is_left_out
+break_unit table-family lib/table.py '(cvp|cvc|cvl|grp|pedal)[0-9]+$' '.*$' Table.test_a_scenario_that_is_not_a_family_is_left_out
 # --- the soundness gate: each check, broken on purpose, turns the test that feeds it a disturbed sample red
 break_unit gate-spread lib/soundness.py 'if span and avg > 0 and span[1] - span[0] > max(SPREAD_REL * avg, FLOOR):' \
     'if False:' Soundness.test_a_wide_spread_is_flagged_and_a_narrow_one_is_not
