@@ -1668,7 +1668,7 @@ static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, u
 
     if (map == NULL)
     {
-        s = add_step(name, OUT_CHILD_PROTOCOL, 0);
+        s = add_step(name, OUT(CHILD_PROTOCOL), 0);
         set_detail(s, "the child's line holds no %s map", name);
         return;
     }
