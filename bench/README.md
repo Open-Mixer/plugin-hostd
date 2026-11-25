@@ -86,7 +86,12 @@ for an instrument, wired through the plugins in series into the playback ports.
 | `cvl3` to `cvl48` | the same with the LV2 builds on every host: plugin-hostd and omx-clap-host through its LV2 adapter, mod-host and jalv, like for like. Every `cvcN` has its `cvlN`: on H1 and on H2 the pair is the same host, the same plugins and the same DSP code in two wrappers, the only clean read of the format. `table.sh` prints it as "CLAP against LV2"; across hosts (H1 CLAP against H3 LV2) the host and the format are mixed and the table does not compare them |
 | `cvp24-lv2` | `cvp24` with the LV2 builds on every host, plugin-hostd and omx-clap-host through the LV2 adapter |
 | `tp10` | chains vs processes: ten third-party LV2 effects in series, the set of `tools/zynthian/matrix/plugins.json` |
+| `pedal7` | a guitar pedalboard, every stomp on: x42 Instrument Tuner, then Hex Chain Input Trim (hum filter, 50 Hz), Drive, Wah, Modulation (Phaser), Delay and Reverb (guitaramp-suite.lv2), the chain of zynthian-sys's `003-Stomp pedalboard` example. LV2 on every host |
 | `grp8`, `grp16` | grouping vs processes: N CLAP plugins cycling omx-comp, omx-drive, omx-delay, omx-drive, omx-comp, where omx-drive is pinned `isolated` |
+
+A plugin of the table may carry `params`, symbol to value: the controls it runs with. jalv takes them at its start
+(`-c symbol=value`, as Zynthian starts it); the other hosts get `param_set` right after the `add`, inside `add_ms`. A
+control the host refuses fails the row, so a row never measures a plugin left at its defaults by mistake.
 
 H1 and H2 take our plugins as CLAP and Calf through the LV2 adapter. H3 and H4 take the LV2 builds of our plugins,
 and the row's note says so.

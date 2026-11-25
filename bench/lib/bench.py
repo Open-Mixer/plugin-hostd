@@ -1150,6 +1150,16 @@ class Host:
                     what, sum(1 for w in ws if w[3] == "up"), want, READY_LIMIT_S))
             time.sleep(0.01)
 
+    def pooled_all(self, insts, pool_max):
+        """every instance in the one worker of pool:g1, or Failed (a daemon before pools reads pool:g1 as a client name
+        and gives each add a worker of its own)"""
+        if len(insts) > pool_max:
+            raise Refused("%d plugins for one pool, which holds %d" % (len(insts), pool_max))
+        ws = self.wait_workers(1, "pool-add")
+        if ws[0][4] != "pool:g1" or sorted(ws[0][5]) != sorted(insts):
+            raise Failed("pool-add: the worker is %s holding %s, not pool:g1 holding %s" % (ws[0][4], ws[0][5], insts))
+        return ws
+
     def declare_plan(self, insts):
         """plan 1 <insts>: the segments the daemon made, [[inst, ...], ...], once their workers are up"""
         reply = self.ctl.cmd("plan 1 " + " ".join(map(str, insts)))
@@ -1185,11 +1195,13 @@ class Host:
             raise Failed("pool:%s holds %s, not %s" % (name, [w[5] for w in holder], pooled))
         return segments, pooled
 
-    def add(self, uri, inst, placement=None):
-        """add one plugin; returns the client name"""
+    def add(self, uri, inst, placement=None, params=None):
+        """add one plugin with its controls set (`params`, symbol -> value: jalv takes them as -c at start, as Zynthian
+        starts it; the other hosts as param_set right after the add, which add_ms counts); returns the client name"""
         client = "effect_%d" % inst
+        params = params or {}
         if self.key == "H4":
-            argv = ["jalv", "-i", "-n", client, uri]
+            argv = ["jalv", "-i", "-n", client] + [a for k, v in params.items() for a in ("-c", "%s=%s" % (k, v))] + [uri]
             self.jalvs[inst] = self.procs.spawn(argv, "H4-%d" % inst, self.env)
             end = time.monotonic() + READY_LIMIT_S
             while client not in ports(self.env):
@@ -1209,6 +1221,11 @@ class Host:
             reply = self.ctl.cmd(line)
         if reply != "resp %d" % inst:
             raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
+        for k, v in params.items():
+            line = "param_set %d %s %s" % (inst, k, v)
+            reply = self.ctl.cmd(line)
+            if reply != "resp 0":
+                raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
         return client
 
     def connect(self, a, b):
@@ -1512,9 +1529,11 @@ class Runner:
                 run(["jack_disconnect", "sine:output%d" % (k + 1), "system:playback_%d" % (k + 1)], self.env)
 
             insts = list(range(len(picks)))
-            placement = {"individual": "own", "chain-add": "chain:1"}.get(mode) if hkey == "H2" else None
+            placement = {"individual": "own", "chain-add": "chain:1", "pool-add": "pool:g1"}.get(mode) \
+                if hkey == "H2" else None
             t0 = time.monotonic()
-            clients = [host.add(uri, i, placement) for (uri, _, _), i in zip(picks, insts)]
+            clients = [host.add(uri, i, placement, self.cat.plugins[k].get("params"))
+                       for (uri, _, _), i, k in zip(picks, insts, keys)]
             if mode == "chain-add" and insts:
                 # a daemon before plugin-hostd#348 reads chain:1 as a client name and gives each add a worker of its own
                 if host.ctl.cmd("chain_get 1").split()[1:2] != ["0"]:
@@ -1529,6 +1548,10 @@ class Runner:
                 if reply != "resp 0":
                     raise Failed("chain answered '%s'" % reply)
                 self.chain_formed(host, insts)
+            elif mode == "pool-add" and insts:
+                # every plugin added into one pool: one worker process, each plugin its own JACK client, as mod-host
+                # and omx-clap-host hold a board
+                host.pooled_all(insts, POOL_MAX)
             elif mode == "plan":
                 segments = host.declare_plan(insts)
                 notes.append("plan: " + ";".join(",".join(map(str, g)) for g in segments))

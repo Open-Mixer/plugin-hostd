@@ -760,6 +760,8 @@ class FakeDaemon:
         if w[0] == "remove":
             self.inst.pop(int(w[1]))
             return "resp 0"
+        if w[0] == "param_set":
+            return "resp 0" if int(w[1]) in self.inst and w[2] != "no_such_port" else "resp -5"
         if w[0] == "plan":
             members = [int(x) for x in w[2:]]
             segs, cur = [], []
@@ -803,6 +805,110 @@ def daemon_host(daemon, case):
     host.ctl = bench.Control(daemon.port, Gone())
     case.addCleanup(host.ctl.close)
     return host
+
+
+class Params(unittest.TestCase):
+    """a plugin's controls (scenarios.json `params`) reach every host: jalv as -c at its start, the others as param_set
+    right after the add, and a control the host refuses fails the row instead of measuring the defaults"""
+
+    def test_the_daemon_hosts_get_a_param_set_after_the_add(self):
+        d = FakeDaemon(isolated=[])
+        try:
+            host = daemon_host(d, self)
+            host.add("lv2:urn:x", 3, None, {"enabled": 1, "mix": 0.2})
+            self.assertEqual(d.log, ["add lv2:urn:x 3", "param_set 3 enabled 1", "param_set 3 mix 0.2"])
+        finally:
+            d.close()
+
+    def test_a_refused_control_fails_the_row(self):
+        d = FakeDaemon(isolated=[])
+        try:
+            host = daemon_host(d, self)
+            with self.assertRaises(bench.Failed) as cm:
+                host.add("lv2:urn:x", 0, None, {"no_such_port": 1})
+            self.assertIn("param_set 0 no_such_port 1", str(cm.exception))
+        finally:
+            d.close()
+
+    def test_jalv_takes_the_controls_at_its_start(self):
+        argvs = []
+
+        class Procs:
+            def spawn(self, argv, name, env=None):
+                argvs.append(argv)
+                return Gone()
+
+        keep = bench.ports
+        bench.ports = lambda env: {"effect_0": {}}
+        self.addCleanup(setattr, bench, "ports", keep)
+        host = bench.Host("H4", Procs(), {}, "/nonexistent", 0)
+        self.assertEqual(host.add("urn:x", 0, None, {"enabled": 1, "mix": 0.2}), "effect_0")
+        self.assertEqual(argvs, [["jalv", "-i", "-n", "effect_0", "-c", "enabled=1", "-c", "mix=0.2", "urn:x"]])
+
+    def test_every_declared_control_is_a_symbol_and_a_number(self):
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            table = json.load(f)
+        used = [k for k in table["plugins"] if table["plugins"][k].get("params")]
+        self.assertIn("hex-drive", used)
+        for k in used:
+            for sym, v in table["plugins"][k]["params"].items():
+                self.assertRegex(sym, r"^[A-Za-z_][A-Za-z0-9_]*$", k)
+                self.assertIsInstance(v, (int, float), "%s %s" % (k, sym))
+
+
+class PoolAdd(unittest.TestCase):
+    """pool-add: every plugin added pool:g1, one worker holds them all, or the row fails"""
+
+    def setUp(self):
+        keep = bench.READY_LIMIT_S
+        bench.READY_LIMIT_S = 0.5
+        self.addCleanup(setattr, bench, "READY_LIMIT_S", keep)
+
+    def test_one_pool_worker_holds_every_plugin(self):
+        d = FakeDaemon(isolated=[])
+        try:
+            host = daemon_host(d, self)
+            for i in range(3):
+                host.add("lv2:urn:x%d" % i, i, "pool:g1")
+            ws = host.pooled_all([0, 1, 2], bench.POOL_MAX)
+            self.assertEqual((ws[0][4], sorted(ws[0][5])), ("pool:g1", [0, 1, 2]))
+            self.assertIn("add lv2:urn:x0 0 pool:g1", d.log)
+        finally:
+            d.close()
+
+    def test_a_daemon_that_spreads_the_pool_fails_the_row(self):
+        d = FakeDaemon(isolated=[], pool_apart=True)
+        try:
+            host = daemon_host(d, self)
+            for i in range(3):
+                host.add("lv2:urn:x%d" % i, i, "pool:g1")
+            with self.assertRaises(bench.Failed):
+                host.pooled_all([0, 1, 2], bench.POOL_MAX)
+        finally:
+            d.close()
+
+    def test_a_pool_of_another_name_fails_the_row(self):
+        d = FakeDaemon(isolated=[], pool_as="pool:other")
+        try:
+            host = daemon_host(d, self)
+            for i in range(2):
+                host.add("lv2:urn:x%d" % i, i, "pool:g1")
+            with self.assertRaises(bench.Failed) as cm:
+                host.pooled_all([0, 1], bench.POOL_MAX)
+            self.assertIn("not pool:g1", str(cm.exception))
+        finally:
+            d.close()
+
+    def test_the_pedalboard_family_runs_every_host_and_the_pool(self):
+        with open(os.path.join(BENCH, "scenarios.json")) as f:
+            table = json.load(f)
+        modes = [(m["host"], m["mode"]) for m in table["modes"]["pedalboard"]]
+        self.assertIn(("H1", "shared-process"), modes)
+        self.assertIn(("H2", "pool-add"), modes)
+        self.assertIn(("H3", "shared-process"), modes)
+        self.assertIn(("H4", "individual"), modes)
+        pedal = next(s for s in table["scenarios"] if s["id"] == "pedal7")
+        self.assertLessEqual(len(pedal["plugins"]), bench.POOL_MAX)
 
 
 class Grouping(unittest.TestCase):

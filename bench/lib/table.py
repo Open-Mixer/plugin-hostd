@@ -34,8 +34,9 @@ def figure(row, key, digits=None):
 
 
 def family_rows(doc):
-    """the rows of the scenarios that compare ways of running the same strip: cvp<N>, cvc<N>, cvl<N> and grp<N>"""
-    return [r for r in doc["scenarios"] if re.match(r"^(cvp|cvc|cvl|grp)[0-9]+$", r["id"]) and "mode" in r]
+    """the rows of the scenarios that compare ways of running the same strip: cvp<N>, cvc<N>, cvl<N>, grp<N> and the
+    pedalboard pedal<N>"""
+    return [r for r in doc["scenarios"] if re.match(r"^(cvp|cvc|cvl|grp|pedal)[0-9]+$", r["id"]) and "mode" in r]
 
 
 def unstable_rows(docs):
@@ -62,7 +63,7 @@ def cycle_figure(row, key):
 
 
 def order(row):
-    modes = {"individual": 0, "chain": 1, "chain-add": 2, "plan": 3, "pool": 4}
+    modes = {"individual": 0, "chain": 1, "chain-add": 2, "pool-add": 3, "plan": 4, "pool": 5}
     return (row["id"], row["rate"], row["frames"], row.get("stress", "none") != "none", row["host"] != "H2",
             modes.get(row["mode"], 4), row["host"])
 
