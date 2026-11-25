@@ -2910,10 +2910,24 @@ static char *key_of(const char *line)
     return key;
 }
 
+/* a replace-keyed line the worker took is kept in the instance's properties, the latest per key: 0, or -1 when there is
+ * no memory for it */
+static int keep_keyed(instance_t *i, const char *line)
+{
+    char *key = key_of(line), *replaced = NULL;
+    int rc = 0;
+
+    if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+        rc = -1;
+    free(replaced);
+    free(key);
+    return rc;
+}
+
 char *sup_call_keyed(int id, const char *line, int *answered)
 {
     instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
-    char *reply, *key, *replaced = NULL;
+    char *reply;
 
     *answered = 0;
     if (!i)
@@ -2921,15 +2935,12 @@ char *sup_call_keyed(int id, const char *line, int *answered)
     reply = call_worker(i, line, answered);
     if (!*answered || resp_code(reply) < 0 || g_inst[id] != i)
         return reply;
-    key = key_of(line);
-    if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+    if (keep_keyed(i, line) != 0)
     {
         free(reply);
         reply = sup_resp(ERR_MEMORY_ALLOCATION);
         *answered = 0;
     }
-    free(replaced);
-    free(key);
     return reply;
 }
 
@@ -3247,18 +3258,11 @@ char *sup_instance_verb(const char *line, int ledger)
          * checkpoint truncates and a property outlives (R-111) */
         if (ledger == PHD_LEDGER_REPLACE_KEYED && count > 2 && resp_code(reply) >= 0 && g_inst[id] == i)
         {
-            size_t size = strlen(word[0]) + strlen(word[2]) + 2;
-            char *key = malloc(size), *replaced = NULL;
-
-            if (key)
-                snprintf(key, size, "%s %s", word[0], word[2]);
-            if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+            if (keep_keyed(i, line) != 0)
             {
                 free(reply);
                 reply = sup_resp(ERR_MEMORY_ALLOCATION);
             }
-            free(replaced);
-            free(key);
         }
     }
     /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker but the property verbs

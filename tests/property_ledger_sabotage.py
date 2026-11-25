@@ -10,18 +10,18 @@ exe, fake, cc, cflags, objs, libs = sys.argv[1:7]
 
 # the key without the instance: a set first drops the same symbol's line from every other instance, so one line per
 # symbol is kept across the daemon
-KEEP = "            if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)\n"
-DROP_ELSEWHERE = """            for (int o = 0; key && o < MAX_INSTANCE; o++)
-                for (int k = 0; g_inst[o] && g_inst[o] != i && k < g_inst[o]->nprops; k++)
-                    if (g_inst[o]->props[k].key && !strcmp(g_inst[o]->props[k].key, key))
-                    {
-                        free(g_inst[o]->props[k].line);
-                        free(g_inst[o]->props[k].key);
-                        memmove(&g_inst[o]->props[k], &g_inst[o]->props[k + 1],
-                                (size_t)(g_inst[o]->nprops - k - 1) * sizeof(entry_t));
-                        g_inst[o]->nprops--;
-                        k--;
-                    }
+KEEP = "    if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)\n"
+DROP_ELSEWHERE = """    for (int o = 0; key && o < MAX_INSTANCE; o++)
+        for (int k = 0; g_inst[o] && g_inst[o] != i && k < g_inst[o]->nprops; k++)
+            if (g_inst[o]->props[k].key && !strcmp(g_inst[o]->props[k].key, key))
+            {
+                free(g_inst[o]->props[k].line);
+                free(g_inst[o]->props[k].key);
+                memmove(&g_inst[o]->props[k], &g_inst[o]->props[k + 1],
+                        (size_t)(g_inst[o]->nprops - k - 1) * sizeof(entry_t));
+                g_inst[o]->nprops--;
+                k--;
+            }
 """ + KEEP
 
 ARMS = [

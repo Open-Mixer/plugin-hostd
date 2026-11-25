@@ -4061,14 +4061,18 @@ def a_first_run_whose_worker_is_slow_to_come_up_is_answered_not_timed_out():
     """plugin-hostd#108: in an RPM build's %check on a host at load 40-53 the first-run add's answer came after the
     controller's reply timeout, and the test failed on a TimeoutError, not on a fault. The condition the test waits on is
     the daemon's first-run answer; its bound is for a hang (CEILING), not a fixed short reply timeout. Here the worker
-    holds its ready line past that short timeout, so the add is answered late and still within the hang bound."""
+    holds its ready line past that short timeout, so the answer that starts it comes late and still within the hang
+    bound. With no verdict the add itself is bypassed and starts no worker (R-112): the operator's pin_accept is the
+    first-run answer that waits for the worker."""
     p = Plugins()
     check(not os.path.exists(p.store), "no store yet")
     late_ms = int(REPLY_TIMEOUT * 1000) + 2000   # past the controller's reply timeout, well within the hang bound
     d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_READY_AFTER_MS": str(late_ms)})
     try:
-        t0 = time.monotonic()
         d.expect("add %s 0" % p.clap_uri, "resp 0", timeout=CEILING)
+        check(d.workers() == {}, "R-112: with no verdict the add starts no worker: %s" % d.workers())
+        t0 = time.monotonic()
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0", timeout=CEILING)
         took = time.monotonic() - t0
         check(took >= late_ms / 1000.0, "the answer waited for the worker's ready line (%.1f s, held %d ms): the delay landed" % (took, late_ms))
         writes_landed(d)

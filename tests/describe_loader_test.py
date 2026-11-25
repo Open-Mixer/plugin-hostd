@@ -9,6 +9,9 @@
 #   describe_loader_test.py   PROBE is the runner (default ./plugin-hostd-probe)
 import hashlib, json, os, subprocess, sys, tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import format_tables  # the format tables: the domains plugin-hostd/clap and plugin-hostd/lv2
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.environ.get("PROBE", os.path.join(ROOT, "plugin-hostd-probe"))
 FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
@@ -19,9 +22,13 @@ CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixtu
          "lv2-compressor": "lv2:urn:example:compressor", "lv2-eq": "lv2:urn:example:eq"}
 failed = 0
 for name, target in CASES.items():
-    r = subprocess.run([PROBE, "describe", "--table", os.path.join(ROOT, "data", "formats", target.split(":")[0] + ".json"),
+    r = subprocess.run([PROBE, "describe", "--table", format_tables.path(target.split(":")[0]),
                         "--fields-from", os.path.join(FIELDS, name + ".tsv"), "--contract-dir", CONTRACT_DIR, target],
                        capture_output=True, text=True)
+    if r.returncode != 0:
+        print("FAIL %s: describe exits 0 (%d: %s)" % (name, r.returncode, r.stderr.strip()[:200]))
+        failed += 1
+        continue
     doc = json.loads(r.stdout)
     ok = doc.get("$schema") == SCHEMA
     print(("ok   " if ok else "FAIL ") + "%s: describe writes the address the loader accepts (%s)" % (name, doc.get("$schema")))
