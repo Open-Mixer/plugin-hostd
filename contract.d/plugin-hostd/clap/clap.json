@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/plugin-hostd/clap",
   "info": {
     "title": "The CLAP format table: how a CLAP plugin's field dump becomes a scanned descriptor, row by row",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental"
   },
@@ -11,7 +11,7 @@
     "schemas": {
       "PLUGIN_HOSTD_CLAP_MAP": {
         "description": "How a CLAP plugin's field dump (omx-clap-scan --fields) becomes a scanned descriptor, and, read backwards, what a generator writes a CLAP face from: every CLAP term and struct field, each mapped to a descriptor word, carried in the extension bag or dropped by its ruling (docs/formats.md).",
-        "x-since": "0.7.0",
+        "x-since": "0.1.0",
         "x-kind": "map",
         "x-file": "formats/clap.json",
         "x-format": "clap",

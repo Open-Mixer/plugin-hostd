@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/machine",
   "info": {
     "title": "The machine a figure was taken on",
-    "version": "1.1.0",
+    "version": "0.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental"
   },
@@ -11,7 +11,7 @@
     "schemas": {
       "MACHINE_CLASS_FIELDS": {
         "description": "What identifies the machine a figure was taken on (plugin-qualify#115): a verdict for a host profile reads only figures of the class it names.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "arch",
@@ -59,7 +59,7 @@
       },
       "MACHINE_PROFILE_FIELDS": {
         "description": "How the machine was set when a figure was taken: the frequency policy and isolation a figure depends on.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "governor",
@@ -95,7 +95,7 @@
       },
       "MACHINE_CORE_BANDS": {
         "description": "The bands a machine's core count falls in, ascending.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "x-c-codes": true,
         "oneOf": [
           {
@@ -138,7 +138,7 @@
       },
       "MACHINE_CLOCK_BANDS": {
         "description": "The bands a machine's clock falls in, ascending.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "x-c-codes": true,
         "oneOf": [
           {
@@ -175,7 +175,7 @@
       },
       "MACHINE_ARCHES": {
         "description": "The architectures a host profile names, as uname -m spells them.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "x86_64",
@@ -193,7 +193,7 @@
       },
       "MACHINE_FAMILIES": {
         "description": "The CPU families the probe names a machine's CPU by.",
-        "x-since": "1.1.0",
+        "x-since": "0.1.0",
         "x-c-codes": true,
         "oneOf": [
           {

@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/param",
   "info": {
     "title": "The standard parameter words (a fixture of the interface this package reads: omx-contract's domain param)",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "x-owner": "omx-contract",
     "x-stability": "experimental"
   },
@@ -11,7 +11,7 @@
     "schemas": {
       "PARAM_SCALES": {
         "description": "How a host draws a parameter: linear, logarithmic or in discrete steps.",
-        "x-since": "1.3.0",
+        "x-since": "0.1.0",
         "x-c-codes": true,
         "x-c-xmacro": true,
         "oneOf": [

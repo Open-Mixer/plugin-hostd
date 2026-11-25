@@ -16,6 +16,7 @@ tables are the correction of plugin-db-qualification 1d8b2e2f2, which a cell nee
 A cell is one grid point of one plugin binary (its sha256 is a hex digit or digits repeated to 64 characters) on one host class; its record
 is made once per sha256 and uri. Every column the schema needs and a cell does not name takes a plain placeholder.
 """
+import json
 import os
 import sqlite3
 import subprocess
@@ -65,7 +66,11 @@ def build(schema, out, cells, user_version=1, bad_word=False):
     db.execute("INSERT INTO store_info (one, user_layer, record_schema, built_from) VALUES (1, 0, ?, ?)",
                ("plugin-qualify.qualification-record/1", "0" * 40))
     if bad_word:
-        db.execute("INSERT INTO store_domain (domain, version) VALUES ('machine', '1.1.0')")
+        # the version of the machine domain the store says it was written under: this tree's document's
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "contract.d", "machine", "machine.json"),
+                  encoding="utf-8") as f:
+            machine = json.load(f)["info"]["version"]
+        db.execute("INSERT INTO store_domain (domain, version) VALUES ('machine', ?)", (machine,))
         db.execute("INSERT INTO word_check (tbl, col, domain, item) VALUES ('record', 'mc_arch', 'machine', 'MACHINE_ARCHES')")
     set_id = fill(db, "record_set", {"host_class": "x86-64", "name": "fixture", "tier": "reference"})
     plugins, records, ords = {}, {}, {}

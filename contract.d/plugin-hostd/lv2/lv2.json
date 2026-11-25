@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/plugin-hostd/lv2",
   "info": {
     "title": "The LV2 format table: how an LV2 plugin's field dump becomes a scanned descriptor, row by row",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental"
   },
@@ -11,7 +11,7 @@
     "schemas": {
       "PLUGIN_HOSTD_LV2_MAP": {
         "description": "How an LV2 plugin's field dump (omx-clap-scan --fields) becomes a scanned descriptor, and, read backwards, what a generator writes an LV2 .ttl from: every LV2 term and the RDF and DOAP predicates a scan reads, each mapped to a descriptor word, carried in the extension bag or dropped by its ruling (docs/formats.md).",
-        "x-since": "0.7.0",
+        "x-since": "0.1.0",
         "x-kind": "map",
         "x-file": "formats/lv2.json",
         "x-format": "lv2",

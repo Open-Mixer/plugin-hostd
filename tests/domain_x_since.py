@@ -1,13 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
 # An item's x-since is the info.version of its domain document that first carried it (omx-contract's contract
-# directory rule): never a version above the document's own, never a package's or omx-contract's release. The domains
-# plugin-hostd owns are held to the versions that added each item:
-#
-#   machine 1.0.0: MACHINE_CLASS_FIELDS, MACHINE_PROFILE_FIELDS, MACHINE_CORE_BANDS, MACHINE_CLOCK_BANDS, MACHINE_ARCHES
-#   machine 1.1.0: MACHINE_FAMILIES
-#   qualification 1.0.0 / 1.2.0 / 1.3.0 / 1.4.0: the items as plugin-qualify's 1.3.0 carried them, and the five of 1.4.0 (SINCE below)
-#   qualification 1.5.0: QUALIFICATION_UNIT_PROVENANCES
+# directory rule): never a version above the document's own, never a package's or omx-contract's release. A domain's
+# version is the version of its vocabulary, never the package's (owner, 2026-11-25): it started again at 0.1.0 and
+# rises only when that domain's own words or items change. The domains plugin-hostd owns are held to the versions that
+# added each item, every one of them 0.1.0 at the reset (SINCE below).
 #
 # An item a domain gains later is added to SINCE with the version that adds it, or this check is red.
 #
@@ -27,58 +24,58 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SINCE = {
     "machine": {
-        "MACHINE_CLASS_FIELDS": "1.0.0",
-        "MACHINE_PROFILE_FIELDS": "1.0.0",
-        "MACHINE_CORE_BANDS": "1.0.0",
-        "MACHINE_CLOCK_BANDS": "1.0.0",
-        "MACHINE_ARCHES": "1.0.0",
-        "MACHINE_FAMILIES": "1.1.0",
+        "MACHINE_CLASS_FIELDS": "0.1.0",
+        "MACHINE_PROFILE_FIELDS": "0.1.0",
+        "MACHINE_CORE_BANDS": "0.1.0",
+        "MACHINE_CLOCK_BANDS": "0.1.0",
+        "MACHINE_ARCHES": "0.1.0",
+        "MACHINE_FAMILIES": "0.1.0",
     },
     "qualification": {
-        "QUALIFICATION_MEASUREMENT_DIMENSIONS": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_UNMEASURED_KINDS": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_UNMEASURED_REASONS": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_LATENCY_METHODS": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_COST_METHODS": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_LATENCY_SCALING": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_LATENCY_SCALING_NOTES": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_LATENCY_EXCLUSIONS": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_VOICE_BASES": "1.0.0",
-        "QUALIFICATION_MEASUREMENT_VERDICT_RATINGS": "1.0.0",
-        "QUALIFICATION_RESOURCE_MEMORY_PHASES": "1.0.0",
-        "QUALIFICATION_RESOURCE_UNMEASURED_REASONS": "1.0.0",
-        "QUALIFICATION_RESOURCE_BUDGET_SCOPES": "1.0.0",
-        "QUALIFICATION_RESOURCE_HOST_ISOLATIONS": "1.0.0",
-        "QUALIFICATION_RESOURCE_HOST_LATENCY_HANDLING": "1.0.0",
-        "QUALIFICATION_RESOURCE_THREAD_SCHEDULING": "1.0.0",
-        "QUALIFICATION_HOST_CLASSES": "1.2.0",
-        "QUALIFICATION_SET_TIERS": "1.2.0",
-        "QUALIFICATION_HOST_PROFILES": "1.2.0",
-        "QUALIFICATION_SYNC_SETTINGS": "1.2.0",
-        "QUALIFICATION_OFFERS": "1.2.0",
-        "QUALIFICATION_PACKAGE_FORMATS": "1.2.0",
-        "QUALIFICATION_PACKAGE_DISTROS": "1.2.0",
-        "QUALIFICATION_PACKAGE_ARCHES": "1.2.0",
-        "QUALIFICATION_VERDICT_HOSTINGS": "1.2.0",
-        "QUALIFICATION_VERDICT_ARMS": "1.2.0",
-        "QUALIFICATION_REASON_PARAMS": "1.2.0",
-        "QUALIFICATION_REASON_PARAM_WORDS": "1.2.0",
-        "QUALIFICATION_RECORD_TIERS": "1.2.0",
-        "QUALIFICATION_MEMORY_LIMIT_MECHANISMS": "1.2.0",
-        "QUALIFICATION_NOTE_SWEEP_DIALECTS": "1.2.0",
-        "QUALIFICATION_RUN_STEPS": "1.2.0",
-        "QUALIFICATION_STEP_RESULTS": "1.2.0",
-        "QUALIFICATION_STEP_CODES": "1.2.0",
-        "QUALIFICATION_REJUDGE_OWES": "1.2.0",
-        "QUALIFICATION_REJUDGE_MEASUREMENTS": "1.2.0",
-        "QUALIFICATION_ADAPTER_HOSTS": "1.4.0",
-        "QUALIFICATION_PIN_VERDICTS": "1.4.0",
-        "QUALIFICATION_HISTORY_MOVES": "1.4.0",
-        "QUALIFICATION_HISTORY_REASONS": "1.4.0",
-        "QUALIFICATION_HISTORY_BLOCKERS": "1.4.0",
-        "QUALIFICATION_ADAPTER_CODE_KINDS": "1.3.0",
-        "QUALIFICATION_MEMORY_BOUND_OUTCOMES": "1.3.0",
-        "QUALIFICATION_UNIT_PROVENANCES": "1.5.0",
+        "QUALIFICATION_MEASUREMENT_DIMENSIONS": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_UNMEASURED_KINDS": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_UNMEASURED_REASONS": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_LATENCY_METHODS": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_COST_METHODS": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_LATENCY_SCALING": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_LATENCY_SCALING_NOTES": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_LATENCY_EXCLUSIONS": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_VOICE_BASES": "0.1.0",
+        "QUALIFICATION_MEASUREMENT_VERDICT_RATINGS": "0.1.0",
+        "QUALIFICATION_RESOURCE_MEMORY_PHASES": "0.1.0",
+        "QUALIFICATION_RESOURCE_UNMEASURED_REASONS": "0.1.0",
+        "QUALIFICATION_RESOURCE_BUDGET_SCOPES": "0.1.0",
+        "QUALIFICATION_RESOURCE_HOST_ISOLATIONS": "0.1.0",
+        "QUALIFICATION_RESOURCE_HOST_LATENCY_HANDLING": "0.1.0",
+        "QUALIFICATION_RESOURCE_THREAD_SCHEDULING": "0.1.0",
+        "QUALIFICATION_HOST_CLASSES": "0.1.0",
+        "QUALIFICATION_SET_TIERS": "0.1.0",
+        "QUALIFICATION_HOST_PROFILES": "0.1.0",
+        "QUALIFICATION_SYNC_SETTINGS": "0.1.0",
+        "QUALIFICATION_OFFERS": "0.1.0",
+        "QUALIFICATION_PACKAGE_FORMATS": "0.1.0",
+        "QUALIFICATION_PACKAGE_DISTROS": "0.1.0",
+        "QUALIFICATION_PACKAGE_ARCHES": "0.1.0",
+        "QUALIFICATION_VERDICT_HOSTINGS": "0.1.0",
+        "QUALIFICATION_VERDICT_ARMS": "0.1.0",
+        "QUALIFICATION_REASON_PARAMS": "0.1.0",
+        "QUALIFICATION_REASON_PARAM_WORDS": "0.1.0",
+        "QUALIFICATION_RECORD_TIERS": "0.1.0",
+        "QUALIFICATION_MEMORY_LIMIT_MECHANISMS": "0.1.0",
+        "QUALIFICATION_NOTE_SWEEP_DIALECTS": "0.1.0",
+        "QUALIFICATION_RUN_STEPS": "0.1.0",
+        "QUALIFICATION_STEP_RESULTS": "0.1.0",
+        "QUALIFICATION_STEP_CODES": "0.1.0",
+        "QUALIFICATION_REJUDGE_OWES": "0.1.0",
+        "QUALIFICATION_REJUDGE_MEASUREMENTS": "0.1.0",
+        "QUALIFICATION_ADAPTER_HOSTS": "0.1.0",
+        "QUALIFICATION_PIN_VERDICTS": "0.1.0",
+        "QUALIFICATION_HISTORY_MOVES": "0.1.0",
+        "QUALIFICATION_HISTORY_REASONS": "0.1.0",
+        "QUALIFICATION_HISTORY_BLOCKERS": "0.1.0",
+        "QUALIFICATION_ADAPTER_CODE_KINDS": "0.1.0",
+        "QUALIFICATION_MEMORY_BOUND_OUTCOMES": "0.1.0",
+        "QUALIFICATION_UNIT_PROVENANCES": "0.1.0",
     },
 }
 
@@ -136,7 +133,7 @@ def self_test():
     plants = {
         "an omx-contract release": lambda d: s(d)["MACHINE_ARCHES"].__setitem__("x-since", "2.18.0"),
         "a version above the document's": lambda d: s(d)["MACHINE_FAMILIES"].__setitem__("x-since", "9.0.0"),
-        "a new item given an older version": lambda d: s(d)["MACHINE_FAMILIES"].__setitem__("x-since", "1.0.0"),
+        "an item given a version the domain did not add it at": lambda d: s(d)["MACHINE_FAMILIES"].__setitem__("x-since", "0.0.9"),
         "a missing x-since": lambda d: s(d)["MACHINE_CORE_BANDS"].pop("x-since"),
         "an item not listed": lambda d: s(d).__setitem__("MACHINE_PLANTED", dict(s(d)["MACHINE_ARCHES"])),
     }

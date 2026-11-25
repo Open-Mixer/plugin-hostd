@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/qualification",
   "info": {
     "title": "What a qualification measures and records",
-    "version": "1.5.0",
+    "version": "0.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": [
@@ -19,7 +19,7 @@
     "schemas": {
       "QUALIFICATION_MEASUREMENT_DIMENSIONS": {
         "description": "The measurable dimensions a measurement document declares it covers: latency and cost since the format's 1.0, stability, RT safety and features since 1.1, for the hosting verdict.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "latency",
@@ -76,7 +76,7 @@
       },
       "QUALIFICATION_MEASUREMENT_UNMEASURED_KINDS": {
         "description": "What an absent figure means for a merge, the one distinction that changes behaviour: a property of the plugin, a failure of this run, or a dimension the run did not cover.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "nothing-to-measure",
@@ -103,7 +103,7 @@
       },
       "QUALIFICATION_MEASUREMENT_UNMEASURED_REASONS": {
         "description": "Every reason a figure may be absent, each of its kind: an outcome a sweep produced, never a hypothetical. A reader that meets a reason it does not know treats it as probe-failed.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "x-groups": "QUALIFICATION_MEASUREMENT_UNMEASURED_KINDS",
         "oneOf": [
           {
@@ -262,7 +262,7 @@
       },
       "QUALIFICATION_MEASUREMENT_LATENCY_METHODS": {
         "description": "How a latency figure was taken. note-onset is an instrument's: a held note's first sound.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "impulse-onset",
@@ -309,7 +309,7 @@
       },
       "QUALIFICATION_MEASUREMENT_COST_METHODS": {
         "description": "How a cost figure was taken.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "block-time-percentile",
@@ -322,7 +322,7 @@
       },
       "QUALIFICATION_MEASUREMENT_LATENCY_SCALING": {
         "description": "How latency moves with the sample rate, derived from readings at several rates, never assumed from a plugin's name.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "fixed-frame",
@@ -370,7 +370,7 @@
       },
       "QUALIFICATION_MEASUREMENT_LATENCY_SCALING_NOTES": {
         "description": "Why a derived scaling class is not the naive fit over every reading.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "below-budget",
@@ -390,7 +390,7 @@
       },
       "QUALIFICATION_MEASUREMENT_LATENCY_EXCLUSIONS": {
         "description": "Why one rate's reading was left out of the fit and of every rate resolution.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "impossible-zero",
@@ -403,7 +403,7 @@
       },
       "QUALIFICATION_MEASUREMENT_VOICE_BASES": {
         "description": "Where the number of notes an instrument's cost was measured with came from: the voice capacity the plugin declares (CLAP voice-info), or a count the caller gave.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "declared",
@@ -427,7 +427,7 @@
       },
       "QUALIFICATION_MEASUREMENT_VERDICT_RATINGS": {
         "description": "The four ratings a verdict speaks, in order from the best.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "suitable",
@@ -457,7 +457,7 @@
       },
       "QUALIFICATION_RESOURCE_MEMORY_PHASES": {
         "description": "When a plugin's memory is read, per instance (plugin-qualify#114): after instantiate, after activate, at rest after processing, with notes held, and for a second instance, so a shared one-time load is told apart from the per-instance cost.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "after-instantiate",
@@ -493,7 +493,7 @@
       },
       "QUALIFICATION_RESOURCE_UNMEASURED_REASONS": {
         "description": "Why a resource has no figure a host profile can read, beside the measurement's own reasons (QUALIFICATION_MEASUREMENT_UNMEASURED_REASONS).",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "unmeasured-on-class",
@@ -513,7 +513,7 @@
       },
       "QUALIFICATION_RESOURCE_BUDGET_SCOPES": {
         "description": "What a host profile's budget for a resource is counted over (plugin-qualify#114, #115): one plugin instance, or the whole console.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "per-instance",
@@ -531,7 +531,7 @@
       },
       "QUALIFICATION_RESOURCE_HOST_ISOLATIONS": {
         "description": "How a host runs its plugins.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "in-process",
@@ -555,7 +555,7 @@
       },
       "QUALIFICATION_RESOURCE_HOST_LATENCY_HANDLING": {
         "description": "Whether a host aligns on a plugin's reported latency or only passes it on.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "compensated",
@@ -573,7 +573,7 @@
       },
       "QUALIFICATION_RESOURCE_THREAD_SCHEDULING": {
         "description": "The scheduling class a host gives its plugin's threads, as the probe output records it.",
-        "x-since": "1.0.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "none",
@@ -591,7 +591,7 @@
       },
       "QUALIFICATION_HOST_CLASSES": {
         "description": "The classes of machine a record set was measured on, the directory a record lives in.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "rpi5",
@@ -611,7 +611,7 @@
       },
       "QUALIFICATION_SET_TIERS": {
         "description": "How far a record set's measurements are settled.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "reference",
@@ -638,7 +638,7 @@
       },
       "QUALIFICATION_HOST_PROFILES": {
         "description": "The host profiles a verdict, a cost entry, a tier or a record's adapter is judged for.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "omx-clap-host",
@@ -672,7 +672,7 @@
       },
       "QUALIFICATION_SYNC_SETTINGS": {
         "description": "The setting keys a record set's provenance names for the sync run that measured it.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "host_class",
@@ -706,7 +706,7 @@
       },
       "QUALIFICATION_OFFERS": {
         "description": "Which preset offer of a plugin a record measures.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "default",
@@ -726,7 +726,7 @@
       },
       "QUALIFICATION_PACKAGE_FORMATS": {
         "description": "The package formats a binary can be installed from.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "deb",
@@ -746,7 +746,7 @@
       },
       "QUALIFICATION_PACKAGE_DISTROS": {
         "description": "The distribution releases a package is built for.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "trixie",
@@ -773,7 +773,7 @@
       },
       "QUALIFICATION_PACKAGE_ARCHES": {
         "description": "The architecture words of a package, in the spelling of its format.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "arm64",
@@ -821,7 +821,7 @@
       },
       "QUALIFICATION_VERDICT_HOSTINGS": {
         "description": "The hosting a verdict was judged for.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "isolated",
@@ -841,7 +841,7 @@
       },
       "QUALIFICATION_VERDICT_ARMS": {
         "description": "The evidence a verdict rests on.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "declaration",
@@ -861,7 +861,7 @@
       },
       "QUALIFICATION_REASON_PARAMS": {
         "description": "The names of the figures a reason carries beside its code.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "rate",
@@ -1014,7 +1014,7 @@
       },
       "QUALIFICATION_REASON_PARAM_WORDS": {
         "description": "The words a reason's figure can carry instead of a number.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "yes",
@@ -1048,7 +1048,7 @@
       },
       "QUALIFICATION_RECORD_TIERS": {
         "description": "The hosting tiers a record judges a plugin for.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "inProcess",
@@ -1068,7 +1068,7 @@
       },
       "QUALIFICATION_MEMORY_LIMIT_MECHANISMS": {
         "description": "How a memory limit was applied to a measured run.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "rlimit-data",
@@ -1081,7 +1081,7 @@
       },
       "QUALIFICATION_NOTE_SWEEP_DIALECTS": {
         "description": "The kind of note events a note sweep plays.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "midi",
@@ -1101,7 +1101,7 @@
       },
       "QUALIFICATION_RUN_STEPS": {
         "description": "The steps of a qualification run.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "scan",
@@ -1149,7 +1149,7 @@
       },
       "QUALIFICATION_STEP_RESULTS": {
         "description": "What a run step ended with, beside the probe's own outcomes.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "ok",
@@ -1211,7 +1211,7 @@
       },
       "QUALIFICATION_STEP_CODES": {
         "description": "The codes a run step gives for what it found.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "isolated.not-added",
@@ -1357,7 +1357,7 @@
       },
       "QUALIFICATION_REJUDGE_OWES": {
         "description": "What a rejudged record still owes.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "qualify.sync.isolated-step-owed",
@@ -1370,7 +1370,7 @@
       },
       "QUALIFICATION_REJUDGE_MEASUREMENTS": {
         "description": "The measurement a rejudged record owes.",
-        "x-since": "1.2.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "isolated-step",
@@ -1383,7 +1383,7 @@
       },
       "QUALIFICATION_ADAPTER_HOSTS": {
         "description": "The hosts a plugin RAN UNDER: the host of an adapter code, <host>.<kind>[-<parameter>], and a record's adapter host. Not a judge profile.",
-        "x-since": "1.4.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "omx-clap-host",
@@ -1410,7 +1410,7 @@
       },
       "QUALIFICATION_PIN_VERDICTS": {
         "description": "The verdict words of a pins file: the words of plugin-hostd-protocol's PIN_VERDICTS, which names them.",
-        "x-since": "1.4.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "in-process",
@@ -1455,7 +1455,7 @@
       },
       "QUALIFICATION_HISTORY_MOVES": {
         "description": "What the history of a plugin does to its measured verdict.",
-        "x-since": "1.4.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "demote",
@@ -1482,7 +1482,7 @@
       },
       "QUALIFICATION_HISTORY_REASONS": {
         "description": "The codes that say why the history verdict is what it is.",
-        "x-since": "1.4.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "history.crashed",
@@ -1537,7 +1537,7 @@
       },
       "QUALIFICATION_HISTORY_BLOCKERS": {
         "description": "The words that say why history cannot lift a verdict, beside the reason codes that also do.",
-        "x-since": "1.4.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "unknown",
@@ -1564,7 +1564,7 @@
       },
       "QUALIFICATION_ADAPTER_CODE_KINDS": {
         "description": "The kinds of a code the host admission composes as <host>.<kind>, a parameter after a hyphen where the kind takes one: an integer for resp and exit, a probe signal word for signal.",
-        "x-since": "1.3.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "resp",
@@ -1675,7 +1675,7 @@
       },
       "QUALIFICATION_MEMORY_BOUND_OUTCOMES": {
         "description": "The outcome plugin-qualify writes when its own memory bound ends a run.",
-        "x-since": "1.3.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "probe.oom",
@@ -1688,7 +1688,7 @@
       },
       "QUALIFICATION_UNIT_PROVENANCES": {
         "description": "Where the unit a record gives a parameter comes from.",
-        "x-since": "1.5.0",
+        "x-since": "0.1.0",
         "oneOf": [
           {
             "const": "declared",

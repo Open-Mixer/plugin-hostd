@@ -3,7 +3,7 @@
   "$id": "https://openmixer.org/contract/plugin-hostd/history",
   "info": {
     "title": "The running history's words: the keys of a plugin's history line",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental"
   },
@@ -11,7 +11,7 @@
     "schemas": {
       "PLUGIN_HOSTD_HISTORY_KEYS": {
         "description": "The keys of a line of the running-history file, in the order the daemon writes them (the grouping-planner design note, The history record): history <uri> <binary digest> <host class> key=value ..., after the header line '# plugin-hostd history/1'. The value of every key is a whole number or a decimal, never negative. A line with a key outside these words is kept as it is by every save and never read.",
-        "x-since": "0.13.0",
+        "x-since": "0.1.0",
         "x-kind": "words",
         "x-file": "history.json",
         "oneOf": [
