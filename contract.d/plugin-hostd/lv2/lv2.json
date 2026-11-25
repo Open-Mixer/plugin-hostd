@@ -2070,7 +2070,7 @@
                 "word": "controls[].travel.unit",
                 "transform": "lookup",
                 "values": {
-                  "units:coef": "coef"
+                  "units:coef": "x"
                 }
               }
             },
@@ -2196,7 +2196,7 @@
                 "word": "controls[].travel.unit",
                 "transform": "lookup",
                 "values": {
-                  "units:pc": "percent"
+                  "units:pc": "%"
                 }
               }
             },
