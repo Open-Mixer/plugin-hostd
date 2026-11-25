@@ -4,8 +4,9 @@
 """tests/probe_domain.py: the domain `probe` is plugin-hostd-protocol's (its contract.d/probe/probe.json): the words a probe run writes,
 that the qualification store checks its record columns against. Arms 1 to 6.
 
-1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, version 1.0.0, every
-   item PROBE_-prefixed, every item's x-since the domain's first version (1.0.0), x-codes 0..n-1 in order;
+1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, a version (the
+   owner's to give: no number of it is typed here), every item PROBE_-prefixed, every item's x-since a version not above
+   the document's, x-codes 0..n-1 in order;
 2. the items hold exactly the words the probe can emit: PROBE_REASONS, PROBE_OUTCOMES and PROBE_STEPS the codes of the
    protocol's PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES and PHD_PROBE_STEPS lists, PROBE_SIGNALS the signals src/probe_words.c
    names, plus the one word the probe writes for a signal it has no name for;
@@ -96,16 +97,21 @@ def arm1(doc):
         fail("arm 1: info.x-owner is %r" % info.get("x-owner"))
     if info.get("x-stability") != "experimental":
         fail("arm 1: info.x-stability is %r" % info.get("x-stability"))
-    if info.get("version") != "1.0.0":
-        fail("arm 1: info.version is %r, the first version is 1.0.0" % info.get("version"))
+    def version(v):
+        return tuple(int(x) for x in v.split(".")) if isinstance(v, str) and re.fullmatch(r"\d+\.\d+\.\d+", v) else None
+
+    if version(info.get("version")) is None:
+        fail("arm 1: info.version is %r, no x.y.z version" % info.get("version"))
     schemas = doc.get("components", {}).get("schemas", {})
     if sorted(schemas) != sorted(ITEMS):
         fail("arm 1: the items are %s, not %s" % (sorted(schemas), sorted(ITEMS)))
     for name, item in schemas.items():
         if not name.startswith("PROBE_"):
             fail("arm 1: item %s does not start with PROBE_" % name)
-        if item.get("x-since") != "1.0.0":
-            fail("arm 1: item %s x-since is %r, the domain's first version 1.0.0" % (name, item.get("x-since")))
+        if version(item.get("x-since")) is None or version(info.get("version")) is None or \
+                version(item["x-since"]) > version(info["version"]):
+            fail("arm 1: item %s x-since is %r, no version at or below the document's %r"
+                 % (name, item.get("x-since"), info.get("version")))
         codes = [w.get("x-code") for w in item.get("oneOf", [])]
         if codes != list(range(len(codes))):
             fail("arm 1: item %s x-codes are %s, not 0..n-1 in order" % (name, codes))
