@@ -23,6 +23,7 @@ all the work is on one thread. Those are the program's own threads: this tool sa
 """
 import argparse
 import glob
+import importlib.util
 import os
 import shlex
 import signal
@@ -33,6 +34,11 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# jalv_scratch.py beside this file: the directory every jalv this tool starts stands in (a killed jalv leaves its
+# relative jalvXXXXXX state directory where it stood)
+_spec = importlib.util.spec_from_file_location("jalv_scratch", os.path.join(HERE, "jalv_scratch.py"))
+jalv_scratch = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(jalv_scratch)
 PROBE = os.environ.get("INSTRUMENT_PROBE", os.path.join(HERE, "jack-instrument-probe"))
 HZ = os.sysconf("SC_CLK_TCK")
 COLUMNS = ["name", "host", "rate", "frames", "instances", "notes_each", "notes_total", "repeat", "status", "xruns",
@@ -233,8 +239,10 @@ class proc_host:
 
     def spawn(self, argv):
         log_file = open(os.path.join(self.out, "host.log"), "a")
+        # a jalv stands in the scratch directory; a --cmd keeps the caller's
+        cwd = jalv_scratch.jalv_cwd() if os.path.basename(argv[0]) == "jalv" else None
         self.procs.append(subprocess.Popen(argv, env=self.srv.env, stdin=subprocess.PIPE, stdout=log_file,
-                                           stderr=subprocess.STDOUT, start_new_session=True, text=True))
+                                           stderr=subprocess.STDOUT, start_new_session=True, text=True, cwd=cwd))
 
     def pids(self):
         out = []
