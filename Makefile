@@ -546,7 +546,7 @@ test-no-sha256-copy:
 	  echo "FAIL the sabotage arm: a planted SHA-256 is not found"; exit 1; fi
 	@echo "ok   SHA-256 is libcrypto's, and a planted copy is found"
 
-test: test-plugin-db-words-home test-bounded-install test-bundle-rule test-description test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-jalv-cwd test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-readme-facts test-pin-files test-search-path check-no-moved-packages test-no-backcompat
+test: test-plugin-db-words-home test-bounded-install test-bundle-rule test-description test-no-sha256-copy test-fuzz-no-openssl test-protocol-lib test-plan-refused test-sabotage-pool test-history test-proc test-proc-term test-conf test-own-host-probe-teardown test-voices-cores-diag test-jalv-cwd test-planner test-placement test-transforms test-format-coverage test-describe test-describe-pages test-relay test-alloc test-alloc-sweep test-format test-ready-connect test-ready-connect-sabotage test-bind test-bind-sabotage test-property-ledger test-property-ledger-sabotage test-daemon test-timing-load test-verbs-declared check-rendered test-rendered-at-tag test-grouping-domain test-format-domains check-generated check-no-protocol-copy check-no-json-escape-loop check-domain-x-since test-probe-schema test-vocabulary test-machine-domain test-probe-domain check-machine-codes test-probe-owner test-qualification-domain test-qualification-domain-owned test-qualification-pin-from test-probe test-contract test-consumer test-consumer-errors test-perturbation check-readme check-own-host-page check-no-pins check-no-test-seam check-ci-guards test-socket check-preset-schema test-install-schemas check-readme-facts test-pin-files test-search-path check-no-moved-packages test-no-backcompat
 	PROTOCOL_DIR=$(PROTOCOL_DIR) PROTOCOL_PAGE=$(PROTOCOL_PAGE) python3 tests/verbs_contract.py
 
 # the protocol clients plugin-hostd-tests ships (tests/lib/), against a peer that frames by NUL, and their sabotage
@@ -580,6 +580,14 @@ test-bind: $(PROG_TEST) $(FAKE)
 	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/bind_test.py
 test-bind-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE) $(OBJ)
 	python3 tests/bind_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(PANEL_STORE_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
+
+# the property ledger keyed per instance and symbol (tests/property_ledger_test.py, omx-clap-core#15), and the same test
+# against a daemon built with the key losing the symbol, losing the instance, appending, or keeping nothing: each must fail
+.PHONY: test-property-ledger test-property-ledger-sabotage
+test-property-ledger: $(PROG_TEST) $(FAKE)
+	PLUGIN_HOSTD=./$(PROG_TEST) FAKE_HOST=./$(FAKE) python3 tests/property_ledger_test.py
+test-property-ledger-sabotage: $(PROG_TEST) $(FAKE) $(TEST_CONTRACT_TREE)
+	python3 tests/property_ledger_sabotage.py ./$(PROG_TEST) $(FAKE) "$(CC)" "$(CFLAGS) $(INCS) -DOMX_CONTRACTDIR='\"$(TEST_CONTRACT_TREE)\"' -DOMX_QUALIFICATION_TEST_STORE" "$(TEST_OBJ)" "$(PROTOCOL_LIBS) $(PIN_LIBS) $(DOMAIN_LIBS) $(PQDB_LIBS) $(CJSON_LIBS) $(LDFLAGS)"
 
 # the same without the verb table, which is read from the protocol page (PROTOCOL_PAGE)
 test-daemon: $(PROG_TEST) $(FAKE) $(SLOW_FSYNC)
