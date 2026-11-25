@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The verbs plugin-hostd declares (the domain plugin-hostd-protocol, read from the contract directory through omx-contract's rebuild)
-# and the ones omx-clap-core declares for both hosts, held to the daemon on its socket:
+# The verbs of the protocol (the domain plugin-hostd-protocol, read from the contract directory through omx-contract's
+# rebuild): the daemon's own and the ones both hosts answer, held to the daemon on its socket:
 #   - every verb the declarations give plugin-hostd as required or optional answers a well-formed line, one that its
 #     declared format takes, with its declared reply (an optional one may refuse with a code it declares), and a
 #     malformed line with a code it declares;
@@ -10,13 +10,16 @@
 #     omx-clap-host (tests/fake-host, the worker every test of this tree runs), or, where it is optional of a host, a
 #     refusal it declares from that host;
 #   - one name per number: no refusal number is named by two codes, and each number protocol.h answers is named by a
-#     code of plugin-hostd or of omx-clap-core, whose HOST_REPLY_CODES name the numbers both hosts answer.
-# omx-clap's declarations (its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS, HOSTING_WINDOW_CODES) are read from the
-# domains omx-clap owns (omx-clap, host and hosting) in the contract directory: the first of OMX_CONTRACT_PATH (directories that stand where
-# contractdir stands) that holds each, else pkg-config's contractdir, through omx-contract's own rebuild. Its package
-# 3/omx-clap is read for what is left there; its verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, HOST_EVENTS and
-# HOSTING_WINDOW_CODES are read from its domains only: one in the package is refused by name, and one no domain holds fails by name.
-# Without the package the run fails: the domain plugin-hostd-protocol requires it. The run names which source it read. The headers are read as the compiler
+#     code of the domain plugin-hostd-protocol or of the domain host, whose HOST_REPLY_CODES name the numbers both hosts
+#     answer.
+# Each word has one home (ruling R5): the verbs both hosts answer (PLUGIN_HOSTD_PROTOCOL_SHARED_VERBS,
+# PLUGIN_HOSTD_PROTOCOL_CLAP_HOST_VERBS), HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS are plugin-hostd-protocol's, in
+# its domains plugin-hostd-protocol and host; HOSTING_WINDOW_CODES is omx-clap's, in its domain hosting (the one home of its
+# hosting codes: omx-clap-core#156). They are read from those domains in the contract directory: the first of
+# OMX_CONTRACT_PATH (directories that stand where contractdir stands) that holds each, else pkg-config's contractdir,
+# through omx-contract's own rebuild. omx-clap's package 3/omx-clap is read for what is left there: one of these items in
+# the package is refused by name, and one its owner's domains do not hold fails by name. Without the package the run
+# fails. The run names which source it read. The headers are read as the compiler
 # reads them (tests/declared.py): a scratch tree's own copy first, else plugin-hostd-protocol's.
 # Usage: verbs_declared.py (PLUGIN_HOSTD, FAKE_HOST, PROTOCOL from the environment, or the tree's own).
 import json, os, re, socket, subprocess, sys, tempfile, time
@@ -72,11 +75,11 @@ def verbs_of(docs, refs):
 
 
 def check_one_name(own_docs, shared_docs):
-    """one name per number: no resp is named by two codes, of one package or of both, and each number protocol.h's
-    PHD_ERRORS answers is named by one code of the two packages; the lower package, omx-clap-core, owns the numbers
-    both hosts answer and plugin-hostd names only its own"""
+    """one name per number: no resp is named by two codes, of one home or of both, and each number protocol.h's
+    PHD_ERRORS answers is named by one code; the domain host owns the numbers both hosts answer and the domain
+    plugin-hostd-protocol names only the daemon's own"""
     named = {}
-    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap", shared_docs)):
+    for pkg, docs in (("plugin-hostd-protocol", own_docs), ("host", shared_docs)):
         for ref, (code, resp) in codes_of(docs).items():
             if resp is not None:
                 named.setdefault(resp, []).append("%s %s (%s)" % (pkg, code, ref))
@@ -86,7 +89,7 @@ def check_one_name(own_docs, shared_docs):
     header = protocol_files.read_header("protocol.h", TREE)
     # the numbers PHD_ERRORS answers are the rendered OMX_REPLY_*_RESP macros it names; the header defines none of its own
     rendered = {}
-    for name in ("omx_clap_vocabulary.h", "plugin_hostd_protocol_vocabulary.h"):
+    for name in ("plugin_hostd_protocol_vocabulary.h",):
         rendered.update({m: int(n) for m, n in re.findall(r"^#define\s+(OMX_REPLY_\w+_RESP)\s+\((-[0-9]+)\)",
                                                           protocol_files.read_header(name, TREE), re.M)})
     if re.search(r"^#define\s+PHD_ERR_", header, re.M):
@@ -97,7 +100,7 @@ def check_one_name(own_docs, shared_docs):
     if absent:
         fail("PHD_ERRORS names %s, which no rendered vocabulary header defines" % absent)
     # the daemon is compiled against the rendered numbers: one that is not the declared resp of its code is a stale render
-    for pkg, docs in (("plugin-hostd", own_docs), ("omx-clap", shared_docs)):
+    for pkg, docs in (("plugin-hostd-protocol", own_docs), ("host", shared_docs)):
         for ref, (code, resp) in codes_of(docs).items():
             macro = "OMX_" + re.sub(r"[^A-Za-z0-9]+", "_", code).upper() + "_RESP"
             if resp is not None and macro in rendered and rendered[macro] != resp:
@@ -107,9 +110,9 @@ def check_one_name(own_docs, shared_docs):
         fail("found only %d numbers in protocol.h's PHD_ERRORS" % len(errors))
     unnamed = sorted(errors - set(named))
     if unnamed:
-        fail("protocol.h answers %s, which no code of plugin-hostd or omx-clap-core names" % unnamed)
-    print("ok   one name per number: %d numbers, %d of protocol.h's, %d of them named by omx-clap-core"
-          % (len(named), len(errors), len([r for r in errors if any(n.startswith("omx-clap") for n in named.get(r, []))])))
+        fail("protocol.h answers %s, which no code of the domains plugin-hostd-protocol and host names" % unnamed)
+    print("ok   one name per number: %d numbers, %d of protocol.h's, %d of them named by the domain host"
+          % (len(named), len(errors), len([r for r in errors if any(n.startswith("host ") for n in named.get(r, []))])))
 
 
 def contract_dirs():
@@ -122,8 +125,9 @@ def contract_dirs():
 
 
 def domain_docs(owner):
-    """the data form of every domain <owner> owns in the contract directory (omx-clap's domains omx-clap and host hold
-    its verbs, HOST_REPLY_CODES and HOST_EVENTS since the sorting pass, V15), as tables the readers here read"""
+    """the data form of every domain <owner> owns in the contract directory (plugin-hostd-protocol's domain host holds
+    HOST_REPLY_CODES, HOST_TRACK_KINDS and HOST_EVENTS, omx-clap's domain hosting its window codes), as tables the
+    readers here read"""
     out, seen = [], set()
     for d in contract_dirs():
         for e in sorted(os.listdir(d)) if os.path.isdir(d) else []:
@@ -142,33 +146,37 @@ def domain_docs(owner):
     return out
 
 
-# the items that left omx-clap's package for its domains: its verbs (domain omx-clap) and its reply codes, track kinds
-# and events (domain host) in the sorting pass (V15), and the window codes (domain hosting, the one home of its hosting
-# codes: omx-clap-core#156), read from the domains only
-MOVED = ("OMX_CLAP_CORE_SHARED_VERBS", "OMX_CLAP_HOST_VERBS", "HOST_REPLY_CODES", "HOST_TRACK_KINDS", "HOST_EVENTS",
-         "HOSTING_WINDOW_CODES")
+PROTOCOL, CLAP = "plugin-hostd-protocol", "omx-clap"
+SHARED_VERBS = ("PLUGIN_HOSTD_PROTOCOL_SHARED_VERBS", "PLUGIN_HOSTD_PROTOCOL_CLAP_HOST_VERBS")
+# the one home of each item omx-clap's package held once (ruling R5): the verbs both hosts answer, the reply codes, the
+# track kinds and the events are the protocol's (its domains plugin-hostd-protocol and host), the window codes omx-clap's
+# (its domain hosting, omx-clap-core#156); each is read from its owner's domains only
+HOMES = dict([(k, PROTOCOL) for k in SHARED_VERBS + ("HOST_REPLY_CODES", "HOST_TRACK_KINDS", "HOST_EVENTS")],
+             HOSTING_WINDOW_CODES=CLAP)
 
 
 def items_of(docs):
     return {k for doc in docs for k, v in doc.items() if isinstance(v, dict) and "kind" in v}
 
 
-def moved_refusals(package_docs, domain_docs_):
-    """why the moved items are not read from the domains alone: each one a package table holds (whether or not a
-    domain holds it too), and each one no domain holds; [] when every moved item is a domain's and none the package's"""
-    in_package, in_domains = items_of(package_docs), items_of(domain_docs_)
-    out = ["%s is in omx-clap's package: it is read from omx-clap's domains only" % k for k in MOVED if k in in_package]
-    out += ["%s is in no domain of omx-clap: it is read from omx-clap's domains only" % k for k in MOVED if k not in in_domains]
+def moved_refusals(package_docs, domains):
+    """why the items of HOMES are not read from their owners' domains alone: each one omx-clap's package tables hold
+    (whether or not a domain holds it too), and each one no domain of its owner holds; [] when every one is its owner's
+    domain's and none the package's. domains is {owner: its domains' tables}"""
+    in_package = items_of(package_docs)
+    out = ["%s is in omx-clap's package: it is read from %s's domains only" % (k, HOMES[k]) for k in HOMES if k in in_package]
+    out += ["%s is in no domain of %s: it is read from %s's domains only" % (k, HOMES[k], HOMES[k])
+            for k in HOMES if k not in items_of(domains.get(HOMES[k], []))]
     return out
 
 
 def moved_arms(docs, domains):
-    """sabotage, three arms: HOST_EVENTS planted in a copy of the package's tables is refused while the domain holds it,
-    and refused (with the domain's absence named) when the domain's copy is removed too; and every moved item in the
-    package with every domain emptied"""
-    events = next((doc["HOST_EVENTS"] for doc in domains if "HOST_EVENTS" in doc), None)
+    """sabotage, three arms: HOST_EVENTS planted in a copy of omx-clap's package tables is refused while the protocol's
+    domain holds it, and refused (with the domain's absence named) when the domain's copy is removed too; and every
+    item of HOMES in the package with every domain emptied"""
+    events = next((doc["HOST_EVENTS"] for doc in domains[PROTOCOL] if "HOST_EVENTS" in doc), None)
     if events is None:
-        fail("sabotage: no domain of omx-clap holds HOST_EVENTS to plant")
+        fail("sabotage: no domain of plugin-hostd-protocol holds HOST_EVENTS to plant")
         return
     planted = [dict(docs[0], HOST_EVENTS=events) if docs else {"HOST_EVENTS": events}] + docs[1:]
     got = moved_refusals(planted, domains)
@@ -176,23 +184,24 @@ def moved_arms(docs, domains):
         print("ok   sabotage: HOST_EVENTS planted in omx-clap's package is refused by name, the domain holding it too")
     else:
         fail("sabotage: HOST_EVENTS planted in omx-clap's package is not refused: %s" % got)
-    without = [{k: v for k, v in doc.items() if k != "HOST_EVENTS"} for doc in domains]
+    without = dict(domains, **{PROTOCOL: [{k: v for k, v in doc.items() if k != "HOST_EVENTS"} for doc in domains[PROTOCOL]]})
     got = moved_refusals(planted, without)
     if any(r.startswith("HOST_EVENTS is in omx-clap's package") for r in got) and \
             any(r.startswith("HOST_EVENTS is in no domain") for r in got):
         print("ok   sabotage: HOST_EVENTS in the package alone, the domain's copy removed, is refused and its absence named")
     else:
         fail("sabotage: HOST_EVENTS in the package alone is read from the old home: %s" % got)
-    # every moved item in a copy of the package's tables, every domain emptied: each is refused in the package and
-    # named missing from the domains
-    held = {k: v for doc in domains for k, v in doc.items() if k in MOVED}
+    # every item of HOMES in a copy of the package's tables, every domain emptied: each is refused in the package and
+    # named missing from its owner's domains
+    held = {k: v for owner in domains for doc in domains[owner] for k, v in doc.items() if k in HOMES}
     full = [dict(docs[0], **held) if docs else dict(held)] + docs[1:]
-    got = moved_refusals(full, [])
-    missing = [k for k in MOVED if not (any(r.startswith(k + " is in omx-clap's package") for r in got) and
+    got = moved_refusals(full, {})
+    missing = [k for k in HOMES if not (any(r.startswith(k + " is in omx-clap's package") for r in got) and
                                         any(r.startswith(k + " is in no domain") for r in got))]
-    if len(held) == len(MOVED) and not missing:
-        print("ok   sabotage: the domains emptied and the package holding the verbs, HOST_REPLY_CODES, HOST_TRACK_KINDS, "
-              "HOST_EVENTS and HOSTING_WINDOW_CODES: each refused in the package and named missing from the domains")
+    if len(held) == len(HOMES) and not missing:
+        print("ok   sabotage: the domains emptied and the package holding the shared verbs, HOST_REPLY_CODES, "
+              "HOST_TRACK_KINDS, HOST_EVENTS and HOSTING_WINDOW_CODES: each refused in the package and named missing "
+              "from its owner's domains")
     else:
         fail("sabotage: with the domains emptied the package's copy is read for %s (planted %s)" % (missing, sorted(held)))
 
@@ -227,11 +236,11 @@ def package(name):
                 with open(os.path.join(base, rel)) as f:
                     docs.append(json.load(f))
             domains = domain_docs(name)
-            if name == "omx-clap":
-                for why in moved_refusals(docs, domains):
+            if name == CLAP:
+                for why in moved_refusals(docs, {CLAP: domains, PROTOCOL: domain_docs(PROTOCOL)}):
                     fail("%s (%s)" % (why, base))
-                # the moved items are read from the domains alone, never from the package's tables
-                docs = [{k: v for k, v in doc.items() if k not in MOVED} for doc in docs]
+                # the items of HOMES are read from their owners' domains alone, never from the package's tables
+                docs = [{k: v for k, v in doc.items() if k not in HOMES} for doc in docs]
             return docs + domains, "%s %s from %s" % (name, m["version"], base)
     return None, None
 
@@ -543,24 +552,32 @@ def check_both(declared):
 
 
 def main():
-    own_docs = [protocol_files.verbs()]
-    docs, source = package("omx-clap")
-    if not docs:
-        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: the domain plugin-hostd-protocol requires it "
-             "(requires %s), its verbs refuse with its HOST_REPLY_CODES" % own_docs[0].get("requires"))
+    protocol = protocol_files.verbs()
+    # the domain's own tables: the daemon's verbs and codes, and the verbs both hosts answer
+    own_docs = [{k: v for k, v in protocol.items() if k not in SHARED_VERBS}]
+    shared_docs = [{k: v for k, v in protocol.items() if k in SHARED_VERBS}]
+    clap, source = package(CLAP)
+    if not clap:
+        fail("no omx-clap-core package in OMX_CONTRACT_PATH or the contract directory: the window verbs refuse with its "
+             "HOSTING_WINDOW_CODES")
         return 1
-    moved_arms(package_tables("omx-clap"), domain_docs("omx-clap"))
+    # the protocol's other domains (host: the codes, track kinds and events of both hosts), without the one read above
+    hosts = [doc for doc in domain_docs(PROTOCOL) if not set(doc) & set(protocol) - {"requires"}]
+    docs = hosts + clap
+    moved_arms(package_tables(CLAP), {CLAP: domain_docs(CLAP), PROTOCOL: domain_docs(PROTOCOL)})
     own = verbs_of(own_docs, own_docs + docs)
-    shared = verbs_of(docs, docs)
+    shared = verbs_of(shared_docs, own_docs + docs)
+    if not shared:
+        fail("the domain plugin-hostd-protocol holds no verb of %s" % " or ".join(SHARED_VERBS))
     CODE_WORDS.update(c for c, _ in codes_of(own_docs + docs).values())
-    print("ok   the shared verbs and codes are read from %s" % source)
+    print("ok   the codes of both hosts are read from the protocol's domain host, the window codes from %s" % source)
     dup = set(shared) & set(own)
     if dup:
-        fail("declared by plugin-hostd and by omx-clap-core: %s" % sorted(dup))
-    print("ok   plugin-hostd's verbs are read from %s" % OWN)
+        fail("declared as the daemon's own and as a verb of both hosts: %s" % sorted(dup))
+    print("ok   the protocol's verbs are read from %s" % OWN)
     declared_verbs = dict(shared, **own)
     check_one_name(own_docs, docs)
-    # the words and the formats protocol.h still names for both hosts are omx-clap-core's declarations
+    # the words and the formats protocol.h names for both hosts are the declared ones
     header = protocol_files.read_header("protocol.h", TREE)
     word = dict(re.findall(r'^#define\s+(PHD_VERB_\w+)\s+"(\w+)"', header, re.M))
     named = 0
@@ -569,8 +586,8 @@ def main():
         if verb in shared:
             named += 1
             if verb + rest != shared[verb]["format"]:
-                fail("protocol.h's %s_FMT is %r, omx-clap-core declares %r" % (macro, verb + rest, shared[verb]["format"]))
-    print("ok   protocol.h names %d formats of the shared verbs, as omx-clap-core declares them" % named)
+                fail("protocol.h's %s_FMT is %r, the domain declares %r" % (macro, verb + rest, shared[verb]["format"]))
+    print("ok   protocol.h names %d formats of the shared verbs, as the domain declares them" % named)
     # the word after a window verb's -902 from a daemon with no display is omx-clap-core's code for that fact
     window = {c for c, _ in codes_of([{k: v for d in docs for k, v in d.items() if k == "HOSTING_WINDOW_CODES"}]).values()}
     no_display = re.search(r'^#define\s+PHD_EXTERNAL_UI_NO_DISPLAY\s+"([^"]+)"', header, re.M)
@@ -579,7 +596,7 @@ def main():
              % (no_display and no_display.group(1), sorted(window)))
     else:
         print("ok   protocol.h's no-display word %s is omx-clap-core's HOSTING_WINDOW_CODES code" % no_display.group(1))
-    # the line a worker writes on its feedback port that the daemon reads is omx-clap-core's HOST_EVENTS word
+    # the line a worker writes on its feedback port that the daemon reads is the HOST_EVENTS word of the protocol's domain host
     events = {}
     for doc in docs:
         item = doc.get("HOST_EVENTS")
@@ -587,13 +604,13 @@ def main():
             events = {k: w["word"] for k, w in item["words"].items()}
     xruns = re.search(r'^#define\s+PHD_EVENT_XRUNS\s+"(\w+)"', header, re.M)
     if "xruns" not in events:
-        fail("omx-clap-core declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % own_docs[0].get("requires"))
+        fail("the domain host declares no HOST_EVENTS.xruns: the daemon reads that line (%s)" % protocol.get("requires"))
     elif not xruns or xruns.group(1) != events["xruns"]:
-        fail("protocol.h's PHD_EVENT_XRUNS is %r, omx-clap-core's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
+        fail("protocol.h's PHD_EVENT_XRUNS is %r, the domain host's HOST_EVENTS.xruns is %r" % (xruns and xruns.group(1), events["xruns"]))
     else:
-        print("ok   protocol.h reads the worker's %s line, as omx-clap-core's HOST_EVENTS declares it" % events["xruns"])
-    print("plugin-hostd declares %d verbs, %d of them owed by plugin-hostd" %
-          (len(own), len([v for v in own if owes(own[v], HOSTD)])))
+        print("ok   protocol.h reads the worker's %s line, as the domain host's HOST_EVENTS declares it" % events["xruns"])
+    print("the protocol declares %d verbs of the daemon's own and %d of both hosts, %d of them owed by plugin-hostd" %
+          (len(own), len(shared), len([v for v in declared_verbs if owes(declared_verbs[v], HOSTD)])))
 
     check_verbs(declared_verbs)
     check_answered(dict(shared, **declared_verbs))

@@ -545,7 +545,7 @@ SABOTAGE = [
      "contract", "contract"),
     ("the generator writes an empty list for an item the domain lacks", "tools/protocol-gen.c",
      '            return 1;\n        }\n        snprintf(tokens[i]', '        }\n        snprintf(tokens[i]', "contract", "contract"),
-    ("two errors share a code", "include/plugin-hostd/omx_clap_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
+    ("two errors share a code", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
      "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
      "        if (held == NULL)\n            return;\n", "", "alloc_test", "alloc"),
@@ -1037,7 +1037,7 @@ SABOTAGE = [
     ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h",
      "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-522)", "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-101)",
      "verbs_declared", "verbs"),
-    ("a number omx-clap-core names is named again by plugin-hostd", PROTOCOL_VERBS,
+    ("a number the domain host names is named again by the domain plugin-hostd-protocol", PROTOCOL_VERBS,
      '\n        ]\n      },\n      "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": {',
      ',\n          {\n            "const": "reply.plugin-hostd.invalid-operation",\n            "title": "invalidOperation",\n'
      '            "description": "a second name for -902",\n            "x-code": 39,\n'
@@ -1045,7 +1045,7 @@ SABOTAGE = [
      '            "x-name": "invalidOperation",\n            "x-resp": -902\n          }'
      '\n        ]\n      },\n      "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": {',
      "verbs_declared", "verbs"),
-    ("the daemon reads another word than the one omx-clap-core declares for the worker's xruns", "include/plugin-hostd/protocol.h",
+    ("the daemon reads another word than the one the domain host declares for the worker's xruns", "include/plugin-hostd/protocol.h",
      '#define PHD_EVENT_XRUNS                   "xruns"', '#define PHD_EVENT_XRUNS                   "xrun"',
      "verbs_declared", "verbs"),
     ("the handler of a declared verb is deleted", "src/verbs.c",

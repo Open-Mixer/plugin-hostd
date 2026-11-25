@@ -148,8 +148,20 @@ def render_overlay(tree, domain):
                 if not os.path.exists(os.path.join(others, entry)):
                     os.symlink(os.path.join(d, entry), os.path.join(others, entry))
         env = dict(os.environ, OMX_CONTRACT_PATH=others)
+        # and the domains it requires that the protocol owns too (host, hosting-verb: the words of both hosts, ruling R5),
+        # as installed: the protocol renders its header from them together
+        with open(domain) as f:
+            requires = json.load(f).get("info", {}).get("x-requires") or []
+        beside = []
+        for name in requires:
+            path = os.path.join(others, name, name + ".json")
+            if os.path.isfile(path):
+                with open(path) as f:
+                    if json.load(f).get("info", {}).get("x-owner") == PACKAGE:
+                        beside += ["--with-domain", os.path.join(others, name)]
         subprocess.run([os.environ.get("OMX_CONTRACT", "omx-contract"), "render", "--target", "c", "--package", PACKAGE,
-                        "--installed", "--with-domain", os.path.dirname(domain), "--out", os.path.join(tree, "include", "plugin-hostd")],
+                        "--installed", "--with-domain", os.path.dirname(domain)] + beside +
+                       ["--out", os.path.join(tree, "include", "plugin-hostd")],
                        env=env, check=True, stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
     finally:
         shutil.rmtree(work, ignore_errors=True)
