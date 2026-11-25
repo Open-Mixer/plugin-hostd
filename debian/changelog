@@ -4,6 +4,9 @@ plugin-hostd (0.22.0) unstable; urgency=medium
     domain plugin-hostd-protocol, contract.d/plugin-hostd-protocol/, which no
     longer shares <contractdir>/plugin-hostd/ with this package's nested
     domains.
+  * The qualification domain's reason-param words hold remove beside add:
+    the figure of the remove step, a word a record already carries
+    (Open-Mixer/plugin-qualify#169). Additive: no word or code moves.
 
  -- Pau Aliagas <linuxnow@gmail.com>  Tue, 24 Nov 2026 12:00:00 +0100
 

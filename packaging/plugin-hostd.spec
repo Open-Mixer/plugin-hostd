@@ -209,6 +209,9 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 - Chain 3, V16 as ruled 2026-11-23: the protocol's words are read from the
   domain plugin-hostd-protocol, contract.d/plugin-hostd-protocol/, which no
   longer shares <contractdir>/plugin-hostd/ with this package's nested domains.
+- The qualification domain's reason-param words hold remove beside add: the
+  figure of the remove step, a word a record already carries
+  (Open-Mixer/plugin-qualify#169). Additive: no word or code moves.
 
 * Tue Nov 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.21.1-1
 - The build requires python3-plugin-hostd-protocol 0.8.0 or newer: the daemon

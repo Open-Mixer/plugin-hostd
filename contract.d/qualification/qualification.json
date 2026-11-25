@@ -1036,6 +1036,13 @@
             "description": "The figure is the memory of each instance.",
             "x-code": 2,
             "x-text": "The figure is the memory of each instance."
+          },
+          {
+            "const": "remove",
+            "title": "remove",
+            "description": "The figure is that of the remove step.",
+            "x-code": 3,
+            "x-text": "The figure is that of the remove step."
           }
         ]
       },
