@@ -65,6 +65,24 @@ def without(tmp, installed, hidden):
     return view
 
 
+def copy_package(installed, d, package):
+    """Stage the installed package <package> (3/<package>) into d, with the domains its manifest lists: an owner whose
+    contract is only domains (plugin-db#84) names them under "domains", and its manifest without them is refused."""
+    src = os.path.join(installed, "3", package)
+    if not os.path.isdir(src):
+        # an owner that installs only domains and no package directory (plugin-db from 0.5.0, V11) is read as the domain
+        # of its name, as the installed contract directory answers it
+        if os.path.isdir(os.path.join(installed, package)) and not os.path.exists(os.path.join(d, package)):
+            shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
+        return
+    shutil.copytree(src, os.path.join(d, "3", package))
+    with open(os.path.join(src, "MANIFEST.json"), encoding="utf-8") as f:
+        domains = json.load(f).get("domains", [])
+    for domain in domains:
+        if os.path.isdir(os.path.join(installed, domain)) and not os.path.exists(os.path.join(d, domain)):
+            shutil.copytree(os.path.join(installed, domain), os.path.join(d, domain))
+
+
 def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     """a scratch contract directory: this document (a dict, or the text as it is), the domain pin when given, and the package
     plugin-hostd-protocol at the version under test; returns (directory, installed contract directory)"""
@@ -80,22 +98,9 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     # term domains the latency and voice words name (plugin-db's lv2, omx-clap's clap), copied from the installed directory
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
     stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_STUB")
-    # an owner's manifest names every domain its package installs (plugin-db#94), and omx-contract refuses a manifest whose
-    # domain is absent, so each listed domain comes with it
-    listed = set()
     for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
-        src = os.path.join(installed, "3", package)
-        if os.path.isdir(src):
-            shutil.copytree(src, os.path.join(d, "3", package))
-            manifest = os.path.join(src, "MANIFEST.json")
-            if os.path.isfile(manifest):
-                with open(manifest) as f:
-                    listed.update(json.load(f).get("domains", []))
-        elif os.path.isdir(os.path.join(installed, package)):
-            # an owner that installs only domains (plugin-db from 0.5.0, V11: no package directory) is read as the domain
-            # of its name, as the installed contract directory answers it
-            shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
-    for domain in sorted({"lv2", "clap"} | listed):
+        copy_package(installed, d, package)
+    for domain in ("lv2", "clap"):  # already staged when its owner's manifest lists it
         src = os.path.join(installed, domain)
         if os.path.isdir(src) and not os.path.exists(os.path.join(d, domain)):
             shutil.copytree(src, os.path.join(d, domain))
@@ -181,4 +186,5 @@ def main():
     return 1 if failed else 0
 
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

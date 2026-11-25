@@ -990,6 +990,7 @@ test-qualification-domain-owned:
 .PHONY: test-qualification-pin-from
 test-qualification-pin-from:
 	OMX_CONTRACT='$(OMX_CONTRACT)' python3 tests/qualification_pin_from.py
+	python3 tests/qualification_pin_stage_test.py
 
 # the probe runner over the stress plugin: crash, hang and a process left behind each give the named outcome in a document
 # that validates
