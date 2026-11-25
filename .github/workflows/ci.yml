@@ -29,6 +29,16 @@ concurrency:
 # tier and one package arm (fc45 x86_64, trixie arm64). make sabotage, bookworm and the release dry run run on push to
 # main, on tags and on dispatch (tests/ci_guards.py holds the split).
 jobs:
+  trigger-gate:
+    name: only this workflow runs on a pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/trigger-gate@openmixer-v1
+        with:
+          lint-workflow: ci.yml
+
   # the deb cells come from the one list every OpenMixer check reads (check-matrix, ruling D25): the development set
   # is trixie arm64, run on the ARM runner, since the -dev debs are arm64-only and an amd64 container cannot install them
   checks:

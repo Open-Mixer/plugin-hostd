@@ -4,12 +4,10 @@ name: bench
 # the harness goes red when broken, and one small scenario runs under each host the container has, on JACK's dummy
 # driver at 48 kHz. It checks that a valid document comes out, not the numbers.
 
+# A dispatch only (owner rule 2026-11-15: heavy jobs run on a tag or a dispatch; delivery-pipeline §12): a change to
+# bench/ or tools/zynthian/matrix* asks for it by name, `gh workflow run bench.yml --ref <branch>`.
 on:
-  pull_request:
-    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
-  push:
-    branches: [main]
-    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
+  workflow_dispatch:
 
 permissions:
   contents: read
