@@ -1658,7 +1658,7 @@ static void add_cost_percentile_refusal(const cJSON *cost)
 
 /* The step of a figure lv2_measure took at `rate` (its `latency` map, its cost's `perRate`): ok when the child measured
  * it, else not attempted, with the hosting code and the child's reason and words. A child whose line has no such map
- * (an older lv2_measure) was not asked for the figure and gets no step. */
+ * is outside the child's protocol: a child-protocol step. */
 static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, unsigned quantum, const char *hosting_code)
 {
     char key[24];
@@ -1667,7 +1667,11 @@ static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, u
     step_t *s;
 
     if (map == NULL)
+    {
+        s = add_step(name, OUT_CHILD_PROTOCOL, 0);
+        set_detail(s, "the child's line holds no %s map", name);
         return;
+    }
     snprintf(key, sizeof(key), "%ld", rate);
     at = jget(map, key);
     if (!strcmp(name, STEP(LATENCY)) ? jnum(at, "measuredFrames", &v) : jnum(at, "nsPerSampleMedian", &v))
