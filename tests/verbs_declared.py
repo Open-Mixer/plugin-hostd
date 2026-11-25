@@ -29,6 +29,7 @@ import declared as protocol_files
 import harness  # puts PLUGIN_HOSTD_CLIENT_DIR, when set, on sys.path
 import plugin_hostd_client  # the protocol's, python3-plugin-hostd-client
 import scan_fixture
+from desc_store_fixture import Store
 from harness import Daemon, Fail, check, wait_for
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -336,6 +337,7 @@ LINES = {
     "lv2_worker_set": ("urn:example:other mod-host", "urn:example:other", ()),
     "descriptor_get": ("{uri}", "{uri} x", ("clap:/nowhere.clap#x",)),
     "panel_get": ("{uri}", "", ("clap:/nowhere.clap#x",)),
+    "description_get": ("{lv2}", "", ("clap:/nowhere.clap#x",)),
     "preset_list": ("1", "", ("99", "3")),
     "preset_get": ("1 0", "1", ("99 0", "3 0")),
     "track_info": ('1 "Lead" #112233', "1", ("99 x -",)),
@@ -377,9 +379,16 @@ def line(verb, args, ctx):
 
 def setup(s):
     """a daemon in front of the fake worker under pin_mode first-use, with two CLAP instances whose scan is done and
-    an LV2 one; the first-use pins of the CLAP adds are recorded, so pin_accept takes them"""
+    an LV2 one; the first-use pins of the CLAP adds are recorded, so pin_accept takes them; {lv2} is the LV2 plugin's
+    uri, which a layer of the run's descriptions store holds"""
     lay = subprocess.check_output([FAKE, "-L"], text=True).strip()
-    d = s.daemon(conf={"require_pins": 1, "pin_mode": "first-use", "clap_path": s.dir})
+    # a descriptions store of the run's own, a layer of it holding the LV2 plugin: description_get answers its key
+    store = Store()
+    close = s.close
+    s.close = lambda: (store.close(), close())
+    lv2 = "lv2:%s" % scan_fixture.LV2_COMPRESSOR
+    store.put(scan_fixture.sha(os.path.join(s.bundle, "pinned.so")), "lv2", scan_fixture.LV2_COMPRESSOR, store.source("lv2", s.bundle))
+    d = s.daemon(conf={"require_pins": 1, "pin_mode": "first-use", "clap_path": s.dir}, env=store.daemon_env())
     for n in (1, 2):
         d.expect("add %s %d" % (s.clap_uri, n), "resp %d" % n)
     d.expect("add lv2:%s 3" % scan_fixture.LV2_COMPRESSOR, "resp 3")
@@ -387,7 +396,7 @@ def setup(s):
     d.expect("pin_accept %s" % s.clap_uri, "resp 0")
     d.expect("pin_accept lv2:%s" % scan_fixture.LV2_COMPRESSOR, "resp 0")
     wait_for(lambda: d.send("panel_get %s" % s.clap_uri).startswith("resp 0 "), "the scan's descriptor and panel")
-    return d, {"uri": s.clap_uri, "layout": lay, "sha": scan_fixture.sha(s.clap)}
+    return d, {"uri": s.clap_uri, "lv2": lv2, "layout": lay, "sha": scan_fixture.sha(s.clap)}
 
 
 def check_verbs(declared, shared):
