@@ -35,23 +35,42 @@ The answered `add` of a plugin whose files have no descriptor runs the scan, in 
    name in `<descriptor_dir>/panels/`. Both are written once, atomically.
 
 `panel` runs `omx-clap-scan --json` on the plugin's file (omx-clap-core 0.20.0 or later) and copies the `panel` object
-the scan prints for the plugin's id, byte for byte. The daemon never reads the plugin's `decl.json` and never calls the
+the scan prints for the plugin's id, byte for byte, and beside it the plugin's clap.meters/1 meters that the panel's
+displays index, each as the descriptor's `meters[]` words it. The daemon never reads the plugin's `decl.json` and never calls the
 extension: what the scan printed is what a host gets. An add of a plugin whose descriptor is in place and whose panel
 is not (a descriptor of an older daemon, a panel stage that failed) runs the panel stage alone.
 
 ## The file
 
 ```json
-{"plugin": {"format": "clap", "id": "org.openmixer.delay"}, "panel": {"family": "...", "fingerprint": "...",
- "sections": [...], "controls": [...], "roles": [...], "displays": [...], "placementDefaults": [...]}}
+{"plugin": {"format": "clap", "id": "org.openmixer.comp"}, "panel": {"family": "...", "fingerprint": "...",
+ "sections": [...], "controls": [...], "roles": [...], "displays": [{..., "source": "meters", "meterIds": [0, null]}],
+ "placementDefaults": [...]},
+ "meters": [{"id": 0, "symbol": "compGr", "kind": "gain-reduction", "channels": 1, "unit": "dB", "min": -60, "max": 0,
+             "scale": "unknown"}]}
 ```
+
+The keys are plugin-hostd-protocol's `panel_file` (PHD_PANEL_FILE_KEYS): `plugin` and `panel` always, `meters` from
+plugin-hostd-protocol 0.5.10 on, so a file written before it has none.
 
 - `panel` is the scan's object as omx-clap-scan(1) states it: each entry with the members of its structure, a code by
   omx-plugins' word for it, an id that is none as `null`, a visibility mask as a hex string.
 - `panel` is `null` for a plugin that serves no description.
 - a table the scan refused for its count (past 4096 entries) stays refused: `{"refused": "too-many", "count": <n>,
   "max": 4096}` in place of its array, the other tables as they are.
-- an LV2 plugin's `panel` is `null`: the description is a CLAP extension, and nothing is run for it.
+- `meters` holds the meters of the scan (the clap.meters/1 meters omx-clap-scan --json prints for the plugin) that a
+  display of the panel names in its `meterIds`, in the scan's order, each a row of exactly the shape and values the
+  descriptor's `meters[]` gives the same meter (`id`, `symbol`, `kind`, `channels`, `unit`, `min`, `max`, `scale`; see
+  [formats.md](formats.md)): the same id, the name made an output symbol, the flags left out as the descriptor
+  leaves them. A display's meter id is the `id` of one row of the file, so the file resolves its own displays without
+  the descriptor, and a reader reads one meter shape from both files. A meter no display names is left out; a `null`
+  id in `meterIds` names none. `meters` is `[]` for a `null` panel and for a panel whose displays index no meter. A
+  meter `describe` would refuse (a kind it has no word for, a name that gives no symbol, no channel or no range) is
+  refused here too.
+- a display that names a meter id the scan's `meters` do not carry is refused, and `panel_get` answers `-531`: the
+  file never names a meter it does not hold.
+- an LV2 plugin's `panel` is `null` and its `meters` `[]`: the description is a CLAP extension, and nothing is run
+  for it.
 - a scan that states no `panel` for the plugin (a scanner before omx-clap-scan 0.20.0, a plugin that fails to
   initialise) is refused, and `panel_get` answers `-531`: a missing panel is never read as a null one.
 
