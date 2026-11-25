@@ -46,7 +46,6 @@ def stub(d, package, version, item):
     dst = os.path.join(d, "3", package)
     os.makedirs(dst)
     doc = {"$schema": "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json",
-           "requires": ["omx-contract-schema"],
            item: {"kind": "words", "since": version, "doc": "The word of a stand-in table.",
                   "words": {"stub": {"word": "stub", "doc": "A stand-in."}}}}
     body = (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode()
@@ -164,7 +163,8 @@ def main():
         undeclared = json.loads(json.dumps(qual))
         undeclared["info"]["x-requires"] = [n for n in undeclared["info"]["x-requires"] if n != "pin"]
         rc, out = validate(tmp, "undeclared-pin", undeclared, pin)
-        check(rc != 0, "(c) an info.x-requires without pin, the domain the x-from names, is refused: %s" % out[-160:])
+        check(rc != 0 and "contract.ref.undeclared" in out and "info.x-requires does not declare" in out,
+              "(c) an info.x-requires without pin, the domain the x-from names, is refused by contract.ref.undeclared: %s" % out[-160:])
     check(qual["info"].get("x-requires") == ["clap", "lv2", "omx-clap", "pin", "plugin-db", "plugin-hostd-protocol"],
           "(a) info.x-requires lists, sorted and with no version, the domain pin and plugin-hostd-protocol, and the term domains lv2 (plugin-db) and clap (omx-clap)")
     return 1 if failed else 0

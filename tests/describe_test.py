@@ -24,11 +24,9 @@ CONTRACT_DIR = os.path.join(ROOT, "tests", "fixtures", "contract-dir")
 CASES = {"clap-controls": "clap:controls.clap#org.freemixer.plugin-qualify.fixture.controls",
          "lv2-compressor": "lv2:urn:example:compressor", "lv2-eq": "lv2:urn:example:eq"}
 # omx-contract's reader and a data tree it reads (an omx-contract checkout's data/), when OMX_CONTRACT_CLI and
-# OMX_CONTRACT_DATA name them; READER_VERSION, the reader's schema, stands for the floor the descriptor states, which a
-# reader older than 3.0.0 refuses
+# OMX_CONTRACT_DATA name them
 CLI = os.environ.get("OMX_CONTRACT_CLI")
 CLI_DATA = os.environ.get("OMX_CONTRACT_DATA")
-READER_VERSION = os.environ.get("OMX_CONTRACT_READER_VERSION")
 failed = 0
 
 
@@ -74,8 +72,7 @@ def contract_dir(tmp, name, packages, bad_hash=False):
     for package, roles in packages.items():
         d = os.path.join(tmp, name, "3", package)
         os.makedirs(d, exist_ok=True)
-        body = json.dumps({"requires": {"omx-contract-schema": ">= 3.13.0"},
-                           "ROLES": {"kind": "roleMeanings", "since": "0.1.0", "doc": "roles",
+        body = json.dumps({"ROLES": {"kind": "roleMeanings", "since": "0.1.0", "doc": "roles",
                                      "roles": {r: {"role": r, "meaning": m} for r, m in roles.items()}}}) + "\n"
         scratch(d, "roles.json", body)
         digest = hashlib.sha256((body + ("x" if bad_hash else "")).encode()).hexdigest()
@@ -108,8 +105,6 @@ def main():
                 subprocess.run(["cp", "-r", CLI_DATA, data], check=True)
                 os.makedirs(os.path.join(data, "descriptors"))
                 doc = dict(got, **{"$schema": "../../schema/omx-contract.schema.json"})
-                if READER_VERSION:
-                    doc["requires"] = {"omx-contract-schema": ">= " + READER_VERSION}
                 scratch(data, os.path.join("descriptors", name + ".json"), json.dumps(doc, indent=2))
                 r2 = subprocess.run([CLI, "validate", "--data", data], capture_output=True, text=True)
                 check(r2.returncode == 0, "%s: omx-contract validate reads it: %s" % (name, (r2.stdout + r2.stderr).strip()))

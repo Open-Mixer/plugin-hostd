@@ -71,8 +71,7 @@ with tempfile.TemporaryDirectory(prefix="format-domains-") as tmp:
 
     good = describe(format_tables.path("clap"))
     check(good.returncode == 0 and '"controls"' in good.stdout, "describe over the domain document answers (%d: %s)" % (good.returncode, good.stderr.strip()[:200]))
-    old = {"requires": {"omx-contract-schema": ">= 3.0.0"},
-           "PLUGIN_HOSTD_CLAP_MAP": dict(kind="formatMap", format="clap", rows=format_tables.rows(format_tables.load("clap"), "clap"))}
+    old = {"PLUGIN_HOSTD_CLAP_MAP": dict(kind="formatMap", format="clap", rows=format_tables.rows(format_tables.load("clap"), "clap"))}
     nov = format_tables.load("clap")
     del format_tables.sheet(nov, "clap")["x-value"]
     for what, doc in (("the old data shape (a formatMap item)", old), ("a sheet with no x-value", nov)):
