@@ -87,6 +87,13 @@ break_unit stress-key lib/validate.py 's.get("rate"), s.get("frames"), s.get("st
 break_unit stress-xruns lib/validate.py 'and s.get("status") == "ok" and "xruns" not in s:' 'and False:' \
     Schema.test_a_stressed_row_without_xruns_is_red
 break_unit spread-repeats lib/validate.py 'if s.get("repeats", 1) < 2:' 'if False:' Schema.test_a_spread_of_one_run_is_red
+break_unit params-daemon lib/bench.py '        for k, v in params.items():
+            line = "param_set %d %s %s" % (inst, k, v)' '        for k, v in {}.items():
+            line = "param_set %d %s %s" % (inst, k, v)' Params.test_the_daemon_hosts_get_a_param_set_after_the_add
+break_unit params-jalv lib/bench.py '[a for k, v in params.items() for a in ("-c", "%s=%s" % (k, v))]' '[]' Params.test_jalv_takes_the_controls_at_its_start
+break_unit params-refused lib/bench.py '            if reply != "resp 0":
+                raise Failed("%s answered '"'"'%s'"'"' to: %s" % (HOST_PROGRAM[self.key], reply, line))
+        return client' '        return client' Params.test_a_refused_control_fails_the_row
 break_unit probe-count lib/bench.py 'self.total += 1' 'self.total += 0' Xruns.test_the_probe_counts_what_jack_reports
 break_unit probe-server lib/bench.py 'self.NO_START | self.SERVER_NAME' 'self.SERVER_NAME' Xruns.test_the_probe_joins_the_private_server_only
 break_unit probe-deaf lib/bench.py 'return max(counted, logged), note' 'return counted, note' Xruns.test_a_deaf_probe_is_not_zero_and_not_a_failure

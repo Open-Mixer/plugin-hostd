@@ -1185,11 +1185,13 @@ class Host:
             raise Failed("pool:%s holds %s, not %s" % (name, [w[5] for w in holder], pooled))
         return segments, pooled
 
-    def add(self, uri, inst, placement=None):
-        """add one plugin; returns the client name"""
+    def add(self, uri, inst, placement=None, params=None):
+        """add one plugin with its controls set (`params`, symbol -> value: jalv takes them as -c at start, as Zynthian
+        starts it; the other hosts as param_set right after the add, which add_ms counts); returns the client name"""
         client = "effect_%d" % inst
+        params = params or {}
         if self.key == "H4":
-            argv = ["jalv", "-i", "-n", client, uri]
+            argv = ["jalv", "-i", "-n", client] + [a for k, v in params.items() for a in ("-c", "%s=%s" % (k, v))] + [uri]
             self.jalvs[inst] = self.procs.spawn(argv, "H4-%d" % inst, self.env)
             end = time.monotonic() + READY_LIMIT_S
             while client not in ports(self.env):
@@ -1209,6 +1211,11 @@ class Host:
             reply = self.ctl.cmd(line)
         if reply != "resp %d" % inst:
             raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
+        for k, v in params.items():
+            line = "param_set %d %s %s" % (inst, k, v)
+            reply = self.ctl.cmd(line)
+            if reply != "resp 0":
+                raise Failed("%s answered '%s' to: %s" % (HOST_PROGRAM[self.key], reply, line))
         return client
 
     def connect(self, a, b):
@@ -1514,7 +1521,8 @@ class Runner:
             insts = list(range(len(picks)))
             placement = {"individual": "own", "chain-add": "chain:1"}.get(mode) if hkey == "H2" else None
             t0 = time.monotonic()
-            clients = [host.add(uri, i, placement) for (uri, _, _), i in zip(picks, insts)]
+            clients = [host.add(uri, i, placement, self.cat.plugins[k].get("params"))
+                       for (uri, _, _), i, k in zip(picks, insts, keys)]
             if mode == "chain-add" and insts:
                 # a daemon before plugin-hostd#348 reads chain:1 as a client name and gives each add a worker of its own
                 if host.ctl.cmd("chain_get 1").split()[1:2] != ["0"]:
