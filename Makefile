@@ -1020,6 +1020,7 @@ test-describe: $(PROBE)
 	PROBE=./$(PROBE) python3 tests/describe_clap_toggle_test.py
 	PROBE=./$(PROBE) python3 tests/describe_clap_kind_vectors_test.py
 	PROBE=./$(PROBE) python3 tests/describe_twin_test.py
+	PROBE=./$(PROBE) python3 tests/describe_loader_test.py
 
 # describe --pages (docs/formats.md#the-pages-describe-pages-writes): a group's controls one page per 8, in declared
 # order; several hundred ungrouped parameters still get pages, the same on every run
