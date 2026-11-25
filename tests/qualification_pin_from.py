@@ -66,6 +66,20 @@ def without(tmp, installed, hidden):
     return view
 
 
+def copy_package(installed, d, package):
+    """Stage the installed package <package> (3/<package>) into d, with the domains its manifest lists: an owner whose
+    contract is only domains (plugin-db#84) names them under "domains", and its manifest without them is refused."""
+    src = os.path.join(installed, "3", package)
+    if not os.path.isdir(src):
+        return
+    shutil.copytree(src, os.path.join(d, "3", package))
+    with open(os.path.join(src, "MANIFEST.json"), encoding="utf-8") as f:
+        domains = json.load(f).get("domains", [])
+    for domain in domains:
+        if os.path.isdir(os.path.join(installed, domain)) and not os.path.exists(os.path.join(d, domain)):
+            shutil.copytree(os.path.join(installed, domain), os.path.join(d, domain))
+
+
 def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     """a scratch contract directory: this document (a dict, or the text as it is), the domain pin when given, and the package
     plugin-hostd-protocol at the version under test; returns (directory, installed contract directory)"""
@@ -82,12 +96,10 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
     stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_FLOOR_STUB")
     for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
-        src = os.path.join(installed, "3", package)
-        if os.path.isdir(src):
-            shutil.copytree(src, os.path.join(d, "3", package))
-    for domain in ("lv2", "clap"):
+        copy_package(installed, d, package)
+    for domain in ("lv2", "clap"):  # already staged when its owner's manifest lists it
         src = os.path.join(installed, domain)
-        if os.path.isdir(src):
+        if os.path.isdir(src) and not os.path.exists(os.path.join(d, domain)):
             shutil.copytree(src, os.path.join(d, domain))
     return d, installed
 
