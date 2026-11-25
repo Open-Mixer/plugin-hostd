@@ -301,7 +301,14 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, OMX_VERB_ESTIMATE))
         return estimate_words(tok, ntok);
     if (!strcmp(verb, OMX_VERB_PIN_SET))
-        return sup_resp(pin_set_words(line, tok, ntok));
+    {
+        int rc = pin_set_words(line, tok, ntok);
+
+        /* a pin of a verdict makes a bypassed insert of that plugin live (R-112) */
+        if (rc == SUCCESS)
+            sup_pins_applied();
+        return sup_resp(rc);
+    }
     if (!strcmp(verb, OMX_VERB_PIN_ACCEPT))
         return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PIN_RELOAD))

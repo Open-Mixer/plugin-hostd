@@ -115,6 +115,36 @@ int pins_digest(const char *uri, char hex[OMX_PLUGIN_DB_PIN_SHA256_HEX_LEN + 1])
  * @return 1 when it does, 0 otherwise or with no pin.
  */
 int pins_in_process(const char *uri);
+/**
+ * @brief Whether the operator chose to load the plugin (pin_accept, first-use only).
+ *
+ * The choice counts as its verdict, and a check that finishes later does not override it.
+ *
+ * @param uri the plugin's uri
+ * @return nonzero when it was accepted, else 0
+ * @note Not thread-safe: call on the daemon's main thread.
+ */
+int pins_accepted(const char *uri);
+/**
+ * @brief The n-th file the pin of the uri holds, relative to its bundle, and its SHA-256.
+ *
+ * @param uri the plugin's uri
+ * @param n the file's place in the pin, from 0
+ * @param path set to the file's path, relative to the bundle; the pin store's, valid until the pins change
+ * @param digest set to the file's SHA-256 in hex; the pin store's, valid until the pins change
+ * @return 0, or -1 past the last file or for no pin
+ * @note Not thread-safe: call on the daemon's main thread.
+ */
+int pins_file_at(const char *uri, int n, const char **path, const char **digest);
+/**
+ * @brief The directory the pin store lives in. The qualify spool is beside it.
+ *
+ * @param dir where the directory is written
+ * @param size the room in dir
+ * @return dir, or NULL for a store with no path or a directory that does not fit
+ * @note Not thread-safe: call on the daemon's main thread.
+ */
+const char *pins_store_dir_of(char *dir, size_t size);
 /** @brief whether the pin of a uri grants it the CLAP thread pool: it carries pool=cores and is not a refusal
  *
  * The pool is the plugin's qualification's to give, never a global switch.

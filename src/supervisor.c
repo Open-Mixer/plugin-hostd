@@ -50,6 +50,7 @@
 #include "writer.h"
 #include "verbs.h"
 #include "words.h"
+#include "qualify.h"
 
 #define ATTRIBUTED  (-2)    /* on_death: the culprit is already dealt with, only schedule */
 #define POOL_NAMES  32
@@ -340,6 +341,9 @@ static void instance_free(instance_t *i)
     free(i->sus_prev);
     free(i->track_info);
     free(i->node_label);
+    free(i->byp_uri);
+    free(i->byp_place);
+    free(i->byp_client);
     free(i);
 }
 
@@ -2113,6 +2117,118 @@ out_of_memory:
     return 0;
 }
 
+/* the add as a worker is given it */
+static void add_line_of(const format_t *format, const char *fwd, int id, const char *client, char *line, size_t size)
+{
+    char word[PATH_MAX + 512];
+
+    if (format->worker_word)
+        format->worker_word(fwd, word, sizeof(word));
+    else
+        snprintf(word, sizeof(word), "%s", fwd);
+    snprintf(line, size, "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, format->worker_prefix ? format->worker_prefix : "",
+             word, id, client ? " " : "", client ? client : "");
+}
+
+/* a plugin with no verdict that the operator has not accepted (R-112) */
+static int unqualified(const char *uri)
+{
+    const char *verdict = pins_verdict(uri);
+
+    return (!verdict || !*verdict) && !pins_accepted(uri);
+}
+
+/* the request is on disk: the service that watches the spool may read it, so it is told now and not before */
+static void qualify_on_disk(void *arg, int err)
+{
+    char *uri = arg;
+
+    /* a verdict landed while the request was on its way: the file that arrived late is taken away, and nothing is said */
+    if (!qualify_asked(uri))
+        qualify_answered(uri);
+    else if (err == 0)
+        event(PHD_EVENT_QUALIFY_REQUESTED_FMT, uri);
+    free(uri);
+}
+
+/* the insert of a plugin with no verdict: the instance is made and no worker holds it, so it passes dry as a killed
+ * insert does and its code is loaded by no worker the console listens to; one request for its quick check is in the
+ * spool and said once. It goes live by itself when a pin carries a verdict that is not a refusal, or the operator accepts */
+static char *add_bypassed(const char *uri, const char *fwd, int fmt, int id, const char *placement, const char *client)
+{
+    const format_t *format = format_at(fmt);
+    instance_t *i = calloc(1, sizeof(instance_t));
+    char line[PATH_MAX + 640], name[32];
+    int made;
+    char *asked_uri;
+
+    if (!i)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    add_line_of(format, fwd, id, client, line, sizeof(line));
+    snprintf(name, sizeof(name), "effect_%d", id);
+    i->id = id;
+    i->fmt = fmt;
+    i->bypassed = 1;
+    i->uri = strdup(fwd);
+    i->add_line = strdup(line);
+    i->client = strdup(client ? client : name);
+    i->byp_uri = strdup(uri);
+    i->byp_place = strdup(placement ? placement : PHD_PLACE_DEFAULT);
+    i->byp_client = client ? strdup(client) : NULL;
+    if (!i->uri || !i->add_line || !i->client || !i->byp_uri || !i->byp_place || (client && !i->byp_client))
+    {
+        instance_free(i);
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    }
+    g_inst[id] = i;
+    asked_uri = strdup(fwd);
+    made = asked_uri ? qualify_request(fwd, qualify_on_disk, asked_uri) : -1;
+    if (made <= 0)
+        free(asked_uri);
+    if (made < 0)
+        fprintf(stderr, "plugin-hostd: %s: no qualify request could be written; it stays bypassed\n", fwd);
+    return sup_resp(id);
+}
+
+static int g_promoting;
+
+/* the bypassed instances against the pins as they are now: one whose pin holds a verdict, or whom the operator accepted,
+ * has its request answered and, when its pin admits it, is added as it was asked: the insert stops passing dry. A refusal
+ * leaves it bypassed and listed; nothing here cuts a live instance */
+static void bypassed_promote(void)
+{
+    int id;
+
+    if (g_promoting || !g_conf.require_pins)
+        return;
+    g_promoting = 1;
+    for (id = 0; id < MAX_INSTANCE; id++)
+    {
+        instance_t *i = g_inst[id];
+        const char *layout = NULL;
+        char *reply;
+
+        if (!i || !i->bypassed)
+            continue;
+        if (!unqualified(i->uri))
+            qualify_answered(i->uri);
+        if (unqualified(i->uri) || pins_check(format_at(i->fmt), i->uri, search_of(i->fmt), &layout) != SUCCESS)
+            continue;
+        g_inst[id] = NULL;
+        reply = add(i->byp_uri, id, i->byp_place, i->byp_client, i->fmt);
+        if (g_inst[id] && !g_inst[id]->bypassed)
+        {
+            instance_free(i);
+            free(reply);
+            continue;
+        }
+        /* the add was refused after all: it stays as it was */
+        g_inst[id] = i;
+        free(reply);
+    }
+    g_promoting = 0;
+}
+
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
 {
     return add(uri, id, placement, client, -1);
@@ -2124,7 +2240,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     const char *fwd;
     int fmt = format_of_uri(uri, &fwd);
     const format_t *format;
-    char place[48], line[PATH_MAX + 640], word[PATH_MAX + 512], *reply = NULL;
+    char place[48], line[PATH_MAX + 640], *reply = NULL;
     const char *layout = NULL;
     worker_t *w = NULL;
     meta_t *m;
@@ -2182,6 +2298,13 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         pin_changed_event(fwd, rc);
         if (rc != SUCCESS)
             return sup_resp(rc);
+        /* R-112: a plugin with no verdict is not instantiated in any worker until it has one */
+        if (first_use && unqualified(fwd))
+        {
+            if (chain_id >= 0 || (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX))))
+                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+            return add_bypassed(uri, fwd, fmt, id, placement, client);
+        }
         /* a pool's world holds every member's files: what a format pins holds only in a world of the plugin's own */
         if (format->pinned_own_only)
         {
@@ -2288,12 +2411,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
         }
     }
-    if (format->worker_word)
-        format->worker_word(fwd, word, sizeof(word));
-    else
-        snprintf(word, sizeof(word), "%s", fwd);
-    snprintf(line, sizeof(line), "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD,
-             format->worker_prefix ? format->worker_prefix : "", word, id, client ? " " : "", client ? client : "");
+    add_line_of(format, fwd, id, client, line, sizeof(line));
     if (rc == RPC_OK && !reply)
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
@@ -2457,7 +2575,7 @@ static void chain_tell(worker_t *w)
 
 static char *refuse_worker(worker_t *w)
 {
-    return sup_resp(w->state == W_GIVEN_UP ? OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP : OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
+    return sup_resp(w && w->state == W_GIVEN_UP ? OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP : OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
 }
 
 static int64_t g_sus_seq;
@@ -2701,7 +2819,7 @@ char *sup_call(int id, const char *line)
     if (!i)
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     w = i->w;
-    if (w->state != W_UP)
+    if (!w || w->state != W_UP)
         return refuse_worker(w);
     rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc == RPC_WAS_DEAD)
@@ -2735,6 +2853,14 @@ char *sup_remove(int id)
     if (!i)
         return sup_resp(SUCCESS);   /* mod-host's remove of an instance it does not hold is not an error */
     w = i->w;
+    if (!w)
+    {
+        /* bypassed: no worker holds it, and its request stays in the spool, the check is still wanted */
+        g_inst[id] = NULL;
+        chain_leave(i);
+        instance_free(i);
+        return sup_resp(SUCCESS);
+    }
     if (w->state == W_UP)
     {
         snprintf(line, sizeof(line), EFFECT_REMOVE, id);
@@ -2784,9 +2910,9 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
     char *reply = NULL, ledger[512];
     int rc, n;
 
-    if (a && a->w->state == W_UP)
+    if (a && a->w && a->w->state == W_UP)
         w = a->w;
-    else if (b && b->w->state == W_UP)
+    else if (b && b->w && b->w->state == W_UP)
         w = b->w;
     else if (!a && !b)
         for (n = 0; n < g_nworkers && !w; n++)
@@ -3133,6 +3259,8 @@ char *sup_instance_info(int id)
     if (!i)
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     m = meta_of(id);
+    if (!i->w)
+        return refuse_worker(NULL);
     snprintf(buffer, sizeof(buffer), "resp 0 w%d %d %s %d %d", i->w->k, (int)i->w->pid, g_state_states[i->w->state],
              m->crashes, m->quarantined);
     return strdup(buffer);
@@ -3235,14 +3363,22 @@ char *sup_quarantine_clear(const char *which)
     return sup_resp(SUCCESS);
 }
 
+void sup_pins_applied(void)
+{
+    bypassed_promote();
+}
+
 char *sup_pin_accept(const char *uri)
 {
     const char *fwd;
-    int fmt = format_of_uri(uri, &fwd);
+    int fmt = format_of_uri(uri, &fwd), rc;
 
     if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
         return sup_resp(ERR_INVALID_OPERATION);
-    return sup_resp(pins_accept(format_at(fmt), fwd, search_of(fmt)));
+    rc = pins_accept(format_at(fmt), fwd, search_of(fmt));
+    if (rc == SUCCESS)
+        bypassed_promote();
+    return sup_resp(rc);
 }
 
 /* the running instances against the pins just read: one the new pins refuse is not stopped, its worker holds it as it
@@ -3275,6 +3411,7 @@ char *sup_pin_reload(void)
     if (rc != SUCCESS)
         return sup_resp(ERR_INVALID_OPERATION);
     pins_recheck();
+    bypassed_promote();
     return sup_resp(SUCCESS);
 }
 
@@ -3389,6 +3526,10 @@ static void evict(instance_t *i)
     char line[32], *reply = NULL;
     int rc;
 
+    /* a bypassed insert is in no worker */
+    if (!w)
+        return;
+
     if (w->state == W_UP)
         checkpoint(w);
     w = i->w;
@@ -3410,7 +3551,11 @@ static void evict(instance_t *i)
 /* an instance into a fresh worker of its own, started now */
 static void to_own(instance_t *i)
 {
-    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
+    worker_t *own;
+
+    if (!i->w)
+        return;
+    own = worker_new(i->fmt, PHD_PLACE_OWN);
 
     /* no memory for a new worker: it goes on running where it is */
     if (!own)

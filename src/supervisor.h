@@ -101,6 +101,11 @@ typedef struct INSTANCE_T {
     char *node_label;           /**< the latest node_label with a label it took, replayed after its add */
     char *track_info;           /**< the latest track_info it took, replayed after its add, never to an LV2 worker */
     struct CHAIN_T *chain;      /**< the chain it is a member of, NULL for none */
+    int bypassed;               /**< it has no verdict and no worker: its insert passes dry, its quick check is asked for
+                                 * (R-112); w is NULL until its verdict is a pass or the user accepted it */
+    char *byp_uri;              /**< the uri and the client as the add had them, for the add that makes it live */
+    char *byp_place;            /**< the placement the add asked for, PHD_PLACE_DEFAULT when it named none */
+    char *byp_client;           /**< the client name the add asked for; NULL when it named none */
 } instance_t;
 
 /** @brief One worker process, or the place one is to run again: its sockets, its instances and its death record. */
@@ -431,6 +436,9 @@ char *sup_pin_reload(void);
  * @note Not thread-safe: the supervisor's state has no lock; call on the daemon's main thread only.
  */
 void sup_pins_poll(void);
+
+/** @brief The pins were changed by a verb: the bypassed inserts are looked at again (R-112). */
+void sup_pins_applied(void);
 
 /**
  * @brief Makes the plugin's files as they are now its pin (pin_accept); only under pin_mode first-use.
