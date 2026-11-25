@@ -455,7 +455,8 @@ static void receive(msg_t *msg)
     const char *verb, *presets_learn = getenv("FAKE_PRESETS_LEARN");
 
     log_command(line);
-    /* a quoted word is one word, as mod-host's tokenizer reads it */
+    /* a quoted word is one word, as mod-host's tokenizer reads it; inside it \" and \\ are escapes, as the protocol's
+     * splitter reads a quoted-escaped value, so an escaped quote does not end it (the word keeps its escapes) */
     for (t = copy; t && ntok < PHD_LINE_WORDS_MAX;)
     {
         t += strspn(t, " \t\n");
@@ -464,7 +465,10 @@ static void receive(msg_t *msg)
         if (*t == '"')
         {
             tok[ntok++] = ++t;
-            t = strchr(t, '"');
+            while (*t && *t != '"')
+                t += (*t == '\\' && (t[1] == '"' || t[1] == '\\')) ? 2 : 1;
+            if (!*t)
+                t = NULL;
         }
         else
         {
