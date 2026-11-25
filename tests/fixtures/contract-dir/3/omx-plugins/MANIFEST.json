@@ -1,9 +1,0 @@
-{
-  "package": "omx-plugins",
-  "version": "0.19.3",
-  "schemaMajor": 3,
-  "tree": "contract",
-  "files": {
-    "role-meanings.json": "67d1dfafdabc8d0ba4f1f39a06b8d19ed85bd8c3390095882f2b5fe619dfb6c0"
-  }
-}

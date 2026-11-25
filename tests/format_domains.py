@@ -10,7 +10,7 @@
 #   b. the M5 rows (a unit lookup; an LV2 designation lookup, param:* and lv2:enabled) write the same word through
 #      unit-id or designation-meaning and carry no values: the pair is the owner's published mapping
 #   c. data/formats is gone, and `make install_vocabulary_domains` into a scratch contract directory puts the documents at
-#      <contractdir>/plugin-hostd/<f>/<f>.json and nothing under <contractdir>/3/plugin-hostd/formats
+#      <contractdir>/plugin-hostd/<f>/<f>.json and nothing under <contractdir>/plugin-hostd/formats
 #   d. plugin-hostd-probe describe reads the domain document; the old data shape (a formatMap item at the top), the
 #      sheet form and a map with no rows are refused, exit 2, naming the missing map
 #   e. the pairs follow the owner: describe over a contract directory whose plugin-db lv2 domain maps units:db to dBu,
@@ -90,7 +90,7 @@ with tempfile.TemporaryDirectory(prefix="format-domains-") as tmp:
             cdir = os.path.dirname(os.path.dirname(root))
     check(r.returncode == 0 and cdir is not None and all(os.path.isfile(os.path.join(cdir, "plugin-hostd", f, f + ".json")) for f in GOLDEN),
           "install puts <contractdir>/plugin-hostd/<format>/<format>.json (%s)" % (r.stderr.strip()[-200:] or cdir))
-    check(not any("/3/plugin-hostd/formats" in root for root, _, _ in os.walk(tmp)), "and nothing under 3/plugin-hostd/formats")
+    check(not any("/plugin-hostd/formats" in root for root, _, _ in os.walk(tmp)), "and nothing under plugin-hostd/formats")
 
     FIELDS = os.path.join(ROOT, "tests", "fixtures", "fields")
     CASES = {"clap": ("clap-comp.tsv", "clap:omx-comp.clap#org.openmixer.comp"),

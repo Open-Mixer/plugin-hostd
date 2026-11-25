@@ -85,11 +85,11 @@ def scratch(tmp, name, text):
 
 
 def contract_dir(tmp, name, packages, bad_hash=False):
-    """a contract directory <tmp>/<name>/3/<package>/ per package, each a MANIFEST.json and one role table of
+    """a contract directory <tmp>/<name>/<package>/ per package, each a MANIFEST.json and one role table of
     {role: meaning}; bad_hash writes a manifest hash the file does not have. The directory, as --contract-dir takes it"""
     import hashlib
     for package, roles in packages.items():
-        d = os.path.join(tmp, name, "3", package)
+        d = os.path.join(tmp, name, package)
         os.makedirs(d, exist_ok=True)
         body = json.dumps({"ROLES": {"kind": "roleMeanings", "since": "0.1.0", "doc": "roles",
                                      "roles": {r: {"role": r, "meaning": m} for r, m in roles.items()}}}) + "\n"

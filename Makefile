@@ -193,7 +193,7 @@ $(PROG_TEST_EMPTY): $(TEST_OBJ_EMPTY) $(PROTOCOL_LIB)
 PROBE_SRC = src/probe.c src/confine.c src/probe_cgroup.c src/json.c src/describe.c src/transforms.c src/machine.c src/probe_words.c src/scan_words.c src/domain_words.c src/qualification_words.c
 $(PROBE): $(PROBE_SRC) src/confine.h src/probe_cgroup.h src/json.h src/describe.h src/pages.h src/transforms.h src/machine.h src/probe_words.h src/scan_words.h src/domain_words.h src/qualification_words.h src/probe_lock.h $(PROTOCOL_HEADERS) $(RENDERED)
 	$(CC) -Iinclude $(PROTOCOL_CFLAGS) $(PIN_CFLAGS) -Isrc $(CONTRACT_CFLAGS) $(OMXDSP_CFLAGS) $(DOMAIN_CFLAGS) $(CFLAGS) -D_GNU_SOURCE -DPROBE_VERSION='"$(VERSION)"' \
-	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' -DPROBE_CONTRACT_MAJOR='"$(CONTRACT_SCHEMA_MAJOR)"' \
+	  -DPROBE_CONTRACTDIR='"$(CONTRACTDIR)"' \
 	  -DPROBE_LOCK_PRELOAD='"$(LIBEXECDIR)/plugin-hostd/probe-lock.so"' -o $@ $(PROBE_SRC) -lm $(PIN_LIBS) $(DOMAIN_LIBS) $(CJSON_LIBS)
 
 # the probe's lock preload (src/probe_lock.c): preloaded into the measured child only, it locks the child's memory before
@@ -286,18 +286,15 @@ install_vocabulary_domains:
 # reader takes a domain name of one segment there, so plugin-hostd/clap and the other nested domains are not listed.
 # plugin-hostd-contract ships it with the domains. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
-# it is not installed. The schema major is omx-contract's, read from its pkg-config file (schema_major, omx-contract 3.9.0
-# or later) and never typed here: a recipe that needs it fails naming the missing variable when no omx-contract-devel
-# answers, while a target that does not need it (fuzz, the checks) still runs without one.
-CONTRACT_SCHEMA_MAJOR_PC := $(shell $(PKG_CONFIG) --variable=schema_major omx-contract 2>/dev/null)
-CONTRACT_SCHEMA_MAJOR = $(or $(CONTRACT_SCHEMA_MAJOR_PC),$(error CONTRACT_SCHEMA_MAJOR: pkg-config names no schema_major of omx-contract: install omx-contract-devel 3.9.0 or later))
+# it is not installed. The contract directory has no schema-major level: the package is <contractdir>/plugin-hostd/,
+# the directory its nested domains sit in, and the format is stated by the documents (x-omx-contract).
 CONTRACTDIR = $(or $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/dev/null),$(DATADIR)/omx-contract/contract.d)
 INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=datadir omx-contract 2>/dev/null)/install-contract-dir.sh) $(wildcard $(OMX_CONTRACT_DIR)/tools/install-contract-dir.sh))
 
 .PHONY: install-contract
 install-contract:
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
-	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) $(DESTDIR)$(CONTRACTDIR) $(OWNER_DOMAINS)
+	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(DESTDIR)$(CONTRACTDIR) $(OWNER_DOMAINS)
 
 # the contract directory as a reader of it sees it: the domains and install-contract into a staging directory, then omx-contract validate
 # of the staged package and domains together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
@@ -350,7 +347,7 @@ render-verbs check-rendered:
 	  echo "$(RENDERED) is rendered with omx-contract $$recorded; $$renderer is installed: not compared"; exit 0; fi; \
 	set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	for d in $(OWNER_DOMAINS); do sh $(INSTALL_CONTRACT_DIR) --domain contract.d/$$d $$tmp $(PROG) >/dev/null; done; \
-	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(CONTRACT_SCHEMA_MAJOR) $$tmp $(OWNER_DOMAINS) >/dev/null; \
+	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $$tmp $(OWNER_DOMAINS) >/dev/null; \
 	OMX_CONTRACT_PATH=$$tmp$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) \
 	  $(OMX_CONTRACT) render --target c --package $(PROG) --installed $(foreach d,$(VOCABULARY_DOMAINS),--with-domain contract.d/$(d)) --out include/plugin-hostd $(if $(filter check-rendered,$@),--check); \
 	if [ $@ = render-verbs ]; then test -n "$$renderer" || { echo "$@: pkg-config names no omx-contract version" >&2; exit 1; }; \
@@ -404,9 +401,9 @@ test-rendered-at-tag:
 # sabotage arms, each red naming its field, among them a scratch domain without a term a row maps
 .PHONY: test-format-coverage
 test-format-coverage:
-	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) clap
-	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) lv2
-	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --major $(CONTRACT_SCHEMA_MAJOR) --self-test
+	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) clap
+	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) lv2
+	python3 tests/format_coverage.py --contract-dir $(CONTRACTDIR) --self-test
 
 # the fake worker and the shell protocol client (lib/protocol.sh), for a program that drives plugin-hostd: away from $(BINDIR), where nothing runs it by chance.
 # The Python client is the protocol's, python3-plugin-hostd-client (plugin-hostd-protocol issue 45): no copy here

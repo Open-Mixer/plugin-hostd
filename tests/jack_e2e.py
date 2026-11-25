@@ -335,7 +335,7 @@ def omx_uri(name, ident):
     return "clap:%s/%s.clap#org.openmixer.%s" % (OMX_CLAP_DIR, name, ident)
 
 
-OMX_DECLARATIONS = os.environ.get("OMX_PLUGINS_DECLARATIONS", "/usr/share/omx-contract/contract.d/3/omx-plugins/plugins")
+OMX_DECLARATIONS = os.environ.get("OMX_PLUGINS_DECLARATIONS", "/usr/share/omx-contract/contract.d/omx-plugins/plugins")
 
 
 def clap_ids(name):

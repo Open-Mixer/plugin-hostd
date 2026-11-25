@@ -23,8 +23,8 @@ The probe runner and the page generator also read omx-contract's C headers,
 daemon and the runner spell their JSON string literals through its one writer,
 `<omxcontract/omx_json_write.h>`, from `pkg-config omx-contract` (`omx-contract-devel`,
 `libomx-contract-dev`, 3.9.0 or later; `CONTRACT_CFLAGS=-I<dir>` for one that is not
-installed). The schema major the contract directory is read under is the pkg-config
-file's `schema_major`, never typed in this tree. The runner's
+installed). The contract directory has no schema-major level: a package is
+`<contractdir>/<package>/`, and a document states its format (`x-omx-contract`). The runner's
 default rates are omx-dsp's `ORACLE_FLOOR_RATES` (its `omxdsp/omxdsp_definitions.h`), and the generator refuses
 to build or run when the protocol's parameter scales are not the contract's
 `PARAM_SCALES`.

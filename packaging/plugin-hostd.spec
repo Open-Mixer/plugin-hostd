@@ -23,8 +23,8 @@ BuildRequires: lv2-devel
 BuildRequires: plugin-hostd-protocol-devel
 # the probe runner's default rates, the protocol's parameter scales and the probe output's shared words are read from
 # omx-contract's C headers, its JSON string literals are spelled by omx-contract's one writer
-# (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (the schema_major of its pkg-config
-# file and the %%{omx_contract_dir} macro this spec names its files by)
+# (<omxcontract/omx_json_write.h>), and the format tables are items of its schema (the %%{omx_contract_dir} macro
+# this spec names its files by)
 BuildRequires: omx-contract-devel
 # the C loader of the contract's domains: the probe runner, the daemon and the schema generator read the machine domain
 # and this package's qualification domain through it
@@ -125,7 +125,7 @@ a scan maps a CLAP or LV2 plugin through (the domains plugin-hostd/clap and
 plugin-hostd/lv2), the keys of the
 running history and the reasons a plan gives for a plugin it leaves alone (the
 domains plugin-hostd/history and plugin-hostd/grouping), under
-%{omx_contract_domain_dir}/plugin-hostd. A program that reads them at run
+%{omx_contract_dir}/plugin-hostd. A program that reads them at run
 time requires this package, never the development one.
 Its documentation is on openmixer.org.
 
@@ -197,14 +197,16 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %files contract
 %license COPYING
 %doc README.md
+# the package plugin-hostd of the contract directory (its MANIFEST.json, which names the domains) and the domains
+# nested under its name (contract.d/plugin-hostd: clap, grouping, history, lv2: the format tables and the words this
+# tree renders its vocabulary from): one directory, <contractdir>/plugin-hostd/, since a package and what shares its
+# name share it (omx-contract docs/contract-dir.md)
 %{omx_contract_dir}/plugin-hostd/
-# the domain machine (contract.d/machine), installed by omx-contract's installer in its domain mode into the contract
-# directory itself, beside the schema major's directory: the loader reads <contractdir>/machine/
-%{omx_contract_domain_dir}/machine/
+# the domain machine (contract.d/machine), installed by omx-contract's installer in its domain mode: the loader reads
+# <contractdir>/machine/
+%{omx_contract_dir}/machine/
 # the domain qualification (contract.d/qualification), what a qualification measures and records, the same way
-%{omx_contract_domain_dir}/qualification/
-# the domains under plugin-hostd/ (contract.d/plugin-hostd: clap, grouping, history, lv2): the format tables and the words this tree renders its vocabulary from
-%{omx_contract_domain_dir}/plugin-hostd/
+%{omx_contract_dir}/qualification/
 
 %changelog
 * Tue Nov 24 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.0-1

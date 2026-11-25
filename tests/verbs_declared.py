@@ -38,7 +38,6 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 OWN = protocol_files.domain_json()
 # the tree whose headers the daemon under test was built against (tests/sabotage.py builds in a scratch tree)
 TREE = os.path.dirname(EXE)
-MAJOR = "3"
 HOSTD, CLAP_HOST = "plugin-hostd", "omx-clap-host"
 failures = []
 
@@ -209,7 +208,7 @@ def moved_arms(docs, domains):
 def package_tables(name):
     """the tables of a package of the contract directory alone (its MANIFEST's files), [] when none holds it"""
     for d in contract_dirs():
-        base = os.path.join(d, MAJOR, name)
+        base = os.path.join(d, name)
         manifest = os.path.join(base, "MANIFEST.json")
         if os.path.exists(manifest):
             with open(manifest) as f:
@@ -226,7 +225,7 @@ def package(name):
     """the files of a package of the contract directory and of the domains its owner owns, and where they were read,
     or (None, None)"""
     for d in contract_dirs():
-        base = os.path.join(d, MAJOR, name)
+        base = os.path.join(d, name)
         manifest = os.path.join(base, "MANIFEST.json")
         if os.path.exists(manifest):
             with open(manifest) as f:

@@ -439,7 +439,7 @@ jobs:
           for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
+            printf '%s\n' /usr/share/omx-contract/contract.d/plugin-hostd/MANIFEST.json \
               /usr/share/omx-contract/contract.d/machine/machine.json \
               /usr/share/omx-contract/contract.d/qualification/qualification.json \
               /usr/share/omx-contract/contract.d/plugin-hostd/grouping/grouping.json \
@@ -659,9 +659,9 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json" contract.txt
-          # the format tables are domains, none of them under 3/plugin-hostd/formats any more
-          ! grep -q "/contract.d/3/plugin-hostd/formats" contract.txt
+          grep -qx "/usr/share/omx-contract/contract.d/plugin-hostd/MANIFEST.json" contract.txt
+          # the format tables are domains, none of them under plugin-hostd/formats any more
+          ! grep -q "/contract.d/plugin-hostd/formats" contract.txt
           for d in grouping history clap lv2; do
             grep -qx "/usr/share/omx-contract/contract.d/plugin-hostd/$d/$d.json" contract.txt
           done

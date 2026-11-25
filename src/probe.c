@@ -2022,9 +2022,6 @@ static const char *base_name(const char *path)
 #ifndef PROBE_CONTRACTDIR
 #define PROBE_CONTRACTDIR "/usr/share/omx-contract/contract.d"
 #endif
-#ifndef PROBE_CONTRACT_MAJOR
-#define PROBE_CONTRACT_MAJOR "3"
-#endif
 #define DESCRIBE_CHILD "omx-clap-scan"
 
 static int read_file(const char *path, sb_t *b)
@@ -2148,7 +2145,8 @@ static int describe_main(int argc, char **argv)
      * built-in path */
     if (contract_dir == NULL && (contract_dir = getenv("OMX_CONTRACT_PATH")) != NULL && *contract_dir == '\0')
         contract_dir = NULL;
-    snprintf(roles_dir, sizeof(roles_dir), "%s/" PROBE_CONTRACT_MAJOR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);
+    /* a package is <contract directory>/<package>/: the directory has no schema-major level */
+    snprintf(roles_dir, sizeof(roles_dir), "%s", contract_dir ? contract_dir : PROBE_CONTRACTDIR);
     /* the format owners' domains, whose mappings give a unit-id or designation-meaning row its pairs: that directory
      * first, then the installed one (docs/formats.md, Lookup values the owners publish) */
     snprintf(owner_dirs, sizeof(owner_dirs), "%s:" PROBE_CONTRACTDIR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);

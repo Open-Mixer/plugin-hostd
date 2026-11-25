@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openmixer.org/contract/plugin-hostd/history",
+  "x-omx-contract": "0.23",
   "info": {
     "title": "The running history's words: the keys of a plugin's history line",
     "version": "0.1.0",

@@ -18,6 +18,9 @@ Environment: PIN_DOMAIN_DIR (a contract directory holding pin/pin.json: protocol
 directory, the default), OMX_CONTRACT (the command). Exit 0 all green, 1 a FAIL line."""
 import hashlib, json, os, shlex, shutil, subprocess, sys, tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract_format
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
 REF = "https://openmixer.org/contract/pin#/components/schemas/PIN_VERDICTS"
@@ -43,14 +46,14 @@ def pin_dir():
 def stub(d, package, version, item):
     """a package that holds one small table and its manifest, at a version: a name is all the document asks
     of it (a manifest names at least one file), and the table is formatted as the installer writes it"""
-    dst = os.path.join(d, "3", package)
+    dst = os.path.join(d, package)
     os.makedirs(dst)
-    doc = {"$schema": "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json",
+    doc = {"$schema": contract_format.schema_url(),
            item: {"kind": "words", "since": version, "doc": "The word of a stand-in table.",
                   "words": {"stub": {"word": "stub", "doc": "A stand-in."}}}}
     body = (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode()
     open(os.path.join(dst, "stub.json"), "wb").write(body)
-    json.dump({"package": package, "version": version, "schemaMajor": 3, "tree": "data",
+    json.dump({"package": package, "version": version, "x-omx-contract": contract_format.fmt(), "tree": "data",
                "files": {"stub.json": hashlib.sha256(body).hexdigest()}}, open(os.path.join(dst, "MANIFEST.json"), "w"), indent=2)
 
 
@@ -66,17 +69,18 @@ def without(tmp, installed, hidden):
 
 
 def copy_package(installed, d, package):
-    """Stage the installed package <package> (3/<package>) into d, with the domains its manifest lists: an owner whose
-    contract is only domains (plugin-db#84) names them under "domains", and its manifest without them is refused."""
-    src = os.path.join(installed, "3", package)
+    """Stage the installed package <package> (<contractdir>/<package>/: its MANIFEST.json, and the domain of its name,
+    which shares the directory) into d, with the domains its manifest lists: an owner whose contract is only domains
+    (plugin-db#84) names them under "domains", and its manifest without them is refused."""
+    src = os.path.join(installed, package)
     if not os.path.isdir(src):
-        # an owner that installs only domains and no package directory (plugin-db from 0.5.0, V11) is read as the domain
-        # of its name, as the installed contract directory answers it
-        if os.path.isdir(os.path.join(installed, package)) and not os.path.exists(os.path.join(d, package)):
-            shutil.copytree(os.path.join(installed, package), os.path.join(d, package))
         return
-    shutil.copytree(src, os.path.join(d, "3", package))
-    with open(os.path.join(src, "MANIFEST.json"), encoding="utf-8") as f:
+    if not os.path.exists(os.path.join(d, package)):
+        shutil.copytree(src, os.path.join(d, package))
+    manifest = os.path.join(src, "MANIFEST.json")
+    if not os.path.isfile(manifest):  # a directory that holds a domain alone
+        return
+    with open(manifest, encoding="utf-8") as f:
         domains = json.load(f).get("domains", [])
     for domain in domains:
         if os.path.isdir(os.path.join(installed, domain)) and not os.path.exists(os.path.join(d, domain)):

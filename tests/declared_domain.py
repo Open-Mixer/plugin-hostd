@@ -35,8 +35,8 @@ def main():
     path = declared.domain_json()
     check(path.endswith(os.path.join("plugin-hostd-protocol", "plugin-hostd-protocol.json")) and os.path.isfile(path),
           "(a) the words of the protocol are the document %s" % path)
-    old = [os.path.join(d, "3", declared.PACKAGE, "verbs.json") for d in declared.contract_dirs()
-           if os.path.exists(os.path.join(d, "3", declared.PACKAGE, "verbs.json"))]
+    old = [os.path.join(d, declared.PACKAGE, "verbs.json") for d in declared.contract_dirs()
+           if os.path.exists(os.path.join(d, declared.PACKAGE, "verbs.json"))]
     check(not old, "(a) no contract directory serves a verbs.json of plugin-hostd-protocol: %s" % old)
     items = declared.verbs()
     got = {k: (v["kind"], len(v[v["kind"]])) for k, v in items.items() if k in GOLDEN}

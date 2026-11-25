@@ -10,7 +10,7 @@
 # a unit-id or designation-meaning row with values, with no pair in its owner's mapping, or a unit id that is no
 # PARAM_UNITS id with a dimension; a row an owner's mapping covers written as a lookup of its own (M5, #215).
 #
-#   format_coverage.py [--contract-dir <dir>] [--major <n>] [--schema <file>] <format>...
+#   format_coverage.py [--contract-dir <dir>] [--schema <file>] <format>...
 #   format_coverage.py --self-test [the same options]   each sabotage arm (a row removed, a word misspelt, a transform
 #                                                       renamed) red naming its field, then the tables as they are green
 #
@@ -48,10 +48,9 @@ def transforms(path):
 TERM_DOMAINS = {"lv2": ("lv2", "plugin-db"), "clap": ("clap", "omx-clap")}
 
 
-def terms(contract_dir, major, fmt):
+def terms(contract_dir, fmt):
     """Every term of a format, from the items of its domain (x-kind terms, x-format <fmt>): <ITEM>#<term> -> (term name,
-    term). The domain is <contract-dir>/<domain>/<domain>.json, as a reader reads a domain; major is unused, kept for the
-    caller's signature."""
+    term). The domain is <contract-dir>/<domain>/<domain>.json, as a reader reads a domain."""
     domain, owner = TERM_DOMAINS[fmt]
     path = os.path.join(contract_dir, domain, domain + ".json")
     if not os.path.isfile(path):
@@ -298,7 +297,7 @@ def self_test(opts):
             with open(os.path.join(scratch, domain, domain + ".json"), "w") as f:
                 json.dump(doc, f)
             installed = opts.installed[fmt]
-            opts.installed[fmt] = terms(scratch, opts.major, fmt)
+            opts.installed[fmt] = terms(scratch, fmt)
             reds = run(fmt, table, opts, quiet=True)
             opts.installed[fmt] = installed
             ok = len(words) - 1 == len(doc["components"]["schemas"][item]["oneOf"]) and any(removed in r for r in reds)
@@ -315,8 +314,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--contract-dir", default=os.environ.get("CONTRACTDIR") or pkg_var("contractdir"))
-    # the schema major is omx-contract's (schema_major of its pkg-config file, 3.9.0 or later), never typed here
-    ap.add_argument("--major", default=os.environ.get("CONTRACT_SCHEMA_MAJOR") or pkg_var("schema_major"))
     ap.add_argument("--schema", default=os.environ.get("OMX_CONTRACT_SCHEMA")
                     or os.path.join(pkg_var("datadir"), "omx-contract.schema.json"))
     ap.add_argument("--transforms", default=os.path.join(ROOT, "src", "transforms.h"))
@@ -324,14 +321,12 @@ def main():
     opts = ap.parse_args()
     if any(f not in MAPS for f in opts.formats):
         ap.error("a format is clap or lv2")
-    if not opts.major:
-        sys.exit("format_coverage.py: pkg-config names no schema_major of omx-contract: install omx-contract-devel 3.9.0 or later, or pass --major")
     if not opts.contract_dir:
         sys.exit("format_coverage: no contract directory: install omx-contract-devel or pass --contract-dir")
     opts.schema = Schema(opts.schema)
     opts.names = transforms(opts.transforms)
     opts.tables = {f: format_tables.load(f) for f in MAPS}
-    opts.installed = {f: terms(opts.contract_dir, opts.major, f) for f in MAPS}
+    opts.installed = {f: terms(opts.contract_dir, f) for f in MAPS}
     opts.owners = owners(opts.contract_dir)
     if opts.self_test:
         sys.exit(1 if self_test(opts) else 0)

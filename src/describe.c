@@ -31,7 +31,7 @@
 #define SBL(b, lit) sb_put(b, lit, sizeof(lit) - 1)
 
 #define DUMP_VERSION_LINE "# omx-clap-scan --fields 1"
-#define SCHEMA_URL "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json"
+#define SCHEMA_URL "https://openmixer.org/schema/omx-contract/v0/omx-contract.schema.json"
 
 /* the scope words of a dump, the scan domain's (describe_scopes): the parser holds what each is, never its name */
 static const scan_words *g_scopes;

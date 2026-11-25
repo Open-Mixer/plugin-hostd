@@ -31,9 +31,9 @@ table's doc, its `x-format` the format, and its `oneOf` one row per source field
 or `x-dropped`) and its `description` the row's doc. That item is what `plugin-hostd-probe describe`,
 `tests/format_coverage.py` and omx-plugins' generators (`tools/format-tables.mjs`) read, and what omx-contract's
 `render --with-domain` rebuilds, byte for byte, as the data form's `formatMap` (`{ kind, format, rows }`, the row keys
-`term`, `from`, `word`, `extension`, `dropped`, `doc`); this page names a row's parts by those data-form keys. The one `MANIFEST.json` of `<contractdir>/3/plugin-hostd/`
+`term`, `from`, `word`, `extension`, `dropped`, `doc`); this page names a row's parts by those data-form keys. The one `MANIFEST.json` of `<contractdir>/plugin-hostd/`
 (`make install-contract`) names no file and the top-level domains this tree owns; it is what tells omx-contract's reader that
-`<contractdir>/plugin-hostd/` holds domains. No copy of the tables stays under `3/plugin-hostd/formats/`. The noarch package plugin-hostd-contract
+`<contractdir>/plugin-hostd/` holds domains. No copy of the tables stays under `plugin-hostd/formats/`. The noarch package plugin-hostd-contract
 (`plugin-hostd-contract` on Debian too) ships them, and a program that reads them at run time requires it.
 It requires omx-contract 3.2.0 or later (`Requires`, Debian `Depends`): the tables live in omx-contract's contract
 directory and are read against its schema, and 3.2.0 is the first whose source field takes an index
