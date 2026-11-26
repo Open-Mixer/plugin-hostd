@@ -103,7 +103,7 @@ declared in plugin-hostd-protocol-devel, which this package requires:
 pkg-config plugin-hostd gives the flags for both.
 Its documentation is on openmixer.org.
 
-%package contract
+%package -n plugin-hostd-contract
 Summary: plugin-hostd's format tables, for programs that read them at run time
 BuildArch: noarch
 # the daemon's verbs are plugin-hostd-protocol's package of the contract directory since 0.2.0 (they were this
@@ -119,7 +119,7 @@ Requires: plugin-db-contract
 # the tables live in omx-contract's contract directory and are read against its schema
 Requires: omx-contract
 
-%description contract
+%description -n plugin-hostd-contract
 plugin-hostd's package of omx-contract's contract directory: the format tables
 a scan maps a CLAP or LV2 plugin through (the domains plugin-hostd/clap and
 plugin-hostd/lv2), the keys of the
@@ -194,7 +194,7 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{_datadir}/plugin-hostd/probe-output.schema.json
 %{_datadir}/plugin-hostd/preset.schema.json
 
-%files contract
+%files -n plugin-hostd-contract
 %license COPYING
 %doc README.md
 # the package plugin-hostd of the contract directory (its MANIFEST.json, which names the domains) and the domains

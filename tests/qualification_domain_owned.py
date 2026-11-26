@@ -83,8 +83,8 @@ def packaging(root):
     relations = [line for line in (spec + control).splitlines()
                  if line.split(":")[0].strip() in ("Breaks", "Replaces", "Conflicts", "Provides", "Obsoletes") and "qualif" in line]
     check(not relations, "d. no Breaks, Replaces, Conflicts, Provides or Obsoletes for the old package: %s" % relations)
-    check("%{omx_contract_dir}/qualification/" in spec.split("%files contract")[-1],
-          "d. the spec's %files contract holds the qualification domain")
+    check("%{omx_contract_dir}/qualification/" in spec.split("%files -n plugin-hostd-contract")[-1],
+          "d. the spec's %files -n plugin-hostd-contract holds the qualification domain")
     check("usr/share/omx-contract/contract.d/qualification" in read("debian/plugin-hostd-contract.install").split(),
           "d. debian/plugin-hostd-contract.install holds the qualification domain")
 
