@@ -503,7 +503,8 @@ jobs:
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
             rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
-          packages: python3
+          # the smoke test's protocol client is plugin-hostd-protocol's (issue 45), from the channel
+          packages: python3 python3-plugin-hostd-client
 
       - name: The daemon reports the version of its package and resolves its libraries
         run: |
@@ -664,7 +665,8 @@ jobs:
         run: |
           set -euo pipefail
           bounded-install apt-get update -qq
-          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb python3
+          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb python3 \
+            python3-plugin-hostd-client
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
