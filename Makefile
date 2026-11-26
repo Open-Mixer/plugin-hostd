@@ -288,7 +288,9 @@ install_vocabulary_domains:
 # also what tells omx-contract's reader that the directory <contractdir>/plugin-hostd/ holds the domains
 # plugin-hostd/<name> and is no domain of its own. The manifest lists the owner's top-level domains (OWNER_DOMAINS): the
 # reader takes a domain name of one segment there, so plugin-hostd/clap and the other nested domains are not listed.
-# plugin-hostd-contract ships it with the domains. contractdir and the
+# plugin-hostd-contract ships it with the domains, and install-contract installs them too (the machine, qualification,
+# vocabulary and format domains): it is the whole of plugin-hostd-contract, which is what the contract-bootstrap action
+# (Open-Mixer/.github#230) builds alone from it for a sibling's build. contractdir and the
 # install script are omx-contract-devel's; a checkout of omx-contract (OMX_CONTRACT_DIR) stands in for the script when
 # it is not installed. The contract directory has no schema-major level: the package is <contractdir>/plugin-hostd/,
 # the directory its nested domains sit in, and the format is stated by the documents (x-omx-contract).
@@ -296,7 +298,7 @@ CONTRACTDIR = $(or $(shell $(PKG_CONFIG) --variable=contractdir omx-contract 2>/
 INSTALL_CONTRACT_DIR = $(firstword $(wildcard $(shell $(PKG_CONFIG) --variable=datadir omx-contract 2>/dev/null)/install-contract-dir.sh) $(wildcard $(OMX_CONTRACT_DIR)/tools/install-contract-dir.sh))
 
 .PHONY: install-contract
-install-contract:
+install-contract: install_machine_domain install_qualification_domain install_vocabulary_domains
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "install-contract: no install-contract-dir.sh: install omx-contract-devel, or set OMX_CONTRACT_DIR to a checkout" >&2; exit 1; }
 	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(DESTDIR)$(CONTRACTDIR) $(OWNER_DOMAINS)
 
