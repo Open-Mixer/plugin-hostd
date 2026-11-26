@@ -127,7 +127,6 @@ jobs:
       source-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
       republish: ${{ github.event_name == 'workflow_dispatch' && inputs.republish == true }}
       catch-up: ${{ github.event_name == 'workflow_dispatch' && inputs.catch-up == true }}
-      arch-matrix: '["x86_64"]'
     secrets: inherit
 
   # or skipped RPM job skips this one, so no DEB is published after a failed RPM.
