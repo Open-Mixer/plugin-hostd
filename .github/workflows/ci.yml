@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Open-Mixer/.github/.github/actions/trigger-gate@openmixer-v1
         with:
-          lint-workflow: ci.yml
+          lint-workflow: lint.yml
 
   # the deb cells come from the one list every OpenMixer check reads (check-matrix, ruling D25): the development set
   # is trixie arm64, run on the ARM runner, since the -dev debs are arm64-only and an amd64 container cannot install them
@@ -112,8 +112,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -128,13 +128,13 @@ jobs:
       # (plugin-hostd-protocol#27: a stale staged contract package outranked the channel)
       - name: Every omx package comes from the channel
         env:
-          DEVEL_PR: ${{ startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel' }}
+          DEVEL_PR: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
         run: |
           set -euo pipefail
           if command -v dnf >/dev/null; then dnf repoquery --installed --qf '%{name} %{version} %{from_repo}\n' 'omx-*' 'plugin-*' | tee /tmp/from-repo
           else apt-cache policy $(dpkg-query -W -f='${Package}\n' 'omx-*' 'libomx*' 'plugin-*' 'libplugin*' 2>/dev/null) | tee /tmp/from-repo; fi
-          # a pull request into devel builds against the staging channel (Open-Mixer/.github#271): a staged package is
-          # what it tests, so only every other run refuses one
+          # a pull request into devel, or a dispatch off main, builds against the staging channel (Open-Mixer/.github#271):
+          # a staged package is what it tests, so only every other run refuses one
           if [ "$DEVEL_PR" != true ] && grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
 
       - name: Build
@@ -249,8 +249,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -317,8 +317,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -391,8 +391,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -592,8 +592,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -659,8 +659,8 @@ jobs:
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       - name: Install the package with its dependencies from the distribution and the channel
         run: |
@@ -855,8 +855,8 @@ jobs:
       - name: The Open-Mixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
         with:
-          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
-          staging: ${{ github.ref != 'refs/heads/main' }}
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # the daemon under test is this run's, as the rpm job builds it (which runs on tags and dispatch alone): installed
       # by name, dnf takes the channel's, and with the omx-clap-host floor it does not meet it cannot install at all
