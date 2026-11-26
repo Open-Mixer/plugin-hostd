@@ -303,7 +303,8 @@ install-contract: install_machine_domain install_qualification_domain install_vo
 	sh $(INSTALL_CONTRACT_DIR) --owner $(PROG) $(VERSION) $(DESTDIR)$(CONTRACTDIR) $(OWNER_DOMAINS)
 
 # the contract directory as a reader of it sees it: the domains and install-contract into a staging directory, then omx-contract validate
-# of the staged package and domains together with the installed contract directory (omx-contract's own tables, omx-clap-core's),
+# of the staged package and domains together with the installed contract directory (omx-contract's own tables, omx-clap-core's)
+# and the caller's OMX_CONTRACT_PATH, never this checkout's contract.d (its plugin-hostd/ is a package with no manifest),
 # red on any table the installed schema refuses (#165; tests/format_coverage.py walks the schema for the words, never
 # for the row keys). An absent omx-contract command is red, never a skip
 .PHONY: check-contract-dir
@@ -311,7 +312,7 @@ check-contract-dir:
 	@command -v $(OMX_CONTRACT) >/dev/null || { echo "$@: no $(OMX_CONTRACT) command: install omx-contract 3.2.0 or later" >&2; exit 1; }
 	@set -e; tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
 	$(MAKE) --no-print-directory install_machine_domain install_qualification_domain install_vocabulary_domains install-contract DESTDIR=$$tmp >/dev/null; \
-	OMX_CONTRACT_PATH=$$tmp$(CONTRACTDIR)$(if $(OMX_CONTRACT_PATH),:$(OMX_CONTRACT_PATH)):$(CONTRACTDIR) $(OMX_CONTRACT) validate --installed
+	OMX_CONTRACT_PATH=$$tmp$(CONTRACTDIR)$(if $(CALLER_CONTRACT_PATH),:$(CALLER_CONTRACT_PATH)):$(CONTRACTDIR) $(OMX_CONTRACT) validate --installed
 
 # the words of this tree's domains (VOCABULARY_DOMAINS), rendered by omx-contract as the package installs them, beside the packages of
 # OMX_CONTRACT_PATH and of the installed contract directory: the C names the planner and the history read
