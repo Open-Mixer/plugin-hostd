@@ -111,6 +111,9 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -245,6 +248,9 @@ jobs:
 
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -306,10 +312,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
-      # the released channel alone: it carries every Build-Depends, and the staging channel is pinned above it,
-      # so an older staged omx-clap-core there would be taken in place of the released one
+      # off main it reads the staging channel too: a devel wave's Build-Depends (omx-contract 0.23.x, omx-clap-core 0.35.0,
+      # plugin-db-qualification) are served there alone, and staging is pinned above the released channel
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -381,6 +390,9 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -579,6 +591,9 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -643,6 +658,9 @@ jobs:
       # closure from the channel, so no list of them is kept here to fall behind the floors
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Install the package with its dependencies from the distribution and the channel
         run: |
@@ -836,6 +854,9 @@ jobs:
 
       - name: The Open-Mixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a dispatch off main (devel, a devel-wave head) builds against the staging channel the wave stages to
+          staging: ${{ github.ref != 'refs/heads/main' }}
 
       # the daemon under test is this run's, as the rpm job builds it (which runs on tags and dispatch alone): installed
       # by name, dnf takes the channel's, and with the omx-clap-host floor it does not meet it cannot install at all
