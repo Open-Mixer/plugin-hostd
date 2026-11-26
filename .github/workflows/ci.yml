@@ -523,9 +523,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/clean-root/smoke
+          # the scan an add runs reads the format tables from the installed contract directory (plugin-hostd-contract)
           cp -r tests /tmp/clean-root/smoke/tests
-          # the scan an add runs reads the format tables and the recorded field dumps beside the tests
-          cp -r data /tmp/clean-root/smoke/data
           # the tests read the declared protocol from the installed library's JSON
           # the whole daemon_test.py runs once, in the test job (test-audit 2026-11-16, plugin-hostd row 1); the installed binary
           # answers the ready line, an add, a crash respawn and a pin refusal, each named, and a name that ran nothing is red
@@ -612,7 +611,6 @@ jobs:
           make tests/fake-host tests/slow-fsync.so
           mkdir -p smoke
           cp -r tests smoke/tests
-          cp -r data smoke/data
 
       - uses: actions/upload-artifact@v4
         with:
