@@ -74,10 +74,9 @@ def floor_rates():
     """omx-dsp's ORACLE_FLOOR_RATES, the rates a run measures at by default, read from omx-dsp's package of the installed
     contract directory (the sorting pass, V25: the oracle rates left omx-contract)"""
     base = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True, check=True).stdout.strip()
-    for major in sorted(os.listdir(base), reverse=True):
-        rates = os.path.join(base, major, "omx-dsp", "primitives", "rates.json")
-        if os.path.exists(rates):
-            return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
+    rates = os.path.join(base, "omx-dsp", "primitives", "rates.json")
+    if os.path.exists(rates):
+        return json.load(open(rates))["ORACLE_FLOOR_RATES"]["values"]
     raise AssertionError("omx-dsp declares no ORACLE_FLOOR_RATES")
 
 
@@ -352,7 +351,7 @@ def every_point_carries_the_cost_timed_at_its_own_rate():
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate of omx-contract's floor %s: %s" % (rates, doc["grid"]))
     for g in doc["grid"]:
         c = g.get("cost", {})
-        want = {"unit": "ns-per-sample", "median": g["rate"] / 1000, "percentile": {"p": 95, "value": g["rate"] / 1000 + 1},
+        want = {"unit": "nsPerSample", "median": g["rate"] / 1000, "percentile": {"p": 95, "value": g["rate"] / 1000 + 1},
                 "min": g["rate"] / 1000 - 1, "max": g["rate"] / 1000 + 4, "blocks": 256, "warmupBlocks": 64}
         check(c == want, "the point at %d carries the figures timed at %d, and no voices for an effect: %s" % (g["rate"], g["rate"], c))
 
@@ -393,7 +392,7 @@ def an_instrument_point_carries_the_notes_it_held_and_an_untimed_rate_has_no_cos
                              env={"PROBE_CHILD_INSTRUMENT": "1", "PROBE_CHILD_UNMEASURED_RATE": str(untimed)})
     check(code == 0, "exit status %d" % code)
     valid(doc)
-    check(doc["formatVersion"] == "1.4", "formatVersion %s" % doc["formatVersion"])
+    check(doc["formatVersion"] == "2.0", "formatVersion %s" % doc["formatVersion"])
     check([g["rate"] for g in doc["grid"]] == rates, "a point per rate %s: %s" % (rates, [g["rate"] for g in doc["grid"]]))
     for g in doc["grid"]:
         if g["rate"] == untimed:
@@ -527,10 +526,13 @@ def an_lv2_instrument_whose_note_did_not_sound_keeps_the_latency_it_declares():
 
 
 @test
-def an_lv2_child_that_prints_no_latency_gets_no_latency_step():
-    code, doc, _, _, err = run_lv2()
+def an_lv2_child_that_prints_no_latency_or_cost_map_is_a_child_protocol_step_each():
+    code, doc, _, _, err = run_lv2(env={"PROBE_CHILD_NO_FIGURES": "1"})
     check(doc is not None, "no document: exit %d %s" % (code, err))
-    check("latency" not in [s["step"] for s in doc["steps"]] and "latency" not in doc["grid"][0], "steps %s" % doc["steps"])
+    steps = {s["step"]: s for s in doc["steps"]}
+    check(steps.get("latency", {}).get("outcome") == "probe.child-protocol"
+          and steps.get("cost", {}).get("outcome") == "probe.child-protocol",
+          "a missing map is a refusal, not silence: %s" % doc["steps"])
 
 
 @test

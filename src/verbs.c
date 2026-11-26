@@ -29,6 +29,7 @@
 #include <protocol.h>
 #include <socket.h>
 
+#include "descriptions.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "pins.h"
@@ -207,13 +208,16 @@ static char *handle(char *line, char **tok, int ntok)
         const char *placement = NULL, *client = NULL, *uri;
         char joined[PATH_MAX + 256];
         unsigned at;
-        int next;
+        int next, ask = DESC_ASK_DEFAULT;
 
         /* the uri whole: a bare clap: uri whose path holds a space is joined again (phd_add_uri) */
         uri = phd_add_uri(tok, (unsigned)ntok, joined, sizeof(joined), &at);
         next = (int)at + 1;
         if (!uri || ntok < next)
             return sup_resp(ERR_INVALID_OPERATION);
+        /* the ask word is the line's last word, after any placement and client name, and never a client name */
+        if (ntok > next && (!strcmp(tok[ntok - 1], PHD_ADD_ASK) || !strcmp(tok[ntok - 1], PHD_ADD_NO_ASK)))
+            ask = !strcmp(tok[--ntok], PHD_ADD_ASK) ? DESC_ASK_YES : DESC_ASK_NO;
         if (ntok > next && is_placement(tok[next]))
             placement = tok[next++];
         if (ntok > next)
@@ -221,11 +225,17 @@ static char *handle(char *line, char **tok, int ntok)
         if (ntok > next)
             return sup_resp(ERR_INVALID_OPERATION);
         reply_text = sup_add(uri, atoi(tok[at]), placement, client);
-        /* the plugin is running: its files are scanned after the reply, never before it */
+        /* the plugin is running: its files are scanned after the reply, never before it; its store entry is read, and
+         * a plugin no layer holds is asked for once the scan has ended */
         if (reply_text && sup_reply_code(reply_text) >= 0)
+        {
             descriptors_add(uri);
+            descriptions_add(uri, ask);
+        }
         return reply_text;
     }
+    if (!strcmp(verb, OMX_VERB_DESCRIPTION_GET))
+        return ntok == 2 ? descriptions_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_DESCRIPTOR_GET))
         return ntok == 2 ? descriptors_get(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PANEL_GET))
@@ -253,7 +263,11 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, OMX_VERB_LV2_WORKER_SET))
         return ntok == 3 ? sup_lv2_worker_set(tok[1], tok[2]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_POOL_CONFIG))
-        return ntok == 3 ? sup_pool_config(tok[1], atoi(tok[2])) : sup_resp(ERR_INVALID_OPERATION);
+    {
+        int size;
+
+        return ntok == 3 && number(tok[2], &size) ? sup_pool_config(tok[1], size) : sup_resp(ERR_INVALID_OPERATION);
+    }
     if (!strcmp(verb, OMX_VERB_WORKER_ENV))
         return ntok == 4 ? sup_worker_env(tok[1], tok[2], tok[3]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_CHAIN))
@@ -287,7 +301,14 @@ static char *handle(char *line, char **tok, int ntok)
     if (!strcmp(verb, OMX_VERB_ESTIMATE))
         return estimate_words(tok, ntok);
     if (!strcmp(verb, OMX_VERB_PIN_SET))
-        return sup_resp(pin_set_words(line, tok, ntok));
+    {
+        int rc = pin_set_words(line, tok, ntok);
+
+        /* a pin of a verdict makes a bypassed insert of that plugin live (R-112) */
+        if (rc == SUCCESS)
+            sup_pins_applied();
+        return sup_resp(rc);
+    }
     if (!strcmp(verb, OMX_VERB_PIN_ACCEPT))
         return ntok == 2 ? sup_pin_accept(tok[1]) : sup_resp(ERR_INVALID_OPERATION);
     if (!strcmp(verb, OMX_VERB_PIN_RELOAD))
@@ -328,12 +349,14 @@ static char *handle(char *line, char **tok, int ntok)
 /* ---------------------------------------------------------------- the controller's answers, in order */
 
 /* An answer that waits: the reply of a verb whose writes have not landed (group), or a command that came while one
- * waited, run in its turn (line), or replies refused because too many waited (refusals). A controller reads its answers
- * in the order it sent the commands, so nothing is answered past one that waits. */
+ * waited, run in its turn (line). A controller reads its answers in the order it sent the commands, so nothing is
+ * answered past one that waits. The commands of its controller refused after it, because too many waited or there was
+ * no memory to hold them, are counted on it (refused) and answered right after its own answer: a refusal needs no
+ * memory. */
 typedef struct out
 {
     struct out *next;
-    int fd, group, refusals, reads;
+    int fd, group, refused, reads;
     char *text, *tag, *line;
     size_t tag_len, size;
 } out_t;
@@ -348,7 +371,8 @@ static int g_nout;
 static int reads_files(const char *verb)
 {
     return !strcmp(verb, OMX_VERB_PIN_RELOAD) || !strcmp(verb, OMX_VERB_PIN_CHANGED) ||
-           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET);
+           !strcmp(verb, OMX_VERB_DESCRIPTOR_GET) || !strcmp(verb, OMX_VERB_PANEL_GET) ||
+           !strcmp(verb, OMX_VERB_DESCRIPTION_GET);
 }
 
 /* the verbs whose reply says their change is on disk: it goes when the write lands, and says so when it did not */
@@ -364,6 +388,31 @@ static void out_free(out_t *o)
     free(o->tag);
     free(o->line);
     free(o);
+}
+
+/* `count` refusals to controller `fd`, mod-host's ERR_MEMORY_ALLOCATION each, written on the stack */
+static void send_refusals(int fd, int count)
+{
+    char refusal[32];
+
+    snprintf(refusal, sizeof(refusal), "resp %d", ERR_MEMORY_ALLOCATION);
+    while (count-- > 0)
+        socket_send(fd, refusal, strlen(refusal) + 1);
+}
+
+/* a command of controller `fd` refused while answers wait: counted on that controller's last waiting answer, so it is
+ * answered in its place; a controller with none waiting has every earlier answer already, and is answered now */
+static void out_refuse(int fd)
+{
+    out_t *o, *last = NULL;
+
+    for (o = g_out; o; o = o->next)
+        if (o->fd == fd)
+            last = o;
+    if (last)
+        last->refused++;
+    else
+        send_refusals(fd, 1);
 }
 
 static void out_push_front(out_t *o)
@@ -524,7 +573,6 @@ static out_t *run(int fd, const char *data, size_t size)
 
 void verbs_flush(void)
 {
-    char refusal[32];
     out_t *o;
     int err;
 
@@ -533,23 +581,23 @@ void verbs_flush(void)
         if (o->line)
         {
             out_t *answer;
+            int fd, refused;
 
             if (o->reads && writer_busy())
                 return;
             o = out_pop();
-            answer = run(o->fd, o->line, o->size);
+            fd = o->fd;
+            refused = o->refused;
+            answer = run(fd, o->line, o->size);
             out_free(o);
+            /* the refusals after this command follow its answer: now, or after the answer that waits */
             if (answer)
+            {
+                answer->refused += refused;
                 out_push_front(answer);
-            continue;
-        }
-        if (o->refusals)
-        {
-            o = out_pop();
-            snprintf(refusal, sizeof(refusal), "resp %d", ERR_MEMORY_ALLOCATION);
-            while (o->refusals-- > 0)
-                socket_send(o->fd, refusal, strlen(refusal) + 1);
-            out_free(o);
+            }
+            else
+                send_refusals(fd, refused);
             continue;
         }
         if (!writer_group(o->group, &err))
@@ -562,6 +610,7 @@ void verbs_flush(void)
             o->text = sup_resp(ERR_INVALID_OPERATION);
         }
         reply(o->fd, o->text, o->tag, o->tag_len);
+        send_refusals(o->fd, o->refused);
         o->text = NULL;
         out_free(o);
     }
@@ -593,15 +642,8 @@ void verbs_receive(msg_t *msg)
     {
         if (g_nout >= OUTBOX_MAX || !(o = out_command(msg->sender_id, msg->data, (size_t)msg->data_size)))
         {
-            /* too many wait: refused in its place, in order, counted on one entry so the queue stays bounded */
-            if (g_out_tail->refusals)
-                g_out_tail->refusals++;
-            else if ((o = calloc(1, sizeof(*o))) != NULL)
-            {
-                o->fd = msg->sender_id;
-                o->refusals = 1;
-                out_push_back(o);
-            }
+            /* too many wait, or no memory to wait: refused in its place, in order, with no memory asked for */
+            out_refuse(msg->sender_id);
             return;
         }
         out_push_back(o);

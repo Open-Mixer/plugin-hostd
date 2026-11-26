@@ -11,17 +11,21 @@
 #   - a meter whose symbol a parameter answers to, two meters of one symbol, and a meter that answers to another's
 #     channel symbol are refused, naming the symbol;
 #   - the descriptor validates against omx-contract's schema.
+# panel over the recorded omx-clap-scan --json of the same plugin (clap-comp-scan.json, its gain reduction bar naming
+# meterIds [0, null]): the reply's meters are exactly the descriptor's meters[] rows of the ids its displays index,
+# the same keys in the same order and the same values, so a reader reads one meter shape from both files.
 # Sabotage: drop one meter or contract row of the domain plugin-hostd/clap and the describe is refused or a value goes.
 #   describe_clap_meters_test.py   PROBE is the runner (default ./plugin-hostd-probe); the schema as describe_test.py
-import json, os, sys, tempfile
+import json, os, subprocess, sys, tempfile
 
 import jsonschema
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tests"))
-from describe_test import describe, schema_path  # noqa: E402
+from describe_test import PROBE, describe, schema_path  # noqa: E402
 
 DUMP = os.path.join(ROOT, "tests", "fixtures", "fields", "clap-comp.tsv")
+SCAN = os.path.join(ROOT, "tests", "fixtures", "fields", "clap-comp-scan.json")
 TARGET = "clap:omx-comp.clap#org.openmixer.comp"
 METERS = [
     {"id": 0, "symbol": "compGr", "kind": "gain-reduction", "channels": 1, "unit": "dB", "min": -60, "max": 0},
@@ -29,7 +33,7 @@ METERS = [
     {"id": 2, "symbol": "compOut", "kind": "level", "channels": 2, "unit": "dBFS", "min": -60, "max": 6},
     {"id": 3, "symbol": "compKey", "kind": "level", "channels": 1, "unit": "dBFS", "min": -60, "max": 0},
 ]
-CONTRACT_UNIT = {"db": "dB", "ms": "ms", "hz": "Hz", "pc": "%", "none": "unknown"}
+CONTRACT_UNIT = {"db": "dB", "ms": "ms", "hz": "Hz", "pc": "percent", "none": "none"}  # omx-clap's OMX_PARAM_CONTRACT_UNIT_IDS (#215 M5)
 failed = 0
 
 
@@ -117,6 +121,17 @@ def main():
     errors = sorted(v.iter_errors(got), key=lambda e: list(e.path))
     check(not errors, "the descriptor validates against omx-contract's schema%s"
           % "".join("\n     %s: %s" % (list(e.path), e.message) for e in errors[:5]))
+    # the panel's meters: the descriptor's meters[] rows, key for key, for the ids the panel's displays index
+    p = subprocess.run([PROBE, "panel", "--json-from", SCAN, TARGET], capture_output=True, text=True, timeout=60)
+    check(p.returncode == 0, "omx-comp: panel exits 0 (%s)" % p.stderr.strip()[:400])
+    panel = json.loads(p.stdout or "{}", object_pairs_hook=lambda kv: kv)
+    pmeters = dict(panel).get("meters") if isinstance(panel, list) else None
+    dmeters = json.loads(r.stdout, object_pairs_hook=lambda kv: kv)
+    dmeters = dict(dmeters).get("meters", [])
+    want = [m for m in dmeters if dict(m)["id"] == 0]
+    check(len(want) == 1 and pmeters == want,
+          "the panel's meters are the descriptor's meters[] rows of the ids its displays index ([0, null]), the same "
+          "keys in the same order and the same values:\n     panel %s\n     describe %s" % (pmeters, want))
     refused("compKey", "thresholdDb", "thresholdDb")  # a parameter answers to it
     refused("compKey", "compGr", "compGr")  # two meters, one symbol
     refused("compKey", "compIn 1", "compIn_1")  # derived, it answers to compIn's second channel

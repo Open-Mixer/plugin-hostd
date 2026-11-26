@@ -3,7 +3,10 @@
 # ask for memory; then the scenario runs with each of those refused, its first asking, its second, and from its first
 # asking on every allocation of the daemon. Whatever is refused the daemon does not die of it: it answers every command, or
 # says at start that it cannot start, and after a single refusal it still answers. A command it has no memory for may be
-# refused, and which command that is depends on the run: the test holds the daemon to living, not to a reply.
+# refused, and which command that is depends on the run: the test holds the daemon to living, not to a reply, with one
+# exception. The command that was running when the single refusal came does not answer what it would answer had it been
+# read wrong or had its parameter no contract (ERR_INVALID_OPERATION, -511) where with memory it answered otherwise: a
+# controller would act on a reason that is not true.
 import concurrent.futures, hashlib, json, os, shutil, signal, socket, subprocess, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -80,7 +83,9 @@ def scenario(tmp, layout):
 
 
 def one_run(site=None, nth=1, every_after=False):
-    """(what went wrong or None, the log of the allocator, the replies): one scenario with that asking of `site` refused"""
+    """(what went wrong or None, the log of the allocator, the replies, the refused command): one scenario with that asking
+    of `site` refused. The replies are in order, (command, reply); the refused command is (its index in them, the command,
+    its reply) when the refusal came while a command ran and was answered, else None"""
     tmp = tempfile.mkdtemp(prefix="plugin-hostd-alloc.")
     p = None
     try:
@@ -122,14 +127,15 @@ def one_run(site=None, nth=1, every_after=False):
         while harness.READY_LINE not in open(out.name).read().splitlines():
             if p.poll() is not None:
                 # it may say it cannot start, and exit; a signal is the thing this test exists for
-                return (None if p.returncode > 0 else "at start, exit %d: %s" % (p.returncode, tail(out)), None, None)
+                return (None if p.returncode > 0 else "at start, exit %d: %s" % (p.returncode, tail(out)), None, None, None)
             if time.monotonic() > deadline:
-                return ("no ready line in 10 s: " + tail(out), None, None)
+                return ("no ready line in 10 s: " + tail(out), None, None, None)
             time.sleep(0.005)
         s = socket.create_connection(("127.0.0.1", cmd), timeout=5)
         f = socket.create_connection(("127.0.0.1", fb), timeout=5)
         last = None
-        replies = {}
+        replies = []
+        refused_on = None
         try:
             for c in cmds:
                 if c == WAIT:
@@ -142,25 +148,27 @@ def one_run(site=None, nth=1, every_after=False):
                 while not buf.endswith(b"\0"):
                     got = s.recv(65536)
                     if not got:
-                        return ("connection closed on %r, daemon exit %s: %s" % (c, p.poll(), tail(out)), None, None)
+                        return ("connection closed on %r, daemon exit %s: %s" % (c, p.poll(), tail(out)), None, None, None)
                     buf += got
-                replies[c] = buf.rstrip(b"\0").decode()
+                replies.append((c, buf.rstrip(b"\0").decode()))
+                if site and refused_on is None and os.path.exists(log) and "\nfail " in "\n" + open(log).read():
+                    refused_on = (len(replies) - 1, c, replies[-1][1])
                 if not buf.startswith(b"resp "):
-                    return ("%r was answered %r" % (c, buf[:80]), None, None)
+                    return ("%r was answered %r" % (c, buf[:80]), None, None, None)
         except OSError as e:
-            return ("%r: %s, daemon exit %s: %s" % (last, e, p.poll(), tail(out)), None, None)
+            return ("%r: %s, daemon exit %s: %s" % (last, e, p.poll(), tail(out)), None, None, None)
         s.close()
         f.close()
         if p.poll() is not None:
-            return ("the daemon is gone after the scenario, exit %s: %s" % (p.returncode, tail(out)), None, None)
+            return ("the daemon is gone after the scenario, exit %s: %s" % (p.returncode, tail(out)), None, None, None)
         p.terminate()
         try:
             p.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            return ("the daemon did not end on SIGTERM", None, None)
+            return ("the daemon did not end on SIGTERM", None, None, None)
         if p.returncode not in (0, -signal.SIGTERM):
-            return ("the daemon ended with %d: %s" % (p.returncode, tail(out)), None, None)
-        return (None, open(log).read().split("\n"), replies)
+            return ("the daemon ended with %d: %s" % (p.returncode, tail(out)), None, None, None)
+        return (None, open(log).read().split("\n"), replies, refused_on)
     finally:
         if p and p.poll() is None:
             p.kill()
@@ -178,7 +186,8 @@ def tail(out):
     return " | ".join(open(out.name).read().splitlines()[-3:])
 
 
-err, log, replies = one_run()
+err, log, clean, _ = one_run()
+replies = dict(clean)
 if err:
     print("FAIL the scenario with no refusal: %s" % err)
     sys.exit(1)
@@ -206,7 +215,28 @@ def arm(a):
 
 
 pool = concurrent.futures.ThreadPoolExecutor(JOBS)
-for a, (err, _, _) in zip(arms, pool.map(arm, arms)):
+# a reason that is not true: the words of a command read wrong, and of a parameter with no contract
+UNTRUE = ("resp -902", "resp -511")
+# the verbs that still answer one, each with the issue that removes it from here
+KNOWN_UNTRUE = {"remote_page_get": "plugin-hostd#267"}
+
+
+def untrue(refused_on):
+    """what the refused command answered, when it answered a reason it would not have with memory; else None"""
+    if refused_on is None:
+        return None
+    n, command, reply = refused_on
+    said = next((u for u in UNTRUE if reply == u or reply.startswith(u + " ")), None)
+    if said is None or n >= len(clean) or clean[n][0] != command or clean[n][1] == reply:
+        return None
+    if command.split()[0] in KNOWN_UNTRUE:
+        return None
+    return "%r ran out of memory and answered %r (with memory %r)" % (command, reply, clean[n][1])
+
+
+for a, (err, _, _, refused_on) in zip(arms, pool.map(arm, arms)):
+    if not err and not a["every_after"]:
+        err = untrue(refused_on)
     if err:
         failed.append("site %s, asking %d%s: %s" % (a["site"], a["nth"], " and all after it" if a["every_after"] else "", err))
         # the sabotage arms need only one

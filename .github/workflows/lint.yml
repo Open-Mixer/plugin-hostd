@@ -1,0 +1,60 @@
+name: lint
+
+# The ONE workflow of this repository that runs on a pull request (delivery pipeline §12: no heavy Action on a push or a
+# pull request; Open-Mixer/plugin-hostd#106), and never on a push. Fast checks only. The build, the tests, the
+# package matrices and the smoke runs are ci.yml's and bench.yml's, run by workflow_dispatch on the head ref before a
+# merge (gh workflow run ci.yml --ref <branch>); fuzz.yml, publish.yml and release.yml run on a v* tag and by dispatch.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # the shared trigger gate: every other workflow here runs on a v* tag or by workflow_dispatch, never on a push or a
+  # pull request; this file is the one it allows
+  trigger-gate:
+    name: trigger gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/trigger-gate@openmixer-v1
+        with:
+          lint-workflow: lint.yml
+
+  # the checks every OpenMixer repository runs on what it publishes: commit messages, private references, and no
+  # local copy of either (Open-Mixer/.github's public-sources-check)
+  public-sources:
+    uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@openmixer-v1
+
+  # the documentation gates, both standard tools: ruff (D and the default rules, today's findings carried by noqa comments)
+  # on the Python clients, and doxygen over the module headers against tools/doxygen.baseline (a ratchet that only falls)
+  # ubuntu-24.04, not ubuntu-latest: its doxygen is the 1.9.8 tools/doxygen.version pins, and another doxygen version
+  # gives other warning rows, which the gate refuses
+  doc-gates:
+    name: documentation gates (ruff, doxygen)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # bounded like every package manager call here (tools/bounded-install.sh): a hung mirror is a fast red
+      - run: sudo tools/bounded-install.sh apt-get update && sudo tools/bounded-install.sh apt-get install -y --no-install-recommends doxygen && python3 -m pip install ruff==0.17.5
+      # the base the gates may not grow past: the pull request's base branch, else the default branch
+      - run: make check-ruff check-doxygen check-doc-shrink test-doc-gates
+        env:
+          DOC_GATE_BASE: origin/${{ github.base_ref || github.event.repository.default_branch }}
+
+  # the pull request body closes an issue (Fixes #N): a job of the workflow pull requests run, since ci.yml is dispatch-only
+  pr-fixes-issue:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: Open-Mixer/.github/.github/workflows/pr-fixes-issue.yml@openmixer-v1

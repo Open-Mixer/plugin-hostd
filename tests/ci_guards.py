@@ -187,6 +187,42 @@ def fedora_scan(root):
     return found
 
 
+# Node is 26 everywhere (owner rule, #220). A workflow names its Node by major: a package install takes nodejs26 and its
+# -bin/-npm siblings, never the distribution's unversioned nodejs or npm (Node 22 on Fedora 45) nor an older nodejsNN,
+# and a setup-node step asks node-version 26 or later.
+NODE_FLOOR = 26
+INSTALL = re.compile(r"\b(dnf|apt-get|apt|yum|bounded-install)\b.*\binstall\b")
+NODE_PACKAGE = re.compile(r"(?<![\w./-])(nodejs(\d*)|npm)(?![\w.])")
+NODE_VERSION = re.compile(r"\bnode-version:\s*['\"]?(\d+)")
+NODE_MSG = "Node is %d everywhere: " % NODE_FLOOR
+
+
+def node_scan(root):
+    """every finding as 'path:line what'"""
+    found = []
+    for path in workflow_files(root):
+        lines = open(path).read().split("\n")
+        where = os.path.relpath(path, root)
+        installing = False
+        for n, line in enumerate(lines):
+            if line.lstrip().startswith("#"):
+                continue
+            m = NODE_VERSION.search(line)
+            if m and int(m.group(1)) < NODE_FLOOR:
+                found.append("%s:%d %snode-version %s" % (where, n + 1, NODE_MSG, m.group(1)))
+            installing = installing or bool(INSTALL.search(line))
+            if installing:
+                for p in NODE_PACKAGE.finditer(line):
+                    word, major = p.group(1), p.group(2)
+                    if word == "npm" or not major:
+                        found.append("%s:%d %sthe unversioned package %s is the distribution's Node, not nodejs%d"
+                                     % (where, n + 1, NODE_MSG, word, NODE_FLOOR))
+                    elif int(major) < NODE_FLOOR:
+                        found.append("%s:%d %sthe package %s" % (where, n + 1, NODE_MSG, word))
+            installing = installing and line.rstrip().endswith("\\")
+    return found
+
+
 def main():
     own = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
@@ -255,6 +291,32 @@ def main():
     finally:
         shutil.rmtree(nodir, ignore_errors=True)
     print("ok   the fedora scan sees fedora:44, fc44, 44 in a list at any position, a block list, and refuses a missing workflows directory; passes fc45-only trees")
+    node_cases = [
+        ("        run: dnf install -y gcc \\\n            python3 nodejs npm\n", 2),
+        ("        run: bounded-install dnf install -y nodejs22 nodejs22-npm\n", 2),
+        ("        run: apt-get install -y nodejs\n", 1),
+        ("          node-version: 24\n", 1),
+        ("          node-version: '22'\n", 1),
+        ("        run: dnf install -y gcc nodejs26 nodejs26-bin nodejs26-npm\n", 0),
+        ("          node-version: 26\n", 0),
+        ("        run: npm ci && node tests/x.mjs\n", 0),
+        ("        run: dnf install -y gcc\n      - run: npm ci\n", 0),
+        ("        # dnf install nodejs\n", 0),
+    ]
+    for body, want in node_cases:
+        nd = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+        try:
+            wf = os.path.join(nd, ".github", "workflows")
+            os.makedirs(wf)
+            open(os.path.join(wf, "ci.yml"), "w").write("jobs:\n  x:\n    steps:\n" + body)
+            seen = node_scan(nd)
+            if len(seen) != want:
+                print("FAIL the node scan on a planted %r: want %d finding(s), saw %s" % (body, want, seen))
+                return 1
+        finally:
+            shutil.rmtree(nd, ignore_errors=True)
+    print("ok   the node scan sees an unversioned nodejs or npm, an older nodejsNN and a node-version below %d; passes nodejs%d, "
+          "an npm command and a comment" % (NODE_FLOOR, NODE_FLOOR))
     tmp = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
         scratch = os.path.join(tmp, "t")
@@ -310,6 +372,11 @@ def main():
         failed += 1
     if not failed:
         print("ok   no workflow names fedora:44 or fc44: Fedora 44 is dropped")
+    for f in node_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   every workflow takes Node %d: nodejs%d by name, no node-version below it" % (NODE_FLOOR, NODE_FLOOR))
     for f in own_build_scan(ROOT):
         print("FAIL %s" % f)
         failed += 1

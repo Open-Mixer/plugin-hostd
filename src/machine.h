@@ -31,8 +31,6 @@
 
 /** the domain the band words are read from */
 #define MACHINE_DOMAIN "machine"
-/** the lowest info.version of the machine domain this package reads */
-#define MACHINE_FLOOR "1.1.0"
 /** the core bands machine_bands() cuts: the words of MACHINE_CORE_BANDS at these indexes, in order (the domain's count) */
 #define MACHINE_CORE_BAND_COUNT ((int)OMX_MACHINE_CORE_BANDS_COUNT)
 /** the clock bands machine_bands() cuts: the words of MACHINE_CLOCK_BANDS at these indexes, in order (the domain's count) */
@@ -63,7 +61,7 @@ typedef struct
  * @param dirs NULL for the installed contract directory (the packaged daemon's entry); else a ':' list, the first
  *             directory that holds the domain wins (a command-line tool's OMX_CONTRACT_PATH, or a test build's tree)
  * @param w    receives the words
- * @param why  receives the refusal, naming the domain, the loader's code and the floor or the item, when the open fails
+ * @param why  receives the refusal, naming the domain, the loader's code and the item, when the open fails
  * @param n    the size of why
  * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal; the caller ends its start-up with 78
  */

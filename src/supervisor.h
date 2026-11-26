@@ -100,7 +100,17 @@ typedef struct INSTANCE_T {
     int pin_refused;            /**< the pins read again refuse its files; it keeps running, worker_list marks it */
     char *node_label;           /**< the latest node_label with a label it took, replayed after its add */
     char *track_info;           /**< the latest track_info it took, replayed after its add, never to an LV2 worker */
+    /** the latest property_set of each symbol, in the order each was first set, replayed after the state and the verb
+     * tail; a checkpoint keeps them, a preset load drops them (R-111) */
+    entry_t *props;
+    int nprops,                 /**< the entries in props */
+        capprops;               /**< the room allocated for props, in entries */
     struct CHAIN_T *chain;      /**< the chain it is a member of, NULL for none */
+    int bypassed;               /**< it has no verdict and no worker: its insert passes dry, its quick check is asked for
+                                 * (R-112); w is NULL until its verdict is a pass or the user accepted it */
+    char *byp_uri;              /**< the uri and the client as the add had them, for the add that makes it live */
+    char *byp_place;            /**< the placement the add asked for, PHD_PLACE_DEFAULT when it named none */
+    char *byp_client;           /**< the client name the add asked for; NULL when it named none */
 } instance_t;
 
 /** @brief One worker process, or the place one is to run again: its sockets, its instances and its death record. */
@@ -256,6 +266,34 @@ char *sup_add(const char *uri, int id, const char *placement, const char *client
  * @note Not thread-safe: the supervisor's state has no lock; call on the daemon's main thread only.
  */
 char *sup_call(int id, const char *line);
+/**
+ * @brief Gives the instance's worker a command, kept out of the verb tail: once the worker did it, the line is kept as
+ *        the latest of its key (its verb and second word) in the instance's properties and replayed after the state
+ *        (the replace-keyed ledger, R-111).
+ *
+ * @param id the instance
+ * @param line the command as it goes to the worker
+ * @param answered set to 1 when the reply is the worker's
+ * @return the reply, malloc'd
+ * @note Not thread-safe: call on the daemon's main thread only.
+ */
+char *sup_call_keyed(int id, const char *line, int *answered);
+
+/**
+ * @brief The same, the ledger untouched, and the first line the worker writes on its feedback port that starts with
+ *        prefix, waited for up to ms once the worker did the command.
+ *
+ * @param id the instance
+ * @param line the command as it goes to the worker
+ * @param prefix what the awaited feedback line starts with
+ * @param ms how long to wait for it
+ * @param answered set to 1 when the reply is the worker's
+ * @param seen set to the feedback line, malloc'd, or NULL when none came
+ * @return the reply, malloc'd
+ * @note Not thread-safe: call on the daemon's main thread only.
+ */
+char *sup_call_seen(int id, const char *line, const char *prefix, int ms, int *answered, char **seen);
+
 /**
  * @brief Removes an instance from its worker and from the ledger.
  *
@@ -431,6 +469,9 @@ char *sup_pin_reload(void);
  * @note Not thread-safe: the supervisor's state has no lock; call on the daemon's main thread only.
  */
 void sup_pins_poll(void);
+
+/** @brief The pins were changed by a verb: the bypassed inserts are looked at again (R-112). */
+void sup_pins_applied(void);
 
 /**
  * @brief Makes the plugin's files as they are now its pin (pin_accept); only under pin_mode first-use.

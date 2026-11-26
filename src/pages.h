@@ -15,6 +15,7 @@
 #ifndef PLUGIN_HOSTD_PAGES_H
 #define PLUGIN_HOSTD_PAGES_H
 
+/** @brief the controls of one page, of one group, in declared order */
 #define PAGE_SLOTS 8
 
 #endif

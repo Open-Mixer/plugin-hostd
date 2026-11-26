@@ -28,13 +28,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* a list of names: the files a format loads for a plugin */
+/** @brief a list of names: the files a format loads for a plugin; all zero is the empty list */
 typedef struct NAMES_T {
+    /** the names, each allocated, n of them */
     char **name;
+    /** how many names the list holds */
     int n;
 } names_t;
 
-/* 0, or -1 with the list as it was when memory runs out */
+/** @brief adds a copy of a name to a list
+ *
+ * @param[in,out] names the list.
+ * @param name the name, NUL-terminated; the list keeps a copy.
+ * @return 0, or -1 with the list as it was when memory runs out.
+ */
 static inline int names_add(names_t *names, const char *name)
 {
     char **grown = realloc(names->name, (names->n + 1) * sizeof(char *));
@@ -50,6 +57,12 @@ static inline int names_add(names_t *names, const char *name)
     return 0;
 }
 
+/** @brief whether a list holds a name
+ *
+ * @param names the list.
+ * @param name the name, NUL-terminated.
+ * @return 1 when the list holds it, 0 otherwise.
+ */
 static inline int names_has(const names_t *names, const char *name)
 {
     int n;
@@ -60,6 +73,10 @@ static inline int names_has(const names_t *names, const char *name)
     return 0;
 }
 
+/** @brief frees a list's names and leaves it empty
+ *
+ * @param[in,out] names the list, all zero after.
+ */
 static inline void names_free(names_t *names)
 {
     while (names->n)

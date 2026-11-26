@@ -1,19 +1,20 @@
 name: ci
 
-# The tests that need no audio server run on every push and pull request; on workflow_dispatch the RPMs are
-# also built as artifacts, on both architectures, and installed in a clean container. Nothing is signed or published
-# here: release.yml is a release, run from a version tag, and its dry run is the last job.
+# By workflow_dispatch only (delivery pipeline §12, Open-Mixer/plugin-hostd#106: no heavy Action on a push or a pull
+# request): the tests that need no audio server, the RPMs and DEBs built as artifacts on both architectures and
+# installed in a clean container, the sabotages, the Zynthian chain and the release dry run. Nothing is signed or
+# published here: release.yml is a release, run from a version tag. Before a merge, dispatch this workflow on the pull
+# request's head ref (gh workflow run ci.yml --ref <branch>) so its checks attach to the head commit; the fast
+# checks (the trigger gate, public-sources, the documentation gates) run on every pull request in lint.yml, the one
+# workflow allowed there.
 #
 # The RPM build and the channel are the composite actions of
 # Open-Mixer/.github. The real CLAP worker the jack test drives, and its fixtures, are the omx-clap-host and
 # omx-clap-host-tests packages of the OpenMixer channel, installed by dnf builddep / apt-get build-dep from the
-# floor the spec and debian/control declare; nothing of omx-clap-core is checked out or built here. A pull request
+# names the spec and debian/control declare; nothing of omx-clap-core is checked out or built here. A pull request
 # into dedupe/all, and a push to it, take the siblings listed in .github/wave-deps from their own dedupe/all instead.
 
 on:
-  pull_request:
-  push:
-    branches: [main, dedupe/all]
   workflow_dispatch:
 
 permissions:
@@ -25,10 +26,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick). A pull request runs the plain test
-# tier and one package arm (fc45 x86_64, trixie arm64). make sabotage, bookworm and the release dry run run on push to
-# main, on tags and on dispatch (tests/ci_guards.py holds the split).
+# Every run is a dispatch, so every job runs whole: the sabotages, both Debian suites, both architectures and the release
+# dry run. The pull-request arms below (the `github.event_name == 'pull_request'` conditions of the owner ruling of
+# 2026-11-09, which tests/ci_guards.py holds) no longer select anything, since no pull request runs this workflow.
 jobs:
+  trigger-gate:
+    name: only this workflow runs on a pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-Mixer/.github/.github/actions/trigger-gate@openmixer-v1
+        with:
+          lint-workflow: lint.yml
+
   # the deb cells come from the one list every OpenMixer check reads (check-matrix, ruling D25): the development set
   # is trixie arm64, run on the ARM runner, since the -dev debs are arm64-only and an amd64 container cannot install them
   checks:
@@ -47,8 +58,8 @@ jobs:
           deb-arches: '["amd64", "arm64"]'
           x86-runner: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
 
-  # The packages (and the jobs that need this one) run only on workflow_dispatch: a pull request or a push runs the tests
-  # alone (owner 2026-11-09). release.yml builds on a v* tag; fast-release dispatches this workflow on a release head.
+  # The packages (and the jobs that need this one) run on workflow_dispatch, which is every run now. release.yml builds
+  # on a v* tag; fast-release dispatches this workflow on a release head.
   changes:
     name: what the pull request changes
     runs-on: ubuntu-latest
@@ -56,37 +67,13 @@ jobs:
     outputs:
       packages: ${{ steps.diff.outputs.packages }}
     steps:
-      # Packaging runs only on workflow_dispatch (the release dry run fast-release dispatches on a release head);
-      # a pull request or a push runs the tests alone. release.yml builds and publishes on a v* tag.
+      # Packaging runs on workflow_dispatch (the release dry run fast-release dispatches on a release head), which is
+      # every run of this workflow. release.yml builds and publishes on a v* tag.
       - id: diff
         env:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$EVENT" = workflow_dispatch ]; then echo "packages=true"; else echo "packages=false"; fi >> "$GITHUB_OUTPUT"
-
-  # the checks every OpenMixer repository runs on what it publishes: commit messages, private references, and no
-  # local copy of either (Open-Mixer/.github's public-sources-check)
-  public-sources:
-    uses: Open-Mixer/.github/.github/workflows/public-sources-check.yml@openmixer-v1
-
-  # the documentation gates, both standard tools: ruff (D and the default rules, today's findings carried by noqa comments)
-  # on the Python clients, and doxygen over the module headers against tools/doxygen.baseline (a ratchet that only falls)
-  # ubuntu-24.04, not ubuntu-latest: its doxygen is the 1.9.8 tools/doxygen.version pins, and another doxygen version
-  # gives other warning rows, which the gate refuses
-  doc-gates:
-    name: documentation gates (ruff, doxygen)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # bounded like every package manager call here (tools/bounded-install.sh): a hung mirror is a fast red
-      - run: sudo tools/bounded-install.sh apt-get update && sudo tools/bounded-install.sh apt-get install -y --no-install-recommends doxygen && python3 -m pip install ruff==0.17.5
-      # the base the gates may not grow past: the pull request's base branch, else the default branch
-      - run: make check-ruff check-doxygen check-doc-shrink test-doc-gates
-        env:
-          DOC_GATE_BASE: origin/${{ github.base_ref || github.event.repository.default_branch }}
 
   test:
     name: build and test
@@ -113,16 +100,20 @@ jobs:
       - name: Install the build tools
         run: |
           bounded-install dnf install -y --setopt=install_weak_deps=False git dnf5-plugins gcc make python3 pkgconf-pkg-config openssl-devel cjson-devel clap-devel lv2-devel \
-            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema nodejs npm
+            pipewire-jack-audio-connection-kit-devel pipewire pipewire-utils jack-tools iproute util-linux procps-ng diffutils python3-jsonschema \
+            nodejs26 nodejs26-bin nodejs26-npm
 
       - uses: actions/checkout@v4
-      # the floors packaging/deps.txt declares are the ones the spec and debian/control state, with no ceiling
+      # no version floor or ceiling is typed in the spec, debian/control or an install line (deps-render with no deps.txt)
       - uses: Open-Mixer/.github/.github/actions/deps-render@openmixer-v1
 
 
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -136,11 +127,15 @@ jobs:
       # an ordinary run builds against the channel: name where each omx package came from, refuse one from staging
       # (plugin-hostd-protocol#27: a stale staged contract package outranked the channel)
       - name: Every omx package comes from the channel
+        env:
+          DEVEL_PR: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
         run: |
           set -euo pipefail
           if command -v dnf >/dev/null; then dnf repoquery --installed --qf '%{name} %{version} %{from_repo}\n' 'omx-*' 'plugin-*' | tee /tmp/from-repo
           else apt-cache policy $(dpkg-query -W -f='${Package}\n' 'omx-*' 'libomx*' 'plugin-*' 'libplugin*' 2>/dev/null) | tee /tmp/from-repo; fi
-          if grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
+          # a pull request into devel, or a dispatch off main, builds against the staging channel (Open-Mixer/.github#271):
+          # a staged package is what it tests, so only every other run refuses one
+          if [ "$DEVEL_PR" != true ] && grep staging /tmp/from-repo; then echo "a package above came from the staging channel: an ordinary run builds against the channel"; exit 1; fi
 
       - name: Build
         run: make
@@ -253,6 +248,9 @@ jobs:
 
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -307,17 +305,20 @@ jobs:
       - name: Install the build tools
         run: |
           bounded-install apt-get update -qq
-          bounded-install apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev cmake \
+          bounded-install apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev lv2-dev cmake \
             dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
 
       - uses: actions/checkout@v4
 
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
-      # the released channel alone: it carries every Build-Depends, and the staging channel is pinned above it,
-      # so an older staged omx-clap-core there would be taken in place of the released one
+      # off main it reads the staging channel too: a devel wave's Build-Depends (omx-contract 0.23.x, omx-clap-core 0.35.0,
+      # plugin-db-qualification) are served there alone, and staging is pinned above the released channel
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -380,7 +381,7 @@ jobs:
       - name: The bounded package manager wrapper
         run: install -m 0755 .ci-tools/tools/bounded-install.sh /usr/local/bin/bounded-install && rm -rf .ci-tools
       - name: Install the build tools
-        run: bounded-install dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
+        run: bounded-install dnf install -y --setopt=install_weak_deps=False git rpm-build dnf5-plugins gcc make openssl-devel cjson-devel lv2-devel tar gzip python3 pipewire-jack-audio-connection-kit-devel
 
       - uses: actions/checkout@v4
         with:
@@ -389,6 +390,9 @@ jobs:
       # the OpenMixer channel: where the BuildRequires Fedora does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -402,7 +406,7 @@ jobs:
           # plugin-db-devel is built per architecture (the pin header and the library's link), not noarch
           bounded-install dnf download -y --setopt=retries=10 --arch ${{ matrix.arch }} --destdir dep-rpms plugin-hostd-protocol mod-host-protocol plugin-db-devel
           # the daemon's verbs, which plugin-hostd-contract requires: plugin-hostd-protocol's package of the contract directory
-          bounded-install dnf download -y --setopt=retries=10 --destdir dep-rpms "plugin-hostd-protocol-contract >= $(tools/protocol-floor.sh)"
+          bounded-install dnf download -y --setopt=retries=10 --destdir dep-rpms plugin-hostd-protocol-contract
 
       - uses: Open-Mixer/.github/.github/actions/build-rpm@openmixer-v1
 
@@ -418,8 +422,7 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -q 'libplugin-hostd-protocol.so.0' requires.txt
-            grep -qE '^plugin-hostd-protocol\(.*\)$' requires.txt
-            grep -qx "plugin-hostd-protocol >= $(tools/protocol-floor.sh)" requires.txt
+            # the protocol library is required through its soname (above), never by a typed name or floor
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
             rpm -qp --recommends "$rpm" | tee recommends.txt
             grep -q '^(\?omx-clap-host' recommends.txt
@@ -440,14 +443,15 @@ jobs:
             diff -u expected.txt files.txt
             rpm -qp --requires "$rpm" | tee requires.txt
             grep -qx "plugin-hostd-contract = $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm")" requires.txt
-            grep -qx "plugin-hostd-protocol-devel >= $(tools/protocol-floor.sh)" requires.txt
-            grep -qxF "$(sed -n 's/^Requires: \(plugin-db-devel .*\)$/\1/p' packaging/plugin-hostd.spec)" requires.txt
+            # no typed floor: the development package names its sibling headers by name only
+            grep -qx plugin-hostd-protocol-devel requires.txt
+            grep -qx plugin-db-devel requires.txt
           done
           # the contract package: the contract directory's files, which readers read at run time, noarch
           for rpm in rpms/plugin-hostd-contract-[0-9]*.noarch.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v '^d' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json \
+            printf '%s\n' /usr/share/omx-contract/contract.d/plugin-hostd/MANIFEST.json \
               /usr/share/omx-contract/contract.d/machine/machine.json \
               /usr/share/omx-contract/contract.d/qualification/qualification.json \
               /usr/share/omx-contract/contract.d/plugin-hostd/grouping/grouping.json \
@@ -474,7 +478,7 @@ jobs:
           for rpm in rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm; do
             rpm -qlp "$rpm"
             rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm" | grep -v -e '^d' -e '/\.build-id/' | cut -d' ' -f2 | sort > files.txt
-            printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py \
+            printf '%s\n' /usr/libexec/plugin-hostd/tests/fake-host /usr/libexec/plugin-hostd/tests/lib/protocol.sh \
               /usr/share/doc/plugin-hostd-tests/README.md /usr/share/licenses/plugin-hostd-tests/COPYING | sort > expected.txt
             diff -u expected.txt files.txt
             # tied to the same build: the requirement names the exact version-release and the isa of this very package
@@ -499,7 +503,8 @@ jobs:
             rpms/plugin-hostd-[0-9]*.${{ matrix.arch }}.rpm
             rpms/plugin-hostd-contract-[0-9]*.noarch.rpm
             rpms/plugin-hostd-tests-[0-9]*.${{ matrix.arch }}.rpm
-          packages: python3
+          # the smoke test's protocol client is plugin-hostd-protocol's (issue 45), from the channel
+          packages: python3 python3-plugin-hostd-client
 
       - name: The daemon reports the version of its package and resolves its libraries
         run: |
@@ -519,9 +524,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/clean-root/smoke
+          # the scan an add runs reads the format tables from the installed contract directory (plugin-hostd-contract)
           cp -r tests /tmp/clean-root/smoke/tests
-          # the scan an add runs reads the format tables and the recorded field dumps beside the tests
-          cp -r data /tmp/clean-root/smoke/data
           # the tests read the declared protocol from the installed library's JSON
           # the whole daemon_test.py runs once, in the test job (test-audit 2026-11-16, plugin-hostd row 1); the installed binary
           # answers the ready line, an add, a crash respawn and a pin refusal, each named, and a name that ran nothing is red
@@ -537,9 +541,10 @@ jobs:
           set -euo pipefail
           chroot /tmp/clean-root /usr/libexec/plugin-hostd/tests/fake-host -L | tee layout.txt
           test -s layout.txt
-          # and the protocol clients it ships load
+          # and the shell protocol client it ships loads (the Python client is plugin-hostd-protocol's
+          # python3-plugin-hostd-client, issue 45: no copy here)
           chroot /tmp/clean-root bash -c '. /usr/libexec/plugin-hostd/tests/lib/protocol.sh && type protocol_send protocol_expect protocol_wait_ready send'
-          chroot /tmp/clean-root python3 -c 'import sys; sys.path.insert(0, "/usr/libexec/plugin-hostd/tests/lib"); import plugin_hostd_client'
+          ! chroot /tmp/clean-root test -e /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -586,6 +591,9 @@ jobs:
       # the OpenMixer channel: where the Build-Depends Debian does not carry (omx-clap-host-tests) come from
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -604,7 +612,6 @@ jobs:
           make tests/fake-host tests/slow-fsync.so
           mkdir -p smoke
           cp -r tests smoke/tests
-          cp -r data smoke/data
 
       - uses: actions/upload-artifact@v4
         with:
@@ -650,12 +657,16 @@ jobs:
       # closure from the channel, so no list of them is kept here to fall behind the floors
       - name: Add the OpenMixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       - name: Install the package with its dependencies from the distribution and the channel
         run: |
           set -euo pipefail
           bounded-install apt-get update -qq
-          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb python3
+          bounded-install apt-get install -y --no-install-recommends ./debs/plugin-hostd_*.deb ./debs/plugin-hostd-contract_*.deb ./debs/plugin-hostd-dev_*.deb ./debs/plugin-hostd-tests_*.deb python3 \
+            python3-plugin-hostd-client
           dpkg -L plugin-hostd-dev | tee dev.txt
           grep -qx /usr/include/plugin-hostd/plugin_hostd_vocabulary.h dev.txt
           ! grep -q /usr/include/plugin-hostd/pin.h dev.txt
@@ -666,9 +677,9 @@ jobs:
           # the contract directory's files are the noarch contract package's, which the daemon and the headers depend on
           test "$(dpkg-deb -f debs/plugin-hostd-contract_*.deb Architecture)" = all
           dpkg -L plugin-hostd-contract | tee contract.txt
-          grep -qx "/usr/share/omx-contract/contract.d/3/plugin-hostd/MANIFEST.json" contract.txt
-          # the format tables are domains, none of them under 3/plugin-hostd/formats any more
-          ! grep -q "/contract.d/3/plugin-hostd/formats" contract.txt
+          grep -qx "/usr/share/omx-contract/contract.d/plugin-hostd/MANIFEST.json" contract.txt
+          # the format tables are domains, none of them under plugin-hostd/formats any more
+          ! grep -q "/contract.d/plugin-hostd/formats" contract.txt
           for d in grouping history clap lv2; do
             grep -qx "/usr/share/omx-contract/contract.d/plugin-hostd/$d/$d.json" contract.txt
           done
@@ -684,17 +695,11 @@ jobs:
           dpkg -L plugin-hostd-tests | tee tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/fake-host tests.txt
           grep -qx /usr/libexec/plugin-hostd/tests/lib/protocol.sh tests.txt
-          grep -qx /usr/libexec/plugin-hostd/tests/lib/plugin_hostd_client.py tests.txt
+          ! grep -q plugin_hostd_client tests.txt
           dpkg -s libplugin-hostd-protocol0 | grep '^Status: install ok installed'
           dpkg-deb -f debs/plugin-hostd_*.deb Depends | tee depends.txt
-          # dpkg-shlibdeps writes the version of the library it built against over debian/control's floor, so the Depends
-          # holds that version, at or above the floor. This job has no checkout: the floor is the one debian/control gave
-          # plugin-hostd-dev, whose Depends dpkg-shlibdeps does not touch (tests/protocol_floor.py holds it to the spec's)
-          floor=$(dpkg-deb -f debs/plugin-hostd-dev_*.deb Depends | sed -n 's/.*libplugin-hostd-protocol-dev (>= \([^)~]*\)~\{0,1\}).*/\1/p')
-          test -n "$floor"
-          built=$(sed -n 's/.*libplugin-hostd-protocol0 (>= \([^)]*\)).*/\1/p' depends.txt)
-          test -n "$built"
-          dpkg --compare-versions "$built" ge "$floor~"
+          # the protocol library is a Depends dpkg-shlibdeps generates from the library the daemon links, never typed
+          grep -q 'libplugin-hostd-protocol0' depends.txt
           # mod-host is only suggested: never a Depends or a Recommends of the deb
           test "$(dpkg-deb -f debs/plugin-hostd_*.deb Suggests)" = mod-host
           if dpkg-deb -f debs/plugin-hostd_*.deb Depends Recommends | grep -qw mod-host; then echo "plugin-hostd needs or recommends mod-host"; exit 1; fi
@@ -849,6 +854,9 @@ jobs:
 
       - name: The Open-Mixer channel
         uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+          staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
       # the daemon under test is this run's, as the rpm job builds it (which runs on tags and dispatch alone): installed
       # by name, dnf takes the channel's, and with the omx-clap-host floor it does not meet it cannot install at all
@@ -862,7 +870,7 @@ jobs:
           # the scripts read the plugin search lists from plugin-hostd-protocol's header (tools/search-paths.py)
           bounded-install dnf install -y --setopt=install_weak_deps=False --setopt=retries=10 \
             ./rpms/plugin-hostd-[0-9]*.x86_64.rpm ./rpms/plugin-hostd-contract-[0-9]*.noarch.rpm \
-            "omx-clap-host >= $(tools/dep-floor.sh omx-clap-host-tests)" \
+            omx-clap-host \
             omx-clap-host-tests omx-plugins-clap omx-plugins-lv2 plugin-hostd-protocol-devel pkgconf-pkg-config
           rpm -q plugin-hostd omx-clap-host omx-clap-host-tests omx-plugins-clap omx-plugins-lv2
           # the daemon installed is the one built above, not a served one
@@ -931,10 +939,6 @@ jobs:
     with:
       publish: false
       arm: false  # aarch64/arm64 build at release only
+      # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+      staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
-  pr-fixes-issue:
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: read
-    uses: Open-Mixer/.github/.github/workflows/pr-fixes-issue.yml@openmixer-v1

@@ -24,14 +24,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-int domain_words_open(const char *domain, const char *floor, const char *dirs, omx_domain **out, char *why, size_t n)
+int domain_words_open(const char *domain, const char *dirs, omx_domain **out, char *why, size_t n)
 {
     omx_domain_error err = { 0 };
     int rc;
 
     *out = NULL;
     if (dirs == NULL || *dirs == '\0')
-        rc = omx_domain_open(domain, floor, out, &err);
+        rc = omx_domain_open(domain, NULL, out, &err);
     else
     {
         const char *p = dirs;
@@ -47,7 +47,7 @@ int domain_words_open(const char *domain, const char *floor, const char *dirs, o
             {
                 memcpy(dir, p, len);
                 dir[len] = '\0';
-                rc = omx_domain_open_at(dir, domain, floor, out, &err);
+                rc = omx_domain_open_at(dir, domain, NULL, out, &err);
             }
             p += len + (end != NULL);
         }

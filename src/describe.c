@@ -31,8 +31,7 @@
 #define SBL(b, lit) sb_put(b, lit, sizeof(lit) - 1)
 
 #define DUMP_VERSION_LINE "# omx-clap-scan --fields 1"
-#define SCHEMA_URL "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json"
-#define SCHEMA_FLOOR ">= 3.0.0"
+#define SCHEMA_URL "https://openmixer.org/schema/omx-contract/v0/omx-contract.schema.json"
 
 /* the scope words of a dump, the scan domain's (describe_scopes): the parser holds what each is, never its name */
 static const scan_words *g_scopes;
@@ -104,6 +103,7 @@ enum { C_WORD, C_EXTENSION, C_DROPPED };
 typedef struct
 {
     const char *key;
+    const char *term; /* the term link it covers, <TERMS item>#<term>, or NULL for a row with x-from */
     int cls;
     int word; /* WORDS index */
     const transforms_entry_t *t;
@@ -251,23 +251,181 @@ static int load_roles(const char *dir, roles_t *r)
     return rc;
 }
 
+/* ---------------------------------------------------------------- the owners' mappings (docs/formats.md, Lookup values
+ * the owners publish) */
+
+static const char *g_owner_dirs;
+
+void describe_owners(const char *dirs)
+{
+    g_owner_dirs = dirs;
+}
+
+/* the domain document of a format owner, <dir>/<domain>/<domain>.json from the first directory of the list that holds
+ * it, read once: its $id names the domain and its info.x-owner the owner. NULL, refused, when none holds it, or the
+ * first that does holds what is no such document */
+static const cJSON *owner_domain(const char *domain, const char *owner)
+{
+    static struct
+    {
+        const char *domain;
+        cJSON *doc;
+    } seen[4];
+    static size_t nseen;
+    const char *dirs = g_owner_dirs, *next;
+    char path[4096], id[512];
+    size_t i;
+
+    for (i = 0; i < nseen; i++)
+        if (!strcmp(seen[i].domain, domain))
+            return seen[i].doc;
+    for (; dirs != NULL && *dirs; dirs = next ? next + 1 : NULL)
+    {
+        sb_t text = { 0 };
+        cJSON *doc;
+        int len;
+
+        next = strchr(dirs, ':');
+        len = next ? (int)(next - dirs) : (int)strlen(dirs);
+        if (len == 0)
+            continue;
+        snprintf(path, sizeof(path), "%.*s/%s/%s.json", len, dirs, domain, domain);
+        if (access(path, F_OK) != 0)
+            continue;
+        if (read_all(path, &text) != 0 || (doc = jparse(text.s)) == NULL || !cJSON_IsObject(doc))
+        {
+            free(text.s);
+            refuse("%s's domain %s (%s) is no JSON object", owner, domain, path);
+            return NULL;
+        }
+        free(text.s);
+        snprintf(id, sizeof(id), "https://openmixer.org/contract/%s", domain);
+        if (!jstr(doc, "$id") || strcmp(jstr(doc, "$id"), id) || !jstr(jget(doc, "info"), "x-owner") ||
+            strcmp(jstr(jget(doc, "info"), "x-owner"), owner))
+        {
+            refuse("%s is not the domain %s of %s ($id, info.x-owner)", path, domain, owner);
+            return NULL;
+        }
+        if (nseen < sizeof(seen) / sizeof(seen[0]))
+            seen[nseen].domain = domain, seen[nseen++].doc = doc;
+        return doc;
+    }
+    refuse("no contract directory holds %s's domain %s (%s)", owner, domain, g_owner_dirs ? g_owner_dirs : "none given");
+    return NULL;
+}
+
+/* an item of an owner's domain, or NULL, refused */
+static const cJSON *owner_item(const char *domain, const char *owner, const char *item)
+{
+    const cJSON *doc = owner_domain(domain, owner), *it;
+
+    if (doc == NULL)
+        return NULL;
+    if ((it = jget(jget(jget(doc, "components"), "schemas"), item)) == NULL || !cJSON_IsObject(it))
+        refuse("%s's domain %s holds no item %s", owner, domain, item);
+    return it;
+}
+
+/* whether a word of an owner's item names the term link `term` (<TERMS item>#<term>) in its x-from */
+static int names_term(const cJSON *word, const char *term)
+{
+    const cJSON *from = jget(word, "x-from");
+    const char *hash = strchr(term, '#'), *ref;
+    size_t i, n = (size_t)(hash - term);
+
+    for (i = 0; from != NULL && cJSON_IsArray(from) && i < jcount(from); i++)
+        if ((ref = jstr(jkid(from, i), "$ref")) != NULL && jstr(jkid(from, i), "x-term") &&
+            !strcmp(jstr(jkid(from, i), "x-term"), hash + 1) && strlen(ref) > n && ref[strlen(ref) - n - 1] == '/' &&
+            !strncmp(ref + strlen(ref) - n, term, n))
+            return 1;
+    return 0;
+}
+
+static void add_pair(transforms_data_t *d, const char *from, const cJSON *to)
+{
+    const char **f = (const char **)d->from, **t = (const char **)d->to;
+
+    f = realloc(f, (d->n + 1) * sizeof(char *)), t = realloc(t, (d->n + 1) * sizeof(char *));
+    f[d->n] = from, t[d->n] = literal(to);
+    d->from = f, d->to = t, d->n++;
+}
+
+/* a unit-id or designation-meaning row's pairs, read from the mapping the format's owner publishes: 0, or refused */
+static int owner_pairs(const table_t *t, row_t *r, const char *tr)
+{
+    const cJSON *it;
+    size_t k;
+
+    if (!strcmp(t->format, "clap"))
+    {
+        /* omx-clap's OMX_PARAM_CONTRACT_UNIT_IDS, a sheet: each code of the extension's unit to its standard id */
+        const cJSON *v;
+
+        if (strcmp(tr, "unit-id"))
+            return refuse("row %s: a CLAP table reads no designation", r->key);
+        if ((it = owner_item("omx-param-contract", "omx-clap", "OMX_PARAM_CONTRACT_UNIT_IDS")) == NULL)
+            return -1;
+        if ((v = jget(it, "x-value")) == NULL || !cJSON_IsObject(v))
+            return refuse("omx-clap's OMX_PARAM_CONTRACT_UNIT_IDS holds no sheet value");
+        for (k = 0; k < jcount(v); k++)
+            if (cJSON_IsString(jkid(v, k)))
+                add_pair(&r->d, jkey(v, k), jkid(v, k));
+    }
+    else
+    {
+        /* plugin-db's domain lv2: the word whose x-from names the row's term; the field units:unit, whose values are the
+         * urn:openmixer:unit spellings, reads every word of LV2_OPENMIXER_UNIT_IDS by its x-uri */
+        const char *item = !strcmp(tr, "unit-id") ? "LV2_UNIT_IDS" : "LV2_DESIGNATION_MEANINGS";
+        const cJSON *words;
+
+        if (r->term == NULL)
+            return refuse("row %s: %s reads the owner's word for the row's term, and the row has none", r->key, tr);
+        if (!strcmp(tr, "unit-id") && !strcmp(r->term, "LV2_UNITS_TERMS#unit"))
+            item = "LV2_OPENMIXER_UNIT_IDS";
+        if ((it = owner_item("lv2", "plugin-db", item)) == NULL)
+            return -1;
+        if ((words = jget(it, "oneOf")) == NULL || !cJSON_IsArray(words))
+            return refuse("plugin-db's %s holds no words", item);
+        for (k = 0; k < jcount(words); k++)
+        {
+            const cJSON *w = jkid(words, k), *c = jget(w, "const");
+
+            if (!cJSON_IsString(c))
+                continue;
+            if (!strcmp(item, "LV2_OPENMIXER_UNIT_IDS") && jstr(w, "x-uri"))
+                add_pair(&r->d, jstr(w, "x-uri"), c);
+            else if (strcmp(item, "LV2_OPENMIXER_UNIT_IDS") && names_term(w, r->term))
+                add_pair(&r->d, r->key, c);
+        }
+    }
+    if (r->d.n == 0)
+        return refuse("row %s: the owner's mapping holds no pair for %s (a unit with no standard id is a dropped row "
+                      "naming its ruling)", r->key, r->term ? r->term : r->key);
+    for (k = 0; k < r->d.n; k++)
+        if (r->d.to[k] == NULL)
+            return refuse("row %s: the owner's mapping gives a value that is no string", r->key);
+    if (transforms_lookup_check(&r->d) != 0)
+        return refuse("row %s: the owner's mapping is not one to one", r->key);
+    return 0;
+}
+
 static int load_table(const char *text, table_t *t)
 {
-    cJSON *doc = jparse(text), *items, *item = NULL, *map, *rows;
+    cJSON *doc = jparse(text), *items, *item = NULL, *rows;
     size_t i, k;
 
     if (doc == NULL || !cJSON_IsObject(doc))
         return refuse("the table is not one JSON object");
-    /* the table is the sheet of a domain (plugin-hostd/clap, plugin-hostd/lv2): components.schemas holds one item whose
-     * x-kind is sheet, and its x-value is the map, { format, rows } */
+    /* the table is the map item of a domain (plugin-hostd/clap, plugin-hostd/lv2): components.schemas holds one item
+     * whose x-kind is map (omx-contract's mapping-table kind), its x-format the format and its oneOf one row per source
+     * field (const the field, x-term or x-from, x-word, x-extension or x-dropped) */
     items = jget(jget(doc, "components"), "schemas");
     for (i = 0; items != NULL && cJSON_IsObject(items) && i < jcount(items) && item == NULL; i++)
-        if (cJSON_IsObject(jkid(items, i)) && jstr(jkid(items, i), "x-kind") && !strcmp(jstr(jkid(items, i), "x-kind"), "sheet"))
+        if (cJSON_IsObject(jkid(items, i)) && jstr(jkid(items, i), "x-kind") && !strcmp(jstr(jkid(items, i), "x-kind"), "map"))
             item = jkid(items, i);
-    if (item == NULL || (map = jget(item, "x-value")) == NULL || !cJSON_IsObject(map) || (rows = jget(map, "rows")) == NULL ||
-        !cJSON_IsObject(rows))
-        return refuse("the table holds no sheet item whose value has rows");
-    t->format = jstr(map, "format");
+    if (item == NULL || (rows = jget(item, "oneOf")) == NULL || !cJSON_IsArray(rows) || jcount(rows) == 0)
+        return refuse("the table holds no map item with rows");
+    t->format = jstr(item, "x-format");
     if (t->format == NULL || (strcmp(t->format, "clap") && strcmp(t->format, "lv2")))
         return refuse("the table's format is neither clap nor lv2");
     t->rows = calloc(jcount(rows), sizeof(row_t));
@@ -275,9 +433,11 @@ static int load_table(const char *text, table_t *t)
     for (i = 0; i < jcount(rows); i++)
     {
         row_t *r = &t->rows[i];
-        const cJSON *row = jkid(rows, i), *w = jget(row, "word");
+        const cJSON *row = jkid(rows, i), *w = jget(row, "x-word");
 
-        r->key = jkey(rows, i);
+        if ((r->key = jstr(row, "const")) == NULL)
+            return refuse("row %zu of the map has no const, its source field", i);
+        r->term = jstr(row, "x-term");
         if (w != NULL)
         {
             const char *word = jstr(w, "word"), *tr = jstr(w, "transform");
@@ -298,6 +458,14 @@ static int load_table(const char *text, table_t *t)
                                   "role tables, with no values of its own", r->key);
                 r->d.from = t->roles.role, r->d.to = t->roles.meaning, r->d.n = t->roles.n;
             }
+            if (!strcmp(tr, "unit-id") || !strcmp(tr, "designation-meaning"))
+            {
+                /* its data is the mapping the format's owner publishes, never the table's own */
+                if (values != NULL)
+                    return refuse("row %s: %s reads the owner's published mapping, with no values of its own", r->key, tr);
+                if (owner_pairs(t, r, tr) != 0)
+                    return -1;
+            }
             if (jnum(w, "factor", &factor))
                 r->d.factor = factor;
             if (values != NULL && cJSON_IsObject(values))
@@ -317,9 +485,9 @@ static int load_table(const char *text, table_t *t)
             else if (!strcmp(tr, "lookup"))
                 return refuse("row %s: a lookup with no values", r->key);
         }
-        else if (jget(row, "extension") != NULL)
+        else if (jget(row, "x-extension") != NULL)
             r->cls = C_EXTENSION;
-        else if (jget(row, "dropped") != NULL)
+        else if (jget(row, "x-dropped") != NULL)
             r->cls = C_DROPPED;
         else
             return refuse("row %s: no class", r->key);
@@ -849,6 +1017,16 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         kind = "\"choice\"";
     if (kind == NULL)
         kind = "\"travel\"";
+    /* a scanned parameter's kind by omx-contract's one rule (its docs/descriptors.md, "A scanned CLAP parameter's
+     * kind", held by share/omx-contract/clap-kind-vectors.json: tests/describe_clap_kind_vectors_test.py): the table's
+     * words give an enumeration (a choice) and the toggle or trigger a format states; else a parameter whose merged scale
+     * is stepped (the contract entry's word, else the stepped flag's), from 0 to 1, with a step of 1 (the contract's when
+     * it states one; stepped means whole positions, so 1 is implied) is a toggle; else a travel. Through the table alone
+     * CLAP_PARAM_IS_STEPPED made it a stepped travel, and a plugin's switch was refused as drawn over a travel */
+    if (!strcmp(kind, "\"travel\"") && min && max && (v = scale_of(e)) != NULL && !strcmp(v, "\"stepped\"")
+        && strtod(min, NULL) == 0 && strtod(max, NULL) == 1
+        && ((v = get(e, "controls[].travel.step")) == NULL || strtod(v, NULL) == 1))
+        kind = "\"toggle\"";
     sb_printf(b, "%s\n    {\"id\": %s, \"name\": ", first ? "" : ",", id);
     if (name)
         sb_printf(b, "%s", name);
@@ -901,7 +1079,8 @@ static int put_control(sb_t *b, const entry_t *e, const char *format, const char
         sb_printf(b, "], \"default\": \"%s\"", ids[d]);
     }
     else if (!strcmp(kind, "\"toggle\""))
-        sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) != 0 ? "true" : "false");
+        /* the nearer of its two positions: on from 0.5 up (the rule's toggle-default-at-half vector) */
+        sb_printf(b, ", \"default\": %s", def && strtod(def, NULL) >= 0.5 ? "true" : "false");
     else if (!strcmp(kind, "\"travel\""))
     {
         const char *unit = get(e, "controls[].travel.unit"), *scale = scale_of(e);
@@ -1068,8 +1247,19 @@ static int check_meters(entry_t *const *meters, size_t nm, entry_t *const *contr
     return 0;
 }
 
-/* one item of meters[] (omx-contract docs/descriptors.md): a gain reduction in dB, a level in dBFS (clap.meters/1's
- * kinds); clap.meters/1 states no scale, so the scale is unknown as an unstated CLAP scale is */
+/* one meter row, the shape of meters[] (omx-contract docs/descriptors.md): a gain reduction in dB, a level in dBFS
+ * (clap.meters/1's kinds); clap.meters/1 states no scale, so the scale is unknown as an unstated CLAP scale is. The
+ * descriptor's meters[] and the panel file's meters are both written here, so a reader reads one shape. id, min and
+ * max are JSON numbers, sym and kind JSON strings, each as its literal */
+static void meter_row(sb_t *b, const char *id, const char *sym, const char *kind, long channels, const char *min,
+                      const char *max)
+{
+    sb_printf(b, "{\"id\": %s, \"symbol\": %s, \"kind\": %s, \"channels\": %ld, \"unit\": \"%s\", \"min\": %s, "
+                 "\"max\": %s, \"scale\": \"unknown\"}",
+              id, sym, kind, channels, !strcmp(kind, "\"gain-reduction\"") ? "dB" : "dBFS", min, max);
+}
+
+/* one item of meters[] */
 static int put_meter(sb_t *b, const entry_t *e, int first)
 {
     const char *id = get(e, "meters[].id"), *sym = get(e, "meters[].symbol"), *kind = meter_kind(e);
@@ -1081,10 +1271,8 @@ static int put_meter(sb_t *b, const entry_t *e, int first)
         return refuse("%s states no channel", e->scope);
     if (min == NULL || max == NULL)
         return refuse("%s states no display %s", e->scope, min ? "maximum" : "minimum");
-    sb_printf(b, "%s\n    {\"id\": %s, \"symbol\": %s, \"kind\": %s, \"channels\": %ld, \"unit\": \"%s\", \"min\": %s, "
-                 "\"max\": %s, \"scale\": \"unknown\"}",
-              first ? "" : ",", id, sym, kind, meter_channels(e), !strcmp(kind, "\"gain-reduction\"") ? "dB" : "dBFS",
-              min, max);
+    sb_printf(b, "%s\n    ", first ? "" : ",");
+    meter_row(b, id, sym, kind, meter_channels(e), min, max);
     return 0;
 }
 
@@ -1123,8 +1311,7 @@ static int write_descriptor(const table_t *t, scan_t *s, const char *target, sb_
         return refuse("the dump states no %s", uri ? "data file (rdfs:seeAlso)" : "file (clap_entry)");
     if (uri == NULL && (v = get(g, "plugin.id")) == NULL)
         return refuse("the dump states no plugin id (clap_plugin_descriptor.id)");
-    sb_printf(b, "{\n  \"$schema\": \"%s\",\n  \"requires\": {\"omx-contract-schema\": \"%s\"},\n  \"origin\": \"scanned\",\n",
-              SCHEMA_URL, SCHEMA_FLOOR);
+    sb_printf(b, "{\n  \"$schema\": \"%s\",\n  \"origin\": \"scanned\",\n", SCHEMA_URL);
     SBL(b, "  \"plugin\": {\"id\": ");
     if (uri)
         sb_str(b, uri);
@@ -1335,6 +1522,109 @@ static const cJSON *scanned_plugin(const cJSON *scan, const char *id, size_t *fi
     return NULL;
 }
 
+/* a display's meter id, a whole number from 0 to UINT32_MAX (clap_id), or -1 for one that is none or no such number */
+static long long meter_id_of(const cJSON *v)
+{
+    if (!cJSON_IsNumber(v) || v->valuedouble < 0 || v->valuedouble > 4294967295.0 || v->valuedouble != (double)(long long)v->valuedouble)
+        return -1;
+    return (long long)v->valuedouble;
+}
+
+/* whether a display of the panel names the meter id in its meterIds (a null id names none) */
+static int meter_indexed(const cJSON *panel, long long id)
+{
+    const cJSON *displays = jget(panel, "displays");
+    size_t i, k;
+
+    for (i = 0; displays && cJSON_IsArray(displays) && i < jcount(displays); i++)
+    {
+        const cJSON *ids = jget(jkid(displays, i), "meterIds");
+
+        for (k = 0; ids && cJSON_IsArray(ids) && k < jcount(ids); k++)
+            if (meter_id_of(jkid(ids, k)) == id)
+                return 1;
+    }
+    return 0;
+}
+
+/* one of the scan's meters (omx-clap-scan --json: {id, name, kind, flags, channels, min, max}) as a row of the
+ * descriptor's meters[], read as describe reads the same fields of the dump (data/formats/clap.json): the id, min and
+ * max as they are, the name through output-symbol, the kind by its word (gain-reduction or level; describe refuses any
+ * other), the flags dropped */
+static int panel_meter(sb_t *out, const cJSON *m, long long id, const char *plugin_id)
+{
+    const cJSON *kind = jget(m, "kind"), *ch = jget(m, "channels");
+    const char *name = jstr(m, "name");
+    char sym[256], ids[24], *min = literal(jget(m, "min")), *max = literal(jget(m, "max"));
+    int rc = 0;
+
+    snprintf(ids, sizeof(ids), "%lld", id);
+    if (name == NULL || transforms_output_symbol(NULL, name, sym, sizeof(sym)) != TRANSFORMS_OK)
+        rc = refuse("meter %s of %s: its name gives no output symbol", ids, plugin_id);
+    else if (!cJSON_IsString(kind) || (strcmp(kind->valuestring, "gain-reduction") && strcmp(kind->valuestring, "level")))
+        rc = refuse("meter %s of %s: a kind the descriptor has no word for", ids, plugin_id);
+    else if (!cJSON_IsNumber(ch) || ch->valuedouble < 1 || ch->valuedouble != (double)(long)ch->valuedouble)
+        rc = refuse("meter %s of %s states no channel", ids, plugin_id);
+    else if (min == NULL || max == NULL || !cJSON_IsNumber(jget(m, "min")) || !cJSON_IsNumber(jget(m, "max")))
+        rc = refuse("meter %s of %s states no display %s", ids, plugin_id, min && cJSON_IsNumber(jget(m, "min")) ? "maximum" : "minimum");
+    else
+    {
+        char kw[32];
+
+        snprintf(kw, sizeof(kw), "\"%s\"", kind->valuestring);
+        meter_row(out, ids, sym, kw, (long)ch->valuedouble, min, max);
+    }
+    free(min);
+    free(max);
+    return rc;
+}
+
+/* ,"meters": [...] of the panel file (plugin-hostd-protocol's PHD_PANEL_FILE_KEYS): the plugin's clap.meters/1 meters
+ * the panel's displays index, in the scan's order, each a row of the descriptor's meters[] shape with the same id and
+ * values, so the file resolves its own displays and a reader reads one meter shape. A display naming a meter id no
+ * meter of the scan carries is refused: the file never names a meter it does not hold. */
+static int panel_meters(const cJSON *plugin, const cJSON *panel, const char *id, sb_t *out)
+{
+    const cJSON *meters = jget(plugin, "meters"), *displays = jget(panel, "displays");
+    size_t i, k, n = meters && cJSON_IsArray(meters) ? jcount(meters) : 0, put = 0;
+
+    for (i = 0; displays && cJSON_IsArray(displays) && i < jcount(displays); i++)
+    {
+        const cJSON *ids = jget(jkid(displays, i), "meterIds");
+
+        for (k = 0; ids && cJSON_IsArray(ids) && k < jcount(ids); k++)
+        {
+            const cJSON *v = jkid(ids, k);
+            long long want = meter_id_of(v);
+            size_t m;
+
+            if (cJSON_IsNull(v))
+                continue;
+            if (want < 0)
+                return refuse("the panel of %s: display %zu names a meter id that is no clap_id", id, i);
+            for (m = 0; m < n && meter_id_of(jget(jkid(meters, m), "id")) != want; m++)
+                ;
+            if (m == n)
+                return refuse("the panel of %s: display %zu names meter %lld, which the scan's meters do not carry%s",
+                              id, i, want, meters ? "" : " (the scan prints no meters)");
+        }
+    }
+    SBL(out, ", \"meters\": [");
+    for (i = 0; i < n; i++)
+    {
+        long long mid = meter_id_of(jget(jkid(meters, i), "id"));
+
+        if (mid < 0 || !meter_indexed(panel, mid))
+            continue;
+        if (put++)
+            SBL(out, ", ");
+        if (panel_meter(out, jkid(meters, i), mid, id) != 0)
+            return -1;
+    }
+    SBL(out, "]");
+    return 0;
+}
+
 int describe_panel(const char *scan_json, const char *target, sb_t *out, char *why, size_t why_size)
 {
     const char *format = describe_format(target), *id = describe_id(target), *error;
@@ -1354,7 +1644,7 @@ int describe_panel(const char *scan_json, const char *target, sb_t *out, char *w
     /* the panel description is a CLAP extension: an LV2 plugin serves none */
     if (!strcmp(format, "lv2"))
     {
-        SBL(out, "null}\n");
+        SBL(out, "null, \"meters\": []}\n");
         return 0;
     }
     if ((scan = jparse(scan_json)) == NULL || !cJSON_IsObject(scan))
@@ -1385,6 +1675,11 @@ int describe_panel(const char *scan_json, const char *target, sb_t *out, char *w
         }
     }
     sb_put(out, raw, len);
+    if (panel_meters(plugin, panel, id, out) != 0)
+    {
+        cJSON_Delete(scan);
+        return -1;
+    }
     SBL(out, "}\n");
     cJSON_Delete(scan);
     return 0;

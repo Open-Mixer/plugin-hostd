@@ -22,6 +22,7 @@ under --mem-floor MB, or after which the UI no longer answers. Everything this r
 """
 import argparse
 import csv
+import importlib.util
 import json
 import os
 import re
@@ -30,6 +31,13 @@ import socket
 import subprocess
 import sys
 import time
+
+# jalv_scratch.py beside this file: the directory every jalv this tool starts stands in (a killed jalv leaves its
+# relative jalvXXXXXX state directory where it stood)
+_spec = importlib.util.spec_from_file_location(
+    "jalv_scratch", os.path.join(os.path.dirname(os.path.abspath(__file__)), "jalv_scratch.py"))
+jalv_scratch = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(jalv_scratch)
 
 import jack
 
@@ -428,7 +436,8 @@ class Run:
                     name = f"jalv_{c:02d}_{j}"
                     lf = open(os.path.join(self.out, "logs", f"{name}.log"), "w")
                     p = subprocess.Popen(["jalv", "-i", "-n", name, uri], stdin=subprocess.DEVNULL, stdout=lf,
-                                         stderr=subprocess.STDOUT, env=self.env, start_new_session=True)
+                                         stderr=subprocess.STDOUT, env=self.env, start_new_session=True,
+                                         cwd=jalv_scratch.jalv_cwd())
                     self.jalv.append(p)
                     names.append((name, uri, p))
                 end = time.monotonic() + 60

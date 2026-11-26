@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Where the declared protocol is read from. It is plugin-hostd-protocol's (0.3.0 or later, before 0.4), never this tree's: the
 # headers through pkg-config's Cflags of plugin-hostd-protocol, the JSON documents through its variables, and the
-# daemon's verbs (verbs.json) from its package of omx-contract's contract directory. Without an installed
+# daemon's verbs from the domain plugin-hostd-protocol of omx-contract's contract directory (plugin-hostd-protocol#26). Without an installed
 # plugin-hostd-protocol, a checkout of it at PROTOCOL_DIR (default ../plugin-hostd-protocol) stands in, as the Makefile
 # does. A tree's own include/plugin-hostd/ comes first, so a scratch tree that holds a changed copy of the headers
 # (tests/sabotage.py, tests/perturbation.py) is read before the installed ones, as the compiler reads them.
@@ -78,16 +78,46 @@ def contract_dirs():
     return dirs
 
 
-def verbs_json():
-    """the daemon's verbs: PLUGIN_HOSTD_VERBS, else plugin-hostd-protocol's package of the contract directory, else the
-    checkout's data/verbs.json"""
-    if os.environ.get("PLUGIN_HOSTD_VERBS"):
-        return os.environ["PLUGIN_HOSTD_VERBS"]
+DOMAIN = "plugin-hostd-protocol"
+
+
+def domain_json():
+    """the document of the domain plugin-hostd-protocol, the words of the protocol: PLUGIN_HOSTD_DOMAIN, else the first contract
+    directory that holds it, else the checkout's contract.d/plugin-hostd-protocol"""
+    if os.environ.get("PLUGIN_HOSTD_DOMAIN"):
+        return os.environ["PLUGIN_HOSTD_DOMAIN"]
     for d in contract_dirs():
-        f = os.path.join(d, "3", PACKAGE, "verbs.json")
+        f = os.path.join(d, DOMAIN, DOMAIN + ".json")
         if os.path.exists(f):
             return f
-    return os.path.join(PROTOCOL_DIR, "data", "verbs.json")
+    return os.path.join(PROTOCOL_DIR, "contract.d", DOMAIN, DOMAIN + ".json")
+
+
+# the data form of a domain's items, rebuilt by omx-contract's own reader (domainDataFiles of the installed command's
+# lib/domain.mjs, the rebuild render --with-domain runs): the file of each x-file, as the package's own table would be
+REBUILD = """
+import { readFileSync } from 'node:fs';
+const [clidir, name, path] = process.argv.slice(1);
+const { domainDataFiles } = await import('file://' + clidir + '/lib/domain.mjs');
+process.stdout.write(JSON.stringify(domainDataFiles(name, JSON.parse(readFileSync(path, 'utf8')))));
+"""
+
+
+def rebuild(name, path):
+    """the data files omx-contract's reader rebuilds from the domain <name> at <path>: {x-file: text}; the reader's
+    refusal is raised with its words"""
+    clidir = subprocess.run([PKG_CONFIG, "--variable=clidir", "omx-contract"], capture_output=True, text=True).stdout.strip() \
+        or "/usr/lib/omx-contract"
+    r = subprocess.run(["node", "--input-type=module", "-e", REBUILD, clidir, name, path], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError("omx-contract's reader refuses the domain %s at %s: %s" % (name, path, r.stderr.strip()[-300:]))
+    return json.loads(r.stdout)
+
+
+def verbs():
+    """the daemon's verbs, reply codes and extensions in their data form (kind, since, doc, then codes, verbs or words;
+    "requires"), as omx-contract rebuilds them from the domain plugin-hostd-protocol"""
+    return json.loads(rebuild(DOMAIN, domain_json())["verbs.json"])
 
 
 def overlay(tree):
@@ -101,44 +131,42 @@ def overlay(tree):
     return dest
 
 
-def render_overlay(tree, verbs):
-    """the daemon's verbs of a changed copy (verbs, a verbs.json) rendered as omx-contract renders them for
-    plugin-hostd-protocol, into the overlay of tree (overlay() first): the headers the daemon is then built against"""
+def render_overlay(tree, domain):
+    """the words of a changed copy of the domain plugin-hostd-protocol (domain, a file under a contract.d/plugin-hostd-protocol of its own)
+    rendered as omx-contract renders them for plugin-hostd-protocol, into the overlay of tree (overlay() first): the
+    headers the daemon is then built against"""
     import shutil
     import tempfile
-    datadir = subprocess.run([PKG_CONFIG, "--variable=datadir", "omx-contract"], capture_output=True, text=True,
-                             check=True).stdout.strip()
     work = tempfile.mkdtemp(prefix="plugin-hostd-render.")
     try:
-        os.makedirs(os.path.join(work, "data"))
-        shutil.copy(verbs, os.path.join(work, "data", "verbs.json"))
-        # staged at the version of the installed package it replaces: a domain beside it (this tree's qualification domain)
-        # floors on that package
-        version = "0.0.0"
-        for d in contract_dirs():
-            m = os.path.join(d, "3", PACKAGE, "MANIFEST.json")
-            if os.path.isfile(m):
-                with open(m) as f:
-                    version = json.load(f)["version"]
-                break
-        subprocess.run(["sh", os.path.join(datadir, "install-contract-dir.sh"), PACKAGE, version, "3", "data",
-                        os.path.join(work, "stage"), "data"], cwd=work, check=True, stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
-        # the installed package of the same name is left out: the staged one replaces it
-        others = os.path.join(work, "others", "3")
+        # the installed contract directories as they are, but for the domain, which the copy replaces: the render reads the
+        # domain at --with-domain and not the directory of that name
+        others = os.path.join(work, "others")
         os.makedirs(others)
         for d in contract_dirs():
-            base = os.path.join(d, "3")
-            for pkg in sorted(os.listdir(base)) if os.path.isdir(base) else []:
-                if pkg != PACKAGE and not os.path.exists(os.path.join(others, pkg)):
-                    shutil.copytree(os.path.join(base, pkg), os.path.join(others, pkg))
-            # and the domains beside them (omx-clap's host, the pin domain): a package's table may require one
-            for dom in sorted(os.listdir(d)) if os.path.isdir(d) else []:
-                # a domain is <dom>/<dom>.json (a directory of nested domains alone, this tree's plugin-hostd/, is read beside its package only)
-                if dom != "3" and os.path.isfile(os.path.join(d, dom, dom + ".json")) and not os.path.exists(os.path.join(work, "others", dom)):
-                    os.symlink(os.path.join(d, dom), os.path.join(work, "others", dom))
-        env = dict(os.environ, OMX_CONTRACT_PATH=os.path.join(work, "stage") + ":" + os.path.join(work, "others"))
+            for entry in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                # a package's directory with no manifest and no document is this checkout's contract.d/plugin-hostd/ (its
+                # nested domains alone): no package to the render, which reads the installed one
+                if not os.path.exists(os.path.join(d, entry, "MANIFEST.json")) and \
+                        not os.path.exists(os.path.join(d, entry, entry + ".json")):
+                    continue
+                if not os.path.exists(os.path.join(others, entry)):
+                    os.symlink(os.path.join(d, entry), os.path.join(others, entry))
+        env = dict(os.environ, OMX_CONTRACT_PATH=others)
+        # and the domains it requires that the protocol owns too (host, hosting-verb: the words of both hosts, ruling R5),
+        # as installed: the protocol renders its header from them together
+        with open(domain) as f:
+            requires = json.load(f).get("info", {}).get("x-requires") or []
+        beside = []
+        for name in requires:
+            path = os.path.join(others, name, name + ".json")
+            if os.path.isfile(path):
+                with open(path) as f:
+                    if json.load(f).get("info", {}).get("x-owner") == PACKAGE:
+                        beside += ["--with-domain", os.path.join(others, name)]
         subprocess.run([os.environ.get("OMX_CONTRACT", "omx-contract"), "render", "--target", "c", "--package", PACKAGE,
-                        "--installed", "--out", os.path.join(tree, "include", "plugin-hostd")], env=env, check=True, stderr=subprocess.PIPE, text=True,
-                       stdout=subprocess.DEVNULL)
+                        "--installed", "--with-domain", os.path.dirname(domain)] + beside +
+                       ["--out", os.path.join(tree, "include", "plugin-hostd")],
+                       env=env, check=True, stderr=subprocess.PIPE, text=True, stdout=subprocess.DEVNULL)
     finally:
         shutil.rmtree(work, ignore_errors=True)

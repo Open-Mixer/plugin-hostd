@@ -269,6 +269,28 @@ int transforms_lookup_inverse(const transforms_data_t *d, const char *value, cha
     return TRANSFORMS_NONE;
 }
 
+/* unit-id and designation-meaning: a lookup whose pairs are the format owner's published mapping, which describe reads
+ * from the owner's domain and hands over as the row's data (docs/formats.md, Lookup values the owners publish) */
+int transforms_unit_id(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    return transforms_lookup(d, value, out, size);
+}
+
+int transforms_unit_id_inverse(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    return transforms_lookup_inverse(d, value, out, size);
+}
+
+int transforms_designation_meaning(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    return transforms_lookup(d, value, out, size);
+}
+
+int transforms_designation_meaning_inverse(const transforms_data_t *d, const char *value, char *out, size_t size)
+{
+    return transforms_lookup_inverse(d, value, out, size);
+}
+
 int transforms_lookup_check(const transforms_data_t *d)
 {
     size_t i, j;

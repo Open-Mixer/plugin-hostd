@@ -26,18 +26,18 @@ FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "
 # tests/timing_load_test.py (ruling 2026-11-11: a timing proof warns on a loaded node and fails on a quiet one)
 # The declared protocol is plugin-hostd-protocol's. An arm that breaks one of its headers (include/plugin-hostd/ and a
 # name of PROTOCOL_HEADERS below) breaks a copy of the installed headers in the arm's tree, which -Iinclude finds before
-# the installed ones (tests/declared.py, overlay); an arm that breaks protocol-data/verbs.json breaks a copy of the
-# installed verbs.json and renders it into that copy, as plugin-hostd-protocol renders it.
+# the installed ones (tests/declared.py, overlay); an arm that breaks the domain plugin-hostd-protocol (the words of the protocol) breaks a copy of the
+# installed document, protocol-data/contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json, and renders it into that copy, as plugin-hostd-protocol renders it.
 PROTOCOL_HEADERS = set(declared.headers())
-PROTOCOL_VERBS = "protocol-data/verbs.json"
+PROTOCOL_VERBS = "protocol-data/contract.d/plugin-hostd-protocol/plugin-hostd-protocol.json"
 
 
 def protocol_overlay(tree, path):
     """the copy of the declared protocol an arm on path breaks, made in tree; True when one was made"""
     if path == PROTOCOL_VERBS:
         declared.overlay(tree)
-        os.makedirs(os.path.join(tree, "protocol-data"), exist_ok=True)
-        shutil.copy(declared.verbs_json(), os.path.join(tree, PROTOCOL_VERBS))
+        os.makedirs(os.path.dirname(os.path.join(tree, PROTOCOL_VERBS)), exist_ok=True)
+        shutil.copy(declared.domain_json(), os.path.join(tree, PROTOCOL_VERBS))
         declared.render_overlay(tree, os.path.join(tree, PROTOCOL_VERBS))
         return True
     if path.startswith("include/plugin-hostd/") and os.path.basename(path) in PROTOCOL_HEADERS:
@@ -506,6 +506,13 @@ SABOTAGE = [
     ("track_info is not replayed", "src/supervisor.c",
      "if (i->track_info && format_at(i->fmt)->native_instance_verbs && replay_line(", "if (0 && replay_line(",
      "track_info_is_replayed_once_after_the_add_and_before_the_state"),
+    ("a property_set is not replayed", "src/supervisor.c",
+     "    for (m = 0; m < i->nprops; m++)\n        if (replay_line(", "    for (m = 0; m < 0; m++)\n        if (replay_line(",
+     "property_set_keeps_the_latest_of_each_symbol_and_replays_them_after_the_state"),
+    ("the ledger keeps every property_set, not the latest of each symbol", "src/supervisor.c",
+     "entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced)",
+     "entries_add(&i->props, &i->nprops, &i->capprops, line, NULL, KIND_HOST, &replaced)",
+     "property_set_keeps_the_latest_of_each_symbol_and_replays_them_after_the_state"),
     ("a whole worker line too long to relay is sent", "src/relay.c",
      "if (s->skip || (size_t)(nul - start) > LINE_LIMIT)", "if (s->skip)",
      "a_worker_line_too_long_to_relay_is_dropped_whole"),
@@ -545,7 +552,7 @@ SABOTAGE = [
      "contract", "contract"),
     ("the generator writes an empty list for an item the domain lacks", "tools/protocol-gen.c",
      '            return 1;\n        }\n        snprintf(tokens[i]', '        }\n        snprintf(tokens[i]', "contract", "contract"),
-    ("two errors share a code", "include/plugin-hostd/omx_clap_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
+    ("two errors share a code", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h", "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-517)",
      "#define OMX_REPLY_HOST_NOTE_QUEUE_FULL_RESP (-516)", "consumer", "consumer"),
     ("a gesture the relay has no memory to hold takes the table with it", "src/relay.c",
      "        if (held == NULL)\n            return;\n", "", "alloc_test", "alloc"),
@@ -582,33 +589,33 @@ SABOTAGE = [
      "Building from source:\n\n    make\n\nsee [BUILDING.md](BUILDING.md).", "README.md runs no build tool", "readme"),
     ("BUILDING.md lost its build command", "BUILDING.md", "    make [PROTOCOL_DIR=<plugin-hostd-protocol checkout>]\n", "",
      "README.md runs no build tool", "readme"),
-    ("the spec lost the floor of omx-clap-host-tests", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "", "no pin anywhere", "nopins"),
-    ("debian/control lost the floor of omx-clap-host-tests", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", "", "no pin anywhere", "nopins"),
+    ("the spec types a floor on omx-clap-host-tests again", "packaging/plugin-hostd.spec",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests >= 0.34.0\n", "no pin anywhere", "nopins"),
+    ("debian/control types a floor on omx-clap-host-tests again", "debian/control",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests (>= 0.34.0~) <!nocheck>,", "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a ceiling again", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: (omx-clap-host-tests >= @FLOOR with omx-clap-host-tests < 0.8)\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: (omx-clap-host-tests with omx-clap-host-tests < 0.8)\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a ceiling again", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<< 0.8~) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (<< 0.8~) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests <= 0.9\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests\nBuildRequires: omx-clap-host-tests <= 0.9\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with an exact '=' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests\nBuildRequires: omx-clap-host-tests = 0.9.0\n",
      "no pin anywhere", "nopins"),
     ("the spec caps omx-clap-host-tests with a '<' ceiling", "packaging/plugin-hostd.spec",
-     "BuildRequires: omx-clap-host-tests >= @FLOOR\n", "BuildRequires: omx-clap-host-tests >= @FLOOR\nBuildRequires: omx-clap-host-tests < 0.10\n",
+     "BuildRequires: omx-clap-host-tests\n", "BuildRequires: omx-clap-host-tests\nBuildRequires: omx-clap-host-tests < 0.10\n",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<=' ceiling", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (<= 0.9) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (<= 0.9) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with an exact '=' ceiling", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (= 0.9.0) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (= 0.9.0) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("debian/control caps omx-clap-host-tests with a '<' ceiling", "debian/control",
-     " omx-clap-host-tests (>= @FLOOR~) <!nocheck>,", " omx-clap-host-tests (>= @FLOOR~) <!nocheck>, omx-clap-host-tests (< 0.10) <!nocheck>,",
+     " omx-clap-host-tests <!nocheck>,", " omx-clap-host-tests <!nocheck>, omx-clap-host-tests (< 0.10) <!nocheck>,",
      "no pin anywhere", "nopins"),
     ("a workflow pins omx-clap-core by a ref variable again", ".github/workflows/ci.yml",
      "permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nenv:\n  OMX_CLAP_HOST_REF: v0.4.0\n",
@@ -757,8 +764,6 @@ SABOTAGE = [
      "a_latency_taken_from_a_note_says_so_and_whether_the_note_was_heard", "probe"),
     ("the probe writes a scheduling class it types itself", "src/probe.c", 'fifo ? g_qw.fifo : g_qw.none, fifo ? g_rt.priority : 0',
      'fifo ? "fifo" : "none", fifo ? g_rt.priority : 0', "run.realtime.class is the domain's word", "qualdomain"),
-    ("the probe asks the domain for no floor", "src/qualification_words.h", '#define QW_FLOOR "1.1.0"', '#define QW_FLOOR "0.0.0"',
-     "a domain below 1.1.0 is refused", "qualdomain"),
     ("the probe starts on a domain the loader refused", "src/probe.c", '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0)\n',
      '    if (qw_open(dirs, &domain, why, sizeof(why)) != 0 && 0)\n', "an absent domain ends the run", "qualdomain"),
     ("the probe ignores OMX_CONTRACT_PATH", "src/probe.c", 'qualification_words_load(getenv("OMX_CONTRACT_PATH"))', "qualification_words_load(NULL)",
@@ -780,7 +785,7 @@ SABOTAGE = [
      "success-msi validates", "probeschema"),
     ("the probe schema takes any outcome", "protocol/probe-output.schema.json", '"enum": ["probe.ok", "probe.crashed"',
      '"enum": ["probe.exploded", "probe.ok", "probe.crashed"', "success-msi validates", "probeschema"),
-    ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^1\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
+    ("the probe schema takes another major", "protocol/probe-output.schema.json", '"pattern": "^2\\\\.[0-9]+$"', '"pattern": "^[0-9]+\\\\.[0-9]+$"',
      "success-msi validates", "probeschema"),
     ("the probe schema takes a percentile of 50", "protocol/probe-output.schema.json", '\n                  "exclusiveMinimum": 50', '\n                  "exclusiveMinimum": 0',
      "success-msi validates", "probeschema"),
@@ -1033,18 +1038,21 @@ SABOTAGE = [
     ("the preset schema takes params+state with no state body", "protocol/preset.schema.json",
      '"then": {"required": ["params", "state"]}', '"then": {"required": ["params"]}',
      "params+state with the state body dropped is refused", "presetschema"),
-    # the declared verbs (data/verbs.json) against the daemon on its socket, and the sources against the declaration
+    # the declared verbs (the domain plugin-hostd-protocol) against the daemon on its socket, and the sources against the declaration
     ("a declared format is not the grammar the daemon answers", PROTOCOL_VERBS,
-     '"format": "chain_get %i",', '"format": "chain_get %i %i",', "verbs_declared", "verbs"),
+     '"x-format": "chain_get %i",', '"x-format": "chain_get %i %i",', "verbs_declared", "verbs"),
     ("a rendered code is not the one declared, so not the one the daemon answers", "include/plugin-hostd/plugin_hostd_protocol_vocabulary.h",
      "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-522)", "#define OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP (-101)",
      "verbs_declared", "verbs"),
-    ("a number omx-clap-core names is named again by plugin-hostd", PROTOCOL_VERBS,
-     '    "codes": {\n      "placementInvalid": {',
-     '    "codes": {\n      "invalidOperation": {\n        "code": "reply.plugin-hostd.invalid-operation",\n'
-     '        "resp": -902,\n        "doc": "a second name for -902"\n      },\n      "placementInvalid": {',
+    ("a number the domain host names is named again by the domain plugin-hostd-protocol", PROTOCOL_VERBS,
+     '\n        ]\n      },\n      "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": {',
+     ',\n          {\n            "const": "reply.plugin-hostd.invalid-operation",\n            "title": "invalidOperation",\n'
+     '            "description": "a second name for -902",\n            "x-code": 39,\n'
+     '            "x-text": "The operation is not valid here; choose another.",\n            "x-args": [],\n'
+     '            "x-name": "invalidOperation",\n            "x-resp": -902\n          }'
+     '\n        ]\n      },\n      "PLUGIN_HOSTD_PROTOCOL_DAEMON_VERBS": {',
      "verbs_declared", "verbs"),
-    ("the daemon reads another word than the one omx-clap-core declares for the worker's xruns", "include/plugin-hostd/protocol.h",
+    ("the daemon reads another word than the one the domain host declares for the worker's xruns", "include/plugin-hostd/protocol.h",
      '#define PHD_EVENT_XRUNS                   "xruns"', '#define PHD_EVENT_XRUNS                   "xrun"',
      "verbs_declared", "verbs"),
     ("the handler of a declared verb is deleted", "src/verbs.c",
@@ -1055,6 +1063,11 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n",
      '    if (!strcmp(verb, "verb_sabotage"))\n        return sup_resp(SUCCESS);\n'
      "    if (!strcmp(verb, OMX_VERB_WORKER_LIST))\n", "verbs_declared", "verbs"),
+    ("the daemon answers property_set with a code it does not declare", "src/verbs.c",
+     "    for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)\n",
+     "    if (!strcmp(verb, OMX_VERB_PROPERTY_SET))\n        return sup_resp(OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_CHAIN_RESP);\n"
+     "    for (size_t n = 0; n < sizeof(g_instance_info_verbs) / sizeof(g_instance_info_verbs[0]); n++)\n",
+     "verbs_declared", "verbs"),
     ("a declared verb is typed by hand in the daemon", "src/verbs.c",
      "if (!strcmp(verb, OMX_VERB_CHAIN_GET))", 'if (!strcmp(verb, "chain_get"))', "verbs_contract", "verbs"),
     ('the history file is left readable by others', 'src/fsutil.c',
@@ -1267,8 +1280,8 @@ SABOTAGE = [
      'if (proc_cpu_seconds(w->pid, &cpu) == 0)',
      'a_worker_that_dies_after_half_a_window_still_counts_it_and_before_half_does_not'),
     ('a death does not close the window it ended', 'src/supervisor.c',
-     '    hist_death(w, now);\n    if (grouped &&',
-     '    if (grouped &&',
+     '    hist_death(w, now);\n    wait_ms = w->pid > 0 && proc_leaving(w->pid) ? LEAVE_QUICK_MS : QUIET_EXIT_MS;',
+     '    wait_ms = w->pid > 0 && proc_leaving(w->pid) ? LEAVE_QUICK_MS : QUIET_EXIT_MS;',
      'a_worker_that_dies_after_half_a_window_still_counts_it_and_before_half_does_not'),
     ('a window in which the members changed is counted', 'src/supervisor.c',
      'if (w->hist_pid != w->pid || w->hist_ninst != w->ninst)',
@@ -1763,12 +1776,6 @@ SABOTAGE = [
      "    if (!strcmp(verb, OMX_VERB_PLAN))\n        return plan_words(tok, ntok);\n", "", "verbs_declared", "verbs"),
 ]
 
-# the omx-clap-host-tests pin cases name the floor the spec declares today, so raising the floor
-# never leaves them breaking a line that is no longer there
-_PIN = re.search(r"^BuildRequires: omx-clap-host-tests >= ([0-9.]+)$",
-                 open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read(), re.M) \
-    or sys.exit("sabotage.py: packaging/plugin-hostd.spec declares no omx-clap-host-tests floor")
-SABOTAGE = [tuple(x.replace("@FLOOR", _PIN.group(1)) if isinstance(x, str) else x for x in case) for case in SABOTAGE]
 
 
 def rebuild(tree, jack):
@@ -1915,7 +1922,7 @@ def run_verbs_test(tree, name):
         env = dict(os.environ, PLUGIN_HOSTD=os.path.join(tree, DAEMON_TEST), FAKE_HOST=FAKE,
                    PROBE=os.path.join(tree, "plugin-hostd-probe"))
         if os.path.exists(os.path.join(tree, PROTOCOL_VERBS)):
-            env["PLUGIN_HOSTD_VERBS"] = os.path.join(tree, PROTOCOL_VERBS)
+            env["PLUGIN_HOSTD_DOMAIN"] = os.path.join(tree, PROTOCOL_VERBS)
         p = subprocess.run([sys.executable, os.path.join(tree, "tests", "verbs_declared.py")], env=env, capture_output=True,
                            text=True, timeout=300)
     return p.returncode, p.stdout + p.stderr + ("ok   %s\n" % name if p.returncode == 0 else "")

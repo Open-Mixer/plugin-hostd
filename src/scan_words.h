@@ -35,8 +35,6 @@
 
 /** the domain the scopes are read from */
 #define SCAN_DOMAIN "scan"
-/** the lowest info.version of the scan domain this package reads */
-#define SCAN_FLOOR "1.0.0"
 
 /** the scopes the parser knows, by the title the domain gives their word */
 enum scan_scope
@@ -72,7 +70,7 @@ typedef struct
  * @param dirs NULL for the installed contract directory; else a ':' list, the first directory that holds the domain wins
  *             (a command-line tool's OMX_CONTRACT_PATH, or a test build's tree)
  * @param w    receives the words
- * @param why  receives the refusal, naming the domain, the loader's code and the floor or the item, when the open fails
+ * @param why  receives the refusal, naming the domain, the loader's code and the item, when the open fails
  * @param n    the size of why
  * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal; the caller ends its start-up with 78
  */

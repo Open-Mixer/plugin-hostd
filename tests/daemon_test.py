@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import harness
 import qual_fixture
 import scan_fixture
-from harness import Daemon, Fail, alive, check, check_timing, resp, run_tests, wait_for
+from harness import CEILING, Daemon, Fail, REPLY_TIMEOUT, alive, check, check_timing, resp, run_tests, wait_for
 from scan_fixture import CLAP_ID, FIELDS, LV2_COMPRESSOR, MANIFEST, PROBE, ROOT, descriptor_name, panel_name, sha, write
 
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", "./plugin-hostd"))
@@ -461,7 +461,7 @@ def the_preset_bundle_and_learn_verbs_are_relayed_and_the_workers_answer_comes_b
 
 @test
 def preset_show_of_an_instance_answers_one_line_of_json_the_daemon_passes_on_unchanged():
-    """plugin-hostd#151: the declared reply is `resp 0 <json>` (docs/presets.md, plugin-hostd-protocol's verbs.json), and the worker's line
+    """plugin-hostd#151: the declared reply is `resp 0 <json>` (docs/presets.md, the domain plugin-hostd-protocol), and the worker's line
     comes back to the controller as it was, not rewritten into `resp 0 <carries> <name>`"""
     d = daemon(env={"FAKE_PRESETS_LEARN": "answer"})
     try:
@@ -1018,6 +1018,9 @@ def quarantined_instance_is_placed_own_until_cleared():
         d.expect("add fake:m30 30 pool:p", "resp 30")
         wait_for(lambda: d.holder(30)[1]["place"].startswith("pool:p"), "instance 30 back in the pool")
         d.expect("quarantine_clear 999", "resp -3")
+        # the instance is a whole number, never what atoi makes of a word (plugin-hostd#146 1)
+        d.expect("quarantine_clear 30x", "resp -902")
+        d.expect("quarantine_clear abc", "resp -902")
         d.expect("quarantine_clear all", "resp 0")
     finally:
         d.close()
@@ -1253,6 +1256,8 @@ def policy_and_pool_config():
         d.expect("policy_set lv2 pool:!", resp("PLACEMENT_INVALID"))
         d.expect("policy_set midi own", "resp -902")
         d.expect("pool_config y 0", "resp -902")
+        d.expect("pool_config x 2x", "resp -902")
+        d.expect("pool_config x abc", "resp -902")
     finally:
         d.close()
 
@@ -1518,6 +1523,12 @@ def can_lower():
 def worker_env_reaches_new_and_running_workers():
     cpus = sorted(os.sched_getaffinity(0))
     own = os.getpriority(os.PRIO_PROCESS, 0)   # the daemon's nice is the test's
+    if own + 2 > 19:
+        # the running worker is raised 2 above the nice it has, at least the test's own: a run already at nice 18 or 19
+        # (a box under a suite lock) has no room for it; named, never a red that is the runner's and not the daemon's
+        print("skip worker_env_reaches_new_and_running_workers: the test runs at nice %d, which leaves no room above it "
+              "(19 the highest)" % own)
+        return
 
     def applied(nice, current=own):
         """a daemon that cannot lower a nice cannot give a worker one below the one the worker has: its own, for a new worker"""
@@ -1552,6 +1563,9 @@ def worker_env_reaches_new_and_running_workers():
         check(("keeps nice %d, the nice %d was not applied" % (have, have - 1) in d.log()) == (applied(have - 1, have) != have - 1),
               "a nice below the worker's is logged when it is not applied: %r" % d.log())
         d.expect("worker_env lv2 abc -", "resp -902")
+        # a nice is a whole number, never 0 for a word (plugin-hostd#146 2)
+        d.expect("worker_env lv2 - abc", "resp -902")
+        d.expect("worker_env lv2 - 5x", "resp -902")
         d.expect("worker_env lv2 - 99", "resp -902")
         d.expect("worker_env lv2 - - 50", "resp -902")   # no fifth word: a priority is not offered
         d.expect("worker_env midi - -", "resp -902")
@@ -1579,6 +1593,10 @@ def a_nice_the_daemon_cannot_apply_is_logged():
         print("skip a_nice_the_daemon_cannot_apply_is_logged: this identity has CAP_SYS_NICE, which RLIMIT_NICE does not bind")
         return
     own = os.getpriority(os.PRIO_PROCESS, 0)
+    if own + 3 > 19:
+        print("skip a_nice_the_daemon_cannot_apply_is_logged: the test runs at nice %d, which leaves no room for nice %d "
+              "(19 the highest)" % (own, own + 3))
+        return
     d = daemon(rlimits={resource.RLIMIT_NICE: (0, 0)})
     try:
         d.expect("worker_env lv2 - %d" % (own + 3), "resp 0")
@@ -1798,7 +1816,7 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         known = {"track_info", "remote_pages", "remote_page_get", "param_info", "note_input", "note_on", "note_off",
                  "all_notes_off", "preset_list", "preset_get", "show_external_ui", "hide_external_ui",
                  "node_label"}
-        check(known <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
+        check((known | set(PROPERTY_VERBS)) <= set(VERBS), "declared: %s; this test drives %s" % (sorted(VERBS), sorted(known - set(VERBS))))
         d.expect("add fake:a 0", "resp 0")
         d.expect(TRACK, "resp 0")
         d.expect('track_info 0 "" -', "resp 0")
@@ -1817,9 +1835,14 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
         d.expect("param_info 0 :bypass", "resp -103")
         d.expect("remote_pages 9", "resp -3")
         d.expect("param_info 9 gain", "resp -3")
+        # the property verbs are answered from the bundle, and a plugin no bundle holds has no property
+        d.expect("property_list 0", "resp 0")
+        d.expect("property_info 0 0", "resp -106")
+        d.expect("property_get 0 label", "resp -106")
+        d.expect('property_set 0 label "x"', "resp -106")
         # a verb the protocol declares past those: mod-host has no answer of its own, so the daemon refuses it for an
         # LV2 instance as an invalid operation, and the worker never hears it (checked with the rest below)
-        for verb in sorted(set(VERBS) - known):
+        for verb in sorted(set(VERBS) - known - set(PROPERTY_VERBS)):
             d.expect("%s 0" % verb, "resp -902")
         _, w = d.holder(0)
         mark = d.mark()
@@ -1837,6 +1860,111 @@ def an_lv2_instance_is_answered_by_the_daemon_and_its_worker_never_sees_the_verb
 
 PORTS_URI = "urn:openmixer:test:ports"
 PORTS_DIR = os.path.join(ROOT, "tests", "fixtures")
+PROPS_URI = "urn:openmixer:test:props"
+PROPERTY_VERBS = ("property_list", "property_info", "property_get", "property_set")
+
+
+@test
+def an_lv2_instance_on_mod_host_lists_its_properties_as_the_adapter_presents_them():
+    """the text properties of the bundle, as omx-clap-host's LV2 adapter presents them: patch:writable lv2:Parameters of
+    range atom:Path or atom:String, in the order of their URIs; the property's lv2:symbol, else the URI's tail with every
+    other character '_' and a leading digit prefixed '_'; its rdfs:label, else its URI; rw when also patch:readable, else
+    w. mod-host is never asked"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
+    try:
+        d.expect("add lv2:%s 0" % PROPS_URI, "resp 0")
+        d.expect("property_list 0", "resp 4")
+        d.expect("property_info 0 0", 'resp 0 _2nd string rw "Second"')
+        d.expect("property_info 0 1", 'resp 0 gain_file path rw "Gain file"')
+        d.expect("property_info 0 2", 'resp 0 note string w "%s#note"' % PROPS_URI)
+        d.expect("property_info 0 3", 'resp 0 title_text string rw "Title \\"T\\""')
+        d.expect("property_info 0 4", "resp -106")
+        d.expect("property_info 0 -1", "resp -902")
+        d.expect("property_info 0 x", "resp -902")
+        d.expect("property_list 9", "resp -3")
+        d.expect("property_info 9 0", "resp -3")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS or c.startswith("patch_")]
+        check(got == [], "mod-host is asked nothing: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_property_of_an_lv2_instance_on_mod_host_is_set_and_read_through_its_patch_verbs():
+    """property_set is mod-host's patch_set of the property's URI, the value one quoted word; a value mod-host's line cannot
+    carry (a quote or a backslash), a relative path, a symbol that is none, are refused and mod-host hears nothing.
+    property_get is mod-host's patch_get, its value the one the patch_set line on mod-host's feedback port carries,
+    quoted-escaped; one that is not readable is -107, and a plugin that does not answer is -902"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log}, conf={"lv2_path": PORTS_DIR})
+    gain, title = PROPS_URI + "#gainfile", PROPS_URI + "#title-text"
+    try:
+        d.expect("add lv2:%s 0" % PROPS_URI, "resp 0")
+        d.expect('property_set 0 gain_file "/var/lib/a b.wav"', "resp 0")
+        d.expect('property_set 0 title_text "Sala A"', "resp 0")
+        d.expect('property_set 0 note ""', "resp 0")
+        d.expect('property_set 0 title_text "Sala \\"A\\""', "resp -108")
+        d.expect('property_set 0 title_text "a \\\\ b"', "resp -108")
+        d.expect('property_set 0 gain_file "rel/a.wav"', "resp -108")
+        d.expect('property_set 0 nope "x"', "resp -106")
+        d.expect('property_set 0 gain_file', "resp -902")
+        d.expect('property_set 9 gain_file "/a"', "resp -3")
+        d.expect("property_get 0 gain_file", 'resp 0 "/var/lib/a b.wav"')
+        d.expect("property_get 0 title_text", 'resp 0 "Sala A"')
+        # what the plugin holds, whatever set it: mod-host's own patch_set, a quote in it as mod-host reads one, and a backslash
+        d.expect('patch_set 0 %s "Sala \\"B\\" \\ 2"' % title, "resp 0")
+        d.expect("property_get 0 title_text", 'resp 0 "Sala \\"B\\" \\\\ 2"')
+        d.expect("property_get 0 note", "resp -107")
+        d.expect("property_get 0 nope", "resp -106")
+        d.expect("property_get 9 note", "resp -3")
+        d.expect("property_get 0 _2nd", "resp -902")
+        got = [c for c in sent_to(log) if c.split(" ", 1)[0] in VERBS or c.startswith("patch_")]
+        check(got == ['patch_set 0 %s "/var/lib/a b.wav"' % gain, 'patch_set 0 %s "Sala A"' % title,
+                      'patch_set 0 %s#note ""' % PROPS_URI, "patch_get 0 %s" % gain, "patch_get 0 %s" % title,
+                      'patch_set 0 %s "Sala \\"B\\" \\ 2"' % title, "patch_get 0 %s" % title,
+                      "patch_get 0 %s#2nd" % PROPS_URI],
+              "mod-host gets the patch verbs, and no property verb, nor a line the daemon refused: %s" % got)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def a_property_set_on_mod_host_is_replayed_the_latest_per_property_after_the_state():
+    """the patch_set a property_set became is kept per property (replace-keyed): a respawned mod-host gets each property
+    once, its latest value, in the order first set, after the checkpoint's state_load, and the checkpoint drops none"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300, "lv2_path": PORTS_DIR}, env={"FAKE_LOG": log})
+    gain, title = PROPS_URI + "#gainfile", PROPS_URI + "#title-text"
+    try:
+        d.expect("add lv2:%s 0" % PROPS_URI, "resp 0")
+        d.expect('property_set 0 gain_file "/var/lib/a.wav"', "resp 0")
+        d.expect('property_set 0 title_text "Sala A"', "resp 0")
+        d.expect('property_set 0 gain_file "/var/lib/b.wav"', "resp 0")
+        d.expect('property_set 0 gain_file "c.wav"', "resp -108")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        patches = [c for c in sent if c.startswith("patch_set ")]
+        check(patches == ['patch_set 0 %s "/var/lib/b.wav"' % gain, 'patch_set 0 %s "Sala A"' % title],
+              "each property once, its latest value, in the order first set: %s" % patches)
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        check("state_load" in verbs and verbs.index("state_load") < sent.index(patches[0]),
+              "after the checkpoint's state_load: %s" % sent)
+        d.expect("property_get 0 gain_file", 'resp 0 "/var/lib/b.wav"')
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 
 @test
@@ -1859,14 +1987,17 @@ def an_lv2_instance_answers_remote_pages_from_the_groups_of_its_bundle_and_param
         d.expect("remote_page_get 0", "resp -902")
         d.expect("remote_pages 9", "resp -3")
         d.expect("remote_page_get 9 0", "resp -3")
-        # the unit and scale of a port, its range and default, its symbol
+        # the unit and scale of a port, its range and default, its symbol; the unit is the standard id, PARAM_UNITS' const
+        # (plugin-hostd#215 D1): `none` for a port that states none, `percent` for units:pc, `kHz` for units:khz
         d.expect("param_info 0 threshold", 'resp 0 "dB" linear -60 0 -18 0 threshold')
-        d.expect("param_info 0 ratio", 'resp 0 "" log 1 20 4 0 ratio')
+        d.expect("param_info 0 ratio", 'resp 0 "none" log 1 20 4 0 ratio')
         d.expect("param_info 0 attack", 'resp 0 "ms" linear 0.1 100 10 0 attack')
-        d.expect("param_info 0 knee_mode", 'resp 0 "" stepped 0 2 1 1 knee_mode')
-        d.expect("param_info 0 sidechain", 'resp 0 "" stepped 0 1 0 1 sidechain')
+        d.expect("param_info 0 knee_mode", 'resp 0 "none" stepped 0 2 1 1 knee_mode')
+        d.expect("param_info 0 sidechain", 'resp 0 "none" stepped 0 1 0 1 sidechain')
         d.expect("param_info 0 low", 'resp 0 "Hz" linear 20 400 80 0 low')
         d.expect("param_info 0 reduction", 'resp 0 "dB" linear 0 24 0 0 reduction')
+        d.expect("param_info 0 b1", 'resp 0 "percent" linear 0 1 0.5 0 b1')
+        d.expect("param_info 0 b2", 'resp 0 "kHz" linear 0 1 0.5 0 b2')
         # a unit the daemon has no word for and a port with no range are the worker's -511; what is no control port is -103
         d.expect("param_info 0 high", resp("NO_PARAM_CONTRACT"))
         d.expect("param_info 0 loose", resp("NO_PARAM_CONTRACT"))
@@ -1909,6 +2040,50 @@ def a_clap_instance_is_routed_to_its_worker_and_its_reply_passed_through():
 
 
 @test
+def every_property_set_is_replayed_the_latest_per_symbol_after_the_state():
+    """the ledger keeps property_set per instance and symbol (replace-keyed, omx-clap-core#15): a respawned worker gets
+    back every symbol it was given, each its latest value, in the order the symbols were first set, after the
+    checkpoint's state_load, and a checkpoint drops none of them; a refused set is not kept, a removed instance's are
+    gone"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
+    first_file, label, file = ('property_set 0 file "/var/lib/a.wav"', 'property_set 0 label "Sala \\"A\\" \\\\ 1"',
+                               'property_set 0 file "/var/lib/b.wav"')
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect(first_file, "resp 0")
+        d.expect(label, "resp 0")
+        d.expect(file, "resp 0")
+        d.expect('property_set 0 readonly "x"', "resp -107")
+        d.expect("property_list 0", "resp 1")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        props = [c for c in sent if c.startswith("property_")]
+        check(props == [file, label], "each symbol once, its latest value, in the order first set: %s" % props)
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        check("state_load" in verbs and props and verbs.index("state_load") < sent.index(props[0]),
+              "after the checkpoint's state_load: %s" % sent)
+        d.expect("remove 0", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("property_")], "a removed instance's properties are gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
 def track_info_is_replayed_once_after_the_add_and_before_the_state():
     log = harness.scratch_path("plugin-hostd-fake-log.")
     d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
@@ -1943,6 +2118,85 @@ def track_info_is_replayed_once_after_the_add_and_before_the_state():
         if os.path.exists(log):
             os.unlink(log)
 
+
+
+@test
+def a_preset_load_supersedes_the_properties_set_before_it_and_a_later_one_replays_after_it():
+    """R-111 with a preset: a preset load replaces the plugin's state, so the property_set lines before it are dropped
+    from the ledger, as the state verbs before it are; one set after it replays after it. Instance 0 checkpoints after
+    its preset load (the state holds what the preset left), instance 1 ("nostate") never writes state, so its preset
+    load stays in the verb tail: a respawned worker is given its preset load first, then the property set after it"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#nostate 1", "resp 1")
+        d.expect('property_set 0 sample "/a/before.wav"', "resp 0")
+        d.expect("preset_load 0 file:///presets/one.lv2", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "the checkpoint after instance 0's preset load")
+        d.expect('property_set 1 sample "/b/before.wav"', "resp 0")
+        d.expect("preset_load 1 file:///presets/two.lv2", "resp 0")
+        d.expect('property_set 1 sample "/b/after.wav"', "resp 0")
+        # each instance has a worker of its own: each is killed, and what its respawned worker is given is read
+        mark = d.mark()
+        for n in (0, 1):
+            os.kill(d.holder(n)[1]["pid"], signal.SIGKILL)
+        for n in (0, 1):
+            d.wait_event("instance_restored %d " % n, since=mark)
+        of = lambda n: [c for c in sent_to(log, d.holder(n)[1]["pid"]) if c.split(" ")[1:2] == [str(n)]]
+        check(not [c for c in of(0) if c.startswith("property_set ")],
+              "instance 0: the property set before its preset load is not replayed over the state: %s" % of(0))
+        one = [c for c in of(1) if c.startswith(("preset_load ", "property_set "))]
+        check(one == ["preset_load 1 file:///presets/two.lv2", 'property_set 1 sample "/b/after.wav"'],
+              "instance 1: its preset load, then only the property set after it: %s" % of(1))
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
+
+
+@test
+def property_set_keeps_the_latest_of_each_symbol_and_replays_them_after_the_state():
+    """R-111: the ledger keeps one property_set per instance and symbol, the latest; a checkpoint does not drop it, and a
+    respawned worker is given each after the state, in the order its symbol was first set; a set the worker refused is
+    not kept, and a removed instance's are gone"""
+    log = tempfile.mktemp(prefix="plugin-hostd-fake-log.")
+    d = daemon(conf={"checkpoint_ms": 300}, env={"FAKE_LOG": log})
+    try:
+        d.expect("add clap:fake#a 0", "resp 0")
+        d.expect("add clap:fake#b 1", "resp 1")
+        d.expect('property_set 0 sample "/a/one.wav"', "resp 0")
+        d.expect('property_set 0 title "first"', "resp 0")
+        d.expect('property_set 1 sample "/b/one.wav"', "resp 0")
+        d.expect('property_set 0 sample "/a/two.wav"', "resp 0")
+        d.expect('property_set 0 readonly_path "/a/x.wav"', "resp -107")
+        d.expect("param_set 0 gain 0.6000", "resp 0")
+        wait_for(lambda: os.path.exists(os.path.join(d.tmp, "plugin-hostd", str(d.proc.pid), "ckpt", "effect_0.fakestate")),
+                 "a checkpoint of instance 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        verbs = [c.split(" ", 1)[0] for c in sent]
+        props = [c for c in sent if c.startswith("property_set ")]
+        check(props == ['property_set 0 sample "/a/two.wav"', 'property_set 0 title "first"'],
+              "the latest of each symbol, once, in the order each was first set, and no other instance's: %s" % sent)
+        check("state_load" in verbs and "property_set" in verbs and verbs.index("state_load") < verbs.index("property_set"),
+              "the properties after the state: %s" % sent)
+        d.expect("remove 0", "resp 0")
+        d.expect("add clap:fake#a 0", "resp 0")
+        _, w = d.holder(0)
+        mark = d.mark()
+        os.kill(w["pid"], signal.SIGKILL)
+        d.wait_event("instance_restored 0 ", since=mark)
+        sent = sent_to(log, d.holder(0)[1]["pid"])
+        check(not [c for c in sent if c.startswith("property_set")], "a removed instance's properties are gone: %s" % sent)
+    finally:
+        d.close()
+        if os.path.exists(log):
+            os.unlink(log)
 
 # a display session the daemon's workers would put a window on; the fake shows nothing, it only answers
 DISPLAY_ENV = {"WAYLAND_DISPLAY": "wayland-plugin-hostd-test", "DISPLAY": None}
@@ -2114,6 +2368,7 @@ def a_clap_worker_is_started_with_clap_path_so_browsing_a_plugin_outside_the_def
         d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_PRESET_NEEDS_CLAP_PATH": p.dir})
         try:
             d.expect("add %s 0" % p.clap_uri, "resp 0")
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
             d.expect("preset_list 0", "resp 2")
         finally:
             d.close()
@@ -3430,8 +3685,9 @@ def own_worker_of(d, inst):
 
 def writes_landed(d):
     """descriptor_get answers only once no write of the daemon waits (docs/durable-writes.md): after it, the daemon's
-    files hold what was handed over before it. An add's learned pin is written after its reply"""
-    d.send("descriptor_get clap:/nonexistent.clap#writes.landed")
+    files hold what was handed over before it. An add's learned pin is written after its reply. The answer waits on the
+    daemon's own writes landing, bounded by the daemon: a hang bound, not the prompt reply timeout"""
+    d.send("descriptor_get clap:/nonexistent.clap#writes.landed", timeout=CEILING)
 
 
 def store_lines(p):
@@ -3439,6 +3695,116 @@ def store_lines(p):
         return []
     with open(p.store) as f:
         return [l.split() for l in f if l.strip()]
+
+
+def spool_requests(p):
+    """the qualify spool beside the store: the request files, by name, each as its lines"""
+    spool = os.path.join(os.path.dirname(p.store), "qualify")
+    if not os.path.isdir(spool):
+        return {}
+    out = {}
+    for name in sorted(os.listdir(spool)):
+        with open(os.path.join(spool, name)) as f:
+            out[name] = [l.rstrip("\n") for l in f if l.strip()]
+    return out
+
+
+@test
+def a_first_add_with_no_verdict_is_bypassed_and_asks_for_one_check_R_112():
+    """R-112: under first-use a plugin with no verdict is not instantiated in any worker: the add answers, the instance
+    exists, no worker holds it and none ever saw it, one request for its quick check is in the spool beside the store
+    with the files the daemon hashed, and qualify_requested says so once however often it is added again"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(d.workers() == {}, "no worker holds the bypassed insert: %s" % d.workers())
+        check(p.received() == [], "no worker was asked anything, its code is loaded by none: %s" % p.received())
+        d.wait_event("qualify_requested %s" % p.clap_uri)
+        req = spool_requests(p)
+        check(len(req) == 1, "exactly one request is in the spool: %s" % req)
+        lines = list(req.values())[0]
+        check(lines == ["uri %s" % p.clap_uri, "file omx-fault.clap %s" % sha(p.clap)],
+              "the request names the uri and the file it hashed: %s" % lines)
+        check(not [n for n in os.listdir(os.path.join(os.path.dirname(p.store), "qualify")) if not n.endswith(".request")],
+              "no temporary file is left in the spool")
+        d.expect("instance_info 0", resp("WORKER_SPAWN"))
+        d.expect("remove 0", "resp 0")
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        check(len(spool_requests(p)) == 1, "at most one request per plugin until a verdict lands: %s" % spool_requests(p))
+        check(len([e for e in d.events if e.startswith("qualify_requested")]) == 1,
+              "qualify_requested is said once: %s" % d.events)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_verdict_that_passes_makes_the_bypassed_insert_live_by_itself_R_112():
+    """the service writes a pin with verdict=isolated; the daemon reloads it, the request is answered, and the insert is
+    in a worker of its own with no restart and no verb about the instance"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        check(d.workers() == {}, "bypassed first")
+        d.wait_event("qualify_requested %s" % p.clap_uri)
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "isolated")]})
+        wait_for(lambda: d.send("worker_list") != "resp 0" and d.workers() != {}, "the worker of the passed insert")
+        w = d.holder(0)[1]
+        check(w["place"] == "own" and w["state"] == "up", "it is live in a worker of its own: %s" % w)
+        check(spool_requests(p) == {}, "its request is answered: %s" % spool_requests(p))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_refused_verdict_keeps_the_insert_bypassed_until_pin_accept_R_112():
+    """a refusal is recorded and the plugin stays bypassed and listed: an add of it answers -516, no worker saw it;
+    pin_accept makes the bypassed instance live alone in a worker of its own"""
+    p = Plugins()
+    refused = resp("PIN_REFUSED")
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.wait_event("qualify_requested %s" % p.clap_uri)
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "refused")]})
+        d.expect("pin_reload", "resp 0")
+        d.expect("add %s 1" % p.clap_uri, refused)
+        check(d.workers() == {} and p.received() == [], "still no worker: %s %s" % (d.workers(), p.received()))
+        check(spool_requests(p) == {}, "a verdict, a refusal too, answers the request: %s" % spool_requests(p))
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        w = d.holder(0)[1]
+        check(w["place"] == "own" and w["inst"] == [0], "after pin_accept it is live, alone: %s" % w)
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+        d.expect("add %s 2" % p.clap_uri, refused)
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_live_insert_whose_verdict_turns_refused_keeps_playing_R_112():
+    """the verdict of a live instance that a later check refuses does not cut it; nor does one landing after the
+    operator accepted override the choice"""
+    p = Plugins()
+    d = p.daemon(conf={"pin_mode": "first-use"})
+    try:
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "isolated")]})
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        pins_d(p, {"90-qualify.pins": [pin_line(p, "refused")]})
+        d.expect("pin_reload", "resp 0")
+        w = d.holder(0)[1]
+        check(w["state"] == "up" and w["inst"] == [0], "the live insert keeps playing: %s" % w)
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+        check(d.holder(1)[1]["place"] == "own", "an accepted plugin's refusal stays advice: %s" % d.workers())
+    finally:
+        d.close()
+        p.close()
 
 
 @test
@@ -3449,6 +3815,9 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
         d.expect("policy_set * pool:shared", "resp 0")
         d.expect("add %s 0" % p.clap_uri, "resp 0")
         d.expect("add %s 1" % LV2_URI, "resp 1")
+        check(d.workers() == {}, "R-112: with no verdict neither is in a worker: %s" % d.workers())
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        d.expect("pin_accept %s" % LV2_URI, "resp 0")
         check(own_worker_of(d, 0) and own_worker_of(d, 1), "unpinned plugins run isolated, not in the policy's pool: %s"
               % d.workers())
         got = [c.split()[0] for _, c in p.received()]
@@ -3557,6 +3926,7 @@ def a_plugin_changed_after_first_use_is_refused_with_an_event_until_accepted():
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
         d.expect("remove 0", "resp 0")
         good = open(p.clap, "rb").read()
         write(p.clap, good[:-1] + b"X")
@@ -3583,6 +3953,8 @@ def a_layout_that_changed_after_first_use_is_refused_with_an_event():
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+        writes_landed(d)
     finally:
         d.close()
     d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_LAYOUT_DEFAULT": "0.25"})
@@ -3673,8 +4045,36 @@ def a_missing_store_is_a_first_run_and_says_nothing():
     check(not os.path.exists(p.store), "no store yet")
     d = p.daemon(conf={"pin_mode": "first-use"})
     try:
-        d.expect("add %s 0" % p.clap_uri, "resp 0")
+        # the condition is the daemon's first-run answer: it waits for the worker to come up (ready_timeout_ms) and
+        # learns the pin, so its bound is for a hang, not the prompt reply timeout (plugin-hostd#108)
+        d.expect("add %s 0" % p.clap_uri, "resp 0", timeout=CEILING)
         check("not a pin" not in d.log() and "can't" not in d.log() and "NOT" not in d.log(), "a first run is quiet: %s" % d.log())
+        writes_landed(d)
+        check([l[1] for l in store_lines(p)] == [p.clap_uri], "the pin is saved: %s" % store_lines(p))
+    finally:
+        d.close()
+        p.close()
+
+
+@test
+def a_first_run_whose_worker_is_slow_to_come_up_is_answered_not_timed_out():
+    """plugin-hostd#108: in an RPM build's %check on a host at load 40-53 the first-run add's answer came after the
+    controller's reply timeout, and the test failed on a TimeoutError, not on a fault. The condition the test waits on is
+    the daemon's first-run answer; its bound is for a hang (CEILING), not a fixed short reply timeout. Here the worker
+    holds its ready line past that short timeout, so the answer that starts it comes late and still within the hang
+    bound. With no verdict the add itself is bypassed and starts no worker (R-112): the operator's pin_accept is the
+    first-run answer that waits for the worker."""
+    p = Plugins()
+    check(not os.path.exists(p.store), "no store yet")
+    late_ms = int(REPLY_TIMEOUT * 1000) + 2000   # past the controller's reply timeout, well within the hang bound
+    d = p.daemon(conf={"pin_mode": "first-use"}, env={"FAKE_READY_AFTER_MS": str(late_ms)})
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0", timeout=CEILING)
+        check(d.workers() == {}, "R-112: with no verdict the add starts no worker: %s" % d.workers())
+        t0 = time.monotonic()
+        d.expect("pin_accept %s" % p.clap_uri, "resp 0", timeout=CEILING)
+        took = time.monotonic() - t0
+        check(took >= late_ms / 1000.0, "the answer waited for the worker's ready line (%.1f s, held %d ms): the delay landed" % (took, late_ms))
         writes_landed(d)
         check([l[1] for l in store_lines(p)] == [p.clap_uri], "the pin is saved: %s" % store_lines(p))
     finally:
@@ -5851,6 +6251,7 @@ def a_clap_file_whose_name_holds_a_space_is_added_bare_quoted_or_encoded_and_pin
     try:
         d.expect("add %s 0" % raw, "resp 0")
         d.expect("add %s 1 own spaced" % raw, "resp 1")
+        d.expect('pin_accept "%s"' % raw, "resp 0")
         adds = [c for c in sent_to(env["FAKE_LOG"]) if c.startswith("add ")]
         check(adds[:1] == ['add "%s" 0' % raw], "the worker is given the whole path, one quoted word: %s" % adds)
         check(len(adds) == 2 and adds[1].startswith('add "%s" 1' % raw) and adds[1].endswith("spaced"),
@@ -5927,6 +6328,7 @@ def a_worker_with_no_display_gives_qt_the_offscreen_platform_and_keeps_the_users
             d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
             try:
                 d.expect("add %s %d" % (p.clap_uri, n), "resp %d" % n)
+                d.expect("pin_accept %s" % p.clap_uri, "resp 0")
                 envs = worker_environ(d)
                 check(envs and all(e.get(b"QT_QPA_PLATFORM") == want for e in envs),
                       "%s: the worker's QT_QPA_PLATFORM is %s, wanted %s" % (env, [e.get(b"QT_QPA_PLATFORM") for e in envs], want))
@@ -6035,7 +6437,8 @@ def the_scan_files_the_panel_under_the_descriptors_name_and_panel_get_answers_fr
         d.expect("add lv2:%s 1" % LV2_COMPRESSOR, "resp 1")
         wait_for(lambda: panel_answered(d, "lv2:" + LV2_COMPRESSOR, panel_name(s.lv2_name())), "the LV2 panel")
         check(json.load(open(panel_name(s.lv2_name()))) == {"plugin": {"format": "lv2", "id": LV2_COMPRESSOR},
-                                                            "panel": None}, "an LV2 plugin's panel is null")
+                                                            "panel": None, "meters": []},
+              "an LV2 plugin's panel is null, its meters none")
         d.expect("panel_get", "resp -902")
         d.expect("panel_get clap:fake#x", resp("DESCRIPTOR_ABSENT"))
         # a descriptor in place with no panel (filed before the panel stage was): absent until an add scans the panel
@@ -6055,6 +6458,39 @@ def the_scan_files_the_panel_under_the_descriptors_name_and_panel_get_answers_fr
         check(answered(d, s.clap_uri, other), "the descriptor stands")
         check("the scan wrote no panel" in d.log(), "stderr says so: %s" % d.log()[-400:])
         check(os.listdir(os.path.join(s.dir, "other", "panels")) == [], "no file is left behind")
+    finally:
+        d.close()
+        s.close()
+
+
+@test
+def the_panel_file_resolves_the_meters_its_displays_index():
+    # the reply's own consistency: every meter id a display of the panel names (its meterIds) is the id of one row of
+    # the file's meters, each a row of the descriptor's meters[] shape for the scan's meter of that id, and no row no
+    # display names
+    s = Scan()
+    d = s.daemon()
+    try:
+        d.expect("add %s 0" % s.clap_uri, "resp 0")
+        name = s.clap_name()
+        wait_for(lambda: panel_answered(d, s.clap_uri, panel_name(name)), "panel_get answers %s" % panel_name(name))
+        doc = json.load(open(panel_name(name)))
+        named = [i for disp in doc["panel"]["displays"] for i in disp.get("meterIds", []) if i is not None]
+        check(named, "the fixture's panel indexes meters: %s" % doc["panel"]["displays"])
+        check(isinstance(doc.get("meters"), list), "the panel file carries meters: its keys are %s" % sorted(doc))
+        carried = {m["id"]: m for m in doc["meters"]}
+        check(len(carried) == len(doc["meters"]), "one row per meter id: %s" % doc["meters"])
+        missing = sorted(set(named) - set(carried))
+        check(not missing, "a display names meter ids %s the panel file does not carry (it carries %s)"
+              % (missing, sorted(carried)))
+        check(set(carried) == set(named), "the file carries the meters its displays index and no other: %s, named %s"
+              % (sorted(carried), named))
+        scan = json.load(open(os.path.join(FIELDS, "clap-panel-scan.json")))
+        rows = {m["id"]: m for m in scan["files"][0]["plugins"][0]["meters"]}
+        check(all(list(carried[i]) == ["id", "symbol", "kind", "channels", "unit", "min", "max", "scale"]
+                  and carried[i]["symbol"] == rows[i]["name"] and carried[i]["kind"] == rows[i]["kind"]
+                  and carried[i]["channels"] == rows[i]["channels"] for i in carried),
+              "each row is the descriptor's meters[] row of the scan's meter of that id: %s" % doc["meters"])
     finally:
         d.close()
         s.close()
@@ -6789,7 +7225,9 @@ def a_reload_after_a_learned_pin_reads_the_store_that_holds_it():
     d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
-        check(in_flight(mark), "positive control: the store's write is in flight when the reload comes")
+        # the add no longer starts a worker (R-112), so it returns before the writer's thread has begun the fsync: the
+        # control waits for it to begin, which it does as the 2 s fsync the reload must outwait
+        wait_for(lambda: in_flight(mark), "positive control: the store's write is in flight when the reload comes")
         d.expect("pin_reload", "resp 0")
         # the next learned pin's write holds what the reload left in memory
         d.expect("add %s 1" % other_uri, "resp 1")

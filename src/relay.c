@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <plugin-hostd/protocol.h>
@@ -66,6 +67,14 @@ typedef struct SOURCE_T {
 } source_t;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+/* the one line relay_watch waits for: the first a worker's feedback socket gives that starts with the prefix */
+static struct {
+    int fd;
+    char *prefix;
+    char *line;
+} g_watch = { -1, NULL, NULL };
+static pthread_cond_t g_watch_seen;
+static pthread_once_t g_watch_once = PTHREAD_ONCE_INIT;
 static pthread_t g_thread;
 static int g_thread_up;
 static volatile int g_stop;
@@ -83,11 +92,33 @@ void relay_set_prefix(size_t (*prefix)(char *buf, size_t size))
     g_prefix = prefix;
 }
 
-/* one NUL-terminated line to the controller, whole or not at all; g_lock is held. Under the session's seq every line
- * is numbered, also one that could not be sent: the gap is how the controller knows */
-static void send_line(const char *line, size_t len)
+/* `len` bytes to the controller, all of them; 0 once they are sent, -1 when the controller is gone: its feedback port is
+ * closed, and nothing more goes to it until the next one opens its own */
+static int send_all(const char *bytes, size_t len)
 {
     size_t sent = 0;
+
+    while (sent < len)
+    {
+        ssize_t n = send(g_client, bytes + sent, len - sent, MSG_NOSIGNAL);
+
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n <= 0)
+        {
+            g_client_broken = 1;
+            return -1;
+        }
+        sent += n;
+    }
+    return 0;
+}
+
+/* one NUL-terminated line to the controller, whole or not at all, given in two parts (the second may be empty) so a line
+ * the relay puts together is still one line; g_lock is held. Under the session's seq every line is numbered once, also
+ * one that could not be sent: the gap is how the controller knows */
+static void send_parts(const char *first, size_t first_len, const char *second, size_t second_len)
+{
     char head[32];
     size_t head_len = 0;
 
@@ -95,34 +126,13 @@ static void send_line(const char *line, size_t len)
         head_len = g_prefix(head, sizeof(head));
     if (g_client < 0 || g_client_broken)
         return;
-    while (sent < head_len)
-    {
-        ssize_t n = send(g_client, head + sent, head_len - sent, MSG_NOSIGNAL);
+    if (send_all(head, head_len) == 0 && send_all(first, first_len) == 0)
+        send_all(second, second_len);
+}
 
-        if (n < 0 && errno == EINTR)
-            continue;
-        if (n <= 0)
-        {
-            g_client_broken = 1;
-            return;
-        }
-        sent += n;
-    }
-    sent = 0;
-    while (sent < len)
-    {
-        ssize_t n = send(g_client, line + sent, len - sent, MSG_NOSIGNAL);
-
-        if (n < 0 && errno == EINTR)
-            continue;
-        if (n <= 0)
-        {
-            /* the controller closed its feedback port: nothing more goes to it until the next one opens its own */
-            g_client_broken = 1;
-            return;
-        }
-        sent += n;
-    }
+static void send_line(const char *line, size_t len)
+{
+    send_parts(line, len, NULL, 0);
 }
 
 /* a param_gesture line the worker wrote: a begin is held until its end; any other line is none of this */
@@ -240,12 +250,21 @@ static void moved_seen(source_t *s, const char *line)
     s->moved[s->nmoved++] = (int)id;
 }
 
-/* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length; g_lock is
- * held, so nothing is written between the two parts */
+/* a line the watch waits for is kept; g_lock is held */
+static void watch_seen(source_t *s, const char *line)
+{
+    if (g_watch.fd != s->fd || !g_watch.prefix || g_watch.line || strncmp(line, g_watch.prefix, strlen(g_watch.prefix)))
+        return;
+    g_watch.line = strdup(line);
+    if (g_watch.line)
+        pthread_cond_broadcast(&g_watch_seen);
+}
+
+/* the end of a held gesture, its line up to the last word and the word end, as one line of whatever length and one
+ * sequence number; g_lock is held, so nothing is written between the two parts */
 static void gesture_end(const char *held)
 {
-    send_line(held, strlen(held));
-    send_line(" " PHD_GESTURE_END, sizeof(" " PHD_GESTURE_END));
+    send_parts(held, strlen(held), " " PHD_GESTURE_END, sizeof(" " PHD_GESTURE_END));
 }
 
 /* a worker that is gone ends every gesture it held, so no control stays held at the controller; g_lock is held */
@@ -333,6 +352,7 @@ static void drain(source_t *s)
                 xruns_seen(s, start);
                 abi_seen(s, start);
                 moved_seen(s, start);
+                watch_seen(s, start);
             }
             start = nul + 1;
         }
@@ -620,6 +640,64 @@ int relay_param_moves(int fd, int *ids, int max)
         }
     pthread_mutex_unlock(&g_lock);
     return n;
+}
+
+static void watch_init(void)
+{
+    pthread_condattr_t attr;
+
+    pthread_condattr_init(&attr);
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    pthread_cond_init(&g_watch_seen, &attr);
+    pthread_condattr_destroy(&attr);
+}
+
+int relay_watch(int fd, const char *prefix)
+{
+    char *copy = strdup(prefix);
+
+    pthread_once(&g_watch_once, watch_init);
+    if (!copy)
+        return -1;
+    pthread_mutex_lock(&g_lock);
+    free(g_watch.prefix);
+    free(g_watch.line);
+    g_watch.fd = fd;
+    g_watch.prefix = copy;
+    g_watch.line = NULL;
+    pthread_mutex_unlock(&g_lock);
+    return 0;
+}
+
+char *relay_watched(int ms)
+{
+    struct timespec until;
+    char *line;
+    int i;
+
+    pthread_once(&g_watch_once, watch_init);
+    clock_gettime(CLOCK_MONOTONIC, &until);
+    until.tv_sec += ms / 1000;
+    until.tv_nsec += (long)(ms % 1000) * 1000000L;
+    if (until.tv_nsec >= 1000000000L)
+    {
+        until.tv_sec++;
+        until.tv_nsec -= 1000000000L;
+    }
+    pthread_mutex_lock(&g_lock);
+    for (i = 0; ms > 0 && !g_watch.line && i < g_nsrc; i++)
+        if (g_src[i].fd == g_watch.fd && !g_src[i].eof)
+            drain(&g_src[i]);
+    while (ms > 0 && g_watch.prefix && !g_watch.line)
+        if (pthread_cond_timedwait(&g_watch_seen, &g_lock, &until) == ETIMEDOUT)
+            break;
+    line = g_watch.line;
+    free(g_watch.prefix);
+    g_watch.fd = -1;
+    g_watch.prefix = NULL;
+    g_watch.line = NULL;
+    pthread_mutex_unlock(&g_lock);
+    return line;
 }
 
 void relay_instance_gone(int id)

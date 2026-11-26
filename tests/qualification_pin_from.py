@@ -7,16 +7,19 @@
 a. every word of the item carries an `x-from` of one entry: the `$ref` of the domain pin's PIN_VERDICTS and the word's
    `title` as `x-term`, and its `const` is the word the domain pin gives that key (golden: in-process, isolated, refused);
 b. omx-contract validate of this document beside the domain pin accepts it (the real reader of an `x-from`);
-c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, no domain pin at all, and the package
-   plugin-hostd-protocol below 0.8.0 (the floor of the document's info.x-requires) are refused by validate, by name.
+c. sabotage, in scratch directories: the domain pin without a word of PIN_VERDICTS, no domain pin at all, and an
+   info.x-requires that no longer names pin are refused by validate, by name.
 
-The document declares `info.x-requires`: {"pin": ">= 1.0.0", "plugin-hostd-protocol": ">= 0.8.0"}: the domain its x-from
-names (the read refuses an x-from into a domain x-requires does not declare) and the package that ships it
-(plugin-hostd-protocol-contract 0.8.0). The scratch directories hold that package as the floor needs it: one table and its manifest at the version under test.
+The document declares `info.x-requires`, a sorted array of names with no version (the devel wave of 2026-11-24): the domains
+its x-from names (the read refuses an x-from into a domain x-requires does not declare) and the package plugin-hostd-protocol
+that ships the domain pin. The scratch directories hold that package: one table and its manifest.
 
 Environment: PIN_DOMAIN_DIR (a contract directory holding pin/pin.json: protocol's contract.d, or the installed contract
 directory, the default), OMX_CONTRACT (the command). Exit 0 all green, 1 a FAIL line."""
 import hashlib, json, os, shlex, shutil, subprocess, sys, tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract_format
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OMX = shlex.split(os.environ.get("OMX_CONTRACT", "omx-contract"))
@@ -41,17 +44,16 @@ def pin_dir():
 
 
 def stub(d, package, version, item):
-    """a package that holds one small table and its manifest, at the version under test: the floor is all the document asks
+    """a package that holds one small table and its manifest, at a version: a name is all the document asks
     of it (a manifest names at least one file), and the table is formatted as the installer writes it"""
-    dst = os.path.join(d, "3", package)
+    dst = os.path.join(d, package)
     os.makedirs(dst)
-    doc = {"$schema": "https://openmixer.org/schema/omx-contract/v3/omx-contract.schema.json",
-           "requires": {"omx-contract-schema": ">= 3.3.0"},
+    doc = {"$schema": contract_format.schema_url(),
            item: {"kind": "words", "since": version, "doc": "The word of a stand-in table.",
                   "words": {"stub": {"word": "stub", "doc": "A stand-in."}}}}
     body = (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode()
     open(os.path.join(dst, "stub.json"), "wb").write(body)
-    json.dump({"package": package, "version": version, "schemaMajor": 3, "tree": "data",
+    json.dump({"package": package, "version": version, "x-omx-contract": contract_format.fmt(), "tree": "data",
                "files": {"stub.json": hashlib.sha256(body).hexdigest()}}, open(os.path.join(dst, "MANIFEST.json"), "w"), indent=2)
 
 
@@ -66,6 +68,25 @@ def without(tmp, installed, hidden):
     return view
 
 
+def copy_package(installed, d, package):
+    """Stage the installed package <package> (<contractdir>/<package>/: its MANIFEST.json, and the domain of its name,
+    which shares the directory) into d, with the domains its manifest lists: an owner whose contract is only domains
+    (plugin-db#84) names them under "domains", and its manifest without them is refused."""
+    src = os.path.join(installed, package)
+    if not os.path.isdir(src):
+        return
+    if not os.path.exists(os.path.join(d, package)):
+        shutil.copytree(src, os.path.join(d, package))
+    manifest = os.path.join(src, "MANIFEST.json")
+    if not os.path.isfile(manifest):  # a directory that holds a domain alone
+        return
+    with open(manifest, encoding="utf-8") as f:
+        domains = json.load(f).get("domains", [])
+    for domain in domains:
+        if os.path.isdir(os.path.join(installed, domain)) and not os.path.exists(os.path.join(d, domain)):
+            shutil.copytree(os.path.join(installed, domain), os.path.join(d, domain))
+
+
 def stage(tmp, name, qualification, pin, protocol="0.8.0"):
     """a scratch contract directory: this document (a dict, or the text as it is), the domain pin when given, and the package
     plugin-hostd-protocol at the version under test; returns (directory, installed contract directory)"""
@@ -77,17 +98,15 @@ def stage(tmp, name, qualification, pin, protocol="0.8.0"):
         os.makedirs(os.path.join(d, "pin"))
         with open(os.path.join(d, "pin", "pin.json"), "w") as f:
             f.write(pin if isinstance(pin, str) else json.dumps(pin, indent=2))
-    # the packages the floors name, at the versions under test (plugin-hostd-protocol's is the one the arms move), and the
+    # the package x-requires names (plugin-hostd-protocol), and the
     # term domains the latency and voice words name (plugin-db's lv2, omx-clap's clap), copied from the installed directory
     installed = subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True, text=True).stdout.strip()
-    stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_FLOOR_STUB")
+    stub(d, "plugin-hostd-protocol", protocol, "PLUGIN_HOSTD_PROTOCOL_STUB")
     for package in ("plugin-db", "omx-clap"):  # the term domains' owners, as installed
-        src = os.path.join(installed, "3", package)
-        if os.path.isdir(src):
-            shutil.copytree(src, os.path.join(d, "3", package))
-    for domain in ("lv2", "clap"):
+        copy_package(installed, d, package)
+    for domain in ("lv2", "clap"):  # already staged when its owner's manifest lists it
         src = os.path.join(installed, domain)
-        if os.path.isdir(src):
+        if os.path.isdir(src) and not os.path.exists(os.path.join(d, domain)):
             shutil.copytree(src, os.path.join(d, domain))
     return d, installed
 
@@ -161,12 +180,15 @@ def main():
         check(rc == 0, "(d) fmt --check accepts the document as it is: %s" % out[-160:])
         rc, out = fmt_check(tmp, "fmt-misformatted", json.dumps(json.loads(text), indent=4), open(pin_path).read())
         check(rc != 0, "(d) fmt --check refuses the document in another formatting: %s" % out[-120:])
-        rc, out = validate(tmp, "old-protocol", qual, pin, protocol="0.7.0")
-        check(rc != 0 and "0.8.0" in out, "(c) plugin-hostd-protocol 0.7.0 is below the document's floor: %s" % out[-160:])
-    check(qual["info"].get("x-requires") == {"clap": ">= 2.18.0", "lv2": ">= 1.0.0", "omx-clap": ">= 0.34.0", "pin": ">= 1.0.0",
-                                              "plugin-db": ">= 0.5.0", "plugin-hostd-protocol": ">= 0.8.0"},
-          "(a) info.x-requires names the domain pin at 1.0.0 and plugin-hostd-protocol at 0.8.0, and the term domains lv2 (plugin-db 0.5.0) and clap (omx-clap 0.34.0)")
+        undeclared = json.loads(json.dumps(qual))
+        undeclared["info"]["x-requires"] = [n for n in undeclared["info"]["x-requires"] if n != "pin"]
+        rc, out = validate(tmp, "undeclared-pin", undeclared, pin)
+        check(rc != 0 and "contract.ref.undeclared" in out and "info.x-requires does not declare" in out,
+              "(c) an info.x-requires without pin, the domain the x-from names, is refused by contract.ref.undeclared: %s" % out[-160:])
+    check(qual["info"].get("x-requires") == ["clap", "lv2", "omx-clap", "pin", "plugin-db", "plugin-hostd-protocol"],
+          "(a) info.x-requires lists, sorted and with no version, the domain pin and plugin-hostd-protocol, and the term domains lv2 (plugin-db) and clap (omx-clap)")
     return 1 if failed else 0
 
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

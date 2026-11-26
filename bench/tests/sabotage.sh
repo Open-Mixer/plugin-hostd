@@ -9,8 +9,10 @@ set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
-# the copies of bench/ below sit outside the checkout: the one list of search folders is still the checkout's
+# the copies of bench/ below sit outside the checkout: the one list of search folders is still the checkout's, and so
+# is the directory a jalv stands in
 export SEARCH_PATHS_TOOL="$here/../tools/search-paths.py"
+export JALV_SCRATCH_TOOL="$here/../tools/zynthian/jalv_scratch.py"
 trap 'rm -rf "$work"' EXIT
 fail=0
 

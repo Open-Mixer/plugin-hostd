@@ -29,14 +29,16 @@
 #ifndef PLUGIN_HOSTD_PROBE_LOCK_H
 #define PLUGIN_HOSTD_PROBE_LOCK_H
 
+/** @brief the environment variable that names the pipe the preload writes its report on */
 #define PROBE_LOCK_FD_ENV "PLUGIN_HOSTD_PROBE_LOCK_FD"
-/* the descriptor the runner gives the child for it, beside the step records on 3 */
+/** @brief the descriptor the runner gives the child for the report, beside the step records on 3 */
 #define PROBE_LOCK_FD 4
 
+/** @brief what the preload writes on the pipe: whether the child's memory is locked */
 typedef struct
 {
-    int locked; /* 1 when mlockall(MCL_CURRENT | MCL_FUTURE) returned 0 */
-    int error;  /* its errno otherwise */
+    int locked; /**< 1 when mlockall(MCL_CURRENT | MCL_FUTURE) returned 0 */
+    int error;  /**< its errno otherwise */
 } probe_lock_report_t;
 
 #endif

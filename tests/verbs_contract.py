@@ -3,7 +3,7 @@
 # grammar, not ours: the "<verb> <instance_number>" lines of mod-host's README (plugin-hostd-protocol's doc/protocol.md) are the commands of verbs.c's table, no
 # more and no fewer, and each one's format in mod-host.h takes a number first. The type alone does not make an
 # instance verb: "transport %i" and "monitor_midi_program %i" take a number that is not one. And no verb is spelled in the C sources: a verb of mod-host.h, of
-# plugin-hostd/protocol.h or of the daemon's declaration (plugin-hostd-protocol's verbs.json, rendered into
+# plugin-hostd/protocol.h or of the daemon's declaration (the domain plugin-hostd-protocol, rendered into
 # plugin-hostd/plugin_hostd_protocol_host_verbs.h) is read from its declaration, so a C string that starts with one, its
 # word or its format, is a copy. The declarations are plugin-hostd-protocol's (tests/declared.py).
 import os, re, sys
@@ -49,7 +49,7 @@ if not os.path.exists(os.path.join(include, "mod-host.h")):
     sys.exit(1)
 commands = modhost.commands(include)
 own = set(re.findall(r'^#define\s+PHD_(?:VERB|EVENT)_\w+\s+"(\w+)"', declared.read_header("protocol.h"), re.M))
-# the daemon's own verbs, declared in verbs.json and rendered: the word and the format of each are in the rendered
+# the daemon's own verbs, declared in the domain plugin-hostd-protocol and rendered: the word and the format of each are in the rendered
 # header and nowhere else
 rendered = set(re.findall(r'^#define\s+OMX_VERB_[A-Z0-9_]+\s+"(\w+)"$',
                           declared.read_header("plugin_hostd_protocol_host_verbs.h"), re.M))
@@ -119,8 +119,8 @@ else:
     header = declared.read_header("protocol.h")
     rows = header[header.index("#define PHD_INSTANCE_VERBS(X)"):]
     rows = rows[:rows.index("\n\n")]
-    for rendered in ("plugin_hostd_protocol_host_verbs.h", "omx_clap_host_verbs.h"):
-        header += declared.read_header(rendered)
+    # the verbs of both hosts are the protocol's too (ruling R5): one rendered header holds them all
+    header += declared.read_header("plugin_hostd_protocol_host_verbs.h")
     by_macro = dict(re.findall(r'^#define\s+((?:PHD_(?:VERB|EVENT)|OMX_VERB)_\w+)\s+"(\w+)"$', header, re.M))
     instance_info = {by_macro[m] for m in re.findall(r"X\(\w+, ((?:PHD|OMX)_VERB_\w+),", rows)}
     events = {v for m, v in by_macro.items() if m.startswith("PHD_EVENT_")}

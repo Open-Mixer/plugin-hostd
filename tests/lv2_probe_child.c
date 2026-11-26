@@ -275,9 +275,9 @@ int main(int argc, char **argv)
     /* the latency and cost lv2_measure prints at the run's rate: PROBE_CHILD_LATENCY "declared,measured", "silent" for a
      * response that never came, or "silent-note,declared" for an instrument whose note did not sound and that declares a
      * latency on its port; the cost is the same fixed figures in the CLAP prober's shape */
-    if (getenv("PROBE_CHILD_LATENCY"))
+    if (!getenv("PROBE_CHILD_NO_FIGURES"))
     {
-        const char *l = getenv("PROBE_CHILD_LATENCY");
+        const char *l = getenv("PROBE_CHILD_LATENCY") ? getenv("PROBE_CHILD_LATENCY") : "480,483";
         unsigned decl = 0, meas = 0;
 
         if (sscanf(l, "%u,%u", &decl, &meas) == 2)

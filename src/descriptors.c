@@ -167,8 +167,8 @@ static void encode(const char *in, char *out, size_t size)
 /* The scan's target (describe's clap:<path>#<id> or lv2:<uri>), its format, id and the hash of its binary as it is
  * now. 0, or -1 for a plugin whose binary cannot be found or read, or a format with no binary or that describe does
  * not know. */
-static int identify(const char *uri, char *target, size_t tsize, const char **format, const char **id,
-                    char hash[PHD_DESCRIPTOR_HASH_LEN + 1])
+static int identify_full(const char *uri, char *target, size_t tsize, const char **format, const char **id,
+                         char hash[PHD_DESCRIPTOR_HASH_LEN + 1], char full[PHD_SHA256_HEX_LEN + 1])
 {
     const char *fwd;
     int fmt = format_of_uri(uri, &fwd), fd, rc = -1;
@@ -191,10 +191,18 @@ static int identify(const char *uri, char *target, size_t tsize, const char **fo
     if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && phd_pin_fd_digest(fd, hex) == 0)
     {
         snprintf(hash, PHD_DESCRIPTOR_HASH_LEN + 1, "%s", hex);
+        if (full)
+            snprintf(full, PHD_SHA256_HEX_LEN + 1, "%s", hex);
         rc = 0;
     }
     close(fd);
     return rc;
+}
+
+static int identify(const char *uri, char *target, size_t tsize, const char **format, const char **id,
+                    char hash[PHD_DESCRIPTOR_HASH_LEN + 1])
+{
+    return identify_full(uri, target, tsize, format, id, hash, NULL);
 }
 
 /* the descriptor of the binary, by its name's id and hash, into path; 0, or -1 when there is none */
@@ -568,6 +576,49 @@ char *descriptors_panel_get(const char *uri)
     if (access(panel, F_OK) != 0)
         return resp_missing(s, s ? s->panel_code : SUCCESS);
     return resp_path(panel);
+}
+
+/* ---------------------------------------------------------------- the key of the descriptions store */
+
+int descriptors_key(const char *uri, descriptors_key_t *k)
+{
+    char target[PATH_MAX + 16], hash[PHD_DESCRIPTOR_HASH_LEN + 1], plain[PATH_MAX + 512];
+    const char *format, *id, *fwd;
+    const format_t *f;
+    int fmt;
+
+    memset(k, 0, sizeof(*k));
+    if (!g_conf || identify_full(uri, target, sizeof(target), &format, &id, hash, k->sha256) != 0)
+        return -1;
+    snprintf(k->format, sizeof(k->format), "%s", format);
+    snprintf(k->id, sizeof(k->id), "%s", id);
+    snprintf(k->target, sizeof(k->target), "%s", clap_plain_target(target, plain, sizeof(plain)) == 0 ? plain : target);
+    if (lookup(id, hash, k->descriptor, sizeof(k->descriptor)) != 0)
+        k->descriptor[0] = '\0';
+    /* the source of an LV2 plugin is its bundle's TTL, of a CLAP plugin the descriptor its scan wrote */
+    if (!strcmp(format, "lv2"))
+    {
+        fmt = format_of_uri(uri, &fwd);
+        f = fmt >= 0 ? format_at(fmt) : NULL;
+        if (!f || lv2_bundle_dir(fwd, f->search ? f->search(g_conf) : NULL, k->bundle, sizeof(k->bundle)) != 0)
+            return -1;
+        snprintf(k->source, sizeof(k->source), "%s", k->bundle);
+    }
+    else
+        snprintf(k->source, sizeof(k->source), "%s", k->descriptor);
+    return 0;
+}
+
+int descriptors_busy(const char *uri)
+{
+    char target[PATH_MAX + 16], hash[PHD_DESCRIPTOR_HASH_LEN + 1];
+    const char *format, *id;
+    scan_t *s;
+
+    if (!g_conf || identify(uri, target, sizeof(target), &format, &id, hash) != 0)
+        return 0;
+    s = scan_of(format, id, hash);
+    return s && (s->pid > 0 || s->placing);
 }
 
 void descriptors_finish(void)

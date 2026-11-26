@@ -62,7 +62,9 @@ typedef int (*transforms_fn_t)(const transforms_data_t *d, const char *in, char 
     X("group-path", transforms_group_path, transforms_group_path_inverse)                                              \
     X("port-group", transforms_port_group, transforms_port_group_inverse)                                              \
     X("output-symbol", transforms_output_symbol, transforms_output_symbol_inverse)                                     \
-    X("role-to-meaning", transforms_role_to_meaning, transforms_role_to_meaning_inverse)
+    X("role-to-meaning", transforms_role_to_meaning, transforms_role_to_meaning_inverse)                               \
+    X("unit-id", transforms_unit_id, transforms_unit_id_inverse)                                                       \
+    X("designation-meaning", transforms_designation_meaning, transforms_designation_meaning_inverse)
 
 /**
  * @brief The declarations of the two functions of one row of TRANSFORMS, each of the type transforms_fn_t.

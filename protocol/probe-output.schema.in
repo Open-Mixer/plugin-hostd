@@ -22,7 +22,7 @@
     },
     "formatVersion": {
       "type": "string",
-      "pattern": "^1\\.[0-9]+$"
+      "pattern": "^2\\.[0-9]+$"
     },
     "run": {
       "type": "object",
@@ -233,7 +233,12 @@
               "type": "string"
             },
             "family": {
-              "type": "string"
+              "enum": [@MACHINE_FAMILIES@],
+              "x-from": [
+                {
+                  "$ref": "https://openmixer.org/contract/machine#/components/schemas/MACHINE_FAMILIES"
+                }
+              ]
             },
             "coreBand": {
               "enum": [@MACHINE_CORE_BANDS@]
@@ -986,7 +991,7 @@
           "additionalProperties": false,
           "properties": {
             "unit": {
-              "const": "ns-per-sample"
+              "const": "nsPerSample"
             },
             "median": {
               "type": "number",

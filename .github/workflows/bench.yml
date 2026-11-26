@@ -3,13 +3,16 @@ name: bench
 # The benchmark harness, cheaply: the shipped example satisfies its schema, the scripts pass shellcheck, every guard of
 # the harness goes red when broken, and one small scenario runs under each host the container has, on JACK's dummy
 # driver at 48 kHz. It checks that a valid document comes out, not the numbers.
+#
+# By workflow_dispatch only (delivery pipeline §12, Open-Mixer/plugin-hostd#106: no heavy Action on a push or a pull
+# request; this one builds the daemon's DEBs first). Dispatch it on the head ref of a pull request that touches bench/,
+# tools/zynthian/matrix.py, tools/zynthian/matrix/, tools/zynthian/test_matrix.py or this file:
+# gh workflow run bench.yml -R Open-Mixer/plugin-hostd --ref <branch>.
 
+# A dispatch only (owner rule 2026-11-15: heavy jobs run on a tag or a dispatch; delivery-pipeline §12): a change to
+# bench/ or tools/zynthian/matrix* asks for it by name, `gh workflow run bench.yml --ref <branch>`.
 on:
-  pull_request:
-    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
-  push:
-    branches: [main]
-    paths: ['bench/**', 'tools/zynthian/matrix.py', 'tools/zynthian/matrix/**', 'tools/zynthian/test_matrix.py', '.github/workflows/bench.yml']
+  workflow_dispatch:
 
 permissions:
   contents: read

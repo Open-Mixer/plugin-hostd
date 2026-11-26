@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The search settings (#212): lv2_path defaults to Zynthian's own LV2_PATH and then the lib64 folders, $LV2_PATH stands
- * in for it, lv2_extra is searched after it, and $CLAP_PATH is searched before the CLAP default, not instead of it. */
+ * in for it, lv2_extra is searched after it, and $CLAP_PATH is searched before the CLAP default, not instead of it.
+ * The descriptions store's ask (#246): ask_unknown is auto by default, 1 and 0 are its other words, and conf_check refuses
+ * any other, as it refuses a grouping or a placement it does not know. */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <unistd.h>
 
 #include "conf.h"
 
@@ -83,6 +87,62 @@ int main(void)
               !strcmp(conf.clap_path + strlen("/site/clap:"), PHD_DEFAULT_CLAP_PATH),
           "$CLAP_PATH is searched before the default");
     unsetenv("CLAP_PATH");
+
+    conf_defaults(&conf);
+    check(!strcmp(conf.ask_unknown, "auto") && conf_check(&conf) == 0, "ask_unknown is auto by default, and accepted");
+    {
+        static const char *const good[] = { "auto", "1", "0" }, *const bad[] = { "yes", "on", "2", "", "Auto" };
+
+        for (k = 0; k < 3; k++)
+        {
+            snprintf(conf.ask_unknown, sizeof(conf.ask_unknown), "%s", good[k]);
+            check(conf_check(&conf) == 0, good[k]);
+        }
+        for (k = 0; k < 5; k++)
+        {
+            snprintf(conf.ask_unknown, sizeof(conf.ask_unknown), "%s", bad[k]);
+            if (conf_check(&conf) == 0)
+                check(0, bad[k]);
+        }
+    }
+
+    /* an integer setting holds a whole number and nothing else (plugin-hostd#146 3): a word that is not one is a bad
+     * setting, not 0 */
+    {
+        static const char *const bad[] = { "checkpoint_ms abc\n", "checkpoint_ms 5x\n", "checkpoint_ms \n" };
+        char path[] = "/tmp/plugin-hostd-conf-test.XXXXXX";
+        int fd = mkstemp(path);
+
+        for (k = 0; fd >= 0 && k < 3; k++)
+        {
+            FILE *f = fopen(path, "w");
+
+            fputs(bad[k], f);
+            fclose(f);
+            conf_defaults(&conf);
+            check(conf_load(&conf, path, 1) != 0, bad[k]);
+        }
+        /* a line longer than the reader's buffer is refused whole: its tail is never read as a setting of its own */
+        {
+            FILE *f = fopen(path, "w");
+            int n;
+
+            fputc('#', f);
+            for (n = 1; n < PATH_MAX * 2 + 64 - 1; n++)
+                fputc('x', f);
+            fputs("checkpoint_ms 5\n", f);
+            fclose(f);
+            conf_defaults(&conf);
+            check(conf_load(&conf, path, 1) != 0 && conf.checkpoint_ms != 5,
+                  "an overlong line is refused, its tail not read as checkpoint_ms 5");
+        }
+        if (fd >= 0)
+        {
+            close(fd);
+            unlink(path);
+        }
+        check(fd >= 0, "a scratch file for the conf");
+    }
 
     if (failures)
         printf("conf: %d failed\n", failures);

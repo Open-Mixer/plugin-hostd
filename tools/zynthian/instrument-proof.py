@@ -17,6 +17,7 @@ a member channel's bend), cc (the mod wheel, on a patch routing it to the filter
 it stops, on any exit.
 """
 import argparse
+import importlib.util
 import os
 import shutil
 import signal
@@ -24,6 +25,13 @@ import socket
 import subprocess
 import sys
 import time
+
+# jalv_scratch.py beside this file: the directory every jalv this tool starts stands in (a killed jalv leaves its
+# relative jalvXXXXXX state directory where it stood)
+_spec = importlib.util.spec_from_file_location(
+    "jalv_scratch", os.path.join(os.path.dirname(os.path.abspath(__file__)), "jalv_scratch.py"))
+jalv_scratch = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(jalv_scratch)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROBE = os.environ.get("INSTRUMENT_PROBE", os.path.join(HERE, "jack-instrument-probe"))
@@ -187,7 +195,8 @@ class run:
             self.client = "inst_jalv"
             # without -i jalv reads its console from stdin: "preset <uri>" is how Zynthian's jalv engine loads one
             self.jalv = subprocess.Popen(["jalv", "-n", self.client, a.uri], stdin=subprocess.PIPE, stdout=open(
-                os.path.join(self.out, "jalv.log"), "w"), stderr=subprocess.STDOUT, start_new_session=True, text=True)
+                os.path.join(self.out, "jalv.log"), "w"), stderr=subprocess.STDOUT, start_new_session=True, text=True,
+                cwd=jalv_scratch.jalv_cwd())
             self.extra_notes = []
             t_ready = t_add = t0
             self.note_port = None

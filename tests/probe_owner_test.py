@@ -10,8 +10,8 @@
     (the compile finds <plugin-hostd/probe_codes.h> in the protocol include directory alone);
 (c) sabotage: a temporary directory holding the domain with SIGSEGV changed, first on OMX_CONTRACT_PATH, gives the changed word at
     the call;
-(d) packaging: the spec and debian/control floor plugin-hostd-protocol (-devel, -contract) at 0.8.0, the release that carries the
-    probe domain and its header (0.7.0 has neither), a floor only.
+(d) packaging: the spec and debian/control name plugin-hostd-protocol (-devel, -contract), whose domain plugin-hostd-protocol
+    carries the probe words (V16), by name and with no typed floor (the devel wave of 2026-11-24).
 
 Environment: PROTOCOL_CONTRACT_DIR (the protocol package's contract directory; default pkg-config's contractdir of omx-contract),
 PROTOCOL_HEADER (protocol.h of plugin-hostd-protocol), DOMAIN_CFLAGS, DOMAIN_LIBS, CC. Exit 0 all green, 1 a FAIL line."""
@@ -78,11 +78,12 @@ def main():
     spec = open(os.path.join(ROOT, "packaging", "plugin-hostd.spec")).read()
     control = open(os.path.join(ROOT, "debian", "control")).read()
     for name in ("plugin-hostd-protocol-contract", "plugin-hostd-protocol-devel"):
-        check(re.search(r"^BuildRequires: %s >= 0\.8\.0$" % name, spec, re.M) is not None
-              and re.search(r"^Requires: %s >= 0\.8\.0$" % name, spec, re.M) is not None, "(d) the spec requires and builds against %s >= 0.8.0" % name)
-    check("plugin-hostd-protocol-contract (>= 0.8.0~)" in control and "libplugin-hostd-protocol-dev (>= 0.8.0~)" in control,
-          "(d) debian/control names plugin-hostd-protocol-contract and -dev at the same floor")
-    check(not re.search(r"plugin-hostd-protocol[a-z0-9-]* \(?>= 0\.7\.0", spec.split("%changelog")[0] + control), "(d) no 0.7.0 floor of protocol is left")
+        check(re.search(r"^BuildRequires: %s$" % name, spec, re.M) is not None
+              and re.search(r"^Requires: %s$" % name, spec, re.M) is not None, "(d) the spec requires and builds against %s, by name" % name)
+    check(re.search(r"(^|[ ,])plugin-hostd-protocol-contract( <!nocheck>)?,", control, re.M) is not None
+          and re.search(r"(^|[ ,])libplugin-hostd-protocol-dev,", control, re.M) is not None,
+          "(d) debian/control names plugin-hostd-protocol-contract and -dev, by name")
+    check(not re.search(r"plugin-hostd-protocol[a-z0-9-]* \(?>=", spec.split("%changelog")[0] + control), "(d) no floor of protocol is typed")
     return 1 if failed else 0
 
 

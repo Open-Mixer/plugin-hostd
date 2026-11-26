@@ -1,9 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openmixer.org/contract/plugin-hostd/grouping",
+  "x-omx-contract": "0.23",
   "info": {
     "title": "The grouping planner's words: why a member of a plan is or is not in a segment, and whether asking again may change it",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental"
   },
@@ -11,7 +12,7 @@
     "schemas": {
       "PLUGIN_HOSTD_GROUPING_REASONS": {
         "description": "Why a member of a plan is not in a segment with its neighbours, or is in one on an assumption (the grouping-planner design note, The planner), in the order the planner's rules decide them. plan_get answers them as instance:reason; a plan_reason event carries the same. A controller reads these words and retypes none.",
-        "x-since": "0.13.0",
+        "x-since": "0.1.0",
         "x-kind": "words",
         "x-file": "grouping.json",
         "x-groups": "PLUGIN_HOSTD_GROUPING_REASON_GROUPS",
@@ -132,7 +133,7 @@
       },
       "PLUGIN_HOSTD_GROUPING_REASON_GROUPS": {
         "description": "The property every reason of PLUGIN_HOSTD_GROUPING_REASONS declares (its group): whether a later plan may answer otherwise with the chain unchanged. A client that asks again reads the reasons of the group retry from here and chooses none in code.",
-        "x-since": "0.13.0",
+        "x-since": "0.1.0",
         "x-kind": "words",
         "x-file": "grouping.json",
         "oneOf": [

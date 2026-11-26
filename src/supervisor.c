@@ -50,6 +50,7 @@
 #include "writer.h"
 #include "verbs.h"
 #include "words.h"
+#include "qualify.h"
 
 #define ATTRIBUTED  (-2)    /* on_death: the culprit is already dealt with, only schedule */
 #define POOL_NAMES  32
@@ -216,9 +217,9 @@ static int valid_place(const char *place)
 
 /* ---------------------------------------------------------------- ledger */
 
-/* *replaced is the line a keyed entry gave up, NULL when the entry is new; the caller owns it. -1, the ledger as it was,
- * when memory runs out */
-static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+/* a line onto a list of entries: a keyed one replaces the entry of its key where it stands. *replaced is the line a keyed
+ * entry gave up, NULL when the entry is new; the caller owns it. -1, the list as it was, when memory runs out */
+static int entries_add(entry_t **list, int *count, int *cap, const char *line, const char *key, int kind, char **replaced)
 {
     char *copy = strdup(line), *key_copy;
     int n;
@@ -227,11 +228,11 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
     if (!copy)
         return -1;
     if (key)
-        for (n = 0; n < i->ntail; n++)
-            if (i->tail[n].key && !strcmp(i->tail[n].key, key))
+        for (n = 0; n < *count; n++)
+            if ((*list)[n].key && !strcmp((*list)[n].key, key))
             {
-                *replaced = i->tail[n].line;
-                i->tail[n].line = copy;
+                *replaced = (*list)[n].line;
+                (*list)[n].line = copy;
                 return 0;
             }
     key_copy = key ? strdup(key) : NULL;
@@ -240,10 +241,10 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
         free(copy);
         return -1;
     }
-    if (i->ntail == i->captail)
+    if (*count == *cap)
     {
-        int cap = i->captail ? i->captail * 2 : 16;
-        entry_t *grown = realloc(i->tail, cap * sizeof(entry_t));
+        int grow = *cap ? *cap * 2 : 16;
+        entry_t *grown = realloc(*list, grow * sizeof(entry_t));
 
         if (!grown)
         {
@@ -251,14 +252,32 @@ static int tail_add(instance_t *i, const char *line, const char *key, int kind, 
             free(key_copy);
             return -1;
         }
-        i->tail = grown;
-        i->captail = cap;
+        *list = grown;
+        *cap = grow;
     }
-    i->tail[i->ntail].line = copy;
-    i->tail[i->ntail].key = key_copy;
-    i->tail[i->ntail].kind = kind;
-    i->ntail++;
+    (*list)[*count].line = copy;
+    (*list)[*count].key = key_copy;
+    (*list)[*count].kind = kind;
+    (*count)++;
     return 0;
+}
+
+static int tail_add(instance_t *i, const char *line, const char *key, int kind, char **replaced)
+{
+    return entries_add(&i->tail, &i->ntail, &i->captail, line, key, kind, replaced);
+}
+
+/* an instance's property_set lines, all of them: a preset load replaces the plugin's state, the properties with it */
+static void props_drop(instance_t *i)
+{
+    int n;
+
+    for (n = 0; n < i->nprops; n++)
+    {
+        free(i->props[n].line);
+        free(i->props[n].key);
+    }
+    i->nprops = 0;
 }
 
 static void tail_drop_state(instance_t *i)
@@ -338,8 +357,13 @@ static void instance_free(instance_t *i)
     free(i->client);
     free(i->sus_line);
     free(i->sus_prev);
+    props_drop(i);
+    free(i->props);
     free(i->track_info);
     free(i->node_label);
+    free(i->byp_uri);
+    free(i->byp_place);
+    free(i->byp_client);
     free(i);
 }
 
@@ -1578,13 +1602,21 @@ static int replay_add(worker_t *w, instance_t *i)
     return 1;
 }
 
-/* an instance's verb ledger, after the state; -1 when the worker died on it */
+/* an instance's verb ledger, after the state: the verb tail, then the latest property_set of each symbol, in the order
+ * each was first set (R-111). The properties go last: each was set after the last preset load, which drops the ones
+ * before it, so after a preset load the tail still holds (an instance that writes no state); -1 when the worker died */
 static int replay_tail(worker_t *w, instance_t *i)
 {
     int m;
 
     for (m = 0; m < i->ntail; m++)
         if (replay_line(w, i->tail[m].line) != RPC_OK)
+        {
+            on_death(w, i->id);
+            return -1;
+        }
+    for (m = 0; m < i->nprops; m++)
+        if (replay_line(w, i->props[m].line) != RPC_OK)
         {
             on_death(w, i->id);
             return -1;
@@ -2113,6 +2145,118 @@ out_of_memory:
     return 0;
 }
 
+/* the add as a worker is given it */
+static void add_line_of(const format_t *format, const char *fwd, int id, const char *client, char *line, size_t size)
+{
+    char word[PATH_MAX + 512];
+
+    if (format->worker_word)
+        format->worker_word(fwd, word, sizeof(word));
+    else
+        snprintf(word, sizeof(word), "%s", fwd);
+    snprintf(line, size, "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD, format->worker_prefix ? format->worker_prefix : "",
+             word, id, client ? " " : "", client ? client : "");
+}
+
+/* a plugin with no verdict that the operator has not accepted (R-112) */
+static int unqualified(const char *uri)
+{
+    const char *verdict = pins_verdict(uri);
+
+    return (!verdict || !*verdict) && !pins_accepted(uri);
+}
+
+/* the request is on disk: the service that watches the spool may read it, so it is told now and not before */
+static void qualify_on_disk(void *arg, int err)
+{
+    char *uri = arg;
+
+    /* a verdict landed while the request was on its way: the file that arrived late is taken away, and nothing is said */
+    if (!qualify_asked(uri))
+        qualify_answered(uri);
+    else if (err == 0)
+        event(PHD_EVENT_QUALIFY_REQUESTED_FMT, uri);
+    free(uri);
+}
+
+/* the insert of a plugin with no verdict: the instance is made and no worker holds it, so it passes dry as a killed
+ * insert does and its code is loaded by no worker the console listens to; one request for its quick check is in the
+ * spool and said once. It goes live by itself when a pin carries a verdict that is not a refusal, or the operator accepts */
+static char *add_bypassed(const char *uri, const char *fwd, int fmt, int id, const char *placement, const char *client)
+{
+    const format_t *format = format_at(fmt);
+    instance_t *i = calloc(1, sizeof(instance_t));
+    char line[PATH_MAX + 640], name[32];
+    int made;
+    char *asked_uri;
+
+    if (!i)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    add_line_of(format, fwd, id, client, line, sizeof(line));
+    snprintf(name, sizeof(name), "effect_%d", id);
+    i->id = id;
+    i->fmt = fmt;
+    i->bypassed = 1;
+    i->uri = strdup(fwd);
+    i->add_line = strdup(line);
+    i->client = strdup(client ? client : name);
+    i->byp_uri = strdup(uri);
+    i->byp_place = strdup(placement ? placement : PHD_PLACE_DEFAULT);
+    i->byp_client = client ? strdup(client) : NULL;
+    if (!i->uri || !i->add_line || !i->client || !i->byp_uri || !i->byp_place || (client && !i->byp_client))
+    {
+        instance_free(i);
+        return sup_resp(ERR_MEMORY_ALLOCATION);
+    }
+    g_inst[id] = i;
+    asked_uri = strdup(fwd);
+    made = asked_uri ? qualify_request(fwd, qualify_on_disk, asked_uri) : -1;
+    if (made <= 0)
+        free(asked_uri);
+    if (made < 0)
+        fprintf(stderr, "plugin-hostd: %s: no qualify request could be written; it stays bypassed\n", fwd);
+    return sup_resp(id);
+}
+
+static int g_promoting;
+
+/* the bypassed instances against the pins as they are now: one whose pin holds a verdict, or whom the operator accepted,
+ * has its request answered and, when its pin admits it, is added as it was asked: the insert stops passing dry. A refusal
+ * leaves it bypassed and listed; nothing here cuts a live instance */
+static void bypassed_promote(void)
+{
+    int id;
+
+    if (g_promoting || !g_conf.require_pins)
+        return;
+    g_promoting = 1;
+    for (id = 0; id < MAX_INSTANCE; id++)
+    {
+        instance_t *i = g_inst[id];
+        const char *layout = NULL;
+        char *reply;
+
+        if (!i || !i->bypassed)
+            continue;
+        if (!unqualified(i->uri))
+            qualify_answered(i->uri);
+        if (unqualified(i->uri) || pins_check(format_at(i->fmt), i->uri, search_of(i->fmt), &layout) != SUCCESS)
+            continue;
+        g_inst[id] = NULL;
+        reply = add(i->byp_uri, id, i->byp_place, i->byp_client, i->fmt);
+        if (g_inst[id] && !g_inst[id]->bypassed)
+        {
+            instance_free(i);
+            free(reply);
+            continue;
+        }
+        /* the add was refused after all: it stays as it was */
+        g_inst[id] = i;
+        free(reply);
+    }
+    g_promoting = 0;
+}
+
 char *sup_add(const char *uri, int id, const char *placement, const char *client)
 {
     return add(uri, id, placement, client, -1);
@@ -2124,7 +2268,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
     const char *fwd;
     int fmt = format_of_uri(uri, &fwd);
     const format_t *format;
-    char place[48], line[PATH_MAX + 640], word[PATH_MAX + 512], *reply = NULL;
+    char place[48], line[PATH_MAX + 640], *reply = NULL;
     const char *layout = NULL;
     worker_t *w = NULL;
     meta_t *m;
@@ -2182,6 +2326,13 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
         pin_changed_event(fwd, rc);
         if (rc != SUCCESS)
             return sup_resp(rc);
+        /* R-112: a plugin with no verdict is not instantiated in any worker until it has one */
+        if (first_use && unqualified(fwd))
+        {
+            if (chain_id >= 0 || (placement && !strncmp(placement, PHD_PLACE_POOL_PREFIX, strlen(PHD_PLACE_POOL_PREFIX))))
+                return sup_resp(OMX_REPLY_PLUGIN_HOSTD_PLACEMENT_INVALID_RESP);
+            return add_bypassed(uri, fwd, fmt, id, placement, client);
+        }
         /* a pool's world holds every member's files: what a format pins holds only in a world of the plugin's own */
         if (format->pinned_own_only)
         {
@@ -2288,12 +2439,7 @@ static char *add(const char *uri, int id, const char *placement, const char *cli
             code = OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP;
         }
     }
-    if (format->worker_word)
-        format->worker_word(fwd, word, sizeof(word));
-    else
-        snprintf(word, sizeof(word), "%s", fwd);
-    snprintf(line, sizeof(line), "%.*s %s%s %d%s%s", verb_len(EFFECT_ADD), EFFECT_ADD,
-             format->worker_prefix ? format->worker_prefix : "", word, id, client ? " " : "", client ? client : "");
+    add_line_of(format, fwd, id, client, line, sizeof(line));
     if (rc == RPC_OK && !reply)
         rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc != RPC_OK)
@@ -2457,7 +2603,7 @@ static void chain_tell(worker_t *w)
 
 static char *refuse_worker(worker_t *w)
 {
-    return sup_resp(w->state == W_GIVEN_UP ? OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP : OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
+    return sup_resp(w && w->state == W_GIVEN_UP ? OMX_REPLY_PLUGIN_HOSTD_GAVE_UP_RESP : OMX_REPLY_PLUGIN_HOSTD_WORKER_SPAWN_RESP);
 }
 
 static int64_t g_sus_seq;
@@ -2481,8 +2627,12 @@ static int record(instance_t *i, const char *line, char **tok, int ntok)
             }
             else if (g_recorded[v].key_arg)
                 return 0;
+            /* a preset is the plugin's whole state: the state verbs and the properties set before it are superseded */
             if (verb_is(tok[0], EFFECT_PRESET_LOAD))
+            {
                 tail_drop_state(i);
+                props_drop(i);
+            }
             if (tail_add(i, line, key, g_recorded[v].kind, &prev) != 0)
                 return -1;
             free(i->sus_line);
@@ -2691,17 +2841,15 @@ static char *verb_dropped(instance_t *i, const char *line)
     return sup_resp(OMX_REPLY_PLUGIN_HOSTD_VERB_DROPPED_RESP);
 }
 
-char *sup_call(int id, const char *line)
+/* the line to the worker of the instance, the ledger untouched: *answered is 1 when the reply is the worker's */
+static char *call_worker(instance_t *i, const char *line, int *answered)
 {
-    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
-    worker_t *w;
+    worker_t *w = i->w;
     char *reply = NULL;
     int rc;
 
-    if (!i)
-        return sup_resp(ERR_INSTANCE_NON_EXISTS);
-    w = i->w;
-    if (w->state != W_UP)
+    *answered = 0;
+    if (!w || w->state != W_UP)
         return refuse_worker(w);
     rc = proc_rpc(&g_conf, w->pid, w->fd, line, &reply);
     if (rc == RPC_WAS_DEAD)
@@ -2713,15 +2861,103 @@ char *sup_call(int id, const char *line)
     {
         char *dropped = verb_dropped(i, line);
 
-        on_death(w, id);
+        on_death(w, i->id);
         return dropped;
     }
+    *answered = 1;
+    return reply;
+}
+
+char *sup_call(int id, const char *line)
+{
+    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
+    char *reply;
+    int answered;
+
+    if (!i)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    reply = call_worker(i, line, &answered);
     /* the worker did it and the ledger cannot say so, so a restart would lose it: the controller hears */
-    if (resp_code(reply) >= 0 && ledger_verb(i, line) != 0)
+    if (answered && resp_code(reply) >= 0 && ledger_verb(i, line) != 0)
     {
         free(reply);
         return sup_resp(ERR_MEMORY_ALLOCATION);
     }
+    return reply;
+}
+
+static char **words(char *copy, int *count);
+
+/* the key a replace-keyed line is kept by in an instance's properties: its verb and its second argument ("patch_set
+ * <uri>", as "property_set <symbol>"), malloc'd; NULL for a line with fewer words or no memory */
+static char *key_of(const char *line)
+{
+    char *copy = strdup(line), **word, *key = NULL;
+    int count;
+
+    if (!copy)
+        return NULL;
+    word = words(copy, &count);
+    if (word && count > 2)
+    {
+        size_t size = strlen(word[0]) + strlen(word[2]) + 2;
+
+        if ((key = malloc(size)))
+            snprintf(key, size, "%s %s", word[0], word[2]);
+    }
+    free(word);
+    free(copy);
+    return key;
+}
+
+/* a replace-keyed line the worker took is kept in the instance's properties, the latest per key: 0, or -1 when there is
+ * no memory for it */
+static int keep_keyed(instance_t *i, const char *line)
+{
+    char *key = key_of(line), *replaced = NULL;
+    int rc = 0;
+
+    if (!key || entries_add(&i->props, &i->nprops, &i->capprops, line, key, KIND_HOST, &replaced) != 0)
+        rc = -1;
+    free(replaced);
+    free(key);
+    return rc;
+}
+
+char *sup_call_keyed(int id, const char *line, int *answered)
+{
+    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
+    char *reply;
+
+    *answered = 0;
+    if (!i)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    reply = call_worker(i, line, answered);
+    if (!*answered || resp_code(reply) < 0 || g_inst[id] != i)
+        return reply;
+    if (keep_keyed(i, line) != 0)
+    {
+        free(reply);
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+        *answered = 0;
+    }
+    return reply;
+}
+
+char *sup_call_seen(int id, const char *line, const char *prefix, int ms, int *answered, char **seen)
+{
+    instance_t *i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL;
+    char *reply;
+    int watched;
+
+    *answered = 0;
+    *seen = NULL;
+    if (!i)
+        return sup_resp(ERR_INSTANCE_NON_EXISTS);
+    watched = i->w->state == W_UP && i->w->fb_fd >= 0 && relay_watch(i->w->fb_fd, prefix) == 0;
+    reply = call_worker(i, line, answered);
+    if (watched)
+        *seen = relay_watched(*answered && resp_code(reply) >= 0 ? ms : 0);
     return reply;
 }
 
@@ -2735,6 +2971,14 @@ char *sup_remove(int id)
     if (!i)
         return sup_resp(SUCCESS);   /* mod-host's remove of an instance it does not hold is not an error */
     w = i->w;
+    if (!w)
+    {
+        /* bypassed: no worker holds it, and its request stays in the spool, the check is still wanted */
+        g_inst[id] = NULL;
+        chain_leave(i);
+        instance_free(i);
+        return sup_resp(SUCCESS);
+    }
     if (w->state == W_UP)
     {
         snprintf(line, sizeof(line), EFFECT_REMOVE, id);
@@ -2784,9 +3028,9 @@ char *sup_connect(const char *verb, const char *line, const char *port_a, const 
     char *reply = NULL, ledger[512];
     int rc, n;
 
-    if (a && a->w->state == W_UP)
+    if (a && a->w && a->w->state == W_UP)
         w = a->w;
-    else if (b && b->w->state == W_UP)
+    else if (b && b->w && b->w->state == W_UP)
         w = b->w;
     else if (!a && !b)
         for (n = 0; n < g_nworkers && !w; n++)
@@ -2957,7 +3201,10 @@ char *sup_instance_verb(const char *line, int ledger)
     word = words(copy, &count);
     window = count > 0 && (!strcmp(word[0], PHD_VERB_SHOW_EXTERNAL_UI) || !strcmp(word[0], OMX_VERB_HIDE_EXTERNAL_UI));
     id = count > 1 ? strtol(word[1], &end, 10) : -1;
-    if (count < 2 || *end || end == word[1])
+    /* no memory to cut the line into words: said as that, not as a command read wrong */
+    if (!word)
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
+    else if (count < 2 || *end || end == word[1])
         reply = sup_resp(ERR_INVALID_OPERATION);
     else if (!(i = (id >= 0 && id < MAX_INSTANCE) ? g_inst[id] : NULL))
         reply = sup_resp(ERR_INSTANCE_NON_EXISTS);
@@ -3007,8 +3254,19 @@ char *sup_instance_verb(const char *line, int ledger)
                 reply = sup_resp(ERR_MEMORY_ALLOCATION);
             }
         }
+        /* replace-keyed (property_set): the latest per instance and first argument, apart from the verb tail, which a
+         * checkpoint truncates and a property outlives (R-111) */
+        if (ledger == PHD_LEDGER_REPLACE_KEYED && count > 2 && resp_code(reply) >= 0 && g_inst[id] == i)
+        {
+            if (keep_keyed(i, line) != 0)
+            {
+                free(reply);
+                reply = sup_resp(ERR_MEMORY_ALLOCATION);
+            }
+        }
     }
-    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker; mod-host sets no
+    /* a format whose worker has none of these: the daemon answers, and nothing goes to the worker but the property verbs
+     * the format maps onto lines of the worker's own; mod-host sets no
      * JACK metadata, so an LV2 instance's node takes no label (the lv2-worker level of node_label is absent) */
     else if (!strcmp(word[0], OMX_VERB_NODE_LABEL))
         reply = sup_resp(ERR_INVALID_OPERATION);
@@ -3035,6 +3293,19 @@ char *sup_instance_verb(const char *line, int ledger)
     }
     else if (!strcmp(word[0], OMX_VERB_PARAM_INFO))
         reply = count == 3 ? format_at(i->fmt)->param_info(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_LIST) && format_at(i->fmt)->property_list)
+        reply = count == 2 ? format_at(i->fmt)->property_list(id) : sup_resp(ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_INFO) && format_at(i->fmt)->property_info)
+    {
+        long index = count == 3 ? strtol(word[2], &end, 10) : -1;
+
+        reply = count == 3 && !*end && end != word[2] && index >= 0 && index <= INT_MAX ?
+                format_at(i->fmt)->property_info(id, (int)index) : sup_resp(ERR_INVALID_OPERATION);
+    }
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_GET) && format_at(i->fmt)->property_get)
+        reply = count == 3 ? format_at(i->fmt)->property_get(id, word[2]) : sup_resp(ERR_INVALID_OPERATION);
+    else if (!strcmp(word[0], OMX_VERB_PROPERTY_SET) && format_at(i->fmt)->property_set)
+        reply = count == 4 ? format_at(i->fmt)->property_set(id, word[2], word[3]) : sup_resp(ERR_INVALID_OPERATION);
     else if (phd_is_note_verb(word[0]))
         reply = sup_resp(OMX_REPLY_HOST_NOTES_BY_JACK_RESP);
     else if (!strcmp(word[0], OMX_VERB_PRESET_LIST) || !strcmp(word[0], OMX_VERB_PRESET_GET))
@@ -3130,6 +3401,8 @@ char *sup_instance_info(int id)
     if (!i)
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     m = meta_of(id);
+    if (!i->w)
+        return refuse_worker(NULL);
     snprintf(buffer, sizeof(buffer), "resp 0 w%d %d %s %d %d", i->w->k, (int)i->w->pid, g_state_states[i->w->state],
              m->crashes, m->quarantined);
     return strdup(buffer);
@@ -3212,7 +3485,15 @@ char *sup_quarantine_clear(const char *which)
         }
         return sup_resp(SUCCESS);
     }
-    id = atoi(which);
+    {
+        char *end;
+        long v = strtol(which, &end, 10);
+
+        /* the instance is a whole number: a word atoi reads as 0, or 5x as 5, is no instance */
+        if (!*which || *end)
+            return sup_resp(ERR_INVALID_OPERATION);
+        id = v < 0 || v >= MAX_INSTANCE ? -1 : (int)v;
+    }
     if (id < 0 || id >= MAX_INSTANCE || (!g_inst[id] && !g_meta[id].quarantined))
         return sup_resp(ERR_INSTANCE_NON_EXISTS);
     if (meta_of(id)->quarantined)
@@ -3224,14 +3505,22 @@ char *sup_quarantine_clear(const char *which)
     return sup_resp(SUCCESS);
 }
 
+void sup_pins_applied(void)
+{
+    bypassed_promote();
+}
+
 char *sup_pin_accept(const char *uri)
 {
     const char *fwd;
-    int fmt = format_of_uri(uri, &fwd);
+    int fmt = format_of_uri(uri, &fwd), rc;
 
     if (!g_conf.require_pins || !conf_pins_first_use(&g_conf))
         return sup_resp(ERR_INVALID_OPERATION);
-    return sup_resp(pins_accept(format_at(fmt), fwd, search_of(fmt)));
+    rc = pins_accept(format_at(fmt), fwd, search_of(fmt));
+    if (rc == SUCCESS)
+        bypassed_promote();
+    return sup_resp(rc);
 }
 
 /* the running instances against the pins just read: one the new pins refuse is not stopped, its worker holds it as it
@@ -3264,6 +3553,7 @@ char *sup_pin_reload(void)
     if (rc != SUCCESS)
         return sup_resp(ERR_INVALID_OPERATION);
     pins_recheck();
+    bypassed_promote();
     return sup_resp(SUCCESS);
 }
 
@@ -3324,7 +3614,7 @@ char *sup_pool_config(const char *name, int max)
 
 char *sup_worker_env(const char *format, const char *cpus, const char *nice)
 {
-    int f, lo = 0, hi = formats_count() - 1, n;
+    int f, lo = 0, hi = formats_count() - 1, n, nice_value = 0;
     worker_env_t env;
     size_t i;
 
@@ -3337,7 +3627,17 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
     for (i = 0; strcmp(cpus, PHD_WORD_NONE) && i < strlen(cpus); i++)
         if (!((cpus[i] >= '0' && cpus[i] <= '9') || cpus[i] == ',' || cpus[i] == '-'))
             return sup_resp(ERR_INVALID_OPERATION);
-    if (strlen(cpus) >= sizeof(env.cpus) || (strcmp(nice, PHD_WORD_NONE) && (atoi(nice) < -20 || atoi(nice) > 19)))
+    if (strcmp(nice, PHD_WORD_NONE))
+    {
+        char *end;
+        long v = strtol(nice, &end, 10);
+
+        /* a nice is a whole number from -20 to 19: a word is not nice 0 */
+        if (!*nice || *end || v < -20 || v > 19)
+            return sup_resp(ERR_INVALID_OPERATION);
+        nice_value = (int)v;
+    }
+    if (strlen(cpus) >= sizeof(env.cpus))
         return sup_resp(ERR_INVALID_OPERATION);
     for (f = lo; f <= hi; f++)
     {
@@ -3347,7 +3647,7 @@ char *sup_worker_env(const char *format, const char *cpus, const char *nice)
             snprintf(g_env[f].cpus, sizeof(g_env[f].cpus), "%s", cpus);
         }
         if (strcmp(nice, PHD_WORD_NONE))
-            g_env[f].nice = atoi(nice);
+            g_env[f].nice = nice_value;
         for (n = 0; n < g_nworkers; n++)
             if (g_workers[n]->fmt == f && g_workers[n]->state == W_UP)
             {
@@ -3367,6 +3667,10 @@ static void evict(instance_t *i)
     worker_t *w = i->w;
     char line[32], *reply = NULL;
     int rc;
+
+    /* a bypassed insert is in no worker */
+    if (!w)
+        return;
 
     if (w->state == W_UP)
         checkpoint(w);
@@ -3389,7 +3693,11 @@ static void evict(instance_t *i)
 /* an instance into a fresh worker of its own, started now */
 static void to_own(instance_t *i)
 {
-    worker_t *own = worker_new(i->fmt, PHD_PLACE_OWN);
+    worker_t *own;
+
+    if (!i->w)
+        return;
+    own = worker_new(i->fmt, PHD_PLACE_OWN);
 
     /* no memory for a new worker: it goes on running where it is */
     if (!own)

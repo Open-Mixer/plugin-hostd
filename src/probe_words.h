@@ -39,8 +39,6 @@
 
 /** the domain the words are read from */
 #define PROBE_DOMAIN "probe"
-/** the lowest info.version of the probe domain this package reads */
-#define PROBE_FLOOR "1.0.0"
 
 /** the reasons of a run, the places of the words of PROBE_REASONS */
 enum probe_reason
@@ -89,7 +87,7 @@ typedef struct
  * @param dirs the directories to read it from (a ':' list, the first holding it wins: a command-line tool's test entry), or
  *             NULL for the installed contract directory
  * @param w    receives the words
- * @param why  receives the refusal, naming the domain, the loader's code and the floor or the item, when the open fails
+ * @param why  receives the refusal, naming the domain, the loader's code and the item, when the open fails
  * @param n    the size of why
  * @return 0, or the OMX_CONTRACT_CODE_* value of the refusal; the caller ends its start-up with 78
  */

@@ -31,15 +31,31 @@
  * spaces and tabs, a word in double quotes may hold spaces and has \" for a quote, and the quotes are not part of the
  * value. The reading is the protocol library's (strarr_split); this only makes tabs and line ends spaces first. */
 
-/* Cut `line` into at most `max` words, tok[n] pointing into it, and answer how many; -1 when there is no memory. The
- * line is changed. Leading and trailing blanks are no words. */
+/** @brief cuts a line into its words, in place
+ *
+ * Leading and trailing blanks are no words.
+ *
+ * @param[in,out] line the line, NUL-terminated; it is changed, and the words point into it.
+ * @param[out] tok the words, tok[0] to tok[n - 1].
+ * @param max the most words read, the room of tok.
+ * @return how many words were read; -1 when there is no memory.
+ */
 int words_read(char *line, char **tok, int max);
 
-/* Whether a word has to be quoted to be read back as one: it is empty, or holds a blank or a quote. */
+/** @brief whether a word has to be quoted to be read back as one
+ *
+ * @param word the word, NUL-terminated.
+ * @return 1 when it is empty, or holds a blank or a quote; 0 otherwise.
+ */
 int words_need_quotes(const char *word);
 
-/* `word` as it is written in a line: itself, or in quotes with \" for a quote when it needs them. Written in buf,
- * NUL-terminated; answers the length it needs (NUL excluded), the word cut when buf is too small. */
+/** @brief a word as it is written in a line: itself, or in quotes with \\" for a quote when it needs them
+ *
+ * @param word the word, NUL-terminated.
+ * @param[out] buf where it is written, NUL-terminated, cut when buf is too small.
+ * @param size the size of buf, in bytes.
+ * @return the length it needs, in bytes, its NUL excluded.
+ */
 size_t words_write(const char *word, char *buf, size_t size);
 
 #endif

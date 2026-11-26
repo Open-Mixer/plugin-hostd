@@ -36,7 +36,7 @@ int scan_words_open(const char *dirs, scan_words *w, char *why, size_t n)
     int i, count, rc;
 
     memset(w, 0, sizeof(*w));
-    if ((rc = domain_words_open(SCAN_DOMAIN, SCAN_FLOOR, dirs, &w->domain, why, n)) != 0)
+    if ((rc = domain_words_open(SCAN_DOMAIN, dirs, &w->domain, why, n)) != 0)
         return rc;
     if ((count = omx_domain_word_count(w->domain, SCOPES_ITEM)) < 0)
     {

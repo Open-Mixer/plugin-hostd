@@ -148,6 +148,24 @@ int relay_abi_clobbers(int fd, int *ids, int max);
 int relay_param_moves(int fd, int *ids, int max);
 
 /**
+ * @brief Arms the one watch there is on a feedback socket: the first line its worker writes from now on that starts with
+ *        prefix (a watch armed before is dropped). The line still goes to the controller.
+ *
+ * @param fd the worker's feedback socket
+ * @param prefix what the watched line starts with
+ * @return 0, or -1 when there is no memory to watch
+ */
+int relay_watch(int fd, const char *prefix);
+
+/**
+ * @brief Waits for the watched line, then disarms the watch.
+ *
+ * @param ms how long to wait; 0 only disarms
+ * @return the line, malloc'd, or NULL when none came
+ */
+char *relay_watched(int ms);
+
+/**
  * @brief Ends at the controller every gesture a removed instance held, once, whichever worker the instance was on.
  *
  * What each worker wrote so far is read and sent first, and the abi_clobber and value-move reports of the instance

@@ -181,6 +181,7 @@ The settings live in a file, `-c`, `$PLUGIN_HOSTD_CONF` or
 | `probe` | `plugin-hostd-probe` | the scanner an add runs, as <probe> describe <target>, in a child of its own once per plugin binary; its stdout is the descriptor |
 | `history_file` | `` | the running history: what each plugin did on this machine, kept per plugin, binary and host class; empty is $XDG_STATE_HOME/plugin-hostd/history, else $HOME/.local/state/plugin-hostd/history; local to this machine, mode 0600, written by the daemon alone, and deleted by history_clear |
 | `host_class` | `` | the host class the history is kept under, as arch/cores/clock (x86_64/5-8/2.5-3.5GHz); empty is the class of this machine, as the probe writes it; no white space |
+| `ask_unknown` | `auto` | auto, 1 or 0: whether an add of a plugin no layer of the descriptions store holds asks for its qualification and description (plugin-qualify-sync, then omx-panel describe and the generators, as children at idle priority, once per key while the daemon runs); auto asks when plugin-qualify-sync is on the path and does nothing when it is absent, 1 always asks, 0 never does; the add's last word, ask or no-ask, overrides it for that add |
 | `ready_timeout_ms` | 5000 ms | a worker that does not accept in this long is a failed spawn |
 | `rpc_timeout_ms` | 5000 ms | a silent worker gets SIGTERM after this long, SIGKILL 2 s later |
 | `backoff_base_ms` | 250 ms | respawn backoff, doubling per death in the window |
@@ -280,7 +281,7 @@ Verbs the daemon adds
 <!-- BEGIN GENERATED protocol:verbs -->
 | verb | arguments | reply | meaning |
 |---|---|---|---|
-| `add` | `<uri> <instance> [own \| pool:<name> \| chain:<chain> \| default] [client_name]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name |
+| `add` | `<uri> <instance> [own \| pool:<name> \| chain:<chain> \| default] [client_name] [ask \| no-ask]` | `resp <instance>` | mod-host's add with a placement; a token after the instance that is not a placement is the jack client name; a last word ask or no-ask asks, or does not ask, for that add, for the qualification and the description of a plugin no layer of the descriptions store holds, whatever ask_unknown says |
 | `worker_list` | none | `resp <n> <worker>:<pid>:<format>:<state>:<core>:<pool>:<place>:<i>,<i>,...` | the workers, one record each |
 | `instance_info` | `<instance>` | `resp 0 <worker> <pid> <state> <crashes> <quarantined>` | where an instance lives and what it has cost |
 | `supervisor_reset` | `[<worker> \| all]` | `resp 0` | re-arm the storm bound and the backoff of a given-up placement |
@@ -304,6 +305,7 @@ Verbs the daemon adds
 | `plan_clear` | `<chain>` | `resp 0` | forget the plan: each member goes to a worker of its own; -532 for a chain no plan planned |
 | `descriptor_get` | `<uri>` | `resp 0 "<path>"` | the scanned descriptor of the plugin, answered from descriptor_dir: the file named for its binary as it is now (<id>@<version>-<hash>.json), written by the scan the plugin's add ran. -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
 | `panel_get` | `<uri>` | `resp 0 "<path>"` | the panel the plugin publishes (org.openmixer.panel-description/1), answered from descriptor_dir: the file panels/<id>@<version>-<hash>.json, named as its descriptor, which the same scan writes once the descriptor is in place, {"plugin": {"format", "id"}, "panel": <the panel object omx-clap-scan --json prints for the plugin, null when it serves none>, "meters": [<the clap.meters/1 meters the panel's displays index, each a row of descriptor_get's meters[], same ids>]} (the keys of PHD_PANEL_FILE_KEYS; meters is optional, absent from a file written before it); an LV2 plugin's panel is null and its meters empty. The codes are descriptor_get's: -529 when there is none, -530 while its scan runs, -531 when its last scan wrote nothing, -528 when the directory could not be written |
+| `description_get` | `<uri>` | `resp 0 <sha256> <format> <uri> <layer>` | the key a client reads the plugin's description by in the descriptions store (omx-panel docs/descriptions-store.md): the SHA-256 of its binary, its format (lv2 or clap), its uri and the layer that holds it (user, system or base, the first that does in that order, a stale entry absent); -529 when no layer holds it, -530 while its ask runs. The daemon answers the key, never the description: the client reads it from the store |
 | `history_get` | `<uri>` | `resp 0 <history>` | what the daemon kept of the plugin on this host class, for the binary its pin holds now (the running history: the windows it ran alone and in a group, its crashes, restarts and quarantines): one word of comma-joined digest=<sha256>, class=<host class>, crashed=<0\|1>, raises_xruns=<0\|1> and then every key=value of the record (domain plugin-hostd/history, contract.d/plugin-hostd/history/history.json); - when the plugin has no pin or no record, unavailable while the history file is blocked or history_window_s is 0, -902 for a line that is not one word |
 | `history_clear` | `<uri> \| all` | `resp 0` | delete the history of one plugin (every binary and host class of it), or all of it, from memory and from the file at once; -902 while the history is blocked or off, or for a line that is not one word |
 | `estimate` | `<rate> <quantum> <uri> [<uri> ...]` | `resp 0 <latency_frames> <cpu_percent> <ram_bytes> <workers> <unknown_count> <member>:<code>,... <ram_used_bytes> <ram_added_bytes> <ram_budget_bytes> <ram_unknown_count> <verdict> <reason>` | what a chain of these plugins, in signal order and named as add names them, would cost at that rate and quantum, read from the qualification records; no plugin is loaded and nothing moves. latency_frames adds up each member's measured latency of the grid point, else its declared one; cpu_percent adds up each member's median nanoseconds per sample times the rate, percent of one core's cycle (a member's cost per block over the block's duration); ram_bytes adds up the Pss of the worker each member ran alone in, the history's pss_mb_solo of the binary its pin holds on this host class, - unless every member has one, since no qualification record carries a RAM figure; workers is how many workers plan would place the members in (an isolated one alone); unknown_count is how many members have no figure at that rate and quantum, and the latency and the CPU add up only the others. The last word names each of them as its position in the line, from 0, and its code, -533 for no record, -534 for no point of the grid at that rate and quantum, -535 for a uri that names no plugin installed here, joined by commas, - for none. Several records of one plugin (several versions) give the largest figure. Then the memory: ram_used_bytes, what the workers hold now (- when one cannot be read), ram_added_bytes, what the members would add, ram_budget_bytes, the host's ram_budget_mb in bytes (- when none is set), and ram_unknown_count, how many members have no such figure. Last the host's insert verdict on the last uri, the candidate, added to the chain the others make: a word of PHD_ESTIMATE_VERDICTS and the word of PHD_ESTIMATE_REASONS that gave it, the first that holds in this order: the candidate's -535 refuses, its -533 or -534 is not measured; the CPU over PHD_ESTIMATE_CPU_CEILING, used and added over the budget, another member's code, a memory figure missing each warns; else recommend, within. -902 for a rate or a quantum that is not a whole number above 0, or no uri |
@@ -337,13 +339,48 @@ Turtle, read when they are asked (the manifest and the files it names with `rdfs
 `rdfs:label`; a further page, "Name 2", for each 8 past the first), one page named Controls for the control inputs in
 no group, the pages in the order their group first appears; outputs and `pprops:notOnGUI` ports are on no page, a slot
 is the port's symbol, and the section is empty. `param_info` answers a control port from its own statements: its
-`units:unit` (the words of the domain `plugin-hostd/lv2`, empty for a port with none), `stepped` for an integer, toggled or
+`units:unit` as its standard unit id, a const of omx-contract's `PARAM_UNITS` (plugin-db's `LV2_UNIT_IDS`; `none` for a
+port that states none), `stepped` for an integer, toggled or
 enumeration port, `log` for a `pprops:logarithmic` port whose bounds are positive and `linear` otherwise, its
 `lv2:minimum`, `lv2:maximum` and `lv2:default` (a toggled port's are 0, 1 and 0 when it states none), a step of 1 for
 a stepped port and 0 for the others, and its symbol. `-511` stays the answer for a port with a unit the table has no
 word for (a unit of the plugin's own) or no range, and `-103` for a symbol that is no control port. A bundle the
 daemon cannot find or read has no pages, and `param_info` asks mod-host as it did. When a CLAP plugin changes its pages, its
 worker writes `remote_pages_changed <instance>` on its feedback port and the daemon relays it.
+
+The descriptions store
+----------------------
+
+The groups an LV2 plugin is paged by can also come from omx-panel's descriptions store (omx-panel
+`docs/descriptions-store.md`): `panel.sqlite`, a base shipped built, a system layer and a user layer, read through
+`libomx-panel-store`. At an add the daemon reads the entry of the plugin's key, the SHA-256 of its binary, its format and
+its uri (the LV2 URI, the CLAP id), with its source as installed: the bundle's Turtle, or a CLAP plugin's scanned
+descriptor. An entry whose verdict is `grouped` gives the pages its groups (the group's name the page's), in place of
+every `pg:group` the bundle declares; any other verdict, an entry made stale by a changed Turtle, no entry, or no store
+installed (no base), and the plugin pages by its declared groups as above. The daemon infers no group. A daemon run as
+root reads the system layer and the base, any other the user layer over them.
+
+`description_get <uri>` answers the key a client reads the description by: `resp 0 <sha256> <format> <uri> <layer>`,
+the layer that holds it (`user`, `system` or `base`); `-529` when no layer holds it, `-530` while its ask runs.
+
+The ask. A plugin no layer holds is asked for, for that plugin only and once per key while the daemon runs: once the
+scan of its add has ended, the daemon runs, one after the other, as children of its own at nice 19, `SCHED_IDLE` and the
+idle I/O class, confined as the scan is:
+
+1. `plugin-qualify-sync --plugin <target> --under-load` (and `--system` as root), plugin-qualify's single-plugin call:
+   its figures are marked measured under load, since the engine plays meanwhile;
+2. `omx-panel describe --plugin <target> --descriptor <the descriptor the scan wrote> --sha256 <hex> --store`, which
+   derives the entry and writes the layer of its uid;
+3. for an LV2 plugin, `omx-complement-sync`, `omx-modgui-sync` and `omx-lv2ui-sync`, each with `--only <bundle>`.
+
+A program that is not installed is skipped; with `plugin-qualify-sync` absent no child runs at all and the add answers
+as before. Meanwhile the plugin loads as it does without a store. When the ask ends, the daemon reads the entry again:
+the next `remote_pages` answer from it, and `description_changed <uri>` on the feedback port tells the clients. A key
+whose ask ended without an entry is not asked for again until the daemon restarts or its binary changes. The last word of
+an `add`, `ask` or `no-ask`, asks or does not, for that add; with neither the daemon asks as the setting `ask_unknown`
+says: `auto`, the default, asks when `plugin-qualify-sync` is installed and quietly does nothing when it is not; `1`
+asks as the word `ask` does, so with `plugin-qualify-sync` absent it logs the reason once; `0` asks nothing. No systemd
+unit is involved. The children's output is in `<state_root>/plugin-hostd/<pid>/ask-<format>-<sha256>.log`.
 
 Notes are played the same way, by a controller that is not a jack client (a web console, a test, a MIDI surface on the
 network): `note_input` says whether an instance takes notes, and `note_on`, `note_off` and `all_notes_off` reach its
@@ -354,6 +391,20 @@ played through its jack MIDI input with `connect`. omx-clap-host does not answer
 `preset_list` and `preset_get` list a plugin's presets the way `remote_pages` and `remote_page_get` list its pages; the
 key `preset_get` gives is the one `preset_load` takes. mod-host cannot list presets, so for an LV2 instance on mod-host
 the daemon answers both `-515`. omx-clap-host lists them with `preset_list` and `preset_get`.
+
+The property verbs name a plugin's file and text properties (`org.openmixer.properties/1`). For an LV2 instance on
+mod-host the daemon presents the properties omx-clap-host's LV2 adapter presents, read from the bundle's Turtle: each
+`patch:writable` `lv2:Parameter` whose `rdfs:range` is `atom:Path` (kind `path`) or `atom:String` (kind `string`), in
+the order of their URIs; its `lv2:symbol`, else the URI's text after the last `#` (else the last `/`) with every
+character outside `[A-Za-z0-9_]` as `_` and a leading digit prefixed `_`; its `rdfs:label`, else its URI; `rw` when it
+is also `patch:readable`, else `w`. `property_list` and `property_info` are answered from that, and mod-host never hears
+them. `property_set` becomes mod-host's `patch_set <instance> <uri> "<value>"`. mod-host's reader has no escape for a
+backslash, so a value holding a quote or a backslash is `-108` and mod-host hears nothing, as are a value that is not
+UTF-8 and a relative path for a `path`; a ring with no room for the set is `-109`. The ledger keeps that `patch_set`
+line, the latest per property, and a respawned mod-host gets each after the state. `property_get` becomes mod-host's
+`patch_get`: the plugin answers with a `patch:Set`, which mod-host writes on its feedback port as `patch_set <instance>
+<uri> <type> <value>` (relayed as written), and its value is the reply; a plugin that writes none within a second is
+`-902`. A bundle the daemon cannot find or read has no properties.
 
 A plugin with a window or a surface of its own tells its host when the user takes hold of one of its knobs and lets go,
 moves values by itself, and suggests a remote page. Its worker writes `param_gesture`, mod-host's `param_set` and
@@ -477,6 +528,7 @@ mechanism, and they stay optional. The preset verbs and the preset file are [doc
 | `plan_clear` | daemon | required | required | required | required |
 | `descriptor_get` | daemon | required | required | required | required |
 | `panel_get` | daemon | required | required | required | required |
+| `description_get` | daemon | required | required | required | required |
 | `history_get` | daemon | required | required | required | required |
 | `history_clear` | daemon | required | required | required | required |
 | `estimate` | daemon | required | required | required | required |
@@ -519,8 +571,8 @@ Error codes the daemon adds to mod-host's:
 | `-527` | `OMX_REPLY_PLUGIN_HOSTD_LOAD_REFUSED_RESP` | the worker: the plugin refused the preset or the state its file carries |
 | `-544` | `OMX_REPLY_PLUGIN_HOSTD_PRESET_NOT_APPLIED_RESP` | the worker: the plugin took the preset and had not run once since when the host's wait for that ran out |
 | `-528` | `OMX_REPLY_PLUGIN_HOSTD_DIR_NOT_WRITABLE_RESP` | descriptor_dir cannot be made or written: the daemon does not start, and says which key and which path on stderr with this code; a directory that turns read-only later makes the scan of an add write nothing, and descriptor_get and panel_get of that plugin answer this code |
-| `-529` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP` | descriptor_get (panel_get) of a plugin that has no descriptor (panel) in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found |
-| `-530` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet: ask again |
+| `-529` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_ABSENT_RESP` | descriptor_get (panel_get) of a plugin that has no descriptor (panel) in descriptor_dir for its binary as it is now, and none being written: no add since it changed, or a binary that cannot be found; description_get of a plugin no layer of the descriptions store holds, and whose ask is not running |
+| `-530` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_PENDING_RESP` | descriptor_get (panel_get) of a plugin whose scan, started by its add, has not written its descriptor (panel) yet, or description_get of a plugin whose ask, started by its add, still runs: ask again |
 | `-531` | `OMX_REPLY_PLUGIN_HOSTD_DESCRIPTOR_SCAN_FAILED_RESP` | descriptor_get (panel_get) of a plugin whose last scan wrote no descriptor (panel): the scanner refused the plugin, made no dump or no panel, or is not installed; the add it ran for stands, and stderr and the scan's log say why. The next add scans again |
 | `-532` | `OMX_REPLY_PLUGIN_HOSTD_NO_SUCH_PLAN_RESP` | plan_get or plan_clear of a chain no plan planned |
 | `-533` | `OMX_REPLY_PLUGIN_HOSTD_NO_RECORD_RESP` | a member of estimate that no qualification record names: never a reply, the code of the member in the reply's list |
@@ -573,12 +625,13 @@ Events on the feedback port, one NUL-terminated line each:
 | `qualify_requested` | `<uri>` | a plugin with no verdict was added under require_pins with pin_mode first-use: its insert is bypassed, no worker holds it, and one request for its quick qualification is in the spool (qualify); said at most once for a plugin until a verdict lands |
 | `supervisor_gave_up` | `<worker> <deaths> <window_ms>` | the storm bound is spent; respawning ends |
 | `pin_changed` | `<uri> files \| layout` | an add or a replay of a plugin was refused because its files, or the layout the worker found, differ from its pin; the pin is as it was until pin_accept or pin_set |
+| `description_changed` | `<uri>` | the ask of a plugin no layer of the descriptions store held has ended, and the daemon read the store's entry of it again: the next remote_page_get and panel_get answer from it, and description_get names its key; read them again |
 | `lv2_adapter_refused` | `<uri> <reason> omx-clap-host` | the LV2 adapter of the lv2-clap worker refused a plugin: <reason> is the hosting.* code after -102 on the worker's reply to that add (- when it named none); the last word is the lv2_worker in force, omx-clap-host, and the add is answered (-512) |
 | `remote_pages_changed` | `<instance>` | relayed from a worker: the plugin changed its remote pages; read them again |
 | `remote_page_suggest` | `<instance> <page_id>` | relayed from a worker: the plugin suggests the remote page of that id (a page_id of remote_page_get); a surface may follow it |
 | `param_gesture` | `<instance> <symbol> begin \| end` | relayed from a worker: the user took hold of a control of the plugin's own, or let it go; a controller writes no automation of that parameter in between. The values the plugin moves meanwhile, or at any time by itself, are mod-host's param_set feedback lines, relayed as written. A gesture whose worker died, or whose instance was removed, before its end is ended by the daemon, before the worker_died event |
 | `xruns` | `<count>` | relayed from a worker, and read by the daemon: the JACK xruns the worker has counted since it started, written when the count changes and at most once a second; a worker that never writes it counted none. The daemon takes the first count of a worker as its baseline and, at the close of each history window, adds the window to xrun_windows_solo or xrun_windows_grouped of every member of the worker when the count rose in it; a line that is not the word and one whole number is not a count |
-| `abi_clobber` | `<instance> <mask> <registers> <call> <block>` | relayed from a worker (omx-clap-host 0.26.2 or later), and read by the daemon: the plugin returned from a call with a callee-saved register changed, said once per instance. The worker put the registers back, so its own frame is whole; the other members' state in the same process is not covered, so the daemon quarantines the instance (instance_quarantined, and the history keeps it alone from then on) and, when it shares its worker or is in a chain, moves it to a worker of its own with its state saved; one already alone is only marked |
+| `abi_clobber` | `<instance> <mask> <registers> <call> <block>` | relayed from an omx-clap-host worker, and read by the daemon: the plugin returned from a call with a callee-saved register changed, said once per instance. The worker put the registers back, so its own frame is whole; the other members' state in the same process is not covered, so the daemon quarantines the instance (instance_quarantined, and the history keeps it alone from then on) and, when it shares its worker or is in a chain, moves it to a worker of its own with its state saved; one already alone is only marked |
 | `param_set` | `<instance> <symbol> <value>` | relayed from a worker: parameter feedback, a value the plugin moved by itself (its automation, an LFO, a preset load, a MIDI map, the user's knob of the plugin's own), as mod-host writes it; a controller updates its control to it. A worker never writes it for a value a controller's param_set gave it, and a worker that writes none changes nothing: the daemon adds no line of its own |
 <!-- END GENERATED protocol:events -->
 
@@ -712,8 +765,18 @@ resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ER
 
 Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set` or from a `pin_file` loaded at start, and a
 plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
-files, keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`) and places the instance `own`; the layout is
-asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files whose path as listed, `..`
+files and keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`). A plugin with no verdict is not
+instantiated in any worker (R-112): the `add` answers, the instance exists and its insert passes dry, no worker holds it
+and none loads its code, until its pin carries a verdict or the user chooses with `pin_accept`. The daemon writes one
+request for its quick check into the qualify spool (`qualify/` in the directory of the pin store: one `*.request` file
+per plugin, written whole by a temporary file renamed over its name, the lines `uri <uri>` and `file <path> <sha256>` for
+each file hashed) and says `qualify_requested <uri>` once the file is on disk, at most once for a plugin until a verdict
+lands. The daemon runs no check: the service that watches the spool does, and writes the verdict as a pin in the
+pins_dir. A pin of a verdict other than `refused`, read at the next tick or `pin_reload`, answers the request and makes
+the insert live in the worker its verdict places it in, with no restart; `refused` answers it too and the insert stays
+bypassed, its `add` answering `-516`, until `pin_accept`, which makes it live alone. An instance that is live when its
+verdict later turns `refused` keeps playing. A verdict never overwrites the user's choice (`<pin_store>.accepted`, the
+daemon's alone). The layout is asked of the worker after the add (`pin_layout`) and recorded too. First use learns only files whose path as listed, `..`
 taken by its text and the file's own links not followed, is inside a directory of the declared search path: `clap_path`
 for CLAP, `lv2_path` (with `lv2_extra`) for LV2. A bundle in the search path whose binary is a link out of it (Debian's
 `calf.lv2/calf.so`) is learned, the pin holds the digest of the file the link resolves to and the log names both paths;
@@ -745,7 +808,7 @@ daemon never writes it. A pin from this layer is trusted as it is, in both pin m
   `pin_set` never override it: `pin_set` of its uri answers `-516` (`PIN_REFUSED`), and a line of the store or of the
   `pin_file` for it is kept but has no effect, which stderr says at start.
 - A failed qualification is our advice, not a wall: the user decides. Under `pin_mode first-use`, `pin_accept <uri>` of
-  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, records the user's choice, kept beside the pin store in
+  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, or none (the plugin is bypassed, R-112), records the user's choice, kept beside the pin store in
   `<pin_store>.accepted`, one uri per line, and takes the plugin's files as they are now as its pin, in the store with no
   verdict: the user's choice, not a pass. The plugin then runs alone in a worker of its own, as any plugin not qualified
   for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart and over a

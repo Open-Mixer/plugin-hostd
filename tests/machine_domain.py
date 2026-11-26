@@ -11,13 +11,15 @@ arms 1 to 8.
 4. include/plugin-hostd/machine_codes.h holds exactly the items marked x-c-codes and is the render (--check), or there is none;
 5. the CLIs (the probe, the generator) read OMX_CONTRACT_PATH, the library entry (machine_words_open with no directory,
    the daemon's) ignores it, and nothing of src/machine.c or src/domain_words.c reads the environment;
-6. a machine domain that is absent, invalid, too old (below 1.1.0) or without the items or bands the probe cuts is refused by name at
+6. a machine domain that is absent, invalid or without the items or bands the probe cuts is refused by name at
    start-up: the probe exits 78 with the loader's code and the domain's name, the generator exits 1 the same way;
 7. make install_machine_domain DESTDIR=<tmp> gives the tree the loader reads: omx_domain_open_at opens it and finds a
    word and a catalog text;
 8. MACHINE_FAMILIES holds exactly the families the probe writes as machine.class.family (intel, amd, arm, unknown), the
    probe writes the domain's word (a scratch copy with every family renamed gives the renamed word), and a domain short of
-   a family is refused by item at start-up.
+   a family is refused by item at start-up; the generated probe-output schema's machine.class.family is an enum of the
+   domain's MACHINE_FAMILIES words, rendered at build time (the renamed copy gives the renamed words), with an x-from
+   naming the item (plugin-hostd#172).
 
 9. the call-level read (machine_words_open, sorting pass V7): the family ids and the band counts of the call are the golden
    ones frozen from the hand copy (intel 0, amd 1, arm 2, unknown 3; counts 6, 5, 4), they are the codes of the domain's
@@ -58,6 +60,7 @@ GEN = os.path.abspath(os.environ.get("GEN", os.path.join(ROOT, "tools", "protoco
 WORDS_OPEN = "machine_words_open"
 BANDS = ("MACHINE_CORE_BANDS", "MACHINE_CLOCK_BANDS")
 FAMILIES = ["intel", "amd", "arm", "unknown"]
+FAMILIES_REF = "https://openmixer.org/contract/machine#/components/schemas/MACHINE_FAMILIES"
 # the probe domain is plugin-hostd-protocol's: where its contract package installs it, PROTOCOL_CONTRACT_DIR for a checkout's
 PROBE_SOURCE = os.environ.get("PROTOCOL_CONTRACT_DIR") or subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"],
                                                                          capture_output=True, text=True).stdout.strip() or "/usr/share/omx-contract/contract.d"
@@ -192,7 +195,7 @@ def arm7():
         if b.returncode != 0:
             fail("arm 7: tests/machine_domain_open.c does not build (a loader is needed, libomx-domain): %s" % b.stderr.strip()[-200:])
             return
-        o = run([exe, installed, "1.1.0", "MACHINE_CORE_BANDS", "1-2", "MACHINE_CORE_BANDS.1-2", "ca"])
+        o = run([exe, installed, "MACHINE_CORE_BANDS", "1-2", "MACHINE_CORE_BANDS.1-2", "ca"])
         if o.returncode != 0:
             fail("arm 7: the loader does not read the installed tree: %s" % o.stderr.strip())
         else:
@@ -329,9 +332,6 @@ def arm6(doc, tmp):
     if doc is None:
         return
 
-    def old(d):
-        d["info"]["version"] = "0.9.0"
-
     def short(d):
         d["components"]["schemas"]["MACHINE_CORE_BANDS"]["oneOf"].pop()
 
@@ -341,7 +341,6 @@ def arm6(doc, tmp):
     cases = (
         ("absent", os.path.join(tmp, "nowhere"), "contract.dir.absent"),
         ("invalid", fixture(tmp, "invalid", text="{ not json"), "contract."),
-        ("too old", fixture(tmp, "old", old), "contract.package.too-old"),
         ("without an item", fixture(tmp, "lacking", lacking), "MACHINE_CLOCK_BANDS"),
     )
     for what, dirs, mark in cases:
@@ -356,8 +355,6 @@ def arm6(doc, tmp):
     p, out = run_probe(fixture(tmp, "short", short), tmp)
     if not (p.returncode == 78 and out is None and "MACHINE_CORE_BANDS" in p.stderr and "machine" in p.stderr):
         fail("arm 6: a core band short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))
-    if "1.1.0" not in run_probe(cases[2][1], tmp)[0].stderr:
-        fail("arm 6: the too-old refusal does not name the floor 1.1.0")
     # the daemon is a program too, and a production entry point: it reads no path and no variable for the contract. The test
     # builds hold the seam (OMX_CONTRACTDIR, compiled in): DAEMON over this checkout's domain, DAEMON_EMPTY over a directory
     # with none. OMX_CONTRACT_PATH is set in both to prove it is ignored.
@@ -382,7 +379,7 @@ def arm6(doc, tmp):
         fail("arm 6: the daemon over the domain does not start (OMX_CONTRACT_PATH over a directory with none is not to be read): "
              "rc %s %r" % (rc, err[-200:]))
     if len(failures) == before:
-        ok("arm 6: an absent, invalid, too old, short or item-less machine domain is refused by name at start-up")
+        ok("arm 6: an absent, invalid, short or item-less machine domain is refused by name at start-up")
 
 
 def arm8(doc, tmp):
@@ -414,6 +411,17 @@ def arm8(doc, tmp):
         fail("arm 8: the probe does not run over the domain with renamed families: rc %d %s" % (p.returncode, p.stderr[-200:]))
     elif not out["machine"]["class"]["family"].endswith("-x"):
         fail("arm 8: machine.class.family is %r, not the renamed domain's word" % out["machine"]["class"]["family"])
+    for name, change, want in (("families-gen", None, FAMILIES),
+                               ("families-renamed-gen", renamed_families, [w + "-x" for w in FAMILIES])):
+        g = generate(fixture(tmp, name, change))
+        if g.returncode != 0:
+            fail("arm 8: the generator does not run over %s: %s" % (name, g.stderr[-200:]))
+            continue
+        family = json.loads(g.stdout)["properties"]["machine"]["properties"]["class"]["properties"]["family"]
+        if family.get("enum") != want:
+            fail("arm 8: the generated schema's family is %s, not the %s domain's words %s" % (family, name, want))
+        if family.get("x-from") != [{"$ref": FAMILIES_REF}]:
+            fail("arm 8: the generated schema's family names no item: x-from %r" % family.get("x-from"))
     p, out = run_probe(fixture(tmp, "families-short", short), tmp)
     if not (p.returncode == 78 and out is None and "MACHINE_FAMILIES" in p.stderr and "machine" in p.stderr):
         fail("arm 8: a family short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (p.returncode, p.stderr[-200:]))

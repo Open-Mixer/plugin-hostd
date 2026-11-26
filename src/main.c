@@ -31,6 +31,8 @@
 #include <utils.h>
 
 #include "conf.h"
+#include "descriptions.h"
+#include "descriptions_open.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "history.h"
@@ -44,7 +46,7 @@
 #include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.21.1"
+#define VERSION "0.22.0"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -75,6 +77,24 @@ static int open_test_store(pqdb **db, pqdb_error *err)
 #else
     return pqdb_open_at(path, NULL, NULL, db, err);
 #endif
+}
+
+/* The test build's seam for the descriptions store, beside the qualification store's: the store is the three files of the
+ * directory PLUGIN_HOSTD_TEST_DESCRIPTIONS_STORE names (base.sqlite, system.sqlite and user.sqlite, every layer whatever
+ * the uid, so a test reads what its writer wrote as root or not), the installed contract directory for the words; no
+ * variable names no store, which is an absent one. The packaged daemon opens the store of its scope with
+ * omx_panel_store_open and takes no path and no environment variable for it. */
+static int open_test_descriptions(omx_panel_store **s, omx_panel_store_error *err)
+{
+    const char *dir = getenv("PLUGIN_HOSTD_TEST_DESCRIPTIONS_STORE");
+    char base[PATH_MAX], sys[PATH_MAX], user[PATH_MAX];
+
+    if (!dir || !*dir)
+        dir = "/nonexistent";
+    snprintf(base, sizeof(base), "%s/base.sqlite", dir);
+    snprintf(sys, sizeof(sys), "%s/system.sqlite", dir);
+    snprintf(user, sizeof(user), "%s/user.sqlite", dir);
+    return omx_panel_store_open_at(base, sys, user, NULL, s, err);
 }
 #endif
 
@@ -125,6 +145,7 @@ static void idle_cb(void)
     verbs_flush();
     sup_tick();
     descriptors_tick();
+    descriptions_tick();
     if (g_quitting)
     {
         /* quit: what was handed over lands, and what waited for it is answered, before the daemon goes */
@@ -254,6 +275,13 @@ int main(int argc, char **argv)
     struct sigaction sig;
 
     conf_defaults(&g_conf);
+    /* plugin-db's domain lv2 gives an LV2 port's unit its standard id: the installed contract directory, or the test
+     * build's (OMX_CONTRACTDIR, as for the machine domain) */
+#ifdef OMX_CONTRACTDIR
+    lv2_units_dirs(OMX_CONTRACTDIR);
+#else
+    lv2_units_dirs(NULL);
+#endif
     /* the workers, the probe and the scanners run with no window: with no display, Qt is given one that needs none, so
      * a Qt-linked plugin does not abort as it is instantiated; every process the daemon starts inherits it */
     phd_headless_qt();
@@ -348,9 +376,11 @@ int main(int argc, char **argv)
     /* the directories of what an add gathers are made, or the daemon does not start: never a silent fallback */
 #ifdef OMX_QUALIFICATION_TEST_STORE
     qualcost_use_opener(open_test_store);
+    descriptions_use_opener(open_test_descriptions);
 #endif
     if (descriptors_init(&g_conf) != 0)
         return EXIT_FAILURE;
+    descriptions_ask_unknown(g_conf.ask_unknown);
     pins_accepting(conf_pins_first_use(&g_conf));
     if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
@@ -402,6 +432,7 @@ int main(int argc, char **argv)
     socket_finish();
     /* every write lands before the state its ends report to is freed; the history's last one lands before the exit */
     writer_drain();
+    descriptions_finish();
     descriptors_finish();
     sup_finish();
     history_finish();

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The declaration is the one copy: change values in a scratch copy of plugin-hostd/protocol.h, and a verb in one of
-# verbs.json, the daemon's verbs that omx-contract renders (both plugin-hostd-protocol's, copied from the installed
+# The declaration is the one copy: change values in a scratch copy of plugin-hostd/protocol.h, and a verb in
+# the domain plugin-hostd-protocol, the daemon's verbs that omx-contract renders (both plugin-hostd-protocol's, copied from the installed
 # library into a scratch tree, where -Iinclude finds them first), render and regenerate,
 import sys as _s; _s.stdout.reconfigure(line_buffering=True)
 # rebuild, and the daemon's behaviour and the docs follow, with no other copy of an old value left in src/, docs/guide.md
@@ -124,14 +124,14 @@ EDITS = [
     ("the pool name limit", r"(#define PHD_POOL_NAME_MAX )32\b", r"\g<1>5", None),
     ("the readiness line", r'(#define PHD_READY_LINE )"plugin-hostd ready!"', r'\g<1>"plugin-hostd is up!"', r"plugin.hostd ready!"),
 ]
-# a verb of the daemon is declared in verbs.json and rendered: (what, pattern, replacement, old) on that file
+# a verb of the daemon is declared in the domain plugin-hostd-protocol and rendered: (what, pattern, replacement, old) on that file
 DATA_EDITS = [
     ("a verb", r'"instance_info( %i)?"', lambda m: '"instance_where%s"' % (m.group(1) or ""), r"\binstance_info\b"),
 ]
-# a reply code's number is declared in verbs.json and rendered as OMX_REPLY_<CODE>_RESP, which the daemon, the README
+# a reply code's number is declared in the domain plugin-hostd-protocol and rendered as OMX_REPLY_<CODE>_RESP, which the daemon, the README
 # and the man page follow: (what, pattern, replacement, old) on that file, one match
 CODE_EDITS = [
-    ("an error code", r'("resp": )-505\b', r"\g<1>-595", r"\b505\b"),
+    ("an error code", r'("x-resp": )-505\b', r"\g<1>-595", r"\b505\b"),
 ]
 # the verb the daemon has after the edit, and the one it has before, which the perturbed daemon must not have
 VERB_AFTER, VERB_BEFORE = "instance_where", "instance_info"
@@ -210,13 +210,13 @@ def main():
             src = os.path.join(ROOT, name)
             (shutil.copytree if os.path.isdir(src) else shutil.copy)(src, os.path.join(tree, name),
                                                                        **({"ignore": shutil.ignore_patterns("*.o", "reply_words.h")} if os.path.isdir(src) else {}))
-        # the declaration, plugin-hostd-protocol's: a copy of its headers and of its verbs.json in the scratch tree
+        # the declaration, plugin-hostd-protocol's: a copy of its headers and of its domain plugin-hostd-protocol in the scratch tree
         declared.overlay(tree)
         header = os.path.join(tree, "include", "plugin-hostd", "protocol.h")
         text = open(header).read()
-        os.makedirs(os.path.join(tree, "protocol-data"))
-        declaration = os.path.join(tree, "protocol-data", "verbs.json")
-        shutil.copy(declared.verbs_json(), declaration)
+        declaration = os.path.join(tree, "protocol-data", "contract.d", "plugin-hostd-protocol", "plugin-hostd-protocol.json")
+        os.makedirs(os.path.dirname(declaration))
+        shutil.copy(declared.domain_json(), declaration)
         verbs = open(declaration).read()
 
         # positive control: the greps find the old values where they are declared and documented
@@ -229,7 +229,7 @@ def main():
         # the pages written against the protocol installed here, whatever its minor, then held to it
         r = make(tree, "gen")
         assert r.returncode == 0, "make gen in the scratch copy: " + r.stdout + r.stderr
-        r = make(tree, "check-generated", "GENERATED_COMPARE=always")
+        r = make(tree, "check-generated")
         assert r.returncode == 0, "the scratch copy is not current before the edit: " + r.stdout + r.stderr
         before = protocol_json(tree, os.path.join(work, "before.json"))
         assert open(before).read() == open(declared.variable("protocoljson")).read(), \
@@ -258,12 +258,12 @@ def main():
                         open(path, "w").write(old.replace("OMX_VERB_INSTANCE_INFO", "OMX_VERB_INSTANCE_WHERE"))
 
         # the guard: a header changed and the pages not written again is drift
-        r = make(tree, "check-generated", "GENERATED_COMPARE=always")
+        r = make(tree, "check-generated")
         assert r.returncode != 0, "check-generated passed over a changed declaration"
         print("ok   check-generated fails on a changed declaration whose pages were not written again")
 
         for target in ("gen", "check-generated", DAEMON_TEST):
-            r = make(tree, target, "GENERATED_COMPARE=always")
+            r = make(tree, target)
             assert r.returncode == 0, "make %s in the scratch copy: %s%s" % (target, r.stdout, r.stderr)
         after = protocol_json(tree, os.path.join(tree, "protocol", "plugin-hostd.json"))
 

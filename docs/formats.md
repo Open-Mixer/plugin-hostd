@@ -6,7 +6,7 @@ plugin-hostd turns what a CLAP or LV2 plugin states about itself into a `scanned
 
 | Layer | What | Where |
 |---|---|---|
-| L1 description | one mapping table per format, data: every field a scan reads, mapped to a descriptor word, carried in the extension bag, or dropped by a named decision | the domain `plugin-hostd/clap` (`contract.d/plugin-hostd/clap/clap.json`, `PLUGIN_HOSTD_CLAP_MAP`) and the domain `plugin-hostd/lv2` (`PLUGIN_HOSTD_LV2_MAP`), each item a `sheet` whose value is the map `{ format, rows }` |
+| L1 description | one mapping table per format, data: every field a scan reads, mapped to a descriptor word, carried in the extension bag, or dropped by a named decision | the domain `plugin-hostd/clap` (`contract.d/plugin-hostd/clap/clap.json`, `PLUGIN_HOSTD_CLAP_MAP`) and the domain `plugin-hostd/lv2` (`PLUGIN_HOSTD_LV2_MAP`), each item an `x-kind` `map` (omx-contract's mapping-table kind), one row per source field |
 | L2 transforms | a closed list of named functions, each with its inverse, which a table names and never defines | `src/transforms.h` (`TRANSFORMS(X)`), `src/transforms.c` |
 | L3 runtime | the field dump of one plugin, read as a host reads it | omx-clap-core's `omx-clap-scan --fields` |
 
@@ -20,13 +20,20 @@ is the proof.
 Each table is a domain of the contract directory (`docs/contract-dir.md` of omx-contract, Domains): `plugin-hostd/clap` and
 `plugin-hostd/lv2`, named by their item's prefix, installed by `make install` (`install_vocabulary_domains`, with
 omx-contract-devel's `install-contract-dir.sh --domain`) to `<contractdir>/plugin-hostd/<format>/<format>.json`, beside the
-domains `plugin-hostd/grouping` and `plugin-hostd/history`. The document is a domain header (`$id`
+domains `plugin-hostd/grouping` and `plugin-hostd/history`. The daemon's verbs are the domain `plugin-hostd-protocol`
+(`<contractdir>/plugin-hostd-protocol/plugin-hostd-protocol.json`), which plugin-hostd-protocol ships under its own name.
+The document is a domain header (`$id`
 `https://openmixer.org/contract/plugin-hostd/<format>`, `info.version`, `x-owner plugin-hostd`, `x-stability`) over one
-item, `PLUGIN_HOSTD_<FORMAT>_MAP`, of `x-kind` `sheet`: its `description` is the table's doc, its `x-value` the map
-`{ "format": "<format>", "rows": { <source field>: <row> } }`, which is what `plugin-hostd-probe describe`, `tests/format_coverage.py`
-and omx-plugins' generators (`tools/format-tables.mjs`) read. The one `MANIFEST.json` of `<contractdir>/3/plugin-hostd/`
+item, `PLUGIN_HOSTD_<FORMAT>_MAP`, of `x-kind` `map` (omx-contract `docs/contract-dir.md`, Domains; the kind ruled for a
+mapping table by the owner on 2026-11-23, decision 1 of plugin-hostd#215, omx-contract#191): its `description` is the
+table's doc, its `x-format` the format, and its `oneOf` one row per source field, in the table's order: `const` and
+`title` the source field, `x-code` its place, what it covers (`x-term` or `x-from`), its class (`x-word`, `x-extension`
+or `x-dropped`) and its `description` the row's doc. That item is what `plugin-hostd-probe describe`,
+`tests/format_coverage.py` and omx-plugins' generators (`tools/format-tables.mjs`) read, and what omx-contract's
+`render --with-domain` rebuilds, byte for byte, as the data form's `formatMap` (`{ kind, format, rows }`, the row keys
+`term`, `from`, `word`, `extension`, `dropped`, `doc`); this page names a row's parts by those data-form keys. The one `MANIFEST.json` of `<contractdir>/plugin-hostd/`
 (`make install-contract`) names no file and the top-level domains this tree owns; it is what tells omx-contract's reader that
-`<contractdir>/plugin-hostd/` holds domains. No copy of the tables stays under `3/plugin-hostd/formats/`. The noarch package plugin-hostd-contract
+`<contractdir>/plugin-hostd/` holds domains. No copy of the tables stays under `plugin-hostd/formats/`. The noarch package plugin-hostd-contract
 (`plugin-hostd-contract` on Debian too) ships them, and a program that reads them at run time requires it.
 It requires omx-contract 3.2.0 or later (`Requires`, Debian `Depends`): the tables live in omx-contract's contract
 directory and are read against its schema, and 3.2.0 is the first whose source field takes an index
@@ -42,7 +49,7 @@ A table's `rows` are keyed by the source field, and each row has exactly one cla
 
 | Class | Carries | Meaning |
 |---|---|---|
-| `word` | `{ word, transform, values? \| factor? }` | the descriptor word it becomes (`controls[].travel.unit`), the transform that converts it (a name of `TRANSFORMS(X)`) and that transform's data: `values` for `lookup`, `factor` for `scale-by`. Never code |
+| `word` | `{ word, transform, values? \| factor? }` | the descriptor word it becomes (`controls[].travel.unit`), the transform that converts it (a name of `TRANSFORMS(X)`) and that transform's data: `values` for `lookup`, `factor` for `scale-by`; none for a transform whose data is an owner's published mapping (`unit-id`, `designation-meaning`: [Lookup values the owners publish](#lookup-values-the-owners-publish)). Never code |
 | `extension` | `true` | carried verbatim into the descriptor's `extensions.<format>.<field>` (a record of a control's or a port's scope under `<scope>/<field>`) |
 | `dropped` | `{ ruling }` | left out, by the decision it names: a spec path and section, or the TERM's own `out-of-scope` mark |
 
@@ -82,9 +89,34 @@ its row either way. A record of the dump is resolved in this order:
    in the bag instead), an `extension` row carries it in the bag, a `dropped` row drops it;
 3. a field with no row at all is refused: `describe` names it and writes no descriptor.
 
-A value row's `lookup` holds its own pair (`units:db` -> `dB`): the unit rows are the same correspondence as
-omx-plugins' `LV2_UNITS` (`tools/gen.mjs`), and where the TERM file names the unit's word the row maps to that word,
-which the coverage test holds.
+A unit value row (`units:db`) and a designation value row (`param:gain`) hold no pair of their own: their transform
+reads the one the format's owner publishes (next section), and where the TERM file names the unit's word, the owner's
+mapping gives that word, which the coverage test holds.
+
+### Lookup values the owners publish
+
+A unit and a meaning are not this table's words, and the format's own spelling of them belongs to the package that owns
+the format's level (plugin-hostd#215, row M5). A row that turns one into the other names, by its transform, the mapping
+that owner publishes in its domain, and carries no `values`:
+
+| Transform | Rows | The owner's mapping, read from the contract directory | Pair |
+|---|---|---|---|
+| `unit-id` | CLAP `omx_clap_param_contract_entry.unit` | omx-clap's domain `omx-param-contract`, the sheet `OMX_PARAM_CONTRACT_UNIT_IDS` | each code (`db`) -> its id (`dB`) |
+| `unit-id` | LV2 `units:<unit>` value rows | plugin-db's domain `lv2`, the word of `LV2_UNIT_IDS` whose `x-from` names the row's TERM | the row's key (`units:db`) -> the word's `const` (`dB`) |
+| `unit-id` | LV2 `units:unit` | plugin-db's domain `lv2`, every word of `LV2_OPENMIXER_UNIT_IDS` | its `x-uri` (`urn:openmixer:unit#dBFS`) -> its `const` (`dBFS`) |
+| `designation-meaning` | LV2 `param:<term>` and `lv2:enabled` value rows | plugin-db's domain `lv2`, the word of `LV2_DESIGNATION_MEANINGS` whose `x-from` names the row's TERM | the row's key (`param:gain`) -> the word's `const` (`gain`) |
+
+Each value is a JSON string. A unit's is a `PARAM_UNITS` id of omx-contract spelled as its standard symbol (`dB`, `Hz`,
+`ms`, `percent`; never a lowercase key, an alias or a second accepted spelling), and the dimension that id carries in
+`PARAM_UNITS` (`x-dimension`, `gain` for `dB`) is read there, never stored beside it (decision 2 of plugin-hostd#215,
+ruled 2026-11-23). A plugin unit no owner maps to a standard id is a `dropped` row naming its ruling, never a new
+spelling here.
+
+`describe` reads each owner's domain, once, from the contract directory it was given (`--contract-dir`, else
+`$OMX_CONTRACT_PATH`), and when that holds no such domain, from the installed one: a domain found but unreadable, a
+document that is not that owner's (`$id`, `info.x-owner`), a mapping item that is absent, and a `unit-id` or
+`designation-meaning` row for which the mapping holds no pair, are refused by name and no descriptor is written. The
+inverse reads the same pairs backwards; a pair is one to one or refused, as a `lookup`.
 
 ### What a table drops
 
@@ -106,7 +138,8 @@ A TERM its domain marks `used` is never dropped: its row is a word or the bag.
 
 A generator reads a value row of a table to write a face: the TERM is a value (not a `property`) and omx-contract
 lists omx-plugins among its users (`by`). Such a row's transform is `identity` or `lookup`, the two a generator applies
-by reading the table alone; what is structure (scale points, groups, module paths) stays in the generator's code.
+by reading the table alone, or `unit-id` or `designation-meaning`, which a generator applies by reading the same owner's
+mapping backwards; what is structure (scale points, groups, module paths) stays in the generator's code.
 
 ## The transforms
 
@@ -125,6 +158,8 @@ format side.
 | `group-path` | a CLAP module path `a/b` -> the group `["a","b"]` | the group joined by `/` | none |
 | `port-group` | an LV2 group's label -> the group `["label"]`; a `pg:subGroupOf` label -> a level put before the group read so far | the path's last level, the group a port names | none |
 | `role-to-meaning` | a declared panel's role -> the meaning it plays, from the contract directory's role tables; a role no package declares gives nothing (the meaning stays `unknown`) | the one role that plays the meaning; refused when two or more do | the contract directory's `roleMeanings` items, never the row's own `values` |
+| `unit-id` | a unit as the format spells it -> its standard id, from the owner's mapping ([Lookup values the owners publish](#lookup-values-the-owners-publish)); a spelling the mapping lacks gives nothing (carried in the bag) | the spelling whose id it is | the owner's published unit mapping, never the row's own `values` |
+| `designation-meaning` | an LV2 designation -> the standard meaning, from plugin-db's `LV2_DESIGNATION_MEANINGS` | the designation whose meaning it is | the owner's published mapping, never the row's own `values` |
 | `output-symbol` | a CLAP meter's name -> the output symbol a host reads it by, omx-clap-core's rule (`doc/reference.md`): each byte outside `[A-Za-z0-9_]` is `_`, a leading digit gets a `_` before it; an empty name is refused | the symbol itself, refused when it is no symbol | none |
 
 A new transform is added when a row needs it, never before; `make test-transforms` runs every function and its inverse
@@ -144,7 +179,13 @@ count per class. It is red for:
 - a `transform` that is not in `TRANSFORMS(X)`, or a `lookup` that is not one to one;
 - a `used` TERM that is `dropped`, and a `dropped` row that names no decision;
 - an outbound-read row whose transform is neither `identity` nor `lookup`;
-- a unit row that does not map to the word its TERM names.
+- a unit row that does not map to the word its TERM names;
+- a `unit-id` or `designation-meaning` row that carries `values`, whose owner's mapping holds no pair for it, or whose
+  pair's value is no value the word takes; a `unit-id` value that is no `PARAM_UNITS` id of omx-contract's domain
+  `param` or carries no dimension there;
+- a row an owner's mapping covers written as a `lookup` with `values` of its own: any row of the word
+  `controls[].travel.unit`, and an LV2 row whose TERM a word of `LV2_DESIGNATION_MEANINGS` names;
+- a table item that is not an `x-kind` `map` of its format.
 
 `tests/format_coverage.py --self-test` breaks a copy of each table three ways (one row removed, one `word` misspelt,
 one transform renamed) and each arm must go red naming the field.
@@ -195,7 +236,15 @@ What the tables leave to `describe`:
 - a CLAP port that is not main is `aux`; a control's `unit` is `unknown` when no row sets it, its `scale` `unknown`
   on CLAP and `linear` on LV2 (where a scale not stated is linear); its `meaning` is `unknown` when no row sets it; a
   control with points is a `choice`, its `ids` taken from its labels and its default the id of the default's point, a
-  `toggle` defaults to its default being non-zero;
+  `toggle` defaults to the nearer of its two positions, true from 0.5 up;
+- a scanned parameter's kind follows omx-contract's one rule (its `docs/descriptors.md`, "A scanned CLAP parameter's
+  kind"), which `share/omx-contract/clap-kind-vectors.json` holds and `tests/describe_clap_kind_vectors_test.py` runs
+  `describe` through, vector by vector: a parameter flagged an enumeration (`CLAP_PARAM_IS_ENUM`) or with value texts is
+  a `choice`, whatever its range; else one whose merged scale is stepped (the contract entry's word when it has one, else
+  `CLAP_PARAM_IS_STEPPED`), from 0 to 1, with a step of 1 (the contract entry's `step` when it states one; stepped means
+  whole positions, so 1 is implied) is a `toggle`, CLAP stating a boolean in no other way, and a panel that draws it as a
+  switch is right to; else a `travel` with the merged scale word. The same words read the same on LV2, where a port's
+  own `lv2:toggled` or `pprops:trigger` record gives its kind before the rule is asked;
 - a CLAP parameter's contract entry (`org.openmixer.param-contract/1`) gives its `symbol`, its unit (a contract unit
   `none` is the plugin stating none: `unknown`), its scale, and its `step` when the step is not 0 (0 is a continuous
   travel, written as no step);

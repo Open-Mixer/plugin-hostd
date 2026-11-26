@@ -12,4 +12,6 @@ What this tree gives the clients is words: the reasons a plan gives for a plugin
 `RETRY_REASONS` from it; `make test-grouping-domain` here holds the installed Python client to the domain.
 
 The tests of this tree drive the daemon through plugin-hostd-protocol's installed Python codec (`tests/daemon_test.py`)
-and through the test client `plugin-hostd-tests` ships (`tests/lib/plugin_hostd_client.py`).
+and through plugin-hostd-protocol's installed Python client, `plugin_hostd_client` (`python3-plugin-hostd-client`,
+plugin-hostd-protocol issue 45); `PLUGIN_HOSTD_CLIENT_DIR` names a plugin-hostd-protocol checkout's `clients/python`
+instead. `plugin-hostd-tests` ships the shell client alone, `tests/lib/protocol.sh`.

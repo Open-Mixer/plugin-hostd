@@ -31,9 +31,10 @@ def render(contract_d, out):
         # the package plugin-hostd as the Makefile's check-rendered stages it: a MANIFEST.json with no file, naming the owner's
         # top-level domains, which are installed beside it
         for d in OWNER_DOMAINS:
-            subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "--domain", os.path.join(ROOT, "contract.d", d), pkg],
+            subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "--domain", os.path.join(ROOT, "contract.d", d), pkg,
+                            "plugin-hostd"],
                            check=True, capture_output=True)
-        subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "--owner", "plugin-hostd", "0.0.0", "3", pkg] + OWNER_DOMAINS,
+        subprocess.run(["sh", env("INSTALL_CONTRACT_DIR"), "--owner", "plugin-hostd", "0.0.0", pkg] + OWNER_DOMAINS,
                        check=True, capture_output=True)
         path = pkg + ":" + subprocess.run(["pkg-config", "--variable=contractdir", "omx-contract"], capture_output=True,
                                           text=True).stdout.strip()

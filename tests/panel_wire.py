@@ -26,7 +26,6 @@ SCAN = os.environ.get("OMX_CLAP_SCAN", "omx-clap-scan")
 PANEL_CLAP = os.environ.get("PANEL_CLAP", "/usr/lib/clap/omx-delay.clap#org.openmixer.delay")
 NO_PANEL_CLAP = os.environ.get("NO_PANEL_CLAP", "/usr/libexec/omx-clap-host/tests/fake_compressor.clap"
                                "#org.omx-clap-host.test.compressor")
-SCANNER_FLOOR = (0, 31, 2)
 WRAPPER = """#!/bin/sh
 # this tree's probe; describe reads this tree's clap table
 if [ "$1" = describe ]; then shift; exec %(probe)s describe --table %(table)s "$@"; fi
@@ -51,9 +50,6 @@ def scanned(target):
     path, pid = target.rsplit("#", 1)
     text = subprocess.run([SCAN, "--json", path], capture_output=True, text=True, check=True, timeout=60).stdout
     doc = json.loads(text)
-    version = tuple(int(x) for x in doc["version"].split(".")[:3])
-    check(version >= SCANNER_FLOOR, "the scanner is omx-clap-scan %s, the floor is %s"
-          % (doc["version"], ".".join(map(str, SCANNER_FLOOR))))
     plugins = [p for f in doc["files"] for p in f.get("plugins", []) if p.get("id") == pid]
     check(len(plugins) == 1, "the scan lists %s once" % pid)
     return text, plugins[0]

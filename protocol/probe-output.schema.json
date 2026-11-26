@@ -22,7 +22,7 @@
     },
     "formatVersion": {
       "type": "string",
-      "pattern": "^1\\.[0-9]+$"
+      "pattern": "^2\\.[0-9]+$"
     },
     "run": {
       "type": "object",
@@ -233,7 +233,12 @@
               "type": "string"
             },
             "family": {
-              "type": "string"
+              "enum": ["intel", "amd", "arm", "unknown"],
+              "x-from": [
+                {
+                  "$ref": "https://openmixer.org/contract/machine#/components/schemas/MACHINE_FAMILIES"
+                }
+              ]
             },
             "coreBand": {
               "enum": ["1-2", "3-4", "5-8", "9-16", "17-32", "33+"]
@@ -986,7 +991,7 @@
           "additionalProperties": false,
           "properties": {
             "unit": {
-              "const": "ns-per-sample"
+              "const": "nsPerSample"
             },
             "median": {
               "type": "number",

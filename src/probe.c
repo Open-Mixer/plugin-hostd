@@ -80,6 +80,11 @@
 #include <omxcontract/omx_vocabulary.h>
 #include <plugin-db/pin.h>
 #include <plugin-hostd/protocol.h>
+#if PHD_PROBE_FORMAT_MAJOR != 2
+/* the cost unit is "nsPerSample", omx-contract's RESOURCE_UNITS id: that is format 2 (plugin-hostd#269), so a header
+ * of another major would write a document its schema refuses */
+#error "plugin-hostd-probe writes probe output format 2: build against a plugin-hostd-protocol whose PHD_PROBE_FORMAT_MAJOR is 2"
+#endif
 
 #define RUNNER_NAME "plugin-hostd-probe"
 #ifndef PROBE_VERSION
@@ -1653,7 +1658,7 @@ static void add_cost_percentile_refusal(const cJSON *cost)
 
 /* The step of a figure lv2_measure took at `rate` (its `latency` map, its cost's `perRate`): ok when the child measured
  * it, else not attempted, with the hosting code and the child's reason and words. A child whose line has no such map
- * (an older lv2_measure) was not asked for the figure and gets no step. */
+ * is outside the child's protocol: a child-protocol step. */
 static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, unsigned quantum, const char *hosting_code)
 {
     char key[24];
@@ -1662,7 +1667,11 @@ static void add_lv2_figure_step(const char *name, const cJSON *map, long rate, u
     step_t *s;
 
     if (map == NULL)
+    {
+        s = add_step(name, OUT(CHILD_PROTOCOL), 0);
+        set_detail(s, "the child's line holds no %s map", name);
         return;
+    }
     snprintf(key, sizeof(key), "%ld", rate);
     at = jget(map, key);
     if (!strcmp(name, STEP(LATENCY)) ? jnum(at, "measuredFrames", &v) : jnum(at, "nsPerSampleMedian", &v))
@@ -1933,7 +1942,7 @@ static void put_cost(sb_t *b, const cJSON *cost, const char *rate)
         !jnum(at, "nsPerSampleMin", &min) || !jnum(at, "nsPerSampleMax", &max) || !jnum(at, "blocks", &blocks) ||
         !jnum(cost, "warmupBlocks", &warmup) || !jnum(cost, "percentile", &percentile) || percentile != 95)
         return;
-    sb_printf(b, ", \"cost\": {\"unit\": \"ns-per-sample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
+    sb_printf(b, ", \"cost\": {\"unit\": \"nsPerSample\", \"median\": %.9g, \"percentile\": {\"p\": %.9g, \"value\": %.9g}, "
                  "\"min\": %.9g, \"max\": %.9g, \"blocks\": %.0f, \"warmupBlocks\": %.0f",
               median, percentile, p95, min, max, blocks, warmup);
     if (jnum(voices, "held", &held) && jstr(voices, "basis"))
@@ -2013,9 +2022,6 @@ static const char *base_name(const char *path)
 #ifndef PROBE_CONTRACTDIR
 #define PROBE_CONTRACTDIR "/usr/share/omx-contract/contract.d"
 #endif
-#ifndef PROBE_CONTRACT_MAJOR
-#define PROBE_CONTRACT_MAJOR "3"
-#endif
 #define DESCRIBE_CHILD "omx-clap-scan"
 
 static int read_file(const char *path, sb_t *b)
@@ -2041,7 +2047,7 @@ static int describe_main(int argc, char **argv)
     options_t o = { .child = DESCRIBE_CHILD, .wall_s = 60, .cpu_s = 50, .files = 256, .data_bytes = 4LL << 30,
                     .file_bytes = 64LL << 20, .grace_ms = 300 };
     const char *table = NULL, *fields = NULL, *contract_dir = NULL, *target, *format;
-    char path[PATH_MAX], roles_dir[PATH_MAX], why[512];
+    char path[PATH_MAX], roles_dir[PATH_MAX], owner_dirs[2 * PATH_MAX + 2], why[512];
     sb_t table_text = { 0 }, dump = { 0 }, out = { 0 };
     int a, pages = 0;
 
@@ -2072,7 +2078,9 @@ static int describe_main(int argc, char **argv)
                         "/plugin-hostd/<format>/<format>.json)\n"
                         "  --fields-from FILE   a recorded field dump, in place of running the child\n"
                         "  --contract-dir DIR   the contract directory whose role tables give a CLAP control its\n"
-                        "                       meaning (default $OMX_CONTRACT_PATH, else " PROBE_CONTRACTDIR ")\n"
+                        "                       meaning, and whose format owners' domains give a unit or a\n"
+                        "                       designation its standard word (default $OMX_CONTRACT_PATH, else\n"
+                        "                       " PROBE_CONTRACTDIR "; an owner's domain it lacks is read from there)\n"
                         "  --child PROGRAM      the program that writes the dump (default " DESCRIBE_CHILD ")\n"
                         "  --log FILE           the child's stderr (default discarded)\n"
                         "  --wall-s N           the child's wall clock (default 60)\n"
@@ -2137,7 +2145,12 @@ static int describe_main(int argc, char **argv)
      * built-in path */
     if (contract_dir == NULL && (contract_dir = getenv("OMX_CONTRACT_PATH")) != NULL && *contract_dir == '\0')
         contract_dir = NULL;
-    snprintf(roles_dir, sizeof(roles_dir), "%s/" PROBE_CONTRACT_MAJOR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);
+    /* a package is <contract directory>/<package>/: the directory has no schema-major level */
+    snprintf(roles_dir, sizeof(roles_dir), "%s", contract_dir ? contract_dir : PROBE_CONTRACTDIR);
+    /* the format owners' domains, whose mappings give a unit-id or designation-meaning row its pairs: that directory
+     * first, then the installed one (docs/formats.md, Lookup values the owners publish) */
+    snprintf(owner_dirs, sizeof(owner_dirs), "%s:" PROBE_CONTRACTDIR, contract_dir ? contract_dir : PROBE_CONTRACTDIR);
+    describe_owners(owner_dirs);
     if ((pages ? describe_pages : describe_dump)(table_text.s, dump.s, target, roles_dir, &out, why, sizeof(why)) != 0)
     {
         fprintf(stderr, RUNNER_NAME ": describe: %s: %s\n", target, why);

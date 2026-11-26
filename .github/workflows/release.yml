@@ -14,6 +14,8 @@ name: release
 on:
   push:
     tags: ['v*']
+    # a merge to devel builds the real package and publishes it to staging (Open-Mixer/.github#289)
+    branches: [devel]
   workflow_dispatch:
     inputs:
       publish:
@@ -58,6 +60,11 @@ on:
         default: true
         description: 'Build the aarch64/arm64 packages too; the pull-request dry run passes false (arm builds run at release only)'
       staged:
+        type: boolean
+        default: false
+      # a dry run (ci.yml's, publish false) builds against the staging channel as well as the real one: the layers below
+      # this one are staged before any is released (build-rpm.yml and build-deb.yml refuse it on a tag or with publish)
+      staging:
         type: boolean
         default: false
       staged-deps:
@@ -113,9 +120,10 @@ jobs:
     with:
       same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
+      staging: ${{ inputs.staging == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
-      publish: ${{ github.event_name == 'push' || inputs.publish == true }}
+      publish: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish == true }}
       source-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
       republish: ${{ github.event_name == 'workflow_dispatch' && inputs.republish == true }}
       catch-up: ${{ github.event_name == 'workflow_dispatch' && inputs.catch-up == true }}
@@ -130,9 +138,10 @@ jobs:
     with:
       same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
+      staging: ${{ inputs.staging == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
-      publish: ${{ github.event_name == 'push' || inputs.publish == true }}
+      publish: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish == true }}
       source-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
       republish: ${{ github.event_name == 'workflow_dispatch' && inputs.republish == true }}
       catch-up: ${{ github.event_name == 'workflow_dispatch' && inputs.catch-up == true }}

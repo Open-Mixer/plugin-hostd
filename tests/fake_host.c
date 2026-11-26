@@ -80,6 +80,16 @@
  *                               FAKE_PRESET_NEEDS_CLAP_PATH=<dir> set, -104 (ERR_HOST_INVALID_PRESET_URI) unless the
  *                               fake's own CLAP_PATH holds <dir>, as a worker whose preset browsing depends on it does
  *   track_info <n> ...          "resp 0"; the fake keeps nothing of it (FAKE_LOG shows what it was sent)
+ *   patch_set <n> <uri> <value>   "resp 0", kept as the parameter "patch:<uri>", \" undone as mod-host undoes it; patch_get <n> <uri> "resp 0", then
+ *                               as mod-host relays its plugin's answer, "patch_set <n> <uri> <p|s> <value>" on the feedback
+ *                               port (p for a value starting with '/'), or nothing for a uri never set, as a plugin that
+ *                               does not answer
+ *   property_list <n>           "resp 1": one property, file, a path the controller may read and write
+ *   property_info <n> <i>       "resp 0 file path rw "File"" for 0, OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for any other index
+ *   property_get <n> <s>        "resp 0 "/tmp/fake.wav"" for file, OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for a symbol that starts
+ *                               with "writeonly", OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP for any other
+ *   property_set <n> <s> <v>    "resp 0", or OMX_REPLY_HOST_PROPERTY_ACCESS_RESP for a symbol that starts with "readonly",
+ *                               as a worker answers a property that is not writable; the fake keeps nothing of it
  *   show_external_ui <n>        "resp 0", or for a plugin whose uri holds "nowindow" "resp -404 hosting.window.unsupported",
  *                               as omx-clap-host answers for a plugin with no window it can show; hide_external_ui <n>
  *                               "resp 0"; the fake shows nothing (FAKE_LOG shows what it was sent)
@@ -124,6 +134,8 @@
  * layout pin. With FAKE_LOG set, every command received is appended to that file as "<pid> <command>".
  * FAKE_WARN_BEFORE_READY=<n> writes n warning lines to stderr before "ready!", as lilv writes one for every entry of
  * a world that is no bundle (plugin-hostd#105: a world of a few dozen stray files buries the marker under 5 KB).
+ * FAKE_READY_AFTER_MS=<ms> holds the "ready!" line that long after the start: a worker slow to come up, as on a host
+ * loaded past its cores, so the daemon's first answer about it is late (plugin-hostd#108).
  */
 
 #include <ctype.h>
@@ -447,7 +459,8 @@ static void receive(msg_t *msg)
     const char *verb, *presets_learn = getenv("FAKE_PRESETS_LEARN");
 
     log_command(line);
-    /* a quoted word is one word, as mod-host's tokenizer reads it */
+    /* a quoted word is one word, as mod-host's tokenizer reads it; inside it \" and \\ are escapes, as the protocol's
+     * splitter reads a quoted-escaped value, so an escaped quote does not end it (the word keeps its escapes) */
     for (t = copy; t && ntok < PHD_LINE_WORDS_MAX;)
     {
         t += strspn(t, " \t\n");
@@ -456,7 +469,10 @@ static void receive(msg_t *msg)
         if (*t == '"')
         {
             tok[ntok++] = ++t;
-            t = strchr(t, '"');
+            while (*t && *t != '"')
+                t += (*t == '\\' && (t[1] == '"' || t[1] == '\\')) ? 2 : 1;
+            if (!*t)
+                t = NULL;
         }
         else
         {
@@ -921,6 +937,20 @@ static void receive(msg_t *msg)
     }
     else if (!strcmp(verb, OMX_VERB_TRACK_INFO))
         answer(fd, "resp 0");
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_LIST) && ntok == 2)
+        answer(fd, "resp 1");
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_INFO) && ntok == 3)
+        answer(fd, strcmp(tok[2], "0") ? "resp %d" : "resp 0 file path rw \"File\"", OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP);
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_GET) && ntok == 3)
+    {
+        if (!strcmp(tok[2], "file"))
+            answer(fd, "resp 0 \"/tmp/fake.wav\"");
+        else
+            answer(fd, "resp %d", strncmp(tok[2], "writeonly", 9) ? OMX_REPLY_HOST_PROPERTY_SYMBOL_INVALID_RESP
+                                                                   : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
+    }
+    else if (!strcmp(verb, OMX_VERB_PROPERTY_SET) && ntok >= 4)
+        answer(fd, "resp %d", strncmp(tok[2], "readonly", 8) ? 0 : OMX_REPLY_HOST_PROPERTY_ACCESS_RESP);
     else if (!strcmp(verb, PHD_VERB_SHOW_EXTERNAL_UI) && ntok == 2)
         answer(fd, g_inst[n].nowindow ? "resp %d hosting.window.unsupported" : "resp 0", ERR_EXTERNAL_UI_UNAVAILABLE);
     else if (!strcmp(verb, OMX_VERB_HIDE_EXTERNAL_UI) && ntok == 2)
@@ -956,11 +986,31 @@ static void receive(msg_t *msg)
         answer(fd, !strcmp(tok[2], "0") ? "resp 0 ms linear 1 2000 350 1 time_ms" : !strcmp(tok[2], "1") ? "resp -511" : "resp -103");
     else if (verb_is(verb, EFFECT_PATCH_SET) && ntok == 4)
     {
-        char key[80];
+        char key[80], *r, *w;
 
+        /* mod-host's reader undoes \" in a quoted word, and nothing else */
+        for (r = w = tok[3]; *r; r++)
+            if (!(r[0] == '\\' && r[1] == '"'))
+                *w++ = *r;
+        *w = '\0';
         snprintf(key, sizeof(key), "patch:%s", tok[2]);
         set_param(&g_inst[n], key, tok[3]);
         answer(fd, "resp 0");
+    }
+    else if (verb_is(verb, EFFECT_PATCH_GET) && ntok == 3)
+    {
+        char key[80], *typed = NULL, *event = NULL;
+        const char *value;
+
+        snprintf(key, sizeof(key), "patch:%s", tok[2]);
+        value = get_param(&g_inst[n], key);
+        answer(fd, "resp 0");
+        /* mod-host's line on the feedback port: its patch_set, the atom type before the value */
+        if (value && asprintf(&typed, "%c %s", value[0] == '/' ? 'p' : 's', value) > 0 &&
+            asprintf(&event, EFFECT_PATCH_SET, n, tok[2], typed) > 0)
+            socket_send_feedback(event);
+        free(typed);
+        free(event);
     }
     else if (verb_is(verb, STATE_SAVE) && ntok == 2)
     {
@@ -1140,6 +1190,14 @@ int main(int argc, char **argv)
         for (i = 0; i < n; i++)
             fprintf(stderr, "load_dir_entry(): warning: Skipping non-directory `/a/world/of/stray/files/entry-%d.c' within path entry\n", i);
         fflush(stderr);
+    }
+    if (getenv("FAKE_READY_AFTER_MS"))
+    {
+        long ms = atol(getenv("FAKE_READY_AFTER_MS"));
+        struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
+
+        while (nanosleep(&ts, &ts) == -1 && errno == EINTR)
+            ;
     }
     printf("fake-host ready!\n");
     fflush(stdout);

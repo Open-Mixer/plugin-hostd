@@ -32,6 +32,7 @@
 
 #include <plugin-hostd/protocol.h>
 
+#include "descriptions.h"
 #include "descriptors.h"
 #include "formats.h"
 #include "pins.h"
@@ -288,7 +289,7 @@ static char *answer(struct rec_call *c, const char *shape, int changes)
     if (changes)
         g_rec.state = mix_call(g_rec.state, c);
     /* the reply a verb declares fits one line of the protocol
-     * mutant: fuzz/recorder.c:293 `sizeof(buf)` -> `4`
+     * mutant: fuzz/recorder.c:294 `sizeof(buf)` -> `4`
      * input: mod-host-bypass */
     if (syntax_instantiate(shape, buf, sizeof(buf)) < 0)
         abort();
@@ -683,6 +684,24 @@ char *descriptors_panel_get(const char *uri)
 
     arg_s(c, uri);
     return answer(c, daemon_shape(OMX_VERB_PANEL_GET), 0);
+}
+
+/* the descriptions store's read and ask of an add: the uri and the ask word as a number (-1 none, 0 no-ask, 1 ask) */
+void descriptions_add(const char *uri, int ask)
+{
+    struct rec_call *c = record(REC_DESCRIPTIONS_ADD);
+
+    arg_s(c, uri);
+    arg_i(c, ask);
+    g_rec.state = mix_call(g_rec.state, c);
+}
+
+char *descriptions_get(const char *uri)
+{
+    struct rec_call *c = record(REC_DESCRIPTIONS_GET);
+
+    arg_s(c, uri);
+    return answer(c, daemon_shape(OMX_VERB_DESCRIPTION_GET), 0);
 }
 
 /* ---------------------------------------------------------------- the command socket (mod-host's socket.h) */

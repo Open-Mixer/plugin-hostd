@@ -4,15 +4,16 @@
 """tests/probe_domain.py: the domain `probe` is plugin-hostd-protocol's (its contract.d/probe/probe.json): the words a probe run writes,
 that the qualification store checks its record columns against. Arms 1 to 6.
 
-1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, version 1.0.0, every
-   item PROBE_-prefixed, every item's x-since the domain's first version (1.0.0), x-codes 0..n-1 in order;
+1. the document conforms: omx-contract validate and fmt --check, $schema, $id, info.x-owner/x-stability, a version (the
+   owner's to give: no number of it is typed here), every item PROBE_-prefixed, every item's x-since a version not above
+   the document's, x-codes 0..n-1 in order;
 2. the items hold exactly the words the probe can emit: PROBE_REASONS, PROBE_OUTCOMES and PROBE_STEPS the codes of the
    protocol's PHD_PROBE_REASONS, PHD_PROBE_OUTCOMES and PHD_PROBE_STEPS lists, PROBE_SIGNALS the signals src/probe_words.c
    names, plus the one word the probe writes for a signal it has no name for;
 3. the probe writes the domain's words: over a scratch copy with every word renamed, a run (as it is, a --reason, and one
    that crashes) writes only renamed words at run.reason, run.outcome, steps[].step, steps[].outcome, steps[].signal and
    crash.signal, and the generated schema's enumerations are the renamed words;
-4. a probe domain that is absent, invalid, too old (below 1.0.0) or without an item is refused by name at start-up: the probe
+4. a probe domain that is absent, invalid or without an item is refused by name at start-up: the probe
    exits 78 with the loader's code and the domain's name, the generator exits 1 the same way; an item short of a word is
    refused by item;
 5. (moved: the package that ships the domain is plugin-hostd-protocol-contract; its own test installs it);
@@ -96,16 +97,21 @@ def arm1(doc):
         fail("arm 1: info.x-owner is %r" % info.get("x-owner"))
     if info.get("x-stability") != "experimental":
         fail("arm 1: info.x-stability is %r" % info.get("x-stability"))
-    if info.get("version") != "1.0.0":
-        fail("arm 1: info.version is %r, the first version is 1.0.0" % info.get("version"))
+    def version(v):
+        return tuple(int(x) for x in v.split(".")) if isinstance(v, str) and re.fullmatch(r"\d+\.\d+\.\d+", v) else None
+
+    if version(info.get("version")) is None:
+        fail("arm 1: info.version is %r, no x.y.z version" % info.get("version"))
     schemas = doc.get("components", {}).get("schemas", {})
     if sorted(schemas) != sorted(ITEMS):
         fail("arm 1: the items are %s, not %s" % (sorted(schemas), sorted(ITEMS)))
     for name, item in schemas.items():
         if not name.startswith("PROBE_"):
             fail("arm 1: item %s does not start with PROBE_" % name)
-        if item.get("x-since") != "1.0.0":
-            fail("arm 1: item %s x-since is %r, the domain's first version 1.0.0" % (name, item.get("x-since")))
+        if version(item.get("x-since")) is None or version(info.get("version")) is None or \
+                version(item["x-since"]) > version(info["version"]):
+            fail("arm 1: item %s x-since is %r, no version at or below the document's %r"
+                 % (name, item.get("x-since"), info.get("version")))
         codes = [w.get("x-code") for w in item.get("oneOf", [])]
         if codes != list(range(len(codes))):
             fail("arm 1: item %s x-codes are %s, not 0..n-1 in order" % (name, codes))
@@ -283,9 +289,6 @@ def arm4(doc, tmp):
     if doc is None:
         return
 
-    def old(d):
-        d["info"]["version"] = "0.9.0"
-
     def lacking(name):
         def edit(d):
             del d["components"]["schemas"][name]
@@ -298,8 +301,7 @@ def arm4(doc, tmp):
 
     before = len(failures)
     cases = [("absent", os.path.join(tmp, "nowhere"), "contract.dir.absent"),
-             ("invalid", fixture(tmp, "invalid", text="{ not json"), "contract."),
-             ("too old", fixture(tmp, "old", old), "contract.package.too-old")]
+             ("invalid", fixture(tmp, "invalid", text="{ not json"), "contract.")]
     cases += [("without %s" % i, fixture(tmp, "lacking-" + i, lacking(i)), i) for i in ITEMS]
     for what, dirs, mark in cases:
         p, out = run_probe(dirs, tmp)
@@ -313,10 +315,8 @@ def arm4(doc, tmp):
         p, out = run_probe(fixture(tmp, "short-" + i, short(i)), tmp)
         if not (p.returncode == 78 and out is None and i in p.stderr and "probe" in p.stderr):
             fail("arm 4: %s short of a word does not end the probe's start-up with 78 by item: rc %d %r" % (i, p.returncode, p.stderr[-200:]))
-    if "1.0.0" not in run_probe(cases[2][1], tmp)[0].stderr:
-        fail("arm 4: the too-old refusal does not name the floor 1.0.0")
     if len(failures) == before:
-        ok("arm 4: an absent, invalid, too old, item-less or short probe domain is refused by name at start-up (78)")
+        ok("arm 4: an absent, invalid, item-less or short probe domain is refused by name at start-up (78)")
 
 
 def arm6(doc):
