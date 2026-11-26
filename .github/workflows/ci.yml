@@ -939,6 +939,8 @@ jobs:
     with:
       publish: false
       arm: false  # aarch64/arm64 build at release only
+      # a pull request into devel, or a dispatch off main (devel, a devel-wave head), builds against the staging channel
+      staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
 
   pr-fixes-issue:
     if: github.event_name == 'pull_request'

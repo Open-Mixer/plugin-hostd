@@ -62,6 +62,11 @@ on:
       staged:
         type: boolean
         default: false
+      # a dry run (ci.yml's, publish false) builds against the staging channel as well as the real one: the layers below
+      # this one are staged before any is released (build-rpm.yml and build-deb.yml refuse it on a tag or with publish)
+      staging:
+        type: boolean
+        default: false
       staged-deps:
         type: string
         default: ''
@@ -115,6 +120,7 @@ jobs:
     with:
       same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
+      staging: ${{ inputs.staging == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish == true }}
@@ -132,6 +138,7 @@ jobs:
     with:
       same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
+      staging: ${{ inputs.staging == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
       publish: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish == true }}
