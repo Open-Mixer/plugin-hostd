@@ -54,7 +54,8 @@ jobs:
         uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
         with:
           wave: ${{ vars.OMX_RELEASE_MATRIX }}
-          deb-releases: '["bookworm", "trixie"]'
+          # trixie alone: Debian bookworm is dropped from the matrix (owner 2026-11-27)
+          deb-releases: '["trixie"]'
           deb-arches: '["amd64", "arm64"]'
           x86-runner: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
 
@@ -312,13 +313,8 @@ jobs:
         run: |
           bounded-install apt-get update -qq
           bounded-install apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev lv2-dev cmake \
-            dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev \
+            dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
             iproute2 util-linux procps
-          # trixie splits jack_lsp and the other example clients out of jackd2 into jack-example-tools; bookworm's
-          # jackd2 still ships them and has no such package
-          if apt-cache show jack-example-tools >/dev/null 2>&1; then
-            bounded-install apt-get install -y --no-install-recommends jack-example-tools
-          fi
 
       - uses: actions/checkout@v4
 
