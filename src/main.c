@@ -46,7 +46,7 @@
 #include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.22.2"
+#define VERSION "0.22.3"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT

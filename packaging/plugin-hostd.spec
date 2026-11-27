@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.22.2
+Version: 0.22.3
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -209,6 +209,10 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_dir}/qualification/
 
 %changelog
+* Fri Nov 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.3-1
+- settings that name no pin_file read /var/lib/omx/qualified.pins, the file
+  the qualification sync writes (#316)
+
 * Fri Nov 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.2-1
 - The describe test runs its omx-contract arm only when OMX_CONTRACT_CLI and
   OMX_CONTRACT_DATA both name something (#292).
