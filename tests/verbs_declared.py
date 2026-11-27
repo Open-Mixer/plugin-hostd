@@ -36,8 +36,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXE = os.path.abspath(os.environ.get("PLUGIN_HOSTD", os.path.join(ROOT, "plugin-hostd")))
 FAKE = os.path.abspath(os.environ.get("FAKE_HOST", os.path.join(ROOT, "tests", "fake-host")))
 OWN = protocol_files.domain_json()
-# the tree whose headers the daemon under test was built against (tests/sabotage.py builds in a scratch tree)
+# the tree whose headers the daemon under test was built against (tests/sabotage.py builds in a scratch tree): the test
+# build is <tree>/tests/plugin-hostd-test, so its tree is the directory above tests/
 TREE = os.path.dirname(EXE)
+if os.path.basename(TREE) == "tests":
+    TREE = os.path.dirname(TREE)
 HOSTD, CLAP_HOST = "plugin-hostd", "omx-clap-host"
 failures = []
 

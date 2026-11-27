@@ -143,15 +143,23 @@ static void a_plugin_no_record_names_has_no_record(void)
 
 static void the_larger_of_each_figure_of_two_records_stands(void)
 {
-    qualcost_cell_t c;
-    qualcost_memory_t m;
+    /* h and i hold the same two records with their figures the other way round, so whichever record the store walks
+     * first, a figure that kept the first one it met is wrong for one of them */
+    static const char *const ids[] = { "org.example.h", "org.example.i" };
 
-    CHECK(qualcost_cell(g_db, "org.example.h", 48000, 128, &c) == QUALCOST_CELL_FOUND, "h has the cell");
-    CHECK(c.median_ns == 2000 && c.latency_frames == 10, "2000 ns of one record, 10 frames of the other: %g %g",
-          c.median_ns, c.latency_frames);
-    CHECK(qualcost_memory(g_db, "org.example.h", 48000, 128, &m) == 0, "h has memory");
-    CHECK(m.first_kb == 100 && m.per_instance_kb == 9, "100 KB first of one record, 9 KB per instance of the other: %g %g",
-          m.first_kb, m.per_instance_kb);
+    for (size_t k = 0; k < sizeof(ids) / sizeof(ids[0]); k++)
+    {
+        qualcost_cell_t c;
+        qualcost_memory_t m;
+
+        CHECK(qualcost_cell(g_db, ids[k], 48000, 128, &c) == QUALCOST_CELL_FOUND, "%s has the cell", ids[k]);
+        CHECK(c.median_ns == 2000 && c.latency_frames == 10, "%s: 2000 ns of one record, 10 frames of the other: %g %g",
+              ids[k], c.median_ns, c.latency_frames);
+        CHECK(qualcost_memory(g_db, ids[k], 48000, 128, &m) == 0, "%s has memory", ids[k]);
+        CHECK(m.first_kb == 100 && m.per_instance_kb == 9,
+              "%s: 100 KB first of one record, 9 KB per instance of the other: %g %g", ids[k], m.first_kb,
+              m.per_instance_kb);
+    }
 }
 
 static void the_memory_is_the_first_instance_and_each_one_more(void)
@@ -316,6 +324,7 @@ int main(int argc, char **argv)
             "f,org.example.f,48000,128,1000,2000,32,-,-,- "
             "9,org.example.g,48000,128,1000,2000,-,-,-,- "
             "d,org.example.h,48000,128,1000,2000,0,10,100,5 f,org.example.h,48000,128,2000,3000,0,5,80,9 "
+            "d,org.example.i,48000,128,2000,3000,0,5,80,9 f,org.example.i,48000,128,1000,2000,0,10,100,5 "
             "a,'urn:a b',48000,128,1000,5000,-,-,-,- "
             "b,urn:a%20c,48000,128,1000,5000,-,-,-,-");
     fixture("version2", "--user-version 2 a,org.example.a,48000,128,1000,5000,-,-,-,-");

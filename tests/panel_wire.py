@@ -126,9 +126,14 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         check(doc["plugin"] == {"format": "clap", "id": PANEL_CLAP.rsplit("#", 1)[1]}, "it names its plugin: %s"
               % doc["plugin"])
         check(doc["panel"] == plugin["panel"], "the panel is the object omx-clap-scan --json prints")
+        # the file is the panel's bytes as the scan wrote them, then the meters its displays index (docs/panel.md):
+        # the panel's bytes are read up to the meters key, since the meters are this daemon's rows, not the scan's
         prefix = '{"plugin": {"format": "clap", "id": "%s"}, "panel": ' % PANEL_CLAP.rsplit("#", 1)[1]
-        check(raw.startswith(prefix) and raw.endswith("}\n") and raw[len(prefix):-2] in text,
-              "its bytes are the scan's, as written")
+        beside = raw.rfind(', "meters": ')
+        check(raw.startswith(prefix) and raw.endswith("}\n") and beside > len(prefix)
+              and raw[len(prefix):beside] in text, "its bytes are the scan's, as written")
+        check(isinstance(doc.get("meters"), list), "the meters its displays index are beside the panel: %r"
+              % doc.get("meters"))
         controls = doc["panel"]["controls"]
         check(controls and all({"paramId", "section", "widget", "visibleParamId", "visibleMask"} <= set(c)
                                for c in controls),
@@ -151,8 +156,9 @@ def panel_get_answers_the_scans_panel_and_null_for_a_plugin_that_publishes_none(
         path = wait_for(lambda: answered_path(d, "panel_get", without), "panel_get of %s" % without, timeout=60)
         check('"panel": null' in open(path).read(), "the file of %s carries \"panel\": null" % without)
         doc = json.load(open(path))
-        check(doc == {"plugin": {"format": "clap", "id": NO_PANEL_CLAP.rsplit("#", 1)[1]}, "panel": None},
-              "a plugin that publishes no panel answers a null panel: %s" % doc)
+        check(doc == {"plugin": {"format": "clap", "id": NO_PANEL_CLAP.rsplit("#", 1)[1]}, "panel": None,
+                     "meters": []},
+              "a plugin that publishes no panel answers a null panel and no meters: %s" % doc)
         descriptor = answered_path(d, "descriptor_get", without)
         check(descriptor is not None, "and its descriptor beside it")
         # the meters the fake compressor offers, in meters[] of its descriptor as the scan prints them; one of a kind

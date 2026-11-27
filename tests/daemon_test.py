@@ -3816,6 +3816,10 @@ def first_use_pins_an_unpinned_plugin_and_runs_it_isolated():
         d.expect("add %s 0" % p.clap_uri, "resp 0")
         d.expect("add %s 1" % LV2_URI, "resp 1")
         check(d.workers() == {}, "R-112: with no verdict neither is in a worker: %s" % d.workers())
+        # the first use is written to the store as it is learned, before any worker runs or a layout is found
+        writes_landed(d)
+        learned = sorted(l[1] for l in store_lines(p))
+        check(learned == sorted([p.clap_uri, LV2_URI]), "the first adds write both pins to the store at once: %s" % learned)
         d.expect("pin_accept %s" % p.clap_uri, "resp 0")
         d.expect("pin_accept %s" % LV2_URI, "resp 0")
         check(own_worker_of(d, 0) and own_worker_of(d, 1), "unpinned plugins run isolated, not in the policy's pool: %s"
