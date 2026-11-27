@@ -25,7 +25,7 @@
  "QUALIFICATION_PACKAGE_ARCHES": [["arm64","arm64"],["amd64","amd64"],["all","all"],["aarch64","aarch64"],["x8664","x86_64"],["noarch","noarch"]],
  "QUALIFICATION_VERDICT_HOSTINGS": [["isolated","isolated"],["inProcess","in-process"]],
  "QUALIFICATION_VERDICT_ARMS": [["declaration","declaration"],["run","run"]],
- "QUALIFICATION_REASON_PARAMS": [["rate","rate"],["quantum","quantum"],["blocks","blocks"],["allocations","allocations"],["syscalls","syscalls"],["locks","locks"],["ceilingKb","ceilingKb"],["provisional","provisional"],["perInstanceKb","perInstanceKb"],["firstInstanceKb","firstInstanceKb"],["consoleCeilingKb","consoleCeilingKb"],["events","events"],["ceiling","ceiling"],["coreFractionP95","coreFractionP95"],["tailRatio","tailRatio"],["peak","peak"],["notes","notes"],["step","step"],["resp","resp"],["figure","figure"],["kb","kb"]],
+ "QUALIFICATION_REASON_PARAMS": [["rate","rate"],["quantum","quantum"],["blocks","blocks"],["allocations","allocations"],["syscalls","syscalls"],["locks","locks"],["ceilingKb","ceilingKb"],["provisional","provisional"],["perInstanceKb","perInstanceKb"],["firstInstanceKb","firstInstanceKb"],["consoleCeilingKb","consoleCeilingKb"],["events","events"],["ceiling","ceiling"],["coreFractionP95","coreFractionP95"],["tailRatio","tailRatio"],["peak","peak"],["notes","notes"],["step","step"],["resp","resp"],["figure","figure"],["kb","kb"],["unmeasuredReason","unmeasuredReason"]],
  "QUALIFICATION_REASON_PARAM_WORDS": [["yes","yes"],["add","add"],["perInstance","perInstance"],["remove","remove"]],
  "QUALIFICATION_RECORD_TIERS": [["inProcess","inProcess"],["isolated","isolated"]],
  "QUALIFICATION_MEMORY_LIMIT_MECHANISMS": [["rlimitData","rlimit-data"]],
