@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.22.1
+Version: 0.22.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -209,6 +209,11 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_dir}/qualification/
 
 %changelog
+* Fri Nov 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.2-1
+- The release no longer names plugin-hostd-full as a same-pass package:
+  plugin-hostd builds no such package and no channel serves it, so the
+  release gate would refuse the name (#317).
+
 * Thu Nov 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.1-1
 - The RPMs are built for Fedora aarch64 as well as x86_64: the release
   matrix is Open-Mixer/.github's shared releases and architectures, with no

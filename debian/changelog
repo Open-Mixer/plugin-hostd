@@ -1,3 +1,11 @@
+plugin-hostd (0.22.2) unstable; urgency=medium
+
+  * The release no longer names plugin-hostd-full as a same-pass package:
+    plugin-hostd builds no such package and no channel serves it, so the
+    release gate would refuse the name (#317).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 27 Nov 2026 13:52:46 +0100
+
 plugin-hostd (0.22.1) unstable; urgency=medium
 
   * The RPMs are built for Fedora aarch64 as well as x86_64: the release
