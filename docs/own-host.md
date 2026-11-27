@@ -2,7 +2,7 @@ Use plugin-hostd in your own host
 =================================
 
 This page takes a Debian machine (Raspberry Pi OS, Zynthian, Debian 13 trixie, arm64) from nothing to a
-plugin running under plugin-hostd, driven over its socket, in nine commands, and then runs an LV2 plugin the same way in eight more. CI runs every command below, as written, in
+plugin running under plugin-hostd, driven over its socket, in ten commands, and then runs an LV2 plugin the same way in nine more. CI runs every command below, as written, in
 a clean Debian 13 container; a step that stops working fails that job.
 
 The plugin is a CLAP effect from the `omx-plugins-clap` package, so nothing else has to be installed to try it. Any
@@ -23,6 +23,7 @@ jackd -r -d dummy >/dev/null 2>&1 & sleep 2
 plugin-hostd -n -p 5555 >plugin-hostd.log 2>&1 & sleep 2
 omx-clap-scan /usr/lib/clap/omx-comp.clap | grep 'param 1 '  # has Ratio [1 .. 20] default 4
 send "add clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp 0"   # resp 0
+send "pin_accept clap:/usr/lib/clap/omx-comp.clap#org.openmixer.comp"   # resp 0
 send "param_set 0 1 8"   # resp 0
 send "param_get 0 1"   # resp 0 8.0000
 ```
@@ -39,10 +40,14 @@ What each step did:
    `--bind-address` (`man plugin-hostd`).
 6. `omx-clap-scan` reads the plugin's layout: every parameter, its number, range and default. The number is the symbol
    the protocol takes, so the compressor's Ratio is `1`.
-7. `add` loads the plugin as instance `0`. The daemon starts a worker of its own for it, a JACK client named
-   `effect_0`, and puts it back if it dies.
-8. `param_set` sets Ratio to 8.
-9. `param_get` reads it back.
+7. `add` makes instance `0` of the plugin. A plugin that was never qualified on this machine has no verdict, so no
+   worker loads its code yet: the instance exists and passes its audio through untouched, and a verb for it answers
+   `-503` (no worker holds it). The daemon writes a request for its quick check into its qualify spool.
+8. `pin_accept` is your choice to run it anyway: the daemon starts a worker of its own for it, a JACK client named
+   `effect_0`, and puts it back if it dies. Where plugin-qualify's sync service runs (Zynthian, the console), its verdict
+   does the same with no `pin_accept`.
+9. `param_set` sets Ratio to 8.
+10. `param_get` reads it back.
 
 LV2 plugins
 -----------
@@ -60,6 +65,7 @@ sudo apt-get install -y omx-plugins-lv2
 echo "lv2_worker omx-clap-host" > plugin-hostd.conf
 plugin-hostd -n -p 5555 -c plugin-hostd.conf >plugin-hostd-lv2.log 2>&1 & sleep 2
 send "add lv2:urn:openmixer:comp 0"   # resp 0
+send "pin_accept lv2:urn:openmixer:comp"   # resp 0
 send "param_set 0 ratio 8"   # resp 0
 send "param_get 0 ratio"   # resp 0 8.0000
 send "worker_list"   # has :lv2-clap:
@@ -69,16 +75,18 @@ send "worker_list"   # has :lv2-clap:
 2. `apt-get install` adds the LV2 bundles under `/usr/lib/lv2`, where the daemon searches.
 3. The configuration file makes `omx-clap-host` the worker of LV2 plugins.
 4. The daemon starts again with it.
-5. `add` loads the plugin by its URI as instance `0`, in a worker of its own.
-6. and 7. `param_set` and `param_get` set and read back the compressor's Ratio by its symbol.
-8. `worker_list` names the worker of each instance; `lv2-clap` is `omx-clap-host` running an LV2 plugin.
+5. `add` makes instance `0` of the plugin by its URI; as in the first block, no worker loads it before a verdict.
+6. `pin_accept` runs it, in a worker of its own.
+7. and 8. `param_set` and `param_get` set and read back the compressor's Ratio by its symbol.
+9. `worker_list` names the worker of each instance; `lv2-clap` is `omx-clap-host` running an LV2 plugin.
 
 CI also sends a sine into the instance's JACK ports and measures what comes out, with the Makeup gain set to 6 dB and
 Ratio to 1: the output peak must be 1.995 times the input's.
 
-Pins need nothing from you. A plugin has to be pinned (its files' hashes and its parameter layout) before the daemon
-lets it run; in the default `first-use` mode the first `add` records the pin in `$XDG_STATE_HOME/plugin-hostd/pins`, and
-a later `add` of a changed file is refused with a `pin_changed` event. A host that pins by itself sets `pin_mode strict`.
+A plugin has to be pinned (its files' hashes and its parameter layout) and to have a verdict, or your `pin_accept`,
+before the daemon lets it run; in the default `first-use` mode the first `add` records the pin in
+`$XDG_STATE_HOME/plugin-hostd/pins`, `pin_accept` is kept beside it in `pins.accepted`, and a later `add` of a changed
+file is refused with a `pin_changed` event. A host that pins by itself sets `pin_mode strict`.
 See Pins in the [guide](guide.md#pins).
 
 What to read next: `man plugin-hostd`; the verbs and error codes in the [guide](guide.md); `remote_pages` and `remote_page_get` for
