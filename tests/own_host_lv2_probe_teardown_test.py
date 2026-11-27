@@ -6,6 +6,7 @@
 # state and the process dies with SIGSEGV (returncode -11, which a wrapping shell/CI reports as 245 -
 # plugin-hostd#110). This builds a fake libjack.so.0 whose RT thread callbacks at a busy, uncapped rate - so the
 # race is hit on close to every run instead of rarely - loops the real probe through a full settle+measure cycle
+# (connected to the ports the fake target publishes by LV2 symbol, never to a fixed in_N name: plugin-hostd#320)
 # against it TRIALS times, and requires every run to exit 0 with no crash.
 #
 #   python3 tests/own_host_lv2_probe_teardown_test.py
@@ -16,8 +17,9 @@ PROBE = os.path.join(ROOT, "tests", "own_host_lv2_probe.py")
 CC = os.environ.get("CC", "cc")
 TRIALS = int(os.environ.get("OWN_HOST_LV2_PROBE_TEARDOWN_TRIALS", "8"))
 
-# A fake libjack: a single own-host-probe client, and "<anything-else>:in_N"/"<anything-else>:out_N" wired as a
-# zero-latency unity-gain pass-through (so the probe's own gain check sees ratio 1.0 and takes its success path,
+# A fake libjack: a single own-host-probe client, and a target "fx" that publishes its ports by LV2 symbol, as
+# omx-clap-host names an LV2 plugin's (plugin-hostd#320): fx:lv2_in_1/2 and fx:lv2_out_1/2, wired as a zero-latency
+# unity-gain pass-through; a connect to a port fx does not publish fails, as JACK's does (so the probe's own gain check sees ratio 1.0 and takes its success path,
 # the path the issue's crash was seen on). jack_activate spawns the RT thread; only jack_deactivate stops it and
 # joins it, matching real libjack closely enough to race a probe that skips the call.
 FAKE_JACK_C = r'''
@@ -40,6 +42,41 @@ static phd_cb g_cb;
 static void *g_arg;
 static volatile int g_active;
 static pthread_t g_thread;
+
+static const char *const g_fx_in[] = { "fx:lv2_in_1", "fx:lv2_in_2", 0 };
+static const char *const g_fx_out[] = { "fx:lv2_out_1", "fx:lv2_out_2", 0 };
+
+static int published(const char *qualified)
+{
+    int i;
+
+    if (strncmp(qualified, "own-host-probe:", 15) == 0)
+        return 1;
+    for (i = 0; g_fx_in[i]; i++)
+        if (!strcmp(qualified, g_fx_in[i]) || !strcmp(qualified, g_fx_out[i]))
+            return 1;
+    return 0;
+}
+
+const char **jack_get_ports(void *client, const char *name, const char *type, unsigned long flags)
+{
+    static const char *list[3];
+    const char *const *src = (flags & 1) ? g_fx_in : g_fx_out;
+    int i;
+
+    (void)client; (void)type;
+    if (!name || strcmp(name, "^fx:") != 0)
+        return 0;
+    for (i = 0; src[i]; i++)
+        list[i] = src[i];
+    list[i] = 0;
+    return list;
+}
+
+void jack_free(void *p)
+{
+    (void)p;
+}
 
 static float *resolve(const char *qualified)
 {
@@ -120,6 +157,8 @@ int jack_activate(void *client)
 int jack_connect(void *client, const char *a, const char *b)
 {
     (void)client;
+    if (!published(a) || !published(b))
+        return -1;
     g_conns[g_nconns].src = resolve(a);
     g_conns[g_nconns].dst = resolve(b);
     g_nconns++;
