@@ -365,6 +365,7 @@ static int manifest_files(const char *text, size_t size, const char *bundle, con
 }
 
 
+/* the manifest of the bundle at `root` into *bytes: 0; -1 when it cannot be read; -2 when memory ran out */
 static int read_manifest(const char *root, char **bytes, size_t *size)
 {
     char full[PATH_MAX * 2];
@@ -382,6 +383,11 @@ static int read_manifest(const char *root, char **bytes, size_t *size)
         return -1;
     }
     *bytes = malloc(st.st_size + 1);
+    if (*bytes == NULL)
+    {
+        close(fd);
+        return -2;
+    }
     while (got < st.st_size && (r = read(fd, *bytes + got, st.st_size - got)) > 0)
         got += r;
     close(fd);
@@ -665,6 +671,7 @@ typedef struct TRIPLE_T {
 typedef struct GRAPH_T {
     triple_t *t;
     int n, cap, blank;
+    int short_of_memory;        /* a statement was dropped because memory ran out */
 } graph_t;
 
 static void graph_add(graph_t *g, const char *s, const char *p, const char *o, int literal)
@@ -677,7 +684,10 @@ static void graph_add(graph_t *g, const char *s, const char *p, const char *o, i
     {
         grown = realloc(g->t, (g->cap ? g->cap * 2 : 256) * sizeof(*g->t));
         if (grown == NULL)
+        {
+            g->short_of_memory = 1;
             return;
+        }
         g->t = grown;
         g->cap = g->cap ? g->cap * 2 : 256;
     }
@@ -689,6 +699,7 @@ static void graph_add(graph_t *g, const char *s, const char *p, const char *o, i
         free(g->t[g->n].s);
         free(g->t[g->n].p);
         free(g->t[g->n].o);
+        g->short_of_memory = 1;
         return;
     }
     g->t[g->n].literal = literal;
@@ -1016,22 +1027,22 @@ static int port_read(const graph_t *g, const char *node, port_t *p)
     return 0;
 }
 
-/* the statements of a bundle's plugin, its manifest's and those of the Turtle files it names, into g: 0, or -1 when the
- * plugin's bundle cannot be found or its manifest read */
+/* the statements of a bundle's plugin, its manifest's and those of the Turtle files it names, into g: 0; -1 when the
+ * plugin's bundle cannot be found or its manifest read; -2 when memory ran out while they were read (g is then empty) */
 static int bundle_graph(const char *uri, const char *search, graph_t *g)
 {
     names_t names = { NULL, 0 };
     char *bundle = proc_find_lv2_bundle(search, bare(uri), bundle_version), *manifest = NULL;
     size_t size = 0;
-    int n;
+    int n, rc = 0, short_of_memory = 0;
 
-    if (!bundle || read_manifest(bundle, &manifest, &size) != 0)
+    if (!bundle || (rc = read_manifest(bundle, &manifest, &size)) != 0)
     {
         free(bundle);
-        return -1;
+        return bundle && rc == -2 ? -2 : -1;
     }
     graph_parse(g, manifest, size);
-    manifest_files(manifest, size, bundle, bare(uri), &names, 0);
+    short_of_memory = manifest_files(manifest, size, bundle, bare(uri), &names, 0) < 0;
     free(manifest);
     for (n = 0; n < names.n; n++)
     {
@@ -1048,10 +1059,16 @@ static int bundle_graph(const char *uri, const char *search, graph_t *g)
         fd = open(path, O_RDONLY | O_CLOEXEC);
         if (fd < 0)
             continue;
-        if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > MANIFEST_MAX || !(bytes = malloc(st.st_size + 1)))
+        if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > MANIFEST_MAX)
         {
             close(fd);
             continue;
+        }
+        if (!(bytes = malloc(st.st_size + 1)))
+        {
+            close(fd);
+            short_of_memory = 1;
+            break;
         }
         while (got < st.st_size && (r = read(fd, bytes + got, st.st_size - got)) > 0)
             got += r;
@@ -1061,20 +1078,29 @@ static int bundle_graph(const char *uri, const char *search, graph_t *g)
     }
     names_free(&names);
     free(bundle);
+    if (short_of_memory || g->short_of_memory)
+    {
+        graph_free(g);
+        return -2;
+    }
     return 0;
 }
 
 /* the control ports of a bundle's plugin, by index: NULL when the plugin's files cannot be found or read, or when they
- * name no control port */
-static ports_t *ports_load(const char *uri, const char *search)
+ * name no control port; NULL with *short_of_memory set when memory ran out while they were read */
+static ports_t *ports_load(const char *uri, const char *search, int *short_of_memory)
 {
     ports_t *ports = calloc(1, sizeof(*ports));
-    int k, ok = 0;
+    int k, ok = 0, rc;
 
     if (ports == NULL)
-        return NULL;
-    if (bundle_graph(uri, search, &ports->g) != 0)
     {
+        *short_of_memory = 1;
+        return NULL;
+    }
+    if ((rc = bundle_graph(uri, search, &ports->g)) != 0)
+    {
+        *short_of_memory = rc == -2;
         free(ports);
         return NULL;
     }
@@ -1088,11 +1114,16 @@ static ports_t *ports_load(const char *uri, const char *search)
         if (!symbol_valid(first_object(&ports->g, t->o, NS_CORE "symbol")) || !has_object(&ports->g, t->o, RDF_TYPE, NS_CORE "ControlPort"))
             continue;
         grown = realloc(ports->port, (ports->n + 1) * sizeof(*grown));
-        if (grown == NULL)
-            break;
-        ports->port = grown;
-        if (port_read(&ports->g, t->o, &ports->port[ports->n]) == 0)
-            ports->n++;
+        if (grown != NULL)
+            ports->port = grown;
+        /* port_read fails only for want of memory */
+        if (grown == NULL || port_read(&ports->g, t->o, &ports->port[ports->n]) != 0)
+        {
+            *short_of_memory = 1;
+            ports_free(ports);
+            return NULL;
+        }
+        ports->n++;
         ok = 1;
     }
     if (!ok)
@@ -1137,14 +1168,22 @@ static int store_groups(ports_t *ports, const desc_groups_t *groups)
     return ok ? 0 : -1;
 }
 
-static ports_t *ports_of_instance(int id)
+/* the ports of the instance's bundle, the store's groups in place of its own: NULL when they cannot be read, with
+ * *short_of_memory set when memory ran out */
+static ports_t *ports_of_instance(int id, int *short_of_memory)
 {
     const char *uri = sup_instance_uri(id), *search = sup_instance_search(id);
     const desc_groups_t *groups;
-    ports_t *ports = uri && search ? ports_load(uri, search) : NULL;
+    ports_t *ports;
 
-    if (ports && (groups = descriptions_groups(uri)) != NULL)
-        store_groups(ports, groups);
+    *short_of_memory = 0;
+    ports = uri && search ? ports_load(uri, search, short_of_memory) : NULL;
+    if (ports && (groups = descriptions_groups(uri)) != NULL && store_groups(ports, groups) != 0)
+    {
+        ports_free(ports);
+        *short_of_memory = 1;
+        return NULL;
+    }
     return ports;
 }
 
@@ -1191,11 +1230,13 @@ char *lv2_param_info(int id, const char *symbol)
     const port_t *p;
     char line[PATH_MAX], *reply, unit[WORD_MAX + 8];
     const char *scale;
-    int code;
+    int code, short_of_memory;
 
     if (!strcmp(symbol, LV2_BYPASS_SYMBOL))
         return sup_resp(ERR_HOST_INVALID_PARAM_SYMBOL);
-    ports = ports_of_instance(id);
+    ports = ports_of_instance(id, &short_of_memory);
+    if (short_of_memory)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
     if (ports != NULL)
     {
         p = port_named(ports, symbol);
@@ -1238,6 +1279,7 @@ static int group_eq(const char *a, const char *b)
     return (a == NULL && b == NULL) || (a != NULL && b != NULL && !strcmp(a, b));
 }
 
+/* the pages, *count of them; NULL with *count -1 when memory ran out */
 static page_t *pages_of(const ports_t *ports, int *count)
 {
     page_t *page = NULL;
@@ -1268,6 +1310,7 @@ static page_t *pages_of(const ports_t *ports, int *count)
                 if (grown == NULL)
                 {
                     free(page);
+                    *count = -1;
                     return NULL;
                 }
                 page = grown;
@@ -1285,41 +1328,43 @@ static page_t *pages_of(const ports_t *ports, int *count)
     return page;
 }
 
-/* remote_pages of an LV2 instance: the pages its bundle's groups make; 0 for a bundle that cannot be read */
+/* remote_pages of an LV2 instance: the pages its bundle's groups make; 0 for a bundle that cannot be read;
+ * ERR_MEMORY_ALLOCATION when memory ran out while it was read */
 char *lv2_remote_pages(int id)
 {
-    ports_t *ports = ports_of_instance(id);
+    int short_of_memory, count = 0;
+    ports_t *ports = ports_of_instance(id, &short_of_memory);
     page_t *page;
     char *reply = NULL;
-    int count = 0;
 
     if (ports == NULL)
-        return sup_resp(0);
+        return sup_resp(short_of_memory ? ERR_MEMORY_ALLOCATION : 0);
     page = pages_of(ports, &count);
     free(page);
     ports_free(ports);
-    if (asprintf(&reply, "resp %d", count) < 0)
-        return sup_resp(0);
+    if (count < 0 || asprintf(&reply, "resp %d", count) < 0)
+        return sup_resp(ERR_MEMORY_ALLOCATION);
     return reply;
 }
 
-/* remote_page_get of an LV2 instance: -902 for a page that is not one */
+/* remote_page_get of an LV2 instance: -902 for a page that is not one; ERR_MEMORY_ALLOCATION when memory ran out while
+ * the bundle was read */
 char *lv2_remote_page_get(int id, int index)
 {
-    ports_t *ports = ports_of_instance(id);
+    int short_of_memory, count = 0, k;
+    ports_t *ports = ports_of_instance(id, &short_of_memory);
     page_t *page;
     char name[WORD_MAX + 8], label[WORD_MAX + 16], slots[PAGE_SLOTS * (WORD_MAX + 1) + 1] = "", *reply = NULL;
     const char *title;
-    int count = 0, k;
 
     if (ports == NULL)
-        return sup_resp(ERR_INVALID_OPERATION);
+        return sup_resp(short_of_memory ? ERR_MEMORY_ALLOCATION : ERR_INVALID_OPERATION);
     page = pages_of(ports, &count);
     if (page == NULL || index < 0 || index >= count)
     {
         free(page);
         ports_free(ports);
-        return sup_resp(ERR_INVALID_OPERATION);
+        return sup_resp(count < 0 ? ERR_MEMORY_ALLOCATION : ERR_INVALID_OPERATION);
     }
     title = page[index].slot[0] >= 0 ? ports->port[page[index].slot[0]].title : NULL;
     if (page[index].group && !title)
@@ -1341,7 +1386,7 @@ char *lv2_remote_page_get(int id, int index)
         strcat(slots, page[index].slot[k] < 0 ? "-" : ports->port[page[index].slot[k]].symbol);
     }
     if (asprintf(&reply, "resp 0 %d \"\" %s %s", index, name, slots) < 0)
-        reply = sup_resp(ERR_INVALID_OPERATION);
+        reply = sup_resp(ERR_MEMORY_ALLOCATION);
     free(page);
     ports_free(ports);
     return reply;
