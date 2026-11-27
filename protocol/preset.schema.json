@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://freemixer.org/schemas/org.openmixer.preset.schema.json",
+  "$id": "https://openmixer.org/schema/plugin-hostd/preset.schema.json",
   "title": "org.openmixer.preset",
   "description": "A user preset file, as a worker writes it for preset_save and reads it for preset_load and preset_show (docs/presets.md). /1 is params-only and stays valid; /2 adds the state body, additively. Unknown fields are allowed and a writer keeps them; an unknown format version is refused, never guessed.",
   "type": "object",

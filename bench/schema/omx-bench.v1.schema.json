@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.openmixer.org/schema/omx-bench.v1.schema.json",
+  "$id": "https://openmixer.org/schema/plugin-hostd/omx-bench.v1.schema.json",
   "title": "omx-bench/1: one benchmark run of plugin hosts on one machine",
   "type": "object",
   "required": ["schema", "id", "machine", "software", "scenarios"],

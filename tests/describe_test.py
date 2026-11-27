@@ -117,7 +117,7 @@ def main():
             errors = sorted(validator.iter_errors(got), key=lambda e: list(e.path))
             check(not errors, "%s: the descriptor validates against omx-contract's schema%s"
                   % (name, "".join("\n     %s: %s" % (list(e.path), e.message) for e in errors)))
-            if CLI:
+            if CLI and CLI_DATA:
                 # omx-contract's own reader, its rules beside the schema's (origin-source, port-words, instrument): the
                 # descriptor in a scratch data tree of the reader's schema, as an in-tree file names it
                 data = os.path.join(tmp, "data-" + name)

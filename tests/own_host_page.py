@@ -4,7 +4,7 @@
 #
 # A line of the block is a command. `send() ...` is a helper and is not counted. A trailing `# resp <text>` says the
 # command's output must begin with <text>; `# has <text>` says it must contain <text>. Anything else after `#` is
-# a comment. The page promises "nine commands"; the block may not grow past ten. The page has a second block,
+# a comment. The page promises "ten commands"; the block may not grow past ten. The page has a second block,
 # `sh own-host-lv2`, that continues the first in the same shell (the `send` helper, JACK running); both run as one
 # script. `run --audio` then also proves with libjack that the LV2 instance processes audio: it sets the compressor
 # to a 6 dB makeup gain and checks the output peak of a sine against the input's.
@@ -93,15 +93,17 @@ sleep() { :; }
 """
 
 
-REPLIES = ("add_clap", "set_clap", "get_clap", "scan", "quit", "add_lv2", "set_lv2", "get_lv2", "worker_list")
-RIGHT = ("resp 0", "resp 0", "resp 0 8.0000", "    param 1 Ratio [1 .. 20] default 4 automatable",
-         "resp 0", "resp 0", "resp 0", "resp 0 8.0000", "resp 1 w1:42:lv2-clap:up:1:own:0")
+REPLIES = ("add_clap", "accept_clap", "set_clap", "get_clap", "scan", "quit", "add_lv2", "accept_lv2", "set_lv2", "get_lv2",
+           "worker_list")
+RIGHT = ("resp 0", "resp 0", "resp 0", "resp 0 8.0000", "    param 1 Ratio [1 .. 20] default 4 automatable",
+         "resp 0", "resp 0", "resp 0", "resp 0", "resp 0 8.0000", "resp 1 w1:42:lv2-clap:up:1:own:0")
 WRONG = {"scan": "    param 1 Wrong", "worker_list": "resp 1 w1:42:mod-host:up:1:own:0"}
 
 
 def stubbed(sc, lines, replies):
     r = dict(zip(REPLIES, replies))
     send = ('send() { case "$1" in "add clap"*) echo "%(add_clap)s";; "add lv2"*) echo "%(add_lv2)s";; '
+            '"pin_accept clap"*) echo "%(accept_clap)s";; "pin_accept lv2"*) echo "%(accept_lv2)s";; '
             '"param_set 0 ratio"*) echo "%(set_lv2)s";; param_set*) echo "%(set_clap)s";; '
             '"param_get 0 ratio"*) echo "%(get_lv2)s";; param_get*) echo "%(get_clap)s";; '
             'quit*) echo "%(quit)s";; worker_list*) echo "%(worker_list)s";; esac; }' % r)
