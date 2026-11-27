@@ -3444,6 +3444,52 @@ def a_pin_file_rewritten_under_a_running_daemon_is_read_again_and_no_restart_is_
 
 
 @test
+def settings_that_name_no_pin_file_read_the_one_the_qualification_sync_writes():
+    """a default install chains what qualified with no configuration: settings that name no pin_file read the pin file
+    plugin-qualify-sync writes (/var/lib/omx/qualified.pins; the test build reads PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE in
+    its place). Absent at start, before the first sync, it is no pins and no start that fails, and it is read once the
+    sync writes it; a settings line `pin_file` with no value reads none; one the settings name stays strict"""
+    p = Plugins()
+    pins = os.path.join(p.dir, "qualified.pins")
+    default = {"PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE": pins}
+    absent = resp("PIN_ABSENT")
+    rewrite_pins(pins, [pin_line(p)])
+    # strict: only a pin admits the add, and the only pin is the default file's
+    d = p.daemon(env=default)
+    try:
+        d.expect("add %s 0" % p.clap_uri, "resp 0")
+    finally:
+        d.close()
+    # the settings turn it off with an empty pin_file
+    d = p.daemon(conf={"pin_file": ""}, env=default)
+    try:
+        d.expect("add %s 0" % p.clap_uri, absent)
+    finally:
+        d.close()
+    # a machine before its first sync: the daemon starts, pins nothing from it, and reads it once it is written
+    os.unlink(pins)
+    d = p.daemon(env=default)
+    try:
+        d.expect("add %s 0" % p.clap_uri, absent)
+        rewrite_pins(pins, [pin_line(p)])
+        d.expect("add %s 1" % p.clap_uri, "resp 1")
+    finally:
+        d.close()
+    # a pin_file the settings name is strict: absent, the daemon does not start
+    os.unlink(pins)
+    try:
+        try:
+            d = p.daemon(conf={"pin_file": pins}, env=default)
+        except Fail as e:
+            check("can't open the pin file %s" % pins in str(e), "a named pin_file that is absent ends the start: %s" % e)
+        else:
+            d.close()
+            check(False, "a named pin_file that is absent ends the start, and the daemon started")
+    finally:
+        p.close()
+
+
+@test
 def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
     """issue 42, decisions of 2026-10-18: a pins.d pin of verdict=refused wins over another pins.d pin of its uri in
     either name order, and nothing of the host overrides it: not the store, not a pin_file, not pin_set, not
