@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.22.1
+Version: 0.22.2
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -209,6 +209,17 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_dir}/qualification/
 
 %changelog
+* Fri Nov 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.2-1
+- The describe test runs its omx-contract arm only when OMX_CONTRACT_CLI and
+  OMX_CONTRACT_DATA both name something (#292).
+- Every committed schema names its $id under
+  https://openmixer.org/schema/plugin-hostd/, held by make check-schema-ids
+  (#308).
+- LV2: the bundle and port reading say when memory ran out, and the page and
+  param verbs answer ERR_MEMORY_ALLOCATION then (#267).
+- CI: the development package's requires may carry the floor the build
+  stamps, and the file-list check reads it (#307).
+
 * Thu Nov 26 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.1-1
 - The RPMs are built for Fedora aarch64 as well as x86_64: the release
   matrix is Open-Mixer/.github's shared releases and architectures, with no

@@ -1,3 +1,17 @@
+plugin-hostd (0.22.2) unstable; urgency=medium
+
+  * The describe test runs its omx-contract arm only when OMX_CONTRACT_CLI
+    and OMX_CONTRACT_DATA both name something (#292).
+  * Every committed schema names its $id under
+    https://openmixer.org/schema/plugin-hostd/, held by
+    make check-schema-ids (#308).
+  * LV2: the bundle and port reading say when memory ran out, and the page
+    and param verbs answer ERR_MEMORY_ALLOCATION then (#267).
+  * CI: the development package's requires may carry the floor the build
+    stamps, and the file-list check reads it (#307).
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 27 Nov 2026 08:57:44 +0100
+
 plugin-hostd (0.22.1) unstable; urgency=medium
 
   * The RPMs are built for Fedora aarch64 as well as x86_64: the release
