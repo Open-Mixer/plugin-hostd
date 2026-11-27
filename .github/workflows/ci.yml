@@ -789,6 +789,16 @@ jobs:
           bounded-install apt-get update -qq
           bounded-install apt-get install -y --no-install-recommends ca-certificates curl sudo python3 apt-utils
 
+      # a run off main (a pull request into devel, a dispatch of a lane) reads the levels its merge will: staging, and a
+      # wave's devel channel above it (Open-Mixer/.github#329), beside the real channel the page adds; a release
+      # (main, a tag) reads the real channel alone, as the page says
+      - name: The levels a run off main reads, beside the page's channel
+        if: (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
+        uses: Open-Mixer/.github/.github/actions/add-openmixer@openmixer-v1
+        with:
+          staging: 'true'
+          devel-channel: ${{ vars.OMX_DEVEL_CHANNEL }}
+
       - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
