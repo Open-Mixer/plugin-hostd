@@ -4,7 +4,7 @@
   "x-omx-contract": "0.23",
   "info": {
     "title": "What a qualification measures and records",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": [
@@ -1010,6 +1010,13 @@
             "description": "An amount of memory, in kilobytes.",
             "x-code": 20,
             "x-text": "An amount of memory, in kilobytes."
+          },
+          {
+            "const": "unmeasuredReason",
+            "title": "unmeasuredReason",
+            "description": "Why the figure was not measured, a word of QUALIFICATION_MEASUREMENT_UNMEASURED_REASONS.",
+            "x-code": 21,
+            "x-text": "Why the figure was not measured."
           }
         ]
       },
