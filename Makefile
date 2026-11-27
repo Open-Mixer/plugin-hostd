@@ -799,12 +799,13 @@ JACK_SERVER ?= pipewire
 # the real workers over jack in a PipeWire of its own: omx-clap-host (OMX_CLAP_HOST) and, when MOD_HOST is
 # given, mod-host with an LV2 bundle (LV2_DIR, LV2_URI, LV2_BUNDLE, LV2_PARAM name the plugin); with omx-clap-host's
 # meter fixtures (FAKE_COMPRESSOR_CLAP, JACK_METER_SOURCE) the meters reach the controller through the daemon
-# the reply curve_points must give, from omx-dsp's omx_curve_points (header only): the real instances' curves are held
+# the reply curve_points must give, from omx-dsp's omx_curve_points_marked (header only) in the protocol's reply row (its
+# PHD_WORD_NONE for no mark): the real instances' curves are held
 # to it in tests/jack_e2e.py
 OMXDSP_TEST_CFLAGS = $(shell $(PKG_CONFIG) --cflags omxdsp 2>/dev/null)
 tests/curve_reply: tests/curve_reply.c
 	@test -n "$(OMXDSP_TEST_CFLAGS)" || { echo "tests/curve_reply needs omx-dsp-devel" >&2; exit 1; }
-	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) -o $@ $< -lm
+	$(CC) -std=gnu99 -Wall -Wextra -Werror -O2 $(OMXDSP_TEST_CFLAGS) $(PROTOCOL_CFLAGS) -o $@ $< -lm
 
 test-jack: $(PROG_TEST) tests/stress.clap tests/jack_levels tests/host_scenarios tests/curve_reply
 	CURVE_REPLY=$(abspath tests/curve_reply) \

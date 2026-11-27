@@ -6,8 +6,10 @@
  *   curve_reply <kind> <family> <rate> <points> <term> ...
  *
  * each term <role>[.<index>]=<value>[:<unit>][@<shape>], the value as param_get wrote it and the band shape already
- * resolved. Prints "resp 0 <count> <x>,<y> ..." (x to four significant digits, y to 0.01 dB, as the protocol page says)
- * or "code <n>"; exit 2 for a line it cannot read.
+ * resolved. Prints "resp 0 <count> <marks> <x>,<y> ..." (plugin-hostd-protocol's reply row count, marks, points: the
+ * marks one word, each band a corrector planted as <freq>,<depth>,<q>,<origin> joined by ';', or PHD_WORD_NONE when
+ * there is none; x to four significant digits, y to 0.01 dB, as the protocol page says) or "code <n>"; exit 2 for a
+ * line it cannot read.
  *
  * Copyright (C) 2026 Pau Aliagas <linuxnow@gmail.com>
  */
@@ -17,6 +19,22 @@
 #include <string.h>
 
 #include <omxdsp/omx_curve.h>
+#include <plugin-hostd/protocol.h>
+
+/* a number as the protocol writes an x: four significant digits */
+static void put_x(double x)
+{
+    int decimals = x == 0.0 ? 0 : 3 - (int)floor(log10(fabs(x)));
+
+    if (x == 0.0)
+    {
+        printf("0");
+        return;
+    }
+    if (decimals < 0)
+        x = round(x / pow(10.0, -decimals)) * pow(10.0, -decimals), decimals = 0;
+    printf("%.*f", decimals, x);
+}
 
 static int word(const char *const *words, uint32_t n, const char *s, size_t len)
 {
@@ -32,8 +50,10 @@ static int word(const char *const *words, uint32_t n, const char *s, size_t len)
 int main(int argc, char **argv)
 {
     static struct omx_curve_term t[512];
+    static struct omx_curve_mark marks[OMX_CURVE_BANDS_MAX];
     double x[OMX_CURVE_POINTS_MAX], y[OMX_CURVE_POINTS_MAX];
     struct omx_curve_request rq;
+    struct omx_curve_extra ex;
     int code = -1, k, v;
 
     if (argc < 6 || argc - 5 > 512)
@@ -74,26 +94,29 @@ int main(int argc, char **argv)
     }
     rq.terms = t;
     rq.nterms = (uint32_t)(argc - 5);
-    const uint32_t n = omx_curve_points(&rq, x, y, OMX_CURVE_POINTS_MAX, &code);
+    memset(&ex, 0, sizeof(ex));
+    ex.marks = marks;
+    ex.mark_room = OMX_CURVE_BANDS_MAX;
+    const uint32_t n = omx_curve_points_marked(&rq, x, y, OMX_CURVE_POINTS_MAX, &ex, &code);
     if (code != OMX_CURVE_OK)
     {
         printf("code %d\n", code);
         return 0;
     }
-    printf("resp 0 %u", n);
+    printf("resp 0 %u ", n);
+    if (ex.nmarks == 0)
+        printf("%s", PHD_WORD_NONE);
+    for (uint32_t i = 0; i < ex.nmarks; i++)
+    {
+        printf("%s", i ? ";" : "");
+        put_x(marks[i].freq_hz);
+        printf(",%.2f,%.2f,%s", fabs(marks[i].depth_db) < 0.005 ? 0.0 : marks[i].depth_db, marks[i].q,
+               OMX_CURVE_ORIGIN_WORDS[marks[i].origin]);
+    }
     for (uint32_t i = 0; i < n; i++)
     {
-        double xv = x[i];
-        int decimals = x[i] == 0.0 ? 0 : 3 - (int)floor(log10(fabs(x[i])));
-
-        if (x[i] == 0.0)
-            printf(" 0");
-        else
-        {
-            if (decimals < 0)
-                xv = round(x[i] / pow(10.0, -decimals)) * pow(10.0, -decimals), decimals = 0;
-            printf(" %.*f", decimals, xv);
-        }
+        printf(" ");
+        put_x(x[i]);
         printf(",%.2f", fabs(y[i]) < 0.005 ? 0.0 : y[i]);
     }
     printf("\n");
