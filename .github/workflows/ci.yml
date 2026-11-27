@@ -833,6 +833,17 @@ jobs:
           test "$(dpkg-query -W -f='${Version}' plugin-hostd)" = "$(cat /tmp/run-version)"
           test "$(dpkg-query -W -f='${Version}' plugin-hostd-contract)" = "$(cat /tmp/run-version)"
 
+      # a reply the page did not expect is one line; why is in the logs the page sends to files: both blocks' daemon
+      # logs, and every worker's and scan's log in the daemon's own directory, with the qualify requests it wrote
+      - name: The daemon's and its workers' logs, when the page stopped
+        if: failure()
+        run: |
+          for f in /tmp/own-host/plugin-hostd.log /tmp/own-host/plugin-hostd-lv2.log /tmp/xdg/plugin-hostd/*/*.log; do
+            [ -f "$f" ] || continue
+            echo "::group::$f"; cat "$f"; echo "::endgroup::"
+          done
+          ls -l /tmp/state/plugin-hostd/qualify 2>/dev/null || true
+
   # The spike's Zynthian engine (tools/zynthian/spike-engine.sh reads its patch from the commit it was last changed at;
   # the engine that ships is Open-Mixer/zynthian-ui's), applied to zynthian-ui at its pin,
   # declares a chain of three omx-plugins members (omx-strip and omx-limiter CLAP, omx-delay LV2 on the adapter row)
