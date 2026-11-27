@@ -1,17 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Every committed *.schema.json names its $id under https://openmixer.org/schema/plugin-hostd/ (omx-contract#106): the
 # canonical host openmixer.org, no www, no freemixer.org, no raw GitHub URL. Exit 0 when all hold; 1 naming each one
-# that does not.
+# that does not. It walks the tree rather than asking git, since CI checks out into a container where git refuses the
+# tree as another user's (exit 128); it skips the dot directories, the installed contract tree the tests fill, and the
+# deb build tree, which hold copies or other packages' files.
 import json
 import os
-import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PREFIX = "https://openmixer.org/schema/plugin-hostd/"
 
-files = subprocess.run(["git", "-C", ROOT, "ls-files", "*.schema.json"], check=True, capture_output=True,
-                       text=True).stdout.split()
+SKIP = {os.path.join(ROOT, "tests", "contract-tree"), os.path.join(ROOT, "debian")}
+files = []
+for top, dirs, names in os.walk(ROOT):
+    dirs[:] = sorted(d for d in dirs if not d.startswith(".") and os.path.join(top, d) not in SKIP)
+    files += sorted(os.path.relpath(os.path.join(top, n), ROOT) for n in names if n.endswith(".schema.json"))
 if not files:
     print("schema_ids: no *.schema.json found", file=sys.stderr)
     sys.exit(1)
