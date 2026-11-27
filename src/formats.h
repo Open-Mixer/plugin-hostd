@@ -259,11 +259,12 @@ char *lv2_narrow_world(const conf_t *conf, const char *dir, const char *const *u
  * The unit and scale its port states, the range and default, and the port's symbol, which is stable across hosts. -103
  * for what is no control port, and for the host's bypass; -511 for a port whose unit the daemon has no word for or
  * whose range it does not state. A bundle that cannot be read leaves the answer to mod-host's param_get: -103 for what
- * is no parameter, -511 for a parameter.
+ * is no parameter, -511 for a parameter. Memory that runs out while the bundle is read is answered as that, never as a
+ * bundle that cannot be read.
  *
  * @param id the instance
  * @param symbol the port's symbol
- * @return the reply line, malloc'd; NULL when memory ran out
+ * @return the reply line, malloc'd; ERR_MEMORY_ALLOCATION, or NULL, when memory ran out
  * @pre symbol is not NULL.
  * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
  */
@@ -280,7 +281,8 @@ void lv2_units_dirs(const char *dirs);
  * @brief Answers remote_pages of an LV2 instance: the pages its bundle's groups make.
  *
  * @param id the instance
- * @return "resp \<count\>", malloc'd; 0 pages for a bundle that cannot be read; NULL when memory ran out
+ * @return "resp \<count\>", malloc'd; 0 pages for a bundle that cannot be read; ERR_MEMORY_ALLOCATION, or NULL, when
+ *         memory ran out
  * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
  */
 char *lv2_remote_pages(int id);
@@ -290,7 +292,7 @@ char *lv2_remote_pages(int id);
  * @param id the instance
  * @param page the page's number
  * @return the page's reply line, malloc'd; invalid-operation for a bundle that cannot be read or a page that is not
- *         one; NULL when memory ran out
+ *         one; ERR_MEMORY_ALLOCATION, or NULL, when memory ran out
  * @note Not thread-safe: it reads the supervisor's state; call on the daemon's main thread only.
  */
 char *lv2_remote_page_get(int id, int page);

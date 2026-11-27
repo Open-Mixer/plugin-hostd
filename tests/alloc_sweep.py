@@ -217,8 +217,6 @@ def arm(a):
 pool = concurrent.futures.ThreadPoolExecutor(JOBS)
 # a reason that is not true: the words of a command read wrong, and of a parameter with no contract
 UNTRUE = ("resp -902", "resp -511")
-# the verbs that still answer one, each with the issue that removes it from here
-KNOWN_UNTRUE = {"remote_page_get": "plugin-hostd#267"}
 
 
 def untrue(refused_on):
@@ -228,8 +226,6 @@ def untrue(refused_on):
     n, command, reply = refused_on
     said = next((u for u in UNTRUE if reply == u or reply.startswith(u + " ")), None)
     if said is None or n >= len(clean) or clean[n][0] != command or clean[n][1] == reply:
-        return None
-    if command.split()[0] in KNOWN_UNTRUE:
         return None
     return "%r ran out of memory and answered %r (with memory %r)" % (command, reply, clean[n][1])
 
