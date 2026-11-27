@@ -312,8 +312,13 @@ jobs:
         run: |
           bounded-install apt-get update -qq
           bounded-install apt-get install -y --no-install-recommends ca-certificates curl git gcc make python3 pkg-config libssl-dev libcjson-dev lv2-dev cmake \
-            dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev jack-example-tools \
+            dpkg-dev debhelper build-essential lintian jackd2 libjack-jackd2-dev \
             iproute2 util-linux procps
+          # trixie splits jack_lsp and the other example clients out of jackd2 into jack-example-tools; bookworm's
+          # jackd2 still ships them and has no such package
+          if apt-cache show jack-example-tools >/dev/null 2>&1; then
+            bounded-install apt-get install -y --no-install-recommends jack-example-tools
+          fi
 
       - uses: actions/checkout@v4
 
