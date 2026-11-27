@@ -1566,11 +1566,11 @@ SABOTAGE = [
      "a_percent_encoded_iri_finds_the_record_of_its_decoded_spelling", "qualcost"),
     ('the rate is not read', 'src/qualcost.c',
      '    q.rate = rate;',
-     '    q.rate = -1;',
+     '    q.rate = ((void)rate, -1);',
      'a_rate_or_quantum_the_store_lacks_is_unknown', "qualcost"),
     ('the quantum is not read', 'src/qualcost.c',
      '    q.quantum = quantum;',
-     '    q.quantum = -1;',
+     '    q.quantum = ((void)quantum, -1);',
      'a_rate_or_quantum_the_store_lacks_is_unknown', "qualcost"),
     ('the first record of a plugin stands', 'src/qualcost.c',
      'if (fraction > c->best)',
@@ -2137,6 +2137,12 @@ def arm(entry, tree):
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(tree, "src"))
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
         shutil.copy(os.path.join(ROOT, "Makefile"), tree)
+        if jack == "qualcost":
+            # tests/qualcost-test's other prerequisites: the store fixtures' writer, and the machine domain its
+            # contract tree is installed from (the Makefile's $(TEST_CONTRACT_TREE))
+            os.makedirs(os.path.join(tree, "tests"), exist_ok=True)
+            shutil.copy(os.path.join(ROOT, "tests", "qual_fixture.py"), os.path.join(tree, "tests"))
+            shutil.copytree(os.path.join(ROOT, "contract.d"), os.path.join(tree, "contract.d"))
     elif jack == "consumer":
         shutil.copytree(os.path.join(ROOT, "include"), os.path.join(tree, "include"))
     elif jack == "nopins":
