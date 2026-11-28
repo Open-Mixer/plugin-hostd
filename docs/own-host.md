@@ -81,7 +81,9 @@ send "worker_list"   # has :lv2-clap:
 9. `worker_list` names the worker of each instance; `lv2-clap` is `omx-clap-host` running an LV2 plugin.
 
 CI also sends a sine into the instance's JACK ports and measures what comes out, with the Makeup gain set to 6 dB and
-Ratio to 1: the output peak must be 1.995 times the input's.
+Ratio to 1: the output peak must be 1.995 times the input's. `omx-clap-host` names an LV2 instance's JACK ports by the
+plugin's own port symbols, as mod-host does, so a host connects to the audio ports the instance publishes (as listed by
+`jack_get_ports` or `jack_lsp`), never to names it assumes. The page runs on Debian trixie on amd64 and arm64.
 
 A plugin has to be pinned (its files' hashes and its parameter layout) and to have a verdict, or your `pin_accept`,
 before the daemon lets it run; in the default `first-use` mode the first `add` records the pin in
@@ -142,7 +144,7 @@ trixie, and not re-checked since:
   the released worker, 0.8.0; the daemon passes the answer through. A host reads ranges and defaults from
   `omx-clap-scan` (or `omx-clap-scan --json`) and not from the socket, until a worker answers `resp 0`.
 - Parameters are named by their CLAP number (`0`, `1`, ...), not by a name; a host maps names to numbers from the scan.
-- No Zynthian image was available to CI: the check is on plain Debian arm64, not on Zynthian's own userland (its jackd,
+- No Zynthian image was available to CI: the check is on plain Debian (amd64 and arm64), not on Zynthian's own userland (its jackd,
   its audio configuration, its realtime limits).
 
 Each of these is an issue of its own.
