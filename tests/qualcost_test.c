@@ -268,7 +268,7 @@ static void an_absent_store_opens_empty_and_names_no_plugin(void)
 
 static void a_store_of_another_schema_version_is_refused_as_schema_other(void)
 {
-    refused_as("version2", "qualification-db.schema-other");
+    refused_as("version-other", "qualification-db.schema-other");
 }
 
 static void a_file_that_is_no_store_is_refused_as_not_a_store(void)
@@ -327,7 +327,13 @@ int main(int argc, char **argv)
             "d,org.example.i,48000,128,2000,3000,0,5,80,9 f,org.example.i,48000,128,1000,2000,0,10,100,5 "
             "a,'urn:a b',48000,128,1000,5000,-,-,-,- "
             "b,urn:a%20c,48000,128,1000,5000,-,-,-,-");
-    fixture("version2", "--user-version 2 a,org.example.a,48000,128,1000,5000,-,-,-,-");
+    /* another version than the one the library reads: its header's PQDB_SCHEMA_VERSION plus one, never a number kept here */
+    {
+        char args[256];
+
+        snprintf(args, sizeof(args), "--user-version %d a,org.example.a,48000,128,1000,5000,-,-,-,-", PQDB_SCHEMA_VERSION + 1);
+        fixture("version-other", args);
+    }
     fixture("version0", "--user-version 0 a,org.example.a,48000,128,1000,5000,-,-,-,-");
     fixture("badword", "--bad-word a,org.example.a,48000,128,1000,5000,-,-,-,-");
     {

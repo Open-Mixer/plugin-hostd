@@ -9,7 +9,8 @@ The schema is the library's installed DDL (pkg-config --variable=schema plugin-q
 checkout's schema/qualification.sql (the Makefile takes it in that order); its fractional reason params and adapter params
 tables are the correction of plugin-db-qualification 1d8b2e2f2, which a cell needs none of: they take no placeholder row.
 
-  --user-version N   PRAGMA user_version (default 1; 0 is a file that is no store)
+  --user-version N   PRAGMA user_version (default: the PQDB_SCHEMA_VERSION of the library's own header, the version its
+                     reader reads; 0 is a file that is no store)
   --bad-word         a record whose mc_arch is in no item of the machine domain, with the word check of it recorded
   cell               sha256,uri,rate,quantum,median,p95,declared,measured,firstkb,perkb  ("-" is NULL)
 
@@ -18,6 +19,7 @@ is made once per sha256 and uri. Every column the schema needs and a cell does n
 """
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -33,6 +35,34 @@ def schema_path():
     except (OSError, subprocess.CalledProcessError):
         path = ""
     return path if path and os.path.exists(path) else os.environ["PQDB_SCHEMA"]
+
+
+def header_path():
+    """The library's header <plugin-qualification-db/pqdb.h>: under the installed includedir (pkg-config), else PQDB_HEADER,
+    else the checkout of it beside this one (the Makefile's PQDB_DIR)."""
+    try:
+        inc = subprocess.run(["pkg-config", "--variable=includedir", "plugin-qualification-db"], capture_output=True, text=True,
+                             check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        inc = ""
+    path = os.path.join(inc, "plugin-qualification-db", "pqdb.h") if inc else ""
+    if path and os.path.exists(path):
+        return path
+    if os.environ.get("PQDB_HEADER"):
+        return os.environ["PQDB_HEADER"]
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(os.environ.get("PQDB_DIR", os.path.join(root, "..", "plugin-db-qualification")), "include",
+                        "plugin-qualification-db", "pqdb.h")
+
+
+def schema_version():
+    """The user_version the library's reader reads: its header's PQDB_SCHEMA_VERSION, never a number kept here (a fixture at 1
+    is refused as schema-other by a reader at 2, plugin-db-qualification 519c68e6c)."""
+    with open(header_path(), encoding="utf-8") as f:
+        m = re.search(r"^#define PQDB_SCHEMA_VERSION (\d+)\b", f.read(), re.M)
+    if not m:
+        raise SystemExit("%s declares no PQDB_SCHEMA_VERSION" % header_path())
+    return int(m.group(1))
 
 
 def sha(letter):
@@ -57,8 +87,10 @@ def num(text):
     return None if text == "-" else float(text) if "." in text else int(text)
 
 
-def build(schema, out, cells, user_version=1, bad_word=False):
+def build(schema, out, cells, user_version=None, bad_word=False):
     """Write the store fixture out from the DDL of schema; cells are sequences of the ten cell fields (strings)."""
+    if user_version is None:
+        user_version = schema_version()
     db = sqlite3.connect(out)
     with open(schema, encoding="utf-8") as f:
         db.executescript(f.read())
@@ -102,7 +134,7 @@ def build(schema, out, cells, user_version=1, bad_word=False):
 def main(argv):
     """Build the fixture the arguments name."""
     schema, out, rest = argv[1], argv[2], argv[3:]
-    version, bad_word, cells = 1, False, []
+    version, bad_word, cells = None, False, []
     while rest:
         arg = rest.pop(0)
         if arg == "--user-version":
