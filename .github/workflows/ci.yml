@@ -54,7 +54,7 @@ jobs:
         uses: Open-Mixer/.github/.github/actions/check-matrix@openmixer-v1
         with:
           wave: ${{ vars.OMX_RELEASE_MATRIX }}
-          # trixie alone: Debian bookworm is dropped from the matrix (owner 2026-11-27)
+          # Debian is trixie only (owner ruling 2026-11-28)
           deb-releases: '["trixie"]'
           deb-arches: '["amd64", "arm64"]'
           x86-runner: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || vars.OMX_RUNNER || 'ubuntu-latest' }}
