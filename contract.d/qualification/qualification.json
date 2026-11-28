@@ -4,7 +4,7 @@
   "x-omx-contract": "0.23",
   "info": {
     "title": "What a qualification measures and records",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": [
@@ -1214,6 +1214,53 @@
             "description": "The step is switched off.",
             "x-code": 7,
             "x-text": "The step is switched off."
+          },
+          {
+            "const": "cores",
+            "title": "cores",
+            "description": "The pool step measured the plugin faster and safe with the CLAP thread pool on: its worker gets the pool.",
+            "x-code": 8,
+            "x-text": "The plugin is faster and safe with the thread pool, and its worker gets it."
+          }
+        ]
+      },
+      "QUALIFICATION_GROUPABLE_CONDITIONAL_CODES": {
+        "description": "The reason codes that leave a conditional verdict groupable: a plugin whose every conditional reason is one of them shares a worker (D20). The one declaration plugin-qualify's judgment and the qualification store's reader read.",
+        "x-since": "0.1.2",
+        "oneOf": [
+          {
+            "const": "hosting.rt-safety.own-threads",
+            "title": "hostingRtSafetyOwnThreads",
+            "description": "The plugin started threads of its own: it is not real-time unsafe, and it may share a worker.",
+            "x-code": 0,
+            "x-text": "The plugin started threads of its own."
+          }
+        ]
+      },
+      "QUALIFICATION_NO_FIGURES_REASONS": {
+        "description": "Why a quick check ran and ended with no figures: the store records it as a refusal with this reason, and plugin-hostd refuses the plugin's files until the user's pin_accept (decided by the coordinator 2026-11-28, the owner to confirm).",
+        "x-since": "0.1.2",
+        "oneOf": [
+          {
+            "const": "probe.crashed",
+            "title": "probeCrashed",
+            "description": "The check was killed by a signal.",
+            "x-code": 0,
+            "x-text": "The check crashed."
+          },
+          {
+            "const": "probe.memory-limit",
+            "title": "probeMemoryLimit",
+            "description": "The check was killed at its memory limit.",
+            "x-code": 1,
+            "x-text": "The check outgrew its memory limit."
+          },
+          {
+            "const": "probe.timeout",
+            "title": "probeTimeout",
+            "description": "The check ran past its budget and was stopped.",
+            "x-code": 2,
+            "x-text": "The check ran out of time."
           }
         ]
       },

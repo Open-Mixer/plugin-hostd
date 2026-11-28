@@ -47,7 +47,7 @@ Inputs
 | Settings file (`-c`, `$PLUGIN_HOSTD_CONF`, `~/.config/plugin-hostd.conf`) | local user | trusted: `mod_host`, `clap_host` and `probe` name programs the daemon executes |
 | The descriptions store (`panel.sqlite`: the base, the system layer, the user layer) | omx-panel's writers, a person's edits | read through `libomx-panel-store`, opened read-only; its groups name ports by symbol, and a symbol no port has is ignored |
 | `PATH` | the daemon's environment | trusted: the ask runs `plugin-qualify-sync`, `omx-panel` and the LV2 generators found on it |
-| Pin store, `<pin_store>.accepted`, `pin_file`, history file | local user (and the daemon) | trusted |
+| Pin store, `<pin_store>.accepted`, history file | local user (and the daemon) | trusted |
 | `pins_dir` (`/usr/share/plugin-hostd/pins.d/*.pins`) | packager | trusted as it is |
 | Qualification store (read through libplugin-qualification-db, the system store as root, else the user's) | plugin-qualify, local user | trusted; opened read-only by the library, which refuses a store of another schema |
 | Environment: `PATH`, `HOME`, `XDG_*`, `LV2_PATH`, `CLAP_PATH`, `OMX_DESCRIPTOR_DIR`, `DISPLAY`/`WAYLAND_DISPLAY` | local user | trusted; inherited by every worker |

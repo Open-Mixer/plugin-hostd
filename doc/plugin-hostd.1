@@ -1,4 +1,4 @@
-.TH PLUGIN\-HOSTD 1 "November 2026" "plugin-hostd 0.22.4" "User Commands"
+.TH PLUGIN\-HOSTD 1 "November 2026" "plugin-hostd 0.23.0" "User Commands"
 .SH NAME
 plugin\-hostd \- supervisor of plugin host processes behind one mod\-host protocol socket
 .SH SYNOPSIS
@@ -95,7 +95,7 @@ or in
 one
 .\" BEGIN GENERATED protocol:man-keys
 .RI \(dq key " value" \(dq
-per line: mod_host, clap_host, lv2_worker, lv2_path, lv2_extra, clap_path, state_root, pin_mode, grouping, bind_address, placement, audio_cores, pin_store, pin_file, pins_dir, descriptor_dir, probe, history_file, host_class, ask_unknown, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, chain_form_timeout_ms, idle_ms, pool_max, history_window_s, history_save_s, history_regroup_s, ram_budget_mb, group_max, group_cost_max, group_rate, group_quantum, require_pins.
+per line: mod_host, clap_host, lv2_worker, lv2_path, lv2_extra, clap_path, state_root, pin_mode, grouping, bind_address, placement, audio_cores, pin_store, pins_dir, descriptor_dir, probe, history_file, host_class, ask_unknown, ready_timeout_ms, rpc_timeout_ms, backoff_base_ms, backoff_max_ms, storm_deaths, storm_window_ms, suspect_window_ms, checkpoint_ms, chain_form_timeout_ms, idle_ms, pool_max, history_window_s, history_save_s, history_regroup_s, ram_budget_mb, group_max, group_cost_max, group_rate, group_quantum, require_pins.
 .\" END GENERATED protocol:man-keys
 .PP
 The protocol itself, its JSON and the schema of it are plugin\-hostd\-protocol's, in
@@ -146,10 +146,10 @@ With require_pins on,
 .B add
 admits only a plugin that has a pin.
 With pin_mode strict the pin comes from
-.B pin_set
-or from the
-.B pin_file
-loaded at start; with pin_mode first\-use, the default, the first
+.BR pin_set ,
+from the qualification store's record of the plugin's files, or from a
+.B pins_dir
+pin; with pin_mode first\-use, the default, the first
 .B add
 of a plugin with no pin records it in the pin store and places the instance own.
 A change after that is refused and announced by the
@@ -165,8 +165,7 @@ file of
 (by default
 .IR /usr/share/plugin\-hostd/pins.d )
 is read at start, in name order, in the same line format.
-A pin there with verdict=refused holds until the user chooses otherwise: neither the pin store, the
-.B pin_file
+A pin there with verdict=refused holds until the user chooses otherwise: neither the pin store, the qualification store
 nor
 .B pin_set
 overrides it, and
@@ -174,16 +173,12 @@ overrides it, and
 of its uri answers \-516.
 Under pin_mode first\-use,
 .B pin_accept
-of such a plugin, or of one the
-.B pin_file
-refuses, records the user's choice (in the file
+of such a plugin, or of one the qualification store refuses, records the user's choice (in the file
 .IR <pin_store>.accepted )
 and its files as its pin with no verdict, so it runs alone in a worker of its own;
 .B pin_clear
 takes the choice back, and under pin_mode strict it counts for nothing.
-Any other package pin is under the host's: a pin of the same uri in the store, the
-.B pin_file
-or from
+Any other package pin is under the host's: a pin of the same uri in the pin store, the qualification store or from
 .B pin_set
 holds over it, and
 .B pin_clear

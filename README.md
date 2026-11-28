@@ -18,7 +18,7 @@ Fedora:
     sudo dnf install https://www.openmixer.org/rpm/openmixer-release.noarch.rpm
     sudo dnf install plugin-hostd-full
 
-Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
+Debian trixie and Raspberry Pi OS (amd64 and arm64):
 
     curl -fsSL -o /tmp/openmixer-release.deb https://www.openmixer.org/deb/openmixer-release.deb
     sudo apt install /tmp/openmixer-release.deb

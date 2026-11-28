@@ -3310,16 +3310,6 @@ def a_pin_whose_verdict_is_refused_refuses_the_add_with_its_own_code():
         d.expect("add %s 1" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
     finally:
         d.close()
-    # a pin_file carries the verdict as pin_set does
-    pins = os.path.join(p.dir, "pins.txt")
-    write(pins, ("%s verdict=refused\n" % p.clap_pin().split(" ", 1)[1]).encode())
-    d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
-    try:
-        r = d.send("add %s 2" % p.clap_uri)
-        check(r == "resp %d" % refused, "a pin_file's refused verdict refuses the add: %r" % r)
-        check(store_lines(p) == [], "and the refused plugin is not learned into the store")
-    finally:
-        d.close()
         p.close()
 
 
@@ -3395,46 +3385,42 @@ def rewrite_pins(path, lines):
 
 
 @test
-def a_pin_file_rewritten_under_a_running_daemon_is_read_again_and_no_restart_is_needed():
-    """issue 255: the daemon reads its pin file again when the file changes and on pin_reload or pin_changed, puts the
-    new pins in at once, and answers the next add by them; an instance that runs keeps running when its pin turns
-    refused, and worker_list marks it; a pin file that does not parse leaves the pins as they were"""
+def a_store_written_under_a_running_daemon_is_read_again_and_no_restart_is_needed():
+    """issue 255, with the pins from the store: the daemon notices a qualification store that changed at the next add
+    (pqdb_changed), puts the new pins in at once, and answers the add by them; an instance that runs keeps running when
+    the store no longer pins its bytes or refuses them, and worker_list marks it; a controller's pin_set outlives a
+    reload"""
     p = Plugins()
-    pins = os.path.join(p.dir, "pins.txt")
-    mismatch = resp("PIN_BINARY_MISMATCH")
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
     refused = resp("PIN_REFUSED")
-    rewrite_pins(pins, [pin_line(p)])
-    d = p.daemon(conf={"pin_mode": "strict", "pin_file": pins})
+    put_store(store, [store_pin(p, "suitable")])
+    d = p.daemon(env=env)
     try:
         d.expect("add %s 0" % p.clap_uri, "resp 0")
         _, w = d.holder(0)
-        # the plugin was upgraded and re-qualified: the file now pins other bytes, and the next add reads them
-        rewrite_pins(pins, [pin_line(p, good=False)])
-        d.expect("add %s 1" % p.clap_uri, mismatch)
+        # the plugin was upgraded and re-qualified: the store now holds other bytes, and the next add reads them
+        put_store(store, [store_pin(p, "suitable", digest="0" * 64)])
+        d.expect("add %s 1" % p.clap_uri, resp("PIN_ABSENT"))
         _, now = d.holder(0)
         check(now["pid"] == w["pid"] and now["state"] == "up", "the running instance keeps its worker: %s" % now)
         check(now["pin_refused"] == [0], "worker_list marks the instance the new pins refuse: %s" % now)
         check("the reloaded pins refuse it" in d.log(), "and the daemon logs it: %s" % d.log())
         # requalified the other way: the add is hosted again, with no restart, and the mark is gone
-        rewrite_pins(pins, [pin_line(p)])
+        put_store(store, [store_pin(p, "suitable")])
         d.expect("add %s 1" % p.clap_uri, "resp 1")
         check(d.holder(0)[1]["pin_refused"] == [], "the mark goes with the refusal: %s" % d.holder(0)[1])
         # a verdict that turns refused is the same
-        rewrite_pins(pins, [pin_line(p, "refused")])
+        put_store(store, [store_pin(p, "unsuitable")])
         d.expect("add %s 2" % p.clap_uri, refused)
         check(d.holder(0)[1]["pin_refused"] == [0], "a refused verdict is marked too: %s" % d.workers())
-        # the explicit verbs: a file that is not a pin file changes nothing, and the verb says so
-        rewrite_pins(pins, ["not a pin"])
-        d.expect("pin_reload", "resp -902")
-        d.expect("pin_changed", "resp -902")
-        d.expect("add %s 2" % p.clap_uri, refused)
-        rewrite_pins(pins, [pin_line(p)])
+        # the explicit verbs
+        put_store(store, [store_pin(p, "suitable")])
         d.expect("pin_reload", "resp 0")
         d.expect("pin_changed %s files" % p.clap_uri, "resp 0")
         d.expect("pin_reload x", "resp -902")
         d.expect("add %s 2" % p.clap_uri, "resp 2")
-        # a pin_set of the controller is not in the file and outlives a reload
-        d.expect("pin_clear all", "resp 0")
+        # a pin_set of the controller is in no store and outlives a reload, over the store's pin
         d.expect(p.clap_pin() + " verdict=refused", "resp 0")
         d.expect("pin_reload", "resp 0")
         d.expect("add %s 3" % p.clap_uri, refused)
@@ -3442,49 +3428,223 @@ def a_pin_file_rewritten_under_a_running_daemon_is_read_again_and_no_restart_is_
         d.close()
         p.close()
 
-
 @test
-def settings_that_name_no_pin_file_read_the_one_the_qualification_sync_writes():
-    """a default install chains what qualified with no configuration: settings that name no pin_file read the pin file
-    plugin-qualify-sync writes (/var/lib/omx/qualified.pins; the test build reads PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE in
-    its place). Absent at start, before the first sync, it is no pins and no start that fails, and it is read once the
-    sync writes it; a settings line `pin_file` with no value reads none; one the settings name stays strict"""
+def a_settings_line_naming_pin_file_is_refused_by_name():
+    """pin_file is removed entirely (the owner's ruling of 2026-11-28): the pins come only from the qualification store, a
+    controller's pin_set and the packages' pins_dir. A settings file that names pin_file, with a value or none, stops
+    the daemon and names the setting; settings that do not name it start"""
     p = Plugins()
     pins = os.path.join(p.dir, "qualified.pins")
-    default = {"PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE": pins}
-    absent = resp("PIN_ABSENT")
     rewrite_pins(pins, [pin_line(p)])
-    # strict: only a pin admits the add, and the only pin is the default file's
-    d = p.daemon(env=default)
     try:
-        d.expect("add %s 0" % p.clap_uri, "resp 0")
-    finally:
-        d.close()
-    # the settings turn it off with an empty pin_file
-    d = p.daemon(conf={"pin_file": ""}, env=default)
-    try:
-        d.expect("add %s 0" % p.clap_uri, absent)
-    finally:
-        d.close()
-    # a machine before its first sync: the daemon starts, pins nothing from it, and reads it once it is written
-    os.unlink(pins)
-    d = p.daemon(env=default)
-    try:
-        d.expect("add %s 0" % p.clap_uri, absent)
-        rewrite_pins(pins, [pin_line(p)])
-        d.expect("add %s 1" % p.clap_uri, "resp 1")
-    finally:
-        d.close()
-    # a pin_file the settings name is strict: absent, the daemon does not start
-    os.unlink(pins)
-    try:
+        for value in (pins, ""):
+            try:
+                d = p.daemon(conf={"pin_file": value})
+            except Fail as e:
+                check("bad setting 'pin_file'" in str(e), "stderr names the setting: %s" % e)
+            else:
+                d.close()
+                raise Fail("a daemon started with a pin_file line (%r)" % value)
+        d = p.daemon(env={"PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE": pins})
         try:
-            d = p.daemon(conf={"pin_file": pins}, env=default)
-        except Fail as e:
-            check("can't open the pin file %s" % pins in str(e), "a named pin_file that is absent ends the start: %s" % e)
-        else:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+        finally:
             d.close()
-            check(False, "a named pin_file that is absent ends the start, and the daemon started")
+    finally:
+        p.close()
+
+
+def store_pin(p, rating, digest=None, layout=None, **kw):
+    """a qualification store record of the test's CLAP: its one file at its own digest (or another), the fake's layout"""
+    scheme, _, hexd = (layout or fake_layout()).partition(":")
+    r = {"format": "clap", "uri": p.clap_uri.rsplit("#", 1)[1], "files": [("omx-fault.clap", digest or sha(p.clap))],
+         "layout": (scheme, hexd), "rating": rating}
+    r.update(kw)
+    return r
+
+
+def put_store(path, records, no_figures=()):
+    """the store the test build of the daemon reads, written whole and renamed over the earlier one"""
+    qual_fixture.build_pins(qual_fixture.schema_path(), path, records, no_figures=no_figures)
+
+
+def no_figures_of(p, reason, digest=None):
+    """the store's record of a quick check of the test's CLAP that ended with no figures"""
+    return ("clap", p.clap_uri.rsplit("#", 1)[1], "omx-clap-host", reason, [("omx-fault.clap", digest or sha(p.clap))])
+
+
+@test
+def under_strict_a_plugin_whose_files_a_store_record_holds_is_admitted_with_no_pin_file():
+    """the pins come from the qualification store (docs/design/specs/2026-11-28-pins-from-the-store.md): a record whose
+    file list is exactly the plugin's files, hashed now, is its pin, with no pin_file and no pin_set; a record of other
+    bytes pins nothing; a record whose verdict is unsuitable refuses the add with -516 and no worker sees it"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    try:
+        put_store(store, [store_pin(p, "suitable", digest="0" * 64)])
+        d = p.daemon(env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+            check(d.workers() == {}, "a record of other bytes pins nothing: %s" % d.workers())
+        finally:
+            d.close()
+        put_store(store, [store_pin(p, "suitable")])
+        d = p.daemon(env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["state"] == "up", "the record's pin admitted it: %s" % d.workers())
+        finally:
+            d.close()
+        put_store(store, [store_pin(p, "unsuitable")])
+        before = len(p.received())
+        d = p.daemon(env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_REFUSED"))
+            check(d.workers() == {} and p.received()[before:] == [], "no worker saw the refused plugin: %s" % p.received()[before:])
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def under_first_use_the_store_places_a_plugin_by_its_verdict():
+    """first-use: a record that says in-process (suitable) lets the plugin share a worker; one whose isolated step ran
+    it alone says isolated, and it gets a worker of its own; a learned pin is not needed for either"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    try:
+        put_store(store, [store_pin(p, "suitable")])
+        d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+        try:
+            d.expect("policy_set * pool:shared", "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            w = d.holder(0)[1]
+            check(w["place"] == "pool:shared", "in-process follows the policy into a shared worker: %s" % w)
+            check(spool_requests(p) == {}, "a plugin with a verdict asks for no check: %s" % spool_requests(p))
+        finally:
+            d.close()
+        put_store(store, [store_pin(p, "suitable", steps=[("isolated", "isolated")])])
+        d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+        try:
+            d.expect("policy_set * pool:shared", "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "isolated runs alone whatever the policy: %s" % d.workers())
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_store_record_written_while_the_daemon_runs_makes_the_bypassed_insert_live_R_112():
+    """R-112 with the store: a plugin with no verdict is bypassed and asks for its check; the record of its files that
+    the check writes into the store while the daemon runs is noticed at the next idle tick, with no restart and no
+    pin_reload, and the insert goes live"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    try:
+        d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.workers() == {}, "bypassed first: %s" % d.workers())
+            d.wait_event("qualify_requested %s" % p.clap_uri)
+            put_store(store, [store_pin(p, "suitable", steps=[("isolated", "isolated")])])
+            wait_for(lambda: d.send("worker_list") != "resp 0" and d.workers() != {}, "the worker of the qualified insert")
+            w = d.holder(0)[1]
+            check(w["place"] == "own" and w["state"] == "up", "it is live, by the store's verdict: %s" % w)
+            check(spool_requests(p) == {}, "its request is answered: %s" % spool_requests(p))
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def the_store_pin_takes_the_history_adjusted_verdict_of_this_class():
+    """the daemon reads the history-adjusted verdict as the store records it (the owner's ruling of 2026-11-28): a record
+    measured suitable whose adjust block of this daemon's history class (host_class) says refused refuses the add; the
+    block of another class leaves the measured verdict"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    klass = "x86_64/test/class"
+    try:
+        put_store(store, [store_pin(p, "suitable", history=[(klass, [("omx-clap-host", "in-process", "refused")])])])
+        d = p.daemon(conf={"host_class": klass}, env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_REFUSED"))
+        finally:
+            d.close()
+        d = p.daemon(conf={"host_class": "aarch64/other/class"}, env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_quick_check_that_ended_with_no_figures_refuses_its_files_until_pin_accept():
+    """decided by the coordinator 2026-11-28 (the owner to confirm), as the pin file made it: a quick check that crashed,
+    outgrew its memory limit or ran past its budget is a record of the store with no figures, and the daemon answers
+    -516 for those very files, each of the three; other bytes are no match; under first-use pin_accept loads it alone"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    refused = resp("PIN_REFUSED")
+    try:
+        for reason in ("probe.crashed", "probe.memory-limit", "probe.timeout"):
+            put_store(store, [], no_figures=[no_figures_of(p, reason)])
+            d = p.daemon(env=env)
+            try:
+                d.expect("add %s 0" % p.clap_uri, refused)
+                check(reason in d.log(), "stderr names the reason %s: %s" % (reason, d.log()))
+            finally:
+                d.close()
+        put_store(store, [], no_figures=[no_figures_of(p, "probe.timeout", digest="0" * 64)])
+        d = p.daemon(env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+        finally:
+            d.close()
+        put_store(store, [], no_figures=[no_figures_of(p, "probe.crashed")])
+        d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "the accepted plugin runs alone: %s" % d.workers())
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def pin_accept_loads_a_plugin_the_store_refused_alone():
+    """a failed qualification in the store is advice: under first-use pin_accept of the refused plugin loads it, alone
+    in a worker of its own; pin_clear takes the choice back and the store's refusal holds again"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    refused = resp("PIN_REFUSED")
+    try:
+        put_store(store, [store_pin(p, "unsuitable")])
+        d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "the accepted plugin runs alone: %s" % d.workers())
+            d.expect("pin_clear %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 1" % p.clap_uri, refused)
+        finally:
+            d.close()
     finally:
         p.close()
 
@@ -3492,7 +3652,7 @@ def settings_that_name_no_pin_file_read_the_one_the_qualification_sync_writes():
 @test
 def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
     """issue 42, decisions of 2026-10-18: a pins.d pin of verdict=refused wins over another pins.d pin of its uri in
-    either name order, and nothing of the host overrides it: not the store, not a pin_file, not pin_set, not
+    either name order, and nothing of the host overrides it: not the pin store, not the qualification store, not pin_set, not
     pin_clear. Only the user's pin_accept does (a_user_can_load_a_plugin_its_package_refused)"""
     p = Plugins()
     refused = resp("PIN_REFUSED")
@@ -3505,15 +3665,15 @@ def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
             r = add_answer(p, {})
             check(r == refused, "a refusal wins whichever file or line comes last (%s): %r" % (sorted(files), r))
         pins_d(p, {"10-a.pins": [pin_line(p, "refused"), pin_line(p, "isolated", uri=other_uri, clap=other)]})
-        # the store and a pin_file both hold the same files as isolated
+        # the pin store and the qualification store both hold the same files as isolated
         os.makedirs(os.path.dirname(p.store), exist_ok=True)
         write(p.store, ("pin_set %s\n" % pin_line(p, "isolated")).encode())
-        pins = os.path.join(p.dir, "pins.txt")
-        write(pins, (pin_line(p, "isolated") + "\n").encode())
-        d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
+        qual = os.path.join(p.dir, "qualification.sqlite")
+        put_store(qual, [store_pin(p, "suitable", steps=[("isolated", "isolated")])])
+        d = p.daemon(conf={"pin_mode": "first-use"}, env={"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": qual})
         try:
             r = d.send("add %s 0" % p.clap_uri)
-            check(r == refused, "the store and the pin_file do not override a pins.d refusal: %r" % r)
+            check(r == refused, "the pin store and the qualification store do not override a pins.d refusal: %r" % r)
             r = d.send("pin_set %s" % pin_line(p, "isolated"))
             check(r == refused, "pin_set of a uri a pins.d pin refuses answers PIN_REFUSED: %r" % r)
             d.expect("pin_clear %s" % p.clap_uri, "resp 0")
@@ -3523,8 +3683,6 @@ def a_pins_d_refusal_wins_over_any_other_pins_d_pin_and_over_the_host():
             check(d.workers() == {} and p.received() == [], "no worker saw it: %s %s" % (d.workers(), p.received()))
             # positive control: the other plugin of the same file runs
             d.expect("add %s 1" % other_uri, "resp 1")
-            check("which the pin of the pin_file does not override" in d.log(),
-                  "stderr names the pin_file line that has no effect: %s" % d.log())
         finally:
             d.close()
         # the store alone: its line has no effect and is not dropped from the store either
@@ -3600,31 +3758,32 @@ def a_user_can_load_a_plugin_its_package_refused_in_a_worker_of_its_own():
 
 
 @test
-def a_user_can_load_a_plugin_the_pin_file_refused_and_the_choice_outlives_a_reload():
-    """the qualification sync of a device writes its refusals in the pin_file and rewrites it: the user's pin_accept of
-    such a plugin holds over the refused line through pin_reload and a restart, the plugin runs alone, and pin_clear
+def a_user_can_load_a_plugin_the_store_refused_and_the_choice_outlives_a_reload():
+    """the qualification sync of a device writes its refusals in the store and writes it again: the user's pin_accept of
+    such a plugin holds over the refused record through pin_reload and a restart, the plugin runs alone, and pin_clear
     takes the choice back"""
     p = Plugins()
     refused = resp("PIN_REFUSED")
     try:
-        pins = os.path.join(p.dir, "qualified.pins")
-        write(pins, (pin_line(p, "refused") + "\n").encode())
-        conf = {"pin_mode": "first-use", "pin_file": pins}
-        d = p.daemon(conf=conf)
+        pins = os.path.join(p.dir, "qualification.sqlite")
+        put_store(pins, [store_pin(p, "unsuitable")])
+        conf = {"pin_mode": "first-use"}
+        env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": pins}
+        d = p.daemon(conf=conf, env=env)
         try:
             d.expect("add %s 0" % p.clap_uri, refused)
             d.expect("pin_accept %s" % p.clap_uri, "resp 0")
             d.expect("add %s 0" % p.clap_uri, "resp 0")
             check(d.holder(0)[1]["place"] == "own", "it runs alone: %s" % d.workers())
             d.expect("remove 0", "resp 0")
-            # the sync writes the file again: the refused line is read again, the user's choice holds
-            write(pins, (pin_line(p, "refused") + "\n").encode())
+            # the sync writes the store again: the refused record is read again, the user's choice holds
+            put_store(pins, [store_pin(p, "unsuitable")])
             d.expect("pin_reload", "resp 0")
             d.expect("add %s 0" % p.clap_uri, "resp 0")
             check(d.holder(0)[1]["place"] == "own", "after a reload it still runs alone: %s" % d.workers())
         finally:
             d.close()
-        d = p.daemon(conf=conf)
+        d = p.daemon(conf=conf, env=env)
         try:
             d.expect("add %s 0" % p.clap_uri, "resp 0")
             d.expect("remove 0", "resp 0")
@@ -4169,38 +4328,6 @@ def pin_accept_and_first_use_are_not_strict():
         d.close()
         p.close()
 
-
-@test
-def a_pin_file_is_loaded_with_its_verdict_and_a_corrupt_hash_is_refused():
-    p = Plugins()
-    pins = os.path.join(p.dir, "pins.txt")
-    write(pins, ("# written by plugin-qualify\n%s verdict=in-process\n" % p.clap_pin().split(" ", 1)[1]).encode())
-    d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
-    try:
-        d.expect("policy_set * pool:shared", "resp 0")
-        d.expect("add %s 0" % p.clap_uri, "resp 0")
-        check(d.holder(0)[1]["place"] == "pool:shared", "a qualified in-process plugin follows the policy: %s" % d.workers())
-        check(store_lines(p) == [], "a pin of the file is not written to the store")
-    finally:
-        d.close()
-    bad = open(pins).read().replace(sha(p.clap)[:8], "00000000")
-    write(pins, bad.encode())
-    d = p.daemon(conf={"pin_mode": "first-use", "pin_file": pins})
-    try:
-        d.expect("add %s 1" % p.clap_uri, resp("PIN_BINARY_MISMATCH"))
-    finally:
-        d.close()
-    write(pins, b"this is not a pin\n")
-    try:
-        p.daemon(conf={"pin_mode": "first-use", "pin_file": pins}).close()
-        raise Fail("the daemon started on a pin file outside the grammar")
-    except Fail as e:
-        check("exited" in str(e) or "ready" in str(e), "the start failed on the pin file: %s" % e)
-    finally:
-        p.close()
-
-
-# ---------------------------------------------------------------- who runs an LV2 plugin
 
 class Programs:
     """two programs for the two workers, so a test sees which one ran a plugin: each wrapper notes its pid, its name and the
@@ -6251,16 +6378,17 @@ def a_clap_file_whose_name_holds_a_space_is_added_pinned_stored_and_described_by
         d.expect("add %s 1" % uri, resp("PIN_BINARY_MISMATCH"))
     finally:
         d.close()
-    # a pin_file holds the pin as one line, and a daemon that reads it admits the unchanged file
+    # a pins.d file holds the pin as one line, and a daemon that reads it admits the unchanged file
     write(path, b"a clap build")
-    pins = os.path.join(s.dir, "plugin.pins")
-    write(pins, (pin[len("pin_set "):] + "\n").encode())
-    strict = dict(conf, pin_file=pins, pin_store=os.path.join(s.dir, "empty-store"))
+    os.makedirs(pins_dir, exist_ok=True)
+    write(os.path.join(pins_dir, "plugin.pins"), (pin[len("pin_set "):] + "\n").encode())
+    strict = dict(conf, pin_store=os.path.join(s.dir, "empty-store"))
     d = s.daemon(conf=strict, env=env)
     try:
         d.expect("add %s 2" % uri, "resp 2")
     finally:
         d.close()
+    shutil.rmtree(pins_dir)
     # first use learns the file into the store, in one word, and a strict daemon over that store admits it
     learn = dict(conf, pin_mode="first-use")
     d = s.daemon(conf=learn, env=env)
@@ -7127,7 +7255,7 @@ if os.environ.get("PLUGIN_HOSTD_WORLD_REFUSE"):
 
 
 @test
-def a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_pin_file():
+def a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_a_pins_d_line():
     """the protocol's word is a bare word or a quoted one (a path may hold spaces): add, pin_set and the pin lines read
     "clap:/p/My Plugins/x.clap#id" as one word, the quotes are no part of the uri, and what the daemon writes (the worker's
     add, the store) is that word quoted again"""
@@ -7161,11 +7289,10 @@ def a_plugin_in_a_folder_with_a_space_is_one_quoted_word_in_add_pin_set_and_the_
             d.expect("add %s 3" % quoted, "resp 3")
         finally:
             d.close()
-        # a pin file line, with and without the verb, reads the same
-        pins = os.path.join(p.dir, "pins.txt")
-        rewrite_pins(pins, ['%s omx-fault.clap=%s %s' % (quoted, sha(p.clap), fake_layout())])
+        # a pins.d line, without the verb, reads the same
+        pins_d(p, {"10-p.pins": ['%s omx-fault.clap=%s %s' % (quoted, sha(p.clap), fake_layout())]})
         os.unlink(p.store)
-        d = p.daemon(conf={"pin_mode": "strict", "pin_file": pins})
+        d = p.daemon(conf={"pin_mode": "strict"})
         try:
             d.expect("add %s 4" % quoted, "resp 4")
         finally:

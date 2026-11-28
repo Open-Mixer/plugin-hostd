@@ -46,7 +46,7 @@
 #include "writer.h"
 
 #ifndef VERSION
-#define VERSION "0.22.4"
+#define VERSION "0.23.0"
 #endif
 
 #define SOCKET_DEFAULT_PORT     PHD_DEFAULT_COMMAND_PORT
@@ -97,6 +97,31 @@ static int open_test_descriptions(omx_panel_store **s, omx_panel_store_error *er
     return omx_panel_store_open_at(base, sys, user, NULL, s, err);
 }
 #endif
+
+/* the history class the store's adjusted verdicts are read under (pins from the store, ruling 6): the one host_class
+ * names, else the class of this machine; none when it cannot be told, and every class's adjustment is read */
+static void pins_history_class(const conf_t *conf)
+{
+    char klass[64];
+    machine_words words;
+    char why[512];
+#ifdef OMX_CONTRACTDIR
+    const char *dirs = OMX_CONTRACTDIR;
+#else
+    const char *dirs = NULL;
+#endif
+
+    if (*conf->host_class)
+    {
+        qualcost_use_history_class(conf->host_class);
+        return;
+    }
+    if (machine_words_open(dirs, &words, why, sizeof(why)) != 0)
+        return;
+    if (machine_class(&words, klass, sizeof(klass)) == 0)
+        qualcost_use_history_class(klass);
+    machine_words_close(&words);
+}
 
 /* the running history, unless history_window_s is 0: under the class of this machine, or the one host_class names */
 static int history_start(const conf_t *conf)
@@ -174,20 +199,6 @@ static void term_signal(int sig)
  * qualifier takes the list from here and never works it out again (plugin-qualify#228). "root <dir>" then one
  * "file <name>" a line, names relative to the root; 0, 1 when the plugin's files cannot be collected (the reason on
  * stderr), 2 for a uri of no format. */
-/* the pin_file of a settings file that names none: the one plugin-qualify-sync writes. The test build reads
- * PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE instead, unset is none, so no test reads the machine's own pins */
-#define HOSTD_DEFAULT_PIN_FILE "/var/lib/omx/qualified.pins"
-static const char *default_pin_file(void)
-{
-#ifdef OMX_QUALIFICATION_TEST_STORE
-    const char *path = getenv("PLUGIN_HOSTD_TEST_DEFAULT_PIN_FILE");
-
-    return path ? path : "";
-#else
-    return HOSTD_DEFAULT_PIN_FILE;
-#endif
-}
-
 static int print_pin_files(const char *uri)
 {
     const char *fwd = uri;
@@ -396,14 +407,8 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     descriptions_ask_unknown(g_conf.ask_unknown);
     pins_accepting(conf_pins_first_use(&g_conf));
-    /* a settings file that names no pin_file reads the one the qualification sync writes, so a default install
-     * chains what qualified with no configuration; a `pin_file` line with no value reads none */
-    if (!*g_conf.pin_file && !g_conf.from_file[CONF_STRING_pin_file])
-    {
-        snprintf(g_conf.pin_file, sizeof(g_conf.pin_file), "%s", default_pin_file());
-        pins_file_optional(1);
-    }
-    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
+    pins_history_class(&g_conf);
+    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
     /* the writer before anything is written: the command loop never waits on the disk */

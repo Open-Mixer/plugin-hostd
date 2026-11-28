@@ -31,39 +31,54 @@
 
 #include "formats.h"
 
-/* The pins by URI: policy, like placement, and not in the ledger. Two layers. The host's: pin_set, a pin file at start,
- * and (pin_mode first-use) the daemon itself, which keeps what it learned in the pin store. The packages': the *.pins
- * files of a directory, read at start and never written. The host's pin of a uri holds over the package's, except a
- * package pin of verdict=refused, which always holds. One line format for all: <uri> <path>=<sha256>[,...]
+/* The pins by URI: policy, like placement, and not in the ledger. Three layers. The host's: pin_set, and (pin_mode
+ * first-use) the daemon itself, which keeps what it learned in the pin store. The store's:
+ * what the qualification store's records of a plugin's files give it (pins_resolve), read only. The packages': the *.pins
+ * files of a directory, read at start and never written. A package pin of verdict=refused always holds; then a
+ * controller's pin_set; then the store's pin; then the host's other pins; then the package's
+ * (docs/design/specs/2026-11-28-pins-from-the-store.md). One line format for the files: <uri> <path>=<sha256>[,...]
  * <scheme>:<sha256> [verdict=<word>], the verb pin_set in front or not. */
 
 /** @brief reads the pins at start
  *
  * First the *.pins files of dir in byte order of their names, of two pins of one uri a refusal winning, else the
- * later; then the store; then file, which wins over the store. A bad line of the store is kept verbatim by every
+ * later; then the pin store. The qualification store is opened too, and read per plugin (pins_resolve). A bad line of the store is kept verbatim by every
  * save, announced on stderr, and its uri is not learned again; a store that cannot be read blocks learning and
  * saving; a bad line or an unreadable file of dir is announced and skipped, and a missing dir holds no pins.
  *
  * @param store the pin store; "" is the XDG default.
- * @param file the pin file; "" is none.
  * @param dir the package pins' directory; "" is none.
- * @return 0; -1 with the line named on stderr when file has a line outside the grammar.
+ * @return 0.
  */
-int pins_init(const char *store, const char *file, const char *dir);
+int pins_init(const char *store, const char *dir);
 
 /** @brief pin_reload: the pins read again from the places pins_init read, put in at once
  *
  * A controller's pin_set pins are kept.
  *
- * @return SUCCESS, or -1 with the earlier pins left as they are (a pin_file with a line outside the grammar, or
- *         gone).
  */
-int pins_reload(void);
-/** @brief whether the pin_file or a pins_dir file is not the one the pins were last read from: inode, size or mtime
+void pins_reload(void);
+/** @brief whether the qualification store or a pins_dir file is not the one the pins were last read from
  *
- * @return 1 when one changed, 0 otherwise or when neither is set.
+ * The store by pqdb_changed (a layer that is another file than the one opened, or a store that could not be opened and
+ * now can), the files by inode, size or mtime.
+ *
+ * @return 1 when one changed, 0 otherwise.
  */
 int pins_changed(void);
+
+/** @brief the store's pin of a uri, from the files the format loads for it as they are now
+ *
+ * The files are collected (format->pin_collect) and hashed, and the qualification store's records of the plugin whose
+ * file list is exactly them give the pin (qualcost_pin); it replaces the store's earlier pin of the uri, and no record
+ * leaves it none. pins_check does this first; a caller that asks pins_verdict before any pins_check does it itself.
+ *
+ * @param format the plugin's format.
+ * @param uri the plugin.
+ * @param search the search path the files are found in.
+ * @return 1 when the store gives a pin, 0 otherwise.
+ */
+int pins_resolve(const format_t *format, const char *uri, const char *search);
 /** @brief reads the optional words of a pin line after its layout
  *
  * They are verdict=\<word\> and pool=\<word\>, each once, in either order.
@@ -243,16 +258,6 @@ int pin_refuse(const char *uri, const char *path, const char *why);
  * @param on 1 when it counts, 0 otherwise.
  */
 void pins_accepting(int on);
-
-/** @brief whether the pin_file is the default one, which the qualification sync writes: an absent one is no pins
- *
- * The default (/var/lib/omx/qualified.pins) may not be there yet when the daemon starts, before the first sync: it
- * is read when it appears, as any pin_file that changes. A pin_file the settings name is strict: absent, the daemon
- * does not start. Set before pins_init.
- *
- * @param on 1 for the default pin_file, 0 for one the settings name.
- */
-void pins_file_optional(int on);
 
 /** @brief frees every pin and what pins_init read */
 void pins_finish(void);
