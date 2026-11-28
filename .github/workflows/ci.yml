@@ -119,6 +119,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -258,6 +259,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -328,6 +330,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -404,6 +407,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -608,6 +612,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       # a dedupe/all run builds on its siblings' dedupe/all (.github/wave-deps); @main until Open-Mixer/.github moves v1 past it
       - uses: Open-Mixer/.github/.github/actions/wave-deps@openmixer-v1
@@ -676,6 +681,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       - name: Install the package with its dependencies from the distribution and the channel
         run: |
@@ -798,6 +804,7 @@ jobs:
         with:
           staging: 'true'
           devel-channel: ${{ vars.OMX_DEVEL_CHANNEL }}
+          devel-base: ${{ vars.OMX_DEVEL_BASE }}
 
       - uses: actions/checkout@v4
 
@@ -896,6 +903,7 @@ jobs:
           staging: ${{ (startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') }}
           # a pull request into devel, or a dispatch off main, in a wave reads that wave's devel channel above staging (Open-Mixer/.github#329)
           devel-channel: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_CHANNEL || '' }}
+          devel-base: ${{ ((startsWith(github.event_name, 'pull_request') && github.base_ref == 'devel') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) && vars.OMX_DEVEL_BASE || '' }}
 
       # the daemon under test is this run's, as the rpm job builds it (which runs on tags and dispatch alone): installed
       # by name, dnf takes the channel's, and with the omx-clap-host floor it does not meet it cannot install at all
