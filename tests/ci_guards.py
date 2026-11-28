@@ -121,8 +121,9 @@ def staged_matrix_scan(root):
     return found
 
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick): a pull request runs the plain tier
-# and one package arm (fc45 x86_64, trixie arm64); `make sabotage` (36 minutes of the last green run), the release dry
-# run and bookworm run on push to main, tags and dispatch. Each is red where a pull request would run it.
+# and one package arm (fc45 x86_64, trixie arm64); `make sabotage` (36 minutes of the last green run) and the release
+# dry run run on push to main, tags and dispatch. Each is red where a pull request would run it. A suite matrix is never a
+# literal list: its cells come from check-matrix (Debian is trixie only, owner ruling 2026-11-28).
 OFF_PR = "github.event_name != 'pull_request'"
 
 
@@ -147,7 +148,7 @@ def tier_scan(root):
         found.append("ci.yml: release-dry-run runs on a pull request: it belongs to push, tags and dispatch")
     for n, line in enumerate(lines):
         if re.match(r"^\s*suite: \[", line):
-            found.append("ci.yml:%d a suite matrix that a pull request runs whole: trixie alone on a pull request" % (n + 1))
+            found.append("ci.yml:%d a literal suite matrix: the cells come from check-matrix" % (n + 1))
     return found
 
 
@@ -437,19 +438,19 @@ def main():
         os.makedirs(wf)
         open(os.path.join(wf, "ci.yml"), "w").write(
             "jobs:\n  test:\n    steps:\n      - name: s\n        run: make sabotage\n"
-            "  deb:\n    strategy:\n      matrix:\n        suite: [bookworm, trixie]\n"
+            "  deb:\n    strategy:\n      matrix:\n        suite: [trixie]\n"
             "  release-dry-run:\n    if: needs.changes.outputs.packages == 'true'\n    uses: ./x.yml\n")
         seen = tier_scan(tiers)
         open(os.path.join(wf, "ci.yml"), "w").write(
             "jobs:\n  test:\n    steps:\n      - name: s\n        if: %s\n        run: make sabotage\n"
-            "  deb:\n    strategy:\n      matrix:\n        suite: ${{ fromJSON(github.event_name == 'pull_request' && '[\"trixie\"]' || '[\"bookworm\", \"trixie\"]') }}\n"
+            "  deb:\n    strategy:\n      matrix:\n        cell: ${{ fromJSON(needs.checks.outputs.cells) }}\n"
             "  release-dry-run:\n    if: needs.changes.outputs.packages == 'true' && %s\n    uses: ./x.yml\n" % (OFF_PR, OFF_PR))
         if len(seen) != 3 or tier_scan(tiers):
             print("FAIL the tier scan misses a planted heavy step on a pull request, or refuses a split one: saw %s" % seen)
             return 1
     finally:
         shutil.rmtree(tiers, ignore_errors=True)
-    print("ok   the tier scan sees a planted sabotage, a whole suite matrix and a dry run on a pull request, and passes them split")
+    print("ok   the tier scan sees a planted sabotage, a literal suite matrix and a dry run on a pull request, and passes them split")
     matrix_cases = [
         ("      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '[\"amd64\"]' || '[\"arm64\"]' }}\n", 1),
         ("      arch-matrix: '[\"arm64\"]'\n", 1),
@@ -496,7 +497,7 @@ def main():
         print("FAIL %s" % f)
         failed += 1
     if not failed:
-        print("ok   a pull request runs the plain tier and one package arm; sabotage, bookworm and the dry run on push, tags, dispatch")
+        print("ok   a pull request runs the plain tier and one package arm; sabotage and the dry run on push, tags, dispatch")
     for f in cancel_scan(ROOT):
         print("FAIL %s" % f)
         failed += 1

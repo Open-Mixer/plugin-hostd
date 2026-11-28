@@ -29,7 +29,7 @@ Fedora:
     sudo dnf install https://www.openmixer.org/rpm/openmixer-release.noarch.rpm
     sudo dnf install plugin-hostd-full
 
-Debian bookworm and trixie and Raspberry Pi OS (amd64 and arm64):
+Debian trixie and Raspberry Pi OS (amd64 and arm64):
 
     curl -fsSL -o /tmp/openmixer-release.deb https://www.openmixer.org/deb/openmixer-release.deb
     sudo apt install /tmp/openmixer-release.deb
@@ -55,7 +55,7 @@ What the continuous integration runs on every push:
   every guard broken on purpose to see its test go red.
 - The daemon with a real CLAP worker (omx-clap-host) over PipeWire's JACK and over JACK2's `jackd`,
   including meters reaching the controller.
-- RPMs (Fedora 44) and DEBs (bookworm and trixie) built and installed in a clean environment.
+- RPMs (Fedora 45) and DEBs (Debian trixie) built and installed in a clean environment.
 
 The LV2 worker (mod-host) is not run in CI; those steps stay in the Makefile for a machine that has
 mod-host and an LV2 bundle.
