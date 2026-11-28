@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.22.4
+Version: 0.23.0
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -209,6 +209,16 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_dir}/qualification/
 
 %changelog
+* Sat Nov 28 2026 Pau Aliagas <linuxnow@gmail.com> - 0.23.0-1
+- pins: the daemon reads every pin and verdict from the qualification store
+  (pqdb_pin_of); no pin_file and no sync export
+- pins: the store pin takes the history-adjusted verdict of this machine's
+  class; a quick check that ended with no figures refuses its files
+- qualification domain 0.1.2: cores, a pool step's result, the groupable
+  reason codes and the reasons a quick check ended with no figures
+- ci: a job reading the wave's devel channel reads its base wave too
+- ci, docs: Debian is trixie only
+
 * Sat Nov 28 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.4-1
 - the tests' qualification store fixture is at the user_version the installed
   plugin-qualification-db header declares, so the cost and estimate tests read
