@@ -4,7 +4,7 @@
   "x-omx-contract": "0.23",
   "info": {
     "title": "What a qualification measures and records",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "x-owner": "plugin-hostd",
     "x-stability": "experimental",
     "x-requires": [
@@ -1214,6 +1214,26 @@
             "description": "The step is switched off.",
             "x-code": 7,
             "x-text": "The step is switched off."
+          },
+          {
+            "const": "cores",
+            "title": "cores",
+            "description": "The pool step measured the plugin faster and safe with the CLAP thread pool on: its worker gets the pool.",
+            "x-code": 8,
+            "x-text": "The plugin is faster and safe with the thread pool, and its worker gets it."
+          }
+        ]
+      },
+      "QUALIFICATION_GROUPABLE_CONDITIONAL_CODES": {
+        "description": "The reason codes that leave a conditional verdict groupable: a plugin whose every conditional reason is one of them shares a worker (D20). The one declaration plugin-qualify's judgment and the qualification store's reader read.",
+        "x-since": "0.1.2",
+        "oneOf": [
+          {
+            "const": "hosting.rt-safety.own-threads",
+            "title": "hostingRtSafetyOwnThreads",
+            "description": "The plugin started threads of its own: it is not real-time unsafe, and it may share a worker.",
+            "x-code": 0,
+            "x-text": "The plugin started threads of its own."
           }
         ]
       },
