@@ -90,6 +90,36 @@ def gate_scan(root):
     return []
 
 
+
+# A staged dispatch builds every cell of its arch-matrix: the shared build-rpm.yml and build-deb.yml build the quick set
+# alone (fc45 x86_64 rpm, trixie arm64 deb) for a staged run that passes no matrix input, so run 46109907808 (staged,
+# arm off) built no trixie amd64 deb. Every release.yml job that calls one of them passes `matrix:` 'full' for a staged
+# run: the literal full, or an expression that gives 'full' when inputs.staged is true.
+SHARED_BUILD = re.compile(r"^\s+uses:\s*\S*/build-(rpm|deb)\.yml@")
+STAGED_FULL = re.compile(r"^\s+matrix:\s*(['\"]?full['\"]?|\$\{\{\s*inputs\.staged(\s*==\s*true)?\s*&&\s*'full'\s*(\|\|.*)?\}\})\s*(#.*)?$")
+
+
+def staged_matrix_scan(root):
+    """every finding as 'release.yml:line what'"""
+    path = os.path.join(root, ".github", "workflows", "release.yml")
+    if not os.path.exists(path):
+        return []
+    lines = open(path).read().split("\n")
+    found = []
+    for n, line in enumerate(lines):
+        m = SHARED_BUILD.match(line)
+        if not m:
+            continue
+        job = []
+        for later in lines[n + 1:]:
+            if later.strip() and len(later) - len(later.lstrip()) <= 2:
+                break
+            job.append(later)
+        if not any(STAGED_FULL.match(j) for j in job if not j.lstrip().startswith("#")):
+            found.append("release.yml:%d the build-%s.yml call passes no matrix 'full' for a staged run: a staged dispatch "
+                         "builds the quick set alone" % (n + 1, m.group(1)))
+    return found
+
 # Two tiers (owner ruling 2026-11-09: heavy workflows on tags, pull requests quick): a pull request runs the plain tier
 # and one package arm (fc45 x86_64, trixie arm64); `make sabotage` (36 minutes of the last green run), the release dry
 # run and bookworm run on push to main, tags and dispatch. Each is red where a pull request would run it.
@@ -258,6 +288,31 @@ def main():
     finally:
         shutil.rmtree(gate, ignore_errors=True)
     print("ok   the gate scan sees a planted ci.yml without make check-contract-dir and passes one with it")
+    staged_cases = [
+        ("      staged: ${{ inputs.staged == true }}\n", 1),
+        ("      staged: ${{ inputs.staged == true }}\n      # matrix: full\n", 1),
+        ("      matrix: ${{ inputs.staged == true && 'quick' || '' }}\n", 1),
+        ("      matrix: ${{ inputs.publish == true && 'full' || '' }}\n", 1),
+        ("      matrix: ${{ inputs.staged == true && 'full' || '' }}\n", 0),
+        ("      matrix: ${{ inputs.staged && 'full' }}\n", 0),
+        ("      matrix: full\n", 0),
+    ]
+    for body, want in staged_cases:
+        st = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+        try:
+            wf = os.path.join(st, ".github", "workflows")
+            os.makedirs(wf)
+            open(os.path.join(wf, "release.yml"), "w").write(
+                "jobs:\n  rpm:\n    uses: Open-Mixer/.github/.github/workflows/build-rpm.yml@openmixer-v1\n    with:\n" + body
+                + "    secrets: inherit\n  later:\n    with:\n      matrix: full\n")
+            seen = staged_matrix_scan(st)
+            if len(seen) != want:
+                print("FAIL the staged-matrix scan on a planted %r: want %d finding(s), saw %s" % (body, want, seen))
+                return 1
+        finally:
+            shutil.rmtree(st, ignore_errors=True)
+    print("ok   the staged-matrix scan sees a shared build call with no matrix, a commented one, quick and a non-staged full; "
+          "passes full for a staged run and the literal")
     cases = [
         ("    image: fedora:44\n", 1),
         ("    # RPMs (fc44, x86_64)\n", 1),
@@ -400,6 +455,11 @@ def main():
     for f in scan(ROOT):
         print("FAIL %s" % f)
         failed += 1
+    for f in staged_matrix_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   every build-rpm.yml and build-deb.yml call in release.yml builds the full matrix for a staged run")
     n = sum(len(branches(open(p).read().split("\n"))) for p in workflow_files(ROOT))
     if not failed:
         print("ok   every if unshare in the workflows fails where the runner refuses the namespace (%d of them)" % n)

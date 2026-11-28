@@ -120,6 +120,9 @@ jobs:
     with:
       same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
+      # the shared workflows build the quick set alone for a staged run told nothing (their matrix input), so a staged
+      # dispatch asks for the full matrix: every cell its arch-matrix names, trixie amd64 with arm off
+      matrix: ${{ inputs.staged == true && 'full' || '' }}
       staging: ${{ inputs.staging == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
@@ -137,6 +140,9 @@ jobs:
     with:
       same-pass: ${{ inputs.same_pass || needs.samepass.outputs.list }}
       staged: ${{ inputs.staged == true }}
+      # the shared workflows build the quick set alone for a staged run told nothing (their matrix input), so a staged
+      # dispatch asks for the full matrix: every cell its arch-matrix names, trixie amd64 with arm off
+      matrix: ${{ inputs.staged == true && 'full' || '' }}
       staging: ${{ inputs.staging == true }}
       staged-deps: ${{ inputs.staged-deps || '' }}
       package-name: plugin-hostd
