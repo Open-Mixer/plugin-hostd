@@ -871,7 +871,8 @@ int pins_resolve(const format_t *format, const char *uri, const char *search)
     for (n = 0; n < files.n; n++)
         sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "", files.name[n],
                 hex[n]);
-    if (pin_build(&pin, key, words, got.layout, *got.verdict ? got.verdict : NULL, *got.pool ? got.pool : NULL, 0) != SUCCESS)
+    if (pin_build(&pin, key, words, got.layout, *got.verdict ? got.verdict : NULL, *got.pool ? got.pool : NULL,
+                  !strcmp(got.layout, PHD_PIN_LAYOUT_UNKNOWN)) != SUCCESS)
     {
         fprintf(stderr, "plugin-hostd: %s: the qualification store's record of its files is no pin\n", uri);
         goto out;

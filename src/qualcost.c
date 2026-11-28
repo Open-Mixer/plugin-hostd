@@ -303,6 +303,38 @@ int qualcost_pin(pqdb *db, const char *format, const char *id, const char *binar
             pqdb_each(db, &q, pin_of, c);
         }
     }
+    /* a quick check that ran and ended with no figures for these very files: a refusal (pins from the store, section 9
+     * point 7), whose layout no worker has read */
+    if (!c->found || c->rank != 3)
+    {
+        const char *paths[64], *digests[64], *reason = NULL;
+        int k, got = 0;
+
+        for (k = 0; k < n && k < 64; k++)
+        {
+            paths[k] = path[k];
+            digests[k] = digest[k];
+        }
+        if (n <= 64)
+        {
+            got = pqdb_no_figures_of(db, format, id, QUALCOST_HOST_PROFILE, n, paths, digests, &reason);
+            if (got != 1)
+            {
+                decode(id, plain, sizeof(plain));
+                if (strcmp(plain, id))
+                    got = pqdb_no_figures_of(db, format, plain, QUALCOST_HOST_PROFILE, n, paths, digests, &reason);
+            }
+        }
+        if (got == 1)
+        {
+            fprintf(stderr, "plugin-hostd: %s: the qualification store holds a check of its files that ended with no "
+                            "figures (%s): refused\n", id, reason);
+            if (!c->found)
+                snprintf(c->layout, sizeof(c->layout), "%s", PHD_PIN_LAYOUT_UNKNOWN);
+            c->rank = 3;
+            c->found = 1;
+        }
+    }
     found = c->found;
     if (found)
     {

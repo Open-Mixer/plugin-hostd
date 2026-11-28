@@ -3463,9 +3463,14 @@ def store_pin(p, rating, digest=None, layout=None, **kw):
     return r
 
 
-def put_store(path, records):
+def put_store(path, records, no_figures=()):
     """the store the test build of the daemon reads, written whole and renamed over the earlier one"""
-    qual_fixture.build_pins(qual_fixture.schema_path(), path, records)
+    qual_fixture.build_pins(qual_fixture.schema_path(), path, records, no_figures=no_figures)
+
+
+def no_figures_of(p, reason, digest=None):
+    """the store's record of a quick check of the test's CLAP that ended with no figures"""
+    return ("clap", p.clap_uri.rsplit("#", 1)[1], "omx-clap-host", reason, [("omx-fault.clap", digest or sha(p.clap))])
 
 
 @test
@@ -3577,6 +3582,43 @@ def the_store_pin_takes_the_history_adjusted_verdict_of_this_class():
         d = p.daemon(conf={"host_class": "aarch64/other/class"}, env=env)
         try:
             d.expect("add %s 0" % p.clap_uri, "resp 0")
+        finally:
+            d.close()
+    finally:
+        p.close()
+
+
+@test
+def a_quick_check_that_ended_with_no_figures_refuses_its_files_until_pin_accept():
+    """decided by the coordinator 2026-11-28 (the owner to confirm), as the pin file made it: a quick check that crashed,
+    outgrew its memory limit or ran past its budget is a record of the store with no figures, and the daemon answers
+    -516 for those very files, each of the three; other bytes are no match; under first-use pin_accept loads it alone"""
+    p = Plugins()
+    store = os.path.join(p.dir, "qualification.sqlite")
+    env = {"PLUGIN_HOSTD_TEST_QUALIFICATION_STORE": store}
+    refused = resp("PIN_REFUSED")
+    try:
+        for reason in ("probe.crashed", "probe.memory-limit", "probe.timeout"):
+            put_store(store, [], no_figures=[no_figures_of(p, reason)])
+            d = p.daemon(env=env)
+            try:
+                d.expect("add %s 0" % p.clap_uri, refused)
+                check(reason in d.log(), "stderr names the reason %s: %s" % (reason, d.log()))
+            finally:
+                d.close()
+        put_store(store, [], no_figures=[no_figures_of(p, "probe.timeout", digest="0" * 64)])
+        d = p.daemon(env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, resp("PIN_ABSENT"))
+        finally:
+            d.close()
+        put_store(store, [], no_figures=[no_figures_of(p, "probe.crashed")])
+        d = p.daemon(conf={"pin_mode": "first-use"}, env=env)
+        try:
+            d.expect("add %s 0" % p.clap_uri, refused)
+            d.expect("pin_accept %s" % p.clap_uri, "resp 0")
+            d.expect("add %s 0" % p.clap_uri, "resp 0")
+            check(d.holder(0)[1]["place"] == "own", "the accepted plugin runs alone: %s" % d.workers())
         finally:
             d.close()
     finally:

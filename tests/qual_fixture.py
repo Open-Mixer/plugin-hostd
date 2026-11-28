@@ -131,7 +131,7 @@ def build(schema, out, cells, user_version=None, bad_word=False):
     db.close()
 
 
-def build_pins(schema, out, records, user_version=None):
+def build_pins(schema, out, records, user_version=None, no_figures=()):
     """Write a store fixture of records that give pins (docs/design/specs/2026-11-28-pins-from-the-store.md): each record a
     dict of format, uri (the CLAP id or the LV2 URI), files [(path, sha256)] in byte order of the path (the first is the
     binary), layout (scheme, sha256), rating (the omx-clap-host verdict's), and optionally measured (1), reasons
@@ -176,6 +176,11 @@ def build_pins(schema, out, records, user_version=None):
         fill(db, "cell", {"record_id": rid, "ord": 0, "rate": 48000, "quantum": 256, "outcome": "probe.ok"})
         fill(db, "claim", {"record_id": rid, "plugin_id": pid, "offer": "default", "host_class": cls, "rate": 48000,
                            "quantum": 256})
+    # a quick check that ran and ended with no figures: (format, uri, host, reason, [(path, sha256)])
+    for fmt, uri, host, reason, files in no_figures:
+        nf = fill(db, "no_figures", {"format": fmt, "uri": uri, "host": host, "reason": reason, "at": "2026-11-28T00:00:00Z"})
+        for o, (path, digest) in enumerate(sorted(files)):
+            fill(db, "no_figures_file", {"nf_id": nf, "ord": o, "path": path, "sha256": digest})
     db.commit()
     db.execute(f"PRAGMA user_version = {user_version}")
     db.commit()

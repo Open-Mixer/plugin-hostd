@@ -123,7 +123,8 @@ void qualcost_use_history_class(const char *klass);
 /** The pin the store gives the files of an installed plugin: every record of the plugin (format, id, and for a CLAP the
  * main binary's name) whose file list is exactly these files and digests, read through pqdb_pin_of under
  * QUALCOST_HOST_PROFILE and the history class (qualcost_use_history_class). Of several, the worst verdict stands (refused over isolated over in-process over none), and the
- * pool word only when every one that gives a verdict other than refused says it.
+ * pool word only when every one that gives a verdict other than refused says it. A quick check of exactly these files
+ * that ended with no figures (pqdb_no_figures_of) is a refusal, its layout unknown when no record gives one.
  * @param db the open store, or NULL for none
  * @param format the store's format word: clap or lv2
  * @param id the CLAP id or the LV2 URI, in either spelling of an IRI
