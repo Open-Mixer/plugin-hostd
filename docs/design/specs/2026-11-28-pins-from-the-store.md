@@ -57,8 +57,8 @@ A layer of its own, read only, between the controller's `pin_set` and the host's
    `.clap` file's own name. A record is the uri's when its file list is exactly the files hashed: the same paths, the
    same SHA-256 each, none missing, none beside them (store spec 3.7: the match is on the hashes alone; the record's
    set, class and name decide nothing). A record that is `unpinnable` or holds no layout gives no pin.
-2. **The pin** is the record's list and layout, and the verdict and pool words of `pqdb_pin` (section 5) under the
-   daemon's host profile (OWNER WORD 3).
+2. **The pin** is the record's list and layout, and the verdict and pool words of `pqdb_pin_of` (section 5) under the
+   host profile `omx-clap-host` (OWNER WORD 3).
 3. **Several records match** (two offers, two classes, the base and the user layer under different keys): the worst
    verdict stands, `refused` over `isolated` over `in-process` over none, as plugin-qualify's pin file kept it ("a
    plugin found twice is never pinned more kindly than its worst measurement"); a pool word stands only when every
@@ -67,7 +67,7 @@ A layer of its own, read only, between the controller's `pin_set` and the host's
    `pin_set`. Then the store layer, which holds over a pin the daemon learned (the learned pin is what it hashed for
    the check it asked for; the store's record of those files is the check's answer) and over a named `pin_file`'s pin.
    Then the host's other pins, then the `pins_dir` pins, as today. A store refusal is overridden by `pin_accept`
-   (first-use only), as a `pin_file` refusal was.
+   (first-use only) where the check reads the choice (`pins_check`), as a `pin_file` refusal was.
 5. **No record** of those bytes: the store layer gives nothing and the daemon goes on as with no pin file, so under
    first-use the plugin is learned and its quick check requested (R-112), and under strict it is `-508`.
 
@@ -77,7 +77,7 @@ said once on stderr by its `qualification-db.*` name and gives no pin, never a s
 
 ## 5. What the reader library gains (plugin-db-qualification)
 
-- `int pqdb_pin(const pqdb *db, const pqdb_result *r, const char *host, pqdb_pin *out)`: the words the record's pin
+- `int pqdb_pin_of(const pqdb *db, const pqdb_result *r, const char *host, pqdb_pin *out)`: the words the record's pin
   carries for one host profile, `out->verdict` (`in-process`, `isolated`, `refused`, or NULL) and `out->pool` (`cores`,
   `off`, or NULL). 0; 1 when the record gives no whole pin (unpinnable, or no layout). The rule, one place, from the
   stored rows, in this order:
@@ -140,20 +140,30 @@ remove it on upgrade.
    `<pins_dir>/90-qualify-spool.pins`, so `pins_dir` is not only the packages'. Recommendation: the spool puts its
    verdict in the store's user layer as a record, and the daemon reads it from there like every other verdict; a change
    of its own, after this one. Unchanged here.
-3. **The host profile the daemon reads verdicts under.** A record holds one verdict per host profile. Recommendation: a
-   setting `qualification_host`, default `omx-clap-host` (plugin-qualify-sync's `host_profile` default: what runs a
-   plugin under plugin-hostd), a word of `QUALIFICATION_HOST_PROFILES`.
+3. **The host profile the daemon reads verdicts under.** A record holds one verdict per host profile. Built: the daemon
+   reads `omx-clap-host` (plugin-qualify-sync's `host_profile` default, the item of `QUALIFICATION_HOST_PROFILES` that
+   names plugin-hostd's worker), fixed. Recommendation: a setting `qualification_host` when a box runs under another
+   profile (`openmixer-pi-4gb`, `openmixer-pi-8gb`); the daemon's settings are declared in plugin-hostd-protocol, so it
+   is a change of that repository first.
 4. **The groupable codes in two languages.** plugin-qualify's `GROUPABLE_CONDITIONAL_CODES` (TypeScript, for the
-   judgment's hosting and the tiers) and `pqdb_pin`'s (C) are one set written twice. Recommendation: the qualification
+   judgment's hosting and the tiers) and `pqdb_pin_of`'s (C) are one set written twice. Recommendation: the qualification
    domain (plugin-hostd's `contract.d/qualification`) declares it as an item, and both read it; until then this is a
    named divergence, held by a test in each repository that lists the set.
 5. **The history adjustment.** `plugin-qualify adjust --history` stores an adjusted pin verdict per host class
    (`history_verdict.adjusted`); the daemon does not read it. Recommendation: leave it to the adjust command, which
    writes pins of its own on request.
 
+6. **A pool step that grants the pool cannot be stored.** plugin-qualify's pool step ends `cores`, `off`, `not-asked`
+   or `not-run` (`POOL_RESULT`), and `run_step.result` is checked against `QUALIFICATION_STEP_RESULTS`, whose words in
+   plugin-hostd-contract 0.22.4 are `ok safe unsafe refused not-asked isolated not-run off`: no `cores`. So a record
+   whose pool step said `cores` is refused by the store's word check, and the store can give no pin `pool=cores` until
+   the qualification domain holds the word. Recommendation: `cores` joins `QUALIFICATION_STEP_RESULTS` (plugin-hostd's
+   `contract.d/qualification`, a raise of the domain's `info.version`), a change of its own before this one is
+   released; until then the pool grant reaches the daemon only by `pin_set` or a `pins_dir` pin.
+
 ## 10. Red-first tests
 
-- plugin-db-qualification: `pqdb_pin` gives each word of the rule from fixture rows (suitable; conditional with a
+- plugin-db-qualification: `pqdb_pin_of` gives each word of the rule from fixture rows (suitable; conditional with a
   groupable reason only; conditional with another; unsuitable; unknown; not measured; an isolated step of each result;
   a pool step of each result; a refused verdict with a `cores` pool step; unpinnable; no layout); `pqdb_changed` is 0
   on an untouched store, 1 after a rename over the base, 1 after a write in place, 1 after an absent user layer appears.
