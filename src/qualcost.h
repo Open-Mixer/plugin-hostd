@@ -103,4 +103,33 @@ int qualcost_cell(pqdb *db, const char *id, int rate, int quantum, qualcost_cell
  */
 int qualcost_memory(pqdb *db, const char *id, int rate, int quantum, qualcost_memory_t *out);
 
+/** The host profile the daemon reads verdicts under: omx-clap-host, a word of QUALIFICATION_HOST_PROFILES, the host that
+ * runs a plugin under plugin-hostd (its CLAP worker, and its LV2 adapter). */
+#define QUALCOST_HOST_PROFILE "omx-clap-host"
+
+/** What the store's records of one installed plugin give its pin (docs/design/specs/2026-11-28-pins-from-the-store.md,
+ * section 4). */
+typedef struct QUALCOST_PIN_T {
+    char verdict[16];   /**< in-process, isolated, refused, or "" for none */
+    char pool[8];       /**< cores, off, or "" for none */
+    char layout[160];   /**< the layout pin, <scheme>:<sha256> */
+} qualcost_pin_t;
+
+/** The pin the store gives the files of an installed plugin: every record of the plugin (format, id, and for a CLAP the
+ * main binary's name) whose file list is exactly these files and digests, read through pqdb_pin_of under
+ * QUALCOST_HOST_PROFILE. Of several, the worst verdict stands (refused over isolated over in-process over none), and the
+ * pool word only when every one that gives a verdict other than refused says it.
+ * @param db the open store, or NULL for none
+ * @param format the store's format word: clap or lv2
+ * @param id the CLAP id or the LV2 URI, in either spelling of an IRI
+ * @param binary for a CLAP, the .clap file's name as the pin holds it; NULL for an LV2 plugin
+ * @param n how many files
+ * @param path the files, relative to the bundle, as the pin holds them
+ * @param digest their SHA-256s in hex
+ * @param out the pin, set when 1 is returned
+ * @return 1 when a record holds exactly these files and gives a whole pin, 0 otherwise
+ */
+int qualcost_pin(pqdb *db, const char *format, const char *id, const char *binary, int n, char *const *path,
+                 const char (*digest)[65], qualcost_pin_t *out);
+
 #endif

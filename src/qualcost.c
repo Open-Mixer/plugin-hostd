@@ -7,6 +7,7 @@
 
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -193,4 +194,115 @@ int qualcost_memory(pqdb *db, const char *id, int rate, int quantum, qualcost_me
         each_result(db, id, rate, quantum, memory_of, &c);
     *out = c.memory;
     return c.found ? 0 : -1;
+}
+
+/* ---------------------------------------------------------------- the pin (pins from the store, section 4) */
+
+struct pin_ctx {
+    pqdb *db;
+    int n;
+    char *const *path;
+    const char (*digest)[65];
+    int found, matched, all_cores;
+    int rank;                           /* the worst verdict so far: 0 none, 1 in-process, 2 isolated, 3 refused */
+    char layout[160];
+    char seen[32][200];                 /* the records already read: every cell of one record gives the same pin */
+    int nseen;
+};
+
+struct files_ctx {
+    struct pin_ctx *c;
+    int at, same;
+};
+
+static int file_of(const char *path, const char *sha256, void *ctx)
+{
+    struct files_ctx *f = ctx;
+
+    if (f->at >= f->c->n || strcmp(path, f->c->path[f->at]) || strcmp(sha256, f->c->digest[f->at]))
+        f->same = 0;
+    f->at++;
+    return f->same ? 0 : 1;
+}
+
+static int rank_of(const char *verdict)
+{
+    if (!verdict)
+        return 0;
+    return !strcmp(verdict, PHD_PIN_VERDICT_REFUSED) ? 3 : !strcmp(verdict, PHD_PIN_VERDICT_ISOLATED) ? 2 : 1;
+}
+
+static int pin_of(const pqdb_result *r, void *ctx)
+{
+    struct pin_ctx *c = ctx;
+    struct files_ctx f = { c, 0, 1 };
+    pqdb_pin pin;
+    char key[200];
+    int n, rank;
+
+    snprintf(key, sizeof(key), "%s %s %s %s", r->layer, r->sha256, r->offer, r->host_class);
+    for (n = 0; n < c->nseen; n++)
+        if (!strcmp(c->seen[n], key))
+            return 0;
+    if (c->nseen < (int)(sizeof(c->seen) / sizeof(c->seen[0])))
+        snprintf(c->seen[c->nseen++], sizeof(c->seen[0]), "%s", key);
+    /* the record is the plugin's when its list is exactly the files hashed: none missing, none beside them */
+    if (pqdb_files(c->db, r, file_of, &f) < 0 || !f.same || f.at != c->n)
+        return 0;
+    if (pqdb_pin_of(c->db, r, QUALCOST_HOST_PROFILE, &pin) != 0)
+        return 0;
+    rank = rank_of(pin.verdict);
+    if (!c->found || rank > c->rank)
+    {
+        c->rank = rank;
+        snprintf(c->layout, sizeof(c->layout), "%s:%s", r->layout_scheme, r->layout_sha256);
+    }
+    if (rank != 3 && (!pin.pool || strcmp(pin.pool, PHD_PIN_POOL_CORES)))
+        c->all_cores = 0;
+    if (rank != 3)
+        c->matched++;
+    c->found = 1;
+    return 0;
+}
+
+int qualcost_pin(pqdb *db, const char *format, const char *id, const char *binary, int n, char *const *path,
+                 const char (*digest)[65], qualcost_pin_t *out)
+{
+    static const char *const words[] = { "", PHD_PIN_VERDICT_IN_PROCESS, PHD_PIN_VERDICT_ISOLATED, PHD_PIN_VERDICT_REFUSED };
+    struct pin_ctx *c;
+    char plain[PATH_MAX];
+    pqdb_query q = PQDB_QUERY_ANY;
+    int found;
+
+    if (!db || !id || !*id || n <= 0)
+        return 0;
+    c = calloc(1, sizeof(*c));
+    if (!c)
+        return 0;
+    c->db = db;
+    c->n = n;
+    c->path = path;
+    c->digest = digest;
+    c->all_cores = 1;
+    q.format = format;
+    q.binary_path = binary;
+    q.uri = id;
+    if (pqdb_each(db, &q, pin_of, c) == 0)
+    {
+        decode(id, plain, sizeof(plain));
+        if (strcmp(plain, id))
+        {
+            q.uri = plain;
+            pqdb_each(db, &q, pin_of, c);
+        }
+    }
+    found = c->found;
+    if (found)
+    {
+        snprintf(out->verdict, sizeof(out->verdict), "%s", words[c->rank]);
+        snprintf(out->pool, sizeof(out->pool), "%s", c->rank != 3 && c->matched && c->all_cores ? PHD_PIN_POOL_CORES : "");
+        snprintf(out->layout, sizeof(out->layout), "%s", c->layout);
+    }
+    free(c);
+    return found;
 }

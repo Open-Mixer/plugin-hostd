@@ -131,6 +131,52 @@ def build(schema, out, cells, user_version=None, bad_word=False):
     db.close()
 
 
+def build_pins(schema, out, records, user_version=None):
+    """Write a store fixture of records that give pins (docs/design/specs/2026-11-28-pins-from-the-store.md): each record a
+    dict of format, uri (the CLAP id or the LV2 URI), files [(path, sha256)] in byte order of the path (the first is the
+    binary), layout (scheme, sha256), rating (the omx-clap-host verdict's), and optionally measured (1), reasons
+    [(rating, code)], steps [(step, result)], unpinnable, host_class (x86-64). One cell, 48000/256, claimed. Written to a
+    temporary file renamed over out, as the store's writer replaces a layer"""
+    if user_version is None:
+        user_version = schema_version()
+    tmp = out + ".new"
+    if os.path.exists(tmp):
+        os.unlink(tmp)
+    db = sqlite3.connect(tmp)
+    with open(schema, encoding="utf-8") as f:
+        db.executescript(f.read())
+    db.execute("PRAGMA foreign_keys = ON")
+    db.execute("INSERT INTO store_info (one, user_layer, record_schema, built_from) VALUES (1, 0, ?, ?)",
+               ("plugin-qualify.qualification-record/1", "0" * 40))
+    set_id = fill(db, "record_set", {"host_class": "x86-64", "name": "fixture", "tier": "reference"})
+    for n, r in enumerate(records):
+        files = r["files"]
+        cls = r.get("host_class", "x86-64")
+        pid = fill(db, "plugin", {"sha256": files[0][1], "format": r["format"], "uri": r["uri"]})
+        rid = fill(db, "record", {"plugin_id": pid, "set_id": set_id, "host_class": cls, "offer": "default",
+                                  "name": "%s@%d" % (r["uri"], n), "probe_sha256": sha("0"), "binary_path": files[0][0],
+                                  "layout_scheme": r["layout"][0], "layout_sha256": r["layout"][1],
+                                  "unpinnable": r.get("unpinnable")})
+        for o, (path, digest) in enumerate(sorted(files)):
+            fill(db, "record_file", {"record_id": rid, "ord": o, "path": path, "sha256": digest})
+        fill(db, "verdict", {"record_id": rid, "ord": 0, "host": "omx-clap-host", "measured": r.get("measured", 1),
+                             "rating": r["rating"], "qualified": 1 if r["rating"] == "suitable" else 0,
+                             "hosting": "isolated", "arm": "run"})
+        for o, (rating, code) in enumerate(r.get("reasons", ())):
+            fill(db, "reason", {"record_id": rid, "verdict_ord": 0, "ord": o, "dimension": "rtSafety", "rating": rating,
+                                "code": code})
+        for o, (step, result) in enumerate(r.get("steps", ())):
+            fill(db, "run_step", {"record_id": rid, "ord": o, "step": step, "result": result})
+        fill(db, "cell", {"record_id": rid, "ord": 0, "rate": 48000, "quantum": 256, "outcome": "probe.ok"})
+        fill(db, "claim", {"record_id": rid, "plugin_id": pid, "offer": "default", "host_class": cls, "rate": 48000,
+                           "quantum": 256})
+    db.commit()
+    db.execute(f"PRAGMA user_version = {user_version}")
+    db.commit()
+    db.close()
+    os.replace(tmp, out)
+
+
 def main(argv):
     """Build the fixture the arguments name."""
     schema, out, rest = argv[1], argv[2], argv[3:]

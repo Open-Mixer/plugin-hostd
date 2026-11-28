@@ -763,8 +763,8 @@ is the reply, and one that dies on it or does not answer it is dropped with `PHD
 which the hash covers, in a world of that one bundle; so a pinned LV2 plugin gets a worker of its own, a `default` that
 resolves to a pool is placed `own` and an explicit `pool:<name>` answers `PHD_ERR_PLACEMENT_INVALID`.
 
-Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set` or from a `pin_file` loaded at start, and a
-plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
+Where the pin comes from is `pin_mode`. `strict` takes it from `pin_set`, from the qualification store's record of
+the plugin's files, from a `pins_dir` pin or from a `pin_file` the settings name, and a plugin with no pin is refused. `first-use`, the default, records it: the first `add` of a plugin with no pin hashes its
 files and keeps the pin in the pin store (`$XDG_STATE_HOME/plugin-hostd/pins`). A plugin with no verdict is not
 instantiated in any worker (R-112): the `add` answers, the instance exists and its insert passes dry, no worker holds it
 and none loads its code, until its pin carries a verdict or the user chooses with `pin_accept`. The daemon writes one
@@ -772,7 +772,8 @@ request for its quick check into the qualify spool (`qualify/` in the directory 
 per plugin, written whole by a temporary file renamed over its name, the lines `uri <uri>` and `file <path> <sha256>` for
 each file hashed) and says `qualify_requested <uri>` once the file is on disk, at most once for a plugin until a verdict
 lands. The daemon runs no check: the service that watches the spool does, and writes the verdict as a pin in the
-pins_dir. A pin of a verdict other than `refused`, read at the next tick or `pin_reload`, answers the request and makes
+pins_dir; a whole qualification's verdict arrives as a record of the plugin's files in the qualification store. A
+verdict other than `refused`, read at the next tick or `pin_reload`, answers the request and makes
 the insert live in the worker its verdict places it in, with no restart; `refused` answers it too and the insert stays
 bypassed, its `add` answering `-516`, until `pin_accept`, which makes it live alone. An instance that is live when its
 verdict later turns `refused` keeps playing. A verdict never overwrites the user's choice (`<pin_store>.accepted`, the
@@ -781,23 +782,31 @@ taken by its text and the file's own links not followed, is inside a directory o
 for CLAP, `lv2_path` (with `lv2_extra`) for LV2. A bundle in the search path whose binary is a link out of it (Debian's
 `calf.lv2/calf.so`) is learned, the pin holds the digest of the file the link resolves to and the log names both paths;
 a link put outside the search path that points into it is not. A plugin anywhere else stays unpinned and its `add` answers `-508` (`PIN_ABSENT`), so a controller cannot have any
-path it names trusted; such a plugin needs a `pin_set`, a `pin_file` or a directory added to the search path. A host that pins by itself sets `pin_mode strict`.
+path it names trusted; such a plugin needs a `pin_set`, a store record of its files or a directory added to the search path. A host that pins by itself sets `pin_mode strict`.
 The store, a `pin_file` and `pin_set` carry one line format, `pin_set <uri> <files> <layout> [verdict=<word>]` with the
-verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which plugin-qualify writes, lets a plugin
-share a worker. A pin with `verdict=refused` names files that failed qualification. Their `add` answers `-516`
+verb optional in a file. In `first-use` only a pin with `verdict=in-process`, which the store gives a plugin
+plugin-qualify judged fit to share, lets a plugin share a worker. A pin with `verdict=refused` names files that failed qualification. Their `add` answers `-516`
 (`PIN_REFUSED`), no worker sees it, and a replay is refused with the same code, until the user chooses to load the
 plugin anyway (`pin_accept`, below). A pin that changes to `refused` while
 the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
 verdict was given for the pinned files only.
 
-Settings that name no `pin_file` read `/var/lib/omx/qualified.pins`, the pin file plugin-qualify-sync writes, so a
-default install chains what qualified with no configuration. Absent at start (a machine before its first sync) it is
-no pins, never a start that fails, and it is read once the sync writes it. A settings line `pin_file` with no value
-reads none; a `pin_file` the settings name must be there, or the daemon does not start.
+The pins of what qualified come from the qualification store, which the daemon reads through
+libplugin-qualification-db as it reads the costs (the system's store as root, the user's otherwise), so a default
+install chains what qualified with no configuration and no pin file. On an `add` the daemon hashes the files the
+format loads for the plugin, and a record of the plugin (its format, its CLAP id or LV2 URI) whose file list is
+exactly those files and digests is its pin: the record's layout, and the verdict and pool word its rows give under the
+host profile `omx-clap-host` (its verdict, then its isolated step, then its pool step). Of several such records the
+worst verdict stands. A record of other bytes pins nothing. The store's pin holds over a pin the daemon learned and
+over a `pin_file` pin; a controller's `pin_set` holds over it, and a `pins_dir` refusal over everything but the user's
+choice. A store that cannot be opened is said once on stderr by its `qualification-db.*` name and pins nothing; a
+store that is not there pins nothing. Settings that name no `pin_file` read none; a `pin_file` the settings name must
+be there, or the daemon does not start.
 
-The pins are read again while the daemon runs, so a plugin upgrade never needs a restart (#255). The daemon stats the
-`pin_file` and the `pins_dir` files at every idle tick and before every `add`, and reads them again when one changed
-(a rewrite in place or a rename over it); `pin_reload`, and the sync's `pin_changed` notice, do the same at once. The
+The pins are read again while the daemon runs, so a plugin upgrade never needs a restart (#255). The daemon asks the
+qualification store whether a layer is another file than the one it opened, and stats the `pin_file` and the
+`pins_dir` files, at every idle tick and before every `add`, and reads them again when one changed (a rewrite in place
+or a rename over it); `pin_reload` does the same at once. The
 new tables are put in whole or not at all: a `pin_file` with a line outside the grammar answers `-902` and the earlier
 pins hold. A `pin_set` of a controller is not in any file and is kept. Running instances keep running: one whose files
 the new pins refuse is logged on stderr, and its id in `worker_list` is followed by `!` until a pin holds it again. A plugin that changed since it was pinned is refused (-509, or -510 from the worker), the
@@ -813,11 +822,11 @@ daemon never writes it. A pin from this layer is trusted as it is, in both pin m
   `pin_set` never override it: `pin_set` of its uri answers `-516` (`PIN_REFUSED`), and a line of the store or of the
   `pin_file` for it is kept but has no effect, which stderr says at start.
 - A failed qualification is our advice, not a wall: the user decides. Under `pin_mode first-use`, `pin_accept <uri>` of
-  a plugin whose pin carries `verdict=refused`, from a pins.d file or the `pin_file`, or none (the plugin is bypassed, R-112), records the user's choice, kept beside the pin store in
+  a plugin whose pin carries `verdict=refused`, from a pins.d file, the qualification store or the `pin_file`, or none (the plugin is bypassed, R-112), records the user's choice, kept beside the pin store in
   `<pin_store>.accepted`, one uri per line, and takes the plugin's files as they are now as its pin, in the store with no
   verdict: the user's choice, not a pass. The plugin then runs alone in a worker of its own, as any plugin not qualified
   for a shared one does, and an explicit `pool:<name>` answers `-501`. The choice holds across a restart and over a
-  `pin_file` that a qualification sync writes again with the refusal, covers the
+  store record that a qualification writes again with the refusal, covers the
   files it was made for (files that change answer `-509` until `pin_accept` again), and `pin_clear` of the uri (or
   `all`) takes it back. Under `pin_mode strict` it counts for nothing: strict admits what passed qualification and
   nothing else, and `pin_accept` answers `-902` there.

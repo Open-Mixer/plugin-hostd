@@ -2238,6 +2238,8 @@ static void bypassed_promote(void)
 
         if (!i || !i->bypassed)
             continue;
+        /* the store's record of its files as they are now: the verdict the check it asked for may have written */
+        pins_resolve(format_at(i->fmt), i->uri, search_of(i->fmt));
         if (!unqualified(i->uri))
             qualify_answered(i->uri);
         if (unqualified(i->uri) || pins_check(format_at(i->fmt), i->uri, search_of(i->fmt), &layout) != SUCCESS)

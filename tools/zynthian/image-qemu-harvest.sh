@@ -42,7 +42,7 @@ for k, n in sorted(c.items()):
     print(n, *k)
 print("entries", len(d["entries"]))
 ' 2>&1
-	echo "## pins"; sudo wc -l "$mnt/var/lib/omx/qualified.pins" 2>&1
+	echo "## qualification store"; sudo ls -la --time-style=full-iso "$mnt/var/lib/omx/qualification/qualification.sqlite" 2>&1
 	echo "## descriptors"; sudo find "$mnt/var/lib/omx/descriptors" -type f 2>/dev/null | wc -l
 	echo "## ssh host keys"; sudo ls -la --time-style=full-iso "$mnt"/etc/ssh/ssh_host_*_key.pub 2>&1
 	echo "## zynthian.service enabled?"; sudo ls "$mnt"/etc/systemd/system/*.wants/zynthian.service 2>&1

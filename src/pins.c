@@ -41,6 +41,7 @@
 #include "formats.h"
 #include "fsutil.h"
 #include "pins.h"
+#include "qualcost.h"
 #include "words.h"
 #include "writer.h"
 
@@ -72,6 +73,13 @@ static char g_store[PATH_MAX];
 /* The packages' pins: the *.pins files of pins_dir, read at start and never written */
 static pin_t *g_pkg;
 static int g_npkg;
+
+/* The store's pins: what the qualification store's records of a plugin's files give it (pins_resolve), read only, never
+ * written, forgotten when the store changes (docs/design/specs/2026-11-28-pins-from-the-store.md). The handle is kept so
+ * a change is noticed by pqdb_changed at every tick, with no restart */
+static pin_t *g_qual;
+static int g_nqual;
+static pqdb *g_qdb;
 
 /* The key of a pin, whichever way a controller wrote the uri: the uri as the worker is given it, and a clap: uri by its
  * path decoded (the key rule of plugin-hostd-protocol's doc/protocol.md, Pins), so "clap:/c/Surge XT.clap#id", quoted, and
@@ -137,8 +145,6 @@ static int refused(const pin_t *p)
 static char **g_accepted;
 static int g_naccepted;
 static int g_accepting;
-/* the pin_file is the default one (pins_file_optional): absent is no pins yet, never a start that fails */
-static int g_file_optional;
 static char g_accepted_path[PATH_MAX + 16];
 
 static int accepted(const char *uri)
@@ -168,15 +174,22 @@ static pin_t *pkg_refusal(const char *uri)
     return accepted(uri) ? NULL : pkg_refused(uri);
 }
 
-/* the pin that holds for a uri: a package refusal, else the host's pin, else the package's. A pin the daemon learned
- * on first use holds no verdict: it is what the daemon hashed for the check it asked for (R-112), so a package pin of
- * the uri that carries a verdict, the service's answer, holds over it */
+/* the pin that holds for a uri: a package refusal, else a controller's pin_set, else the store's (a refusal of it is
+ * overridden by the user's choice where the check reads it, pins_check), else the host's other pins, else the package's. A pin the daemon learned on first use holds
+ * no verdict: it is what the daemon hashed for the check it asked for (R-112), so the store's record of those files, or
+ * a package pin of the uri that carries a verdict, the service's answer, holds over it */
 static pin_t *find(const char *uri)
 {
-    pin_t *p = pkg_refusal(uri), *pkg;
+    pin_t *p = pkg_refusal(uri), *pkg, *q;
 
-    if (!p)
-        p = find_in(g_pins, g_npins, uri);
+    if (p)
+        return p;
+    p = find_in(g_pins, g_npins, uri);
+    if (p && p->from_set)
+        return p;
+    q = find_in(g_qual, g_nqual, uri);
+    if (q)
+        return q;
     pkg = find_in(g_pkg, g_npkg, uri);
     if (p && p->learned && !*p->verdict && pkg && *pkg->verdict && !accepted(uri))
         return pkg;
@@ -576,10 +589,6 @@ void pins_accepting(int on)
     g_accepting = on;
 }
 
-void pins_file_optional(int on)
-{
-    g_file_optional = on;
-}
 
 /* where a file of pin lines goes, and what a line outside the grammar costs there */
 typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
@@ -636,9 +645,6 @@ static int file_read(const char *path, layer_t layer)
 
     if (!file)
     {
-        /* the default pin_file before the qualification sync first wrote it: no pins yet, read once it is written */
-        if (strict && g_file_optional && (errno == ENOENT || errno == ENOTDIR))
-            return 0;
         if (strict)
             fprintf(stderr, "plugin-hostd: can't open the pin file %s: %s\n", path, strerror(errno));
         else if (layer == LAYER_PKG)
@@ -804,6 +810,102 @@ static int load(void)
     return rc;
 }
 
+/* ---------------------------------------------------------------- the store's pins */
+
+static int digest_of(const char *root, const char *path, char hex[PHD_SHA256_HEX_LEN + 1]);
+
+static void qual_drop(const char *uri)
+{
+    pin_t *p = find_in(g_qual, g_nqual, uri);
+
+    if (p)
+    {
+        pin_free(p);
+        *p = g_qual[--g_nqual];
+    }
+}
+
+/* the store's pins forgotten and its handle closed: the next lookup opens it as it is now */
+static void qual_reset(void)
+{
+    while (g_nqual)
+        pin_free(&g_qual[--g_nqual]);
+    free(g_qual);
+    g_qual = NULL;
+    qualcost_close(g_qdb);
+    g_qdb = NULL;
+}
+
+int pins_resolve(const format_t *format, const char *uri, const char *search)
+{
+    const char *key = bare(uri), *worker_uri, *hash, *id, *store_format;
+    char root[PATH_MAX], (*hex)[PHD_SHA256_HEX_LEN + 1] = NULL, *words = NULL;
+    names_t files = { NULL, 0 };
+    qualcost_pin_t got;
+    size_t cap = 1;
+    pin_t pin, *grown;
+    int n, found = 0;
+
+    qual_drop(key);
+    if (!g_qdb)
+        g_qdb = qualcost_open();
+    if (!g_qdb || format->pin_collect(uri, search, root, sizeof(root), &files) != SUCCESS || files.n <= 0)
+        goto out;
+    hex = calloc((size_t)files.n, sizeof(*hex));
+    if (!hex)
+        goto out;
+    for (n = 0; n < files.n; n++)
+    {
+        if (digest_of(root, files.name[n], hex[n]) != 0)
+            goto out;
+        cap += strlen(files.name[n]) + PHD_SHA256_HEX_LEN + 2;
+    }
+    /* the store names a plugin by its format word and its id: a CLAP by the id after # (and its .clap by its name), an LV2
+     * plugin by its URI */
+    format_of_uri(uri, &worker_uri);
+    if (!strncmp(worker_uri, PHD_CLAP_URI_PREFIX, strlen(PHD_CLAP_URI_PREFIX)))
+    {
+        hash = strrchr(worker_uri, '#');
+        if (!hash)
+            goto out;
+        id = hash + 1;
+        store_format = "clap";
+    }
+    else
+    {
+        id = worker_uri;
+        store_format = "lv2";
+    }
+    if (!qualcost_pin(g_qdb, store_format, id, !strcmp(store_format, "clap") && files.n == 1 ? files.name[0] : NULL,
+                      files.n, files.name, (const char (*)[65])hex, &got))
+        goto out;
+    words = calloc(1, cap);
+    if (!words)
+        goto out;
+    for (n = 0; n < files.n; n++)
+        sprintf(words + strlen(words), "%s%s" PHD_PIN_DIGEST_SEPARATOR "%s", n ? PHD_PIN_FILE_SEPARATOR : "", files.name[n],
+                hex[n]);
+    if (pin_build(&pin, key, words, got.layout, *got.verdict ? got.verdict : NULL, *got.pool ? got.pool : NULL, 0) != SUCCESS)
+    {
+        fprintf(stderr, "plugin-hostd: %s: the qualification store's record of its files is no pin\n", uri);
+        goto out;
+    }
+    grown = realloc(g_qual, (g_nqual + 1) * sizeof(pin_t));
+    if (!grown)
+    {
+        pin_free(&pin);
+        goto out;
+    }
+    g_qual = grown;
+    g_qual[g_nqual++] = pin;
+    found = 1;
+out:
+    names_free(&files);
+    free(hex);
+    free(words);
+    return found;
+}
+
 int pins_init(const char *store, const char *file, const char *dir)
 {
     held_free();
@@ -812,6 +914,8 @@ int pins_init(const char *store, const char *file, const char *dir)
     snprintf(g_cfg_file, sizeof(g_cfg_file), "%s", file);
     snprintf(g_cfg_dir, sizeof(g_cfg_dir), "%s", dir);
     g_signature = signature();
+    qual_reset();
+    g_qdb = qualcost_open();
     return load();
 }
 
@@ -829,6 +933,8 @@ int pins_reload(void)
     char **old_held = g_held;
     int old_nheld = g_nheld, old_unreadable = g_store_unreadable;
 
+    /* the store's pins are read again at the next lookup, from the store as it is now */
+    qual_reset();
     /* the new tables are made on the side and put in at once: a bad pin_file leaves the pins as they were */
     g_signature = signature();
     g_pins = g_pkg = NULL;
@@ -870,6 +976,9 @@ int pins_reload(void)
 
 int pins_changed(void)
 {
+    /* the store: another file than the one the handle opened, or a store that could not be opened and now can */
+    if (g_qdb ? pqdb_changed(g_qdb) : (g_qdb = qualcost_open()) != NULL)
+        return 1;
     return (*g_cfg_file || *g_cfg_dir) && signature() != g_signature;
 }
 
@@ -977,6 +1086,7 @@ void pins_finish(void)
     own_free();
     pkg_free();
     accepted_free();
+    qual_reset();
 }
 
 /* ---------------------------------------------------------------- the check */
@@ -1393,7 +1503,11 @@ int pins_set_layout(const char *uri, const char *layout)
 
 int pins_check(const format_t *format, const char *uri, const char *search, const char **layout)
 {
-    const pin_t *p = find(bare(uri));
+    const pin_t *p;
+
+    /* the store's record of the files as they are now, before any other pin is looked at */
+    pins_resolve(format, uri, search);
+    p = find(bare(uri));
     char root[PATH_MAX];
     names_t files = { NULL, 0 };
     int n, rc;
