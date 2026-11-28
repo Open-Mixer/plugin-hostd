@@ -1,7 +1,7 @@
 # The pins come from the qualification store: no pin file, no sync export
 
 Status: RULED by the owner 2026-11-28: the ruling of section 1, and the six rulings of section 9 on the points this spec
-put to the owner, which replace the recommendations it made where they differ. Settled: this spec is law for the pins of
+put to the owner (point 7 of section 9 is decided by the coordinator, the owner to confirm), which replace the recommendations it made where they differ. Settled: this spec is law for the pins of
 plugin-hostd, plugin-db-qualification's reader, the qualification domain and plugin-qualify's sync and spool.
 
 plugin-hostd keeps no design directory since the notes moved to openmixer.org (b50718fe); this spec is the first to
@@ -140,8 +140,7 @@ remove it on upgrade.
 2. **The quick-check spool writes its verdict into the store**, through the store's writer, never as a pin file in
    `pins_dir`; `pins_dir` holds the packages' pins alone. plugin-qualify-spool qualifies a request with
    `plugin-qualify-sync --plugin <uri>`, the one-plugin qualification that puts the record; the daemon reads it at its
-   next tick (section 6). A run that the spool's budget or the memory limit ends writes no record: the plugin stays
-   bypassed (R-112) until `pin_accept`, and the request is answered in the spool alone.
+   next tick (section 6). A check that crashes, hits the memory limit or times out is recorded too (point 7).
 3. **The verdicts are read under the fixed host profile `omx-clap-host`**, with no setting, for now.
 4. **`cores` is a word of `QUALIFICATION_STEP_RESULTS`** (the qualification domain, plugin-hostd's `contract.d`, its
    `info.version` 0.1.1 to 0.1.2: its own word change). The writer stores a pool step that ended `cores`, the reader
@@ -152,6 +151,18 @@ remove it on upgrade.
 6. **The daemon reads the history-adjusted verdict as the store records it**: `pqdb_pin_of` applies the latest adjust
    block (`record_history`, `history_verdict.adjusted`) of the daemon's history class (the `host_class` setting, else
    the class of the machine) that holds a verdict of `omx-clap-host`, after the isolated step and before the pool word.
+
+7. **A quick check that ran and ended with no figures is a refusal in the store.** Decided by the coordinator
+   2026-11-28 (owner away, the no-regression rule: the pin file made such a plugin `-516`), the owner to confirm. A check
+   killed by a signal, at its memory limit, or past its budget is stored as a record kind of its own, "ran, no
+   figures": the store's user_version 3 adds the tables `no_figures` (format, uri, host, reason, at) and
+   `no_figures_file` (the files the daemon hashed and their SHA-256s), one per plugin and host, migrated from 1 and 2 by
+   SQL with no re-measure. Its reason is a word of `QUALIFICATION_NO_FIGURES_REASONS` (qualification domain 0.1.2:
+   `probe.crashed`, `probe.memory-limit`, `probe.timeout`), and the writer (`plugin-qualification-db-write no-figures`)
+   refuses one with no reason or another word by name. The reader gives it (`pqdb_no_figures_of`, the exact file list as
+   a record's) as `verdict=refused` with that reason and an unknown layout; the daemon answers `-516` for those files
+   until `pin_accept`, as the pin file made it. A record with figures put later for the plugin takes its place: the
+   writer's `put` removes the plugin's figure-less records.
 
 ## 10. Red-first tests
 
