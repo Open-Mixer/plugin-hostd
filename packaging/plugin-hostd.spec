@@ -1,7 +1,7 @@
 %bcond_without check
 
 Name: plugin-hostd
-Version: 0.22.3
+Version: 0.22.4
 Release: 1%{?dist}
 License: GPL-3.0-or-later
 Summary: Run LV2 and CLAP plugins in a live rig without one crash taking down the show
@@ -209,6 +209,12 @@ make test-daemon check-generated check-rendered RENDERED_COMPARE=recorded
 %{omx_contract_dir}/qualification/
 
 %changelog
+* Sat Nov 28 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.4-1
+- the tests' qualification store fixture is at the user_version the installed
+  plugin-qualification-db header declares, so the cost and estimate tests read
+  it under the 0.1.2 reader (user_version 2)
+- a staged dispatch builds the full matrix of its arch-matrix (#326)
+
 * Fri Nov 27 2026 Pau Aliagas <linuxnow@gmail.com> - 0.22.3-1
 - settings that name no pin_file read /var/lib/omx/qualified.pins, the file
   the qualification sync writes (#316)

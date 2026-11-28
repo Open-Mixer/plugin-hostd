@@ -1,3 +1,12 @@
+plugin-hostd (0.22.4) unstable; urgency=medium
+
+  * the tests' qualification store fixture is at the user_version the
+    installed plugin-qualification-db header declares, so the cost and
+    estimate tests read it under the 0.1.2 reader (user_version 2)
+  * a staged dispatch builds the full matrix of its arch-matrix (#326)
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Sat, 28 Nov 2026 07:22:45 +0100
+
 plugin-hostd (0.22.3) unstable; urgency=medium
 
   * settings that name no pin_file read /var/lib/omx/qualified.pins, the
