@@ -223,6 +223,35 @@ def node_scan(root):
     return found
 
 
+# A push (a devel merge, a tag) releases the full matrix: every package in every cell (owner ruling 2026-11-26), so the
+# arch-matrix a push takes in release.yml names both architectures of its format, amd64 and arm64 for a deb, x86_64 and
+# aarch64 for an rpm. The push arm is the value after the last `||` of the expression (the fallback a push reaches), or
+# the whole value when it is a literal. A push built for arm64 alone left the trixie amd64 cells nothing to install
+# (the own-host page's apt took omx-plugins-clap:arm64 and failed on libc6:arm64).
+FULL_MATRIX = (("amd64", "arm64"), ("x86_64", "aarch64"))
+ARCH_MATRIX = re.compile(r"^\s*arch-matrix:\s*(.*)$")
+
+
+def matrix_scan(root):
+    """every finding as 'path:line what'"""
+    path = os.path.join(root, ".github", "workflows", "release.yml")
+    if not os.path.exists(path):
+        return []
+    found = []
+    for n, line in enumerate(open(path).read().split("\n")):
+        m = ARCH_MATRIX.match(line)
+        if not m:
+            continue
+        push_arm = m.group(1).rsplit("||", 1)[-1]
+        for full in FULL_MATRIX:
+            named = [a for a in full if re.search(r"\b%s\b" % a, m.group(1))]
+            missing = [a for a in full if not re.search(r"\b%s\b" % a, push_arm)]
+            if named and missing:
+                found.append("release.yml:%d a push builds without %s: a push releases the full matrix (owner 2026-11-26)"
+                             % (n + 1, " ".join(missing)))
+    return found
+
+
 def main():
     own = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
     try:
@@ -366,7 +395,33 @@ def main():
     finally:
         shutil.rmtree(tiers, ignore_errors=True)
     print("ok   the tier scan sees a planted sabotage, a whole suite matrix and a dry run on a pull request, and passes them split")
+    matrix_cases = [
+        ("      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '[\"amd64\"]' || '[\"arm64\"]' }}\n", 1),
+        ("      arch-matrix: '[\"arm64\"]'\n", 1),
+        ("      arch-matrix: '[\"x86_64\"]'\n", 1),
+        ("      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false) && '[\"amd64\"]' || '[\"amd64\", \"arm64\"]' }}\n", 0),
+        ("      arch-matrix: '[\"x86_64\", \"aarch64\"]'\n", 0),
+        ("      # arch-matrix: '[\"arm64\"]'\n", 0),
+    ]
+    for body, want in matrix_cases:
+        md = tempfile.mkdtemp(prefix="ci-guards.", dir=os.environ.get("TMPDIR") or ROOT)
+        try:
+            wf = os.path.join(md, ".github", "workflows")
+            os.makedirs(wf)
+            open(os.path.join(wf, "release.yml"), "w").write("jobs:\n  deb:\n    with:\n" + body)
+            seen = matrix_scan(md)
+            if len(seen) != want:
+                print("FAIL the matrix scan on a planted %r: want %d finding(s), saw %s" % (body, want, seen))
+                return 1
+        finally:
+            shutil.rmtree(md, ignore_errors=True)
+    print("ok   the matrix scan sees a push arm, or a literal, with one architecture of its format; passes both and a comment")
     failed = 0
+    for f in matrix_scan(ROOT):
+        print("FAIL %s" % f)
+        failed += 1
+    if not failed:
+        print("ok   a push builds release.yml's full matrix: both architectures of each format (owner 2026-11-26)")
     for f in fedora_scan(ROOT):
         print("FAIL %s" % f)
         failed += 1
