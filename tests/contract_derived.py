@@ -109,7 +109,7 @@ def dsp_header():
     raise SystemExit("omx-dsp's rendered omxdsp/omxdsp_definitions.h is not installed (omx-dsp-devel)")
 
 
-def header(name="omx_contract_limits.h"):
+def header(name="omx_contract.h"):
     for flag in pkg("--cflags").split() + ["-I/usr/include"]:
         if flag.startswith("-I"):
             path = os.path.join(flag[2:], "omxcontract", name)
@@ -265,7 +265,7 @@ def main():
         swapped = text.replace("OMX_PARAM_SCALES_LOG = 1", "OMX_PARAM_SCALES_LOG = 2").replace(
             "OMX_PARAM_SCALES_STEPPED = 2", "OMX_PARAM_SCALES_STEPPED = 1")
         check(swapped != text, "positive control: the scratch header's scales were swapped")
-        with open(os.path.join(scratch, "omxcontract", "omx_contract_limits.h"), "w") as f:
+        with open(os.path.join(scratch, "omxcontract", "omx_contract.h"), "w") as f:
             f.write(swapped)
         for source in (OWN_GEN,):
             built = build_gen(scratch, os.path.join(tmp, "gen-swapped"), source)

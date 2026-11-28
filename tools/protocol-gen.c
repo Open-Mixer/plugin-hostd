@@ -32,7 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <omxcontract/omx_contract_limits.h>
+#include <omxcontract/omx_contract.h>
 #include <plugin-hostd/protocol.h>
 #include "domain_words.h"
 #include "machine.h"

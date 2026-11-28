@@ -19,7 +19,7 @@ JSON is read with the system cJSON, from `pkg-config libcjson` (`cjson-devel`,
 `libcjson-dev`).
 
 The probe runner and the page generator also read omx-contract's C headers,
-`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, and the
+`<omxcontract/omx_contract.h>` and `<omxcontract/omx_vocabulary.h>`, and the
 daemon and the runner spell their JSON string literals through its one writer,
 `<omxcontract/omx_json_write.h>`, from `pkg-config omx-contract` (`omx-contract-devel`,
 `libomx-contract-dev`, 3.9.0 or later; `CONTRACT_CFLAGS=-I<dir>` for one that is not
