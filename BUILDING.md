@@ -19,9 +19,9 @@ JSON is read with the system cJSON, from `pkg-config libcjson` (`cjson-devel`,
 `libcjson-dev`).
 
 The probe runner and the page generator also read omx-contract's C headers,
-`<omxcontract/omx_contract_limits.h>` and `<omxcontract/omx_vocabulary.h>`, and the
+`<omx_contract.h>` and `<omx_vocabulary.h>`, and the
 daemon and the runner spell their JSON string literals through its one writer,
-`<omxcontract/omx_json_write.h>`, from `pkg-config omx-contract` (`omx-contract-devel`,
+`<omx_json_write.h>` (omx-contract, the base of [the module naming standard](https://github.com/Open-Mixer/omx-contract/blob/devel/docs/naming.md), installs its headers at the include root), from `pkg-config omx-contract` (`omx-contract-devel`,
 `libomx-contract-dev`, 3.9.0 or later; `CONTRACT_CFLAGS=-I<dir>` for one that is not
 installed). The contract directory has no schema-major level: a package is
 `<contractdir>/<package>/`, and a document states its format (`x-omx-contract`). The runner's
