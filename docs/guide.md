@@ -80,7 +80,7 @@ In another terminal, add an LV2 plugin, set its gain and ask where it runs
 The plugin now runs as JACK client `effect_0` in its own process. Link it in your graph as
 you would a mod-host plugin. `man plugin-hostd` has the options; the full protocol is below.
 
-Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](own-host.md), nine commands from
+Using it from your own host (Zynthian, a Raspberry Pi, any Debian): [docs/own-host.md](own-host.md), ten commands from
 nothing to a plugin running.
 
 How plugins are grouped into workers, chains, plans and pools, drawn, with what the benchmark measures of each:
