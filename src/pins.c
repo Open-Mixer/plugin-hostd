@@ -137,6 +137,8 @@ static int refused(const pin_t *p)
 static char **g_accepted;
 static int g_naccepted;
 static int g_accepting;
+/* the pin_file is the default one (pins_file_optional): absent is no pins yet, never a start that fails */
+static int g_file_optional;
 static char g_accepted_path[PATH_MAX + 16];
 
 static int accepted(const char *uri)
@@ -574,6 +576,11 @@ void pins_accepting(int on)
     g_accepting = on;
 }
 
+void pins_file_optional(int on)
+{
+    g_file_optional = on;
+}
+
 /* where a file of pin lines goes, and what a line outside the grammar costs there */
 typedef enum { LAYER_STORE, LAYER_FILE, LAYER_PKG } layer_t;
 
@@ -629,6 +636,9 @@ static int file_read(const char *path, layer_t layer)
 
     if (!file)
     {
+        /* the default pin_file before the qualification sync first wrote it: no pins yet, read once it is written */
+        if (strict && g_file_optional && (errno == ENOENT || errno == ENOTDIR))
+            return 0;
         if (strict)
             fprintf(stderr, "plugin-hostd: can't open the pin file %s: %s\n", path, strerror(errno));
         else if (layer == LAYER_PKG)

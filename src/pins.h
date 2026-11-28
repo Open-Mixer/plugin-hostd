@@ -244,6 +244,16 @@ int pin_refuse(const char *uri, const char *path, const char *why);
  */
 void pins_accepting(int on);
 
+/** @brief whether the pin_file is the default one, which the qualification sync writes: an absent one is no pins
+ *
+ * The default (/var/lib/omx/qualified.pins) may not be there yet when the daemon starts, before the first sync: it
+ * is read when it appears, as any pin_file that changes. A pin_file the settings name is strict: absent, the daemon
+ * does not start. Set before pins_init.
+ *
+ * @param on 1 for the default pin_file, 0 for one the settings name.
+ */
+void pins_file_optional(int on);
+
 /** @brief frees every pin and what pins_init read */
 void pins_finish(void);
 

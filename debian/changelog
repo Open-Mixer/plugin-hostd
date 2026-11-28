@@ -1,3 +1,10 @@
+plugin-hostd (0.22.3) unstable; urgency=medium
+
+  * settings that name no pin_file read /var/lib/omx/qualified.pins, the
+    file the qualification sync writes (#316)
+
+ -- Pau Aliagas <linuxnow@gmail.com>  Fri, 27 Nov 2026 18:06:56 +0100
+
 plugin-hostd (0.22.2) unstable; urgency=medium
 
   * The describe test runs its omx-contract arm only when OMX_CONTRACT_CLI

@@ -790,6 +790,11 @@ plugin anyway (`pin_accept`, below). A pin that changes to `refused` while
 the instance runs takes effect at its next replay. Files that differ from the pin answer `-509` first, because the
 verdict was given for the pinned files only.
 
+Settings that name no `pin_file` read `/var/lib/omx/qualified.pins`, the pin file plugin-qualify-sync writes, so a
+default install chains what qualified with no configuration. Absent at start (a machine before its first sync) it is
+no pins, never a start that fails, and it is read once the sync writes it. A settings line `pin_file` with no value
+reads none; a `pin_file` the settings name must be there, or the daemon does not start.
+
 The pins are read again while the daemon runs, so a plugin upgrade never needs a restart (#255). The daemon stats the
 `pin_file` and the `pins_dir` files at every idle tick and before every `add`, and reads them again when one changed
 (a rewrite in place or a rename over it); `pin_reload`, and the sync's `pin_changed` notice, do the same at once. The
