@@ -386,7 +386,7 @@ Notes are played the same way, by a controller that is not a jack client (a web 
 network): `note_input` says whether an instance takes notes, and `note_on`, `note_off` and `all_notes_off` reach its
 worker unchanged once the daemon has checked their words. A worker answers them from the plugin's note input. mod-host
 takes no notes on its socket, so for an LV2 instance on mod-host the daemon answers all four `-514`, and the plugin is
-played through its jack MIDI input with `connect`. omx-clap-host does not answer them yet (FreeMixer/omx-clap-core#122).
+played through its jack MIDI input with `connect`. omx-clap-host does not answer them yet.
 
 `preset_list` and `preset_get` list a plugin's presets the way `remote_pages` and `remote_page_get` list its pages; the
 key `preset_get` gives is the one `preset_load` takes. mod-host cannot list presets, so for an LV2 instance on mod-host
@@ -410,7 +410,7 @@ A plugin with a window or a surface of its own tells its host when the user take
 moves values by itself, and suggests a remote page. Its worker writes `param_gesture`, mod-host's `param_set` and
 `remote_page_suggest` on its feedback port, and the daemon relays them as written, in order (events below). If the
 worker dies, or the instance is removed, while a gesture is held, the daemon ends the gesture itself, so no control
-stays held at the controller. omx-clap-host writes these lines from FreeMixer/omx-clap-core#87 on.
+stays held at the controller. omx-clap-host writes these lines.
 
 <!-- BEGIN GENERATED protocol:instance-verbs -->
 | verb | arguments | reply | meaning |
