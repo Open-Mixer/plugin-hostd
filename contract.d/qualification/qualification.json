@@ -1237,6 +1237,33 @@
           }
         ]
       },
+      "QUALIFICATION_NO_FIGURES_REASONS": {
+        "description": "Why a quick check ran and ended with no figures: the store records it as a refusal with this reason, and plugin-hostd refuses the plugin's files until the user's pin_accept (decided by the coordinator 2026-11-28, the owner to confirm).",
+        "x-since": "0.1.2",
+        "oneOf": [
+          {
+            "const": "probe.crashed",
+            "title": "probeCrashed",
+            "description": "The check was killed by a signal.",
+            "x-code": 0,
+            "x-text": "The check crashed."
+          },
+          {
+            "const": "probe.memory-limit",
+            "title": "probeMemoryLimit",
+            "description": "The check was killed at its memory limit.",
+            "x-code": 1,
+            "x-text": "The check outgrew its memory limit."
+          },
+          {
+            "const": "probe.timeout",
+            "title": "probeTimeout",
+            "description": "The check ran past its budget and was stopped.",
+            "x-code": 2,
+            "x-text": "The check ran out of time."
+          }
+        ]
+      },
       "QUALIFICATION_STEP_CODES": {
         "description": "The codes a run step gives for what it found.",
         "x-since": "0.1.0",
