@@ -144,7 +144,8 @@ jobs:
       source-ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source-ref || '' }}
       republish: ${{ github.event_name == 'workflow_dispatch' && inputs.republish == true }}
       catch-up: ${{ github.event_name == 'workflow_dispatch' && inputs.catch-up == true }}
-      # a push (a devel merge, a tag) builds arm64 alone: libplugin-qualification-db-dev, a Build-Depends, is an arm64 deb
-      # only (plugin-db-qualification's release-arches), so no amd64 deb of this package can resolve
-      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false && !inputs.source-ref) && '["amd64"]' || '["arm64"]' }}
+      # a push (a devel merge, a tag), a source-ref release and a dispatch with arm build the full matrix, amd64 and
+      # arm64 (owner 2026-11-26: every package in every cell; plugin-db-qualification serves libplugin-qualification-db-dev
+      # for amd64 since 0.1.1, plugin-db-qualification#92); a dispatched dry run with arm off builds amd64 alone
+      arch-matrix: ${{ (github.event_name != 'push' && inputs.arm == false && !inputs.source-ref) && '["amd64"]' || '["amd64", "arm64"]' }}
     secrets: inherit
