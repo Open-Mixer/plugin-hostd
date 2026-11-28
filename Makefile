@@ -156,7 +156,8 @@ $(PROG): $(OBJ) $(PROTOCOL_LIB)
 
 # the test build of the daemon, never installed or packaged: src/main.c compiled with OMX_CONTRACTDIR, the one directory it
 # reads the machine domain from (the packaged daemon reads the installed contract directory only, no path and no
-# environment variable). TEST_CONTRACT_TREE is the checkout's contract.d/machine installed as the loader reads it;
+# environment variable). TEST_CONTRACT_TREE is the checkout's contract.d/machine and contract.d/qualification (whose
+# groupable codes the store's reader reads at open) installed as the loader reads them;
 # tests/contract-empty holds no domain, for the refusal arm of tests/machine_domain.py
 TEST_CONTRACT_TREE = $(CURDIR)/tests/contract-tree
 TEST_CONTRACT_EMPTY = $(CURDIR)/tests/contract-empty
@@ -165,11 +166,12 @@ TEST_OBJ_EMPTY = $(filter-out src/main.o,$(OBJ)) src/main-test-empty.o
 PROG_TEST = tests/plugin-hostd-test
 PROG_TEST_EMPTY = tests/plugin-hostd-test-empty
 
-$(TEST_CONTRACT_TREE): $(wildcard contract.d/machine/*)
+$(TEST_CONTRACT_TREE): $(wildcard contract.d/machine/*) $(wildcard contract.d/qualification/*)
 	@test -n "$(INSTALL_CONTRACT_DIR)" || { echo "$@: no install-contract-dir.sh: install omx-contract-devel 3.22.0 or later, or set INSTALL_CONTRACT_DIR or OMX_CONTRACT_DIR" >&2; exit 1; }
 	@test -f "$(CONTRACTDIR)/lv2/lv2.json" || { echo "$@: no $(CONTRACTDIR)/lv2/lv2.json: install plugin-db-contract (the LV2 unit ids a port's unit reads)" >&2; exit 1; }
 	rm -rf $@
 	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/machine $(TEST_CONTRACT_TREE) $(PROG)
+	sh $(INSTALL_CONTRACT_DIR) --domain contract.d/qualification $(TEST_CONTRACT_TREE) $(PROG)
 	# plugin-db's domain lv2 as installed, whose LV2_UNIT_IDS give a port's unit its standard id (src/lv2.c, #215 M5)
 	mkdir -p $(TEST_CONTRACT_TREE)/lv2 && cp $(CONTRACTDIR)/lv2/lv2.json $(TEST_CONTRACT_TREE)/lv2/
 

@@ -31,8 +31,8 @@
 
 #include "formats.h"
 
-/* The pins by URI: policy, like placement, and not in the ledger. Three layers. The host's: pin_set, a pin file the
- * settings name, and (pin_mode first-use) the daemon itself, which keeps what it learned in the pin store. The store's:
+/* The pins by URI: policy, like placement, and not in the ledger. Three layers. The host's: pin_set, and (pin_mode
+ * first-use) the daemon itself, which keeps what it learned in the pin store. The store's:
  * what the qualification store's records of a plugin's files give it (pins_resolve), read only. The packages': the *.pins
  * files of a directory, read at start and never written. A package pin of verdict=refused always holds; then a
  * controller's pin_set; then the store's pin; then the host's other pins; then the package's
@@ -42,26 +42,23 @@
 /** @brief reads the pins at start
  *
  * First the *.pins files of dir in byte order of their names, of two pins of one uri a refusal winning, else the
- * later; then the store; then file, which wins over the store. A bad line of the store is kept verbatim by every
+ * later; then the pin store. The qualification store is opened too, and read per plugin (pins_resolve). A bad line of the store is kept verbatim by every
  * save, announced on stderr, and its uri is not learned again; a store that cannot be read blocks learning and
  * saving; a bad line or an unreadable file of dir is announced and skipped, and a missing dir holds no pins.
  *
  * @param store the pin store; "" is the XDG default.
- * @param file the pin file; "" is none.
  * @param dir the package pins' directory; "" is none.
- * @return 0; -1 with the line named on stderr when file has a line outside the grammar.
+ * @return 0.
  */
-int pins_init(const char *store, const char *file, const char *dir);
+int pins_init(const char *store, const char *dir);
 
 /** @brief pin_reload: the pins read again from the places pins_init read, put in at once
  *
  * A controller's pin_set pins are kept.
  *
- * @return SUCCESS, or -1 with the earlier pins left as they are (a pin_file with a line outside the grammar, or
- *         gone).
  */
-int pins_reload(void);
-/** @brief whether the qualification store, the pin_file or a pins_dir file is not the one the pins were last read from
+void pins_reload(void);
+/** @brief whether the qualification store or a pins_dir file is not the one the pins were last read from
  *
  * The store by pqdb_changed (a layer that is another file than the one opened, or a store that could not be opened and
  * now can), the files by inode, size or mtime.

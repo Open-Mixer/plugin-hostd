@@ -198,6 +198,8 @@ int qualcost_memory(pqdb *db, const char *id, int rate, int quantum, qualcost_me
 
 /* ---------------------------------------------------------------- the pin (pins from the store, section 4) */
 
+static char g_history_class[64];   /* the class the adjusted verdicts are read under; "" is every class */
+
 struct pin_ctx {
     pqdb *db;
     int n;
@@ -249,7 +251,7 @@ static int pin_of(const pqdb_result *r, void *ctx)
     /* the record is the plugin's when its list is exactly the files hashed: none missing, none beside them */
     if (pqdb_files(c->db, r, file_of, &f) < 0 || !f.same || f.at != c->n)
         return 0;
-    if (pqdb_pin_of(c->db, r, QUALCOST_HOST_PROFILE, &pin) != 0)
+    if (pqdb_pin_of(c->db, r, QUALCOST_HOST_PROFILE, *g_history_class ? g_history_class : NULL, &pin) != 0)
         return 0;
     rank = rank_of(pin.verdict);
     if (!c->found || rank > c->rank)
@@ -263,6 +265,11 @@ static int pin_of(const pqdb_result *r, void *ctx)
         c->matched++;
     c->found = 1;
     return 0;
+}
+
+void qualcost_use_history_class(const char *klass)
+{
+    snprintf(g_history_class, sizeof(g_history_class), "%s", klass ? klass : "");
 }
 
 int qualcost_pin(pqdb *db, const char *format, const char *id, const char *binary, int n, char *const *path,

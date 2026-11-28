@@ -135,7 +135,8 @@ def build_pins(schema, out, records, user_version=None):
     """Write a store fixture of records that give pins (docs/design/specs/2026-11-28-pins-from-the-store.md): each record a
     dict of format, uri (the CLAP id or the LV2 URI), files [(path, sha256)] in byte order of the path (the first is the
     binary), layout (scheme, sha256), rating (the omx-clap-host verdict's), and optionally measured (1), reasons
-    [(rating, code)], steps [(step, result)], unpinnable, host_class (x86-64). One cell, 48000/256, claimed. Written to a
+    [(rating, code)], steps [(step, result)], history [(history class, [(host, measured, adjusted)])], unpinnable,
+    host_class (x86-64). One cell, 48000/256, claimed. Written to a
     temporary file renamed over out, as the store's writer replaces a layer"""
     if user_version is None:
         user_version = schema_version()
@@ -167,6 +168,11 @@ def build_pins(schema, out, records, user_version=None):
                                 "code": code})
         for o, (step, result) in enumerate(r.get("steps", ())):
             fill(db, "run_step", {"record_id": rid, "ord": o, "step": step, "result": result})
+        for h, (klass, verdicts) in enumerate(r.get("history", ())):
+            fill(db, "record_history", {"record_id": rid, "ord": h, "host_class": klass, "file": "history", "at": "x", "found": 1})
+            for o, (host, measured, adjusted) in enumerate(verdicts):
+                fill(db, "history_verdict", {"record_id": rid, "history_ord": h, "ord": o, "host": host, "measured": measured,
+                                             "adjusted": adjusted, "move": "demote", "reason": "history.crashed"})
         fill(db, "cell", {"record_id": rid, "ord": 0, "rate": 48000, "quantum": 256, "outcome": "probe.ok"})
         fill(db, "claim", {"record_id": rid, "plugin_id": pid, "offer": "default", "host_class": cls, "rate": 48000,
                            "quantum": 256})

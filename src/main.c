@@ -98,6 +98,31 @@ static int open_test_descriptions(omx_panel_store **s, omx_panel_store_error *er
 }
 #endif
 
+/* the history class the store's adjusted verdicts are read under (pins from the store, ruling 6): the one host_class
+ * names, else the class of this machine; none when it cannot be told, and every class's adjustment is read */
+static void pins_history_class(const conf_t *conf)
+{
+    char klass[64];
+    machine_words words;
+    char why[512];
+#ifdef OMX_CONTRACTDIR
+    const char *dirs = OMX_CONTRACTDIR;
+#else
+    const char *dirs = NULL;
+#endif
+
+    if (*conf->host_class)
+    {
+        qualcost_use_history_class(conf->host_class);
+        return;
+    }
+    if (machine_words_open(dirs, &words, why, sizeof(why)) != 0)
+        return;
+    if (machine_class(&words, klass, sizeof(klass)) == 0)
+        qualcost_use_history_class(klass);
+    machine_words_close(&words);
+}
+
 /* the running history, unless history_window_s is 0: under the class of this machine, or the one host_class names */
 static int history_start(const conf_t *conf)
 {
@@ -382,7 +407,8 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     descriptions_ask_unknown(g_conf.ask_unknown);
     pins_accepting(conf_pins_first_use(&g_conf));
-    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pin_file, g_conf.pins_dir) != 0)
+    pins_history_class(&g_conf);
+    if (g_conf.require_pins && pins_init(g_conf.pin_store, g_conf.pins_dir) != 0)
         return EXIT_FAILURE;
 
     /* the writer before anything is written: the command loop never waits on the disk */

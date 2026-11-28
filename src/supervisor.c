@@ -3547,13 +3547,9 @@ static void pins_recheck(void)
 
 char *sup_pin_reload(void)
 {
-    int rc;
-
     if (!g_conf.require_pins)
         return sup_resp(ERR_INVALID_OPERATION);
-    rc = pins_reload();
-    if (rc != SUCCESS)
-        return sup_resp(ERR_INVALID_OPERATION);
+    pins_reload();
     pins_recheck();
     bypassed_promote();
     return sup_resp(SUCCESS);

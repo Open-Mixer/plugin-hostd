@@ -115,9 +115,14 @@ typedef struct QUALCOST_PIN_T {
     char layout[160];   /**< the layout pin, <scheme>:<sha256> */
 } qualcost_pin_t;
 
+/** The history class the adjusted verdicts are read under (the host_class setting, else the class of this machine).
+ * @param klass the class, arch/cores/clock; NULL or "" reads every class's adjustment
+ */
+void qualcost_use_history_class(const char *klass);
+
 /** The pin the store gives the files of an installed plugin: every record of the plugin (format, id, and for a CLAP the
  * main binary's name) whose file list is exactly these files and digests, read through pqdb_pin_of under
- * QUALCOST_HOST_PROFILE. Of several, the worst verdict stands (refused over isolated over in-process over none), and the
+ * QUALCOST_HOST_PROFILE and the history class (qualcost_use_history_class). Of several, the worst verdict stands (refused over isolated over in-process over none), and the
  * pool word only when every one that gives a verdict other than refused says it.
  * @param db the open store, or NULL for none
  * @param format the store's format word: clap or lv2
